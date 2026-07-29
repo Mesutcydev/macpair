@@ -61,9 +61,18 @@ jobs:
             -exportPath "$metal_download_dir"
           sudo chown -R "$(id -u):$(id -g)" "$metal_download_dir"
 
-          metal_dmg="$(find "$metal_download_dir" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
-          test -n "$metal_dmg"
-          xcodebuild -importComponent MetalToolchain "$metal_dmg"
+          metal_bundle="$(
+            find "$metal_download_dir" \
+              -maxdepth 1 \
+              -type d \
+              -name '*.exportedBundle' \
+              -print \
+              -quit
+          )"
+          test -n "$metal_bundle"
+          xcodebuild \
+            -importComponent MetalToolchain \
+            -importPath "$metal_bundle"
           xcodebuild -showComponent MetalToolchain
           xcrun --find metal
           xcrun metal --version
