@@ -89,11 +89,11 @@ final class HostSessionCoordinator: ObservableObject {
     private var captureFailureRestartAttempted = false
     /// Stamped on every inbound data-channel message; nil until the first one.
     /// Lock-backed and updated OFF the main actor on purpose: the client pings every 2 s,
-    /// but a main-actor stamp freezes whenever the main thread is blocked — Sparkle's
-    /// "Check for Updates" modal alert, an NSOpenPanel/NSSavePanel `.runModal()`, a
-    /// beachball — while pings keep arriving off-main. A frozen stamp makes the watchdog
-    /// below tear down a perfectly live session. Keeping it off-main makes liveness immune
-    /// to main-thread stalls.
+    /// but a main-actor stamp freezes whenever the main thread is blocked — for
+    /// example, an NSOpenPanel/NSSavePanel `.runModal()` or a synchronous operation
+    /// causing a beachball — while pings keep arriving off-main. A frozen stamp makes
+    /// the watchdog below tear down a perfectly live session. Keeping it off-main makes
+    /// liveness immune to main-thread stalls.
     private let clientActivityLock = NSLock()
     private nonisolated(unsafe) var _lastClientActivityAt: Date?
     nonisolated private var lastClientActivityAt: Date? {

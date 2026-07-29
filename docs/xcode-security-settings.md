@@ -24,9 +24,10 @@ Security build-setting decisions for ScreenHarbor.
 
 ## Disabled settings
 
-- `ENABLE_POINTER_AUTHENTICATION` to `NO`: Sparkle is linked as a prebuilt
-  XCFramework. Pointer authentication remains disabled until every prebuilt binary
-  dependency is verified to contain compatible arm64e slices.
+- `ENABLE_POINTER_AUTHENTICATION` to `NO`: Xcode 26 compiles the app target for
+  arm64e when enabled, while the local SwiftPM products are emitted for arm64 and
+  x86_64. Keep this disabled until the complete dependency graph builds compatible
+  arm64e modules.
 
 ## Deferred
 

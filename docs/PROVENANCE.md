@@ -38,10 +38,8 @@ contributions require their own DCO sign-off.
 
 - Opus 1.4 source is vendored under `Sources/Copus`; its BSD license and vendoring
   record are included in that directory.
-- SwiftTerm, its transitive Swift Argument Parser dependency, and Sparkle are
-  locked in the committed `Package.resolved` file.
-- Sparkle is additionally pinned to exact version 2.9.4 in the authoritative
-  XcodeGen specification, `screenharbor-project.yml`.
+- SwiftTerm and its transitive Swift Argument Parser dependency are locked in the
+  committed `Package.resolved` file.
 - Complete notices are in `THIRD_PARTY_NOTICES.md` and are copied into packaged
   applications.
 

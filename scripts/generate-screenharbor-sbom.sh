@@ -78,14 +78,6 @@ dependencies = [
         "bom-ref": "pkg:generic/opus@1.4",
         "licenses": [{"license": {"id": "BSD-3-Clause"}}],
     },
-    {
-        "type": "library",
-        "group": "github.com/sparkle-project",
-        "name": "Sparkle",
-        "version": "2.9.4",
-        "bom-ref": "pkg:github/sparkle-project/Sparkle@2.9.4",
-        "licenses": [{"license": {"id": "MIT"}}],
-    },
 ]
 if component == "client":
     dependencies.append(
@@ -93,8 +85,8 @@ if component == "client":
             "type": "library",
             "group": "github.com/migueldeicaza",
             "name": "SwiftTerm",
-            "version": "1.13.0",
-            "bom-ref": "pkg:github/migueldeicaza/SwiftTerm@1.13.0",
+            "version": "1.15.0",
+            "bom-ref": "pkg:github/migueldeicaza/SwiftTerm@1.15.0",
             "licenses": [{"license": {"id": "MIT"}}],
         }
     )

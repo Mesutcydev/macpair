@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 # Publishes already-packaged ScreenHarbor artifacts to the website working tree.
-# This signs Sparkle updates with the project EdDSA key, which is independent of Apple.
 
 set -euo pipefail
 
@@ -40,55 +39,6 @@ fi
 
 host_base="ScreenHarbor-Host-${version}-build-${build}"
 client_base="ScreenHarbor-${version}-build-${build}"
-
-sign_update="$(find "$ROOT/.screenharbor-packaging" "$ROOT/.build-screenharbor-host" \
-  -type f -path '*/Sparkle/bin/sign_update' -print -quit 2>/dev/null || true)"
-[[ -x "$sign_update" ]] || fail "Sparkle sign_update not found; build the project first"
-
-write_appcast() {
-  local title="$1" base="$2" output="$3"
-  local zip="$DIST/$base.zip"
-  [[ -f "$zip" ]] || fail "Missing Sparkle ZIP: $zip"
-  local signature
-  signature="$("$sign_update" "$zip")"
-  [[ "$signature" == *sparkle:edSignature* ]] || fail "Could not sign $zip"
-
-  APPCAST_TITLE="$title" APPCAST_BASE="$base" APPCAST_SIGNATURE="$signature" \
-    APPCAST_VERSION="$version" APPCAST_BUILD="$build" APPCAST_OUTPUT="$output" \
-    python3 - <<'PY'
-import datetime
-import os
-from email.utils import format_datetime
-
-title = os.environ["APPCAST_TITLE"]
-base = os.environ["APPCAST_BASE"]
-signature = os.environ["APPCAST_SIGNATURE"]
-version = os.environ["APPCAST_VERSION"]
-build = os.environ["APPCAST_BUILD"]
-output = os.environ["APPCAST_OUTPUT"]
-published = format_datetime(datetime.datetime.now(datetime.timezone.utc))
-xml = f'''<?xml version="1.0" encoding="utf-8"?>
-<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
-  <channel>
-    <title>{title}</title>
-    <item>
-      <title>{version}</title>
-      <pubDate>{published}</pubDate>
-      <sparkle:version>{build}</sparkle:version>
-      <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://mesut.uk/{base}.zip" {signature} type="application/octet-stream"/>
-    </item>
-  </channel>
-</rss>
-'''
-with open(output, "w", encoding="utf-8") as handle:
-    handle.write(xml)
-PY
-}
-
-write_appcast "ScreenHarbor Host" "$host_base" "$WEBSITE/appcast-screenharbor-host.xml"
-write_appcast "ScreenHarbor" "$client_base" "$WEBSITE/appcast-screenharbor-client.xml"
 
 for base in "$host_base" "$client_base"; do
   for extension in dmg zip; do

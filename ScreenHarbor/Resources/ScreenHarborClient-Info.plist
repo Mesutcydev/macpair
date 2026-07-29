@@ -33,13 +33,5 @@
 	<string>Copyright © 2026 ScreenHarbor contributors.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>ScreenHarbor uses your local network to discover and connect to Macs running ScreenHarbor Host.</string>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
-	<key>SUFeedURL</key>
-	<string>https://mesut.uk/appcast-screenharbor-client.xml</string>
-	<key>SUPublicEDKey</key>
-	<string>jyN/42y+0M/G26dx2UbQg1MNZq8lKyX2vvzUu26pcZo=</string>
-	<key>SUScheduledCheckInterval</key>
-	<integer>86400</integer>
 </dict>
 </plist>

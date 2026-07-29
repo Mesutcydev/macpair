@@ -2,16 +2,6 @@
 
 ScreenHarbor includes or links the following open-source components. Their licenses remain in effect in source and binary distributions.
 
-## Sparkle
-
-- Project: <https://github.com/sparkle-project/Sparkle>
-- License: MIT
-- Copyright: Andy Matuschak and the Sparkle contributors
-
-Sparkle provides the direct-download apps' EdDSA-verified update framework. Its complete
-license, including bundled external-code notices, is shipped inside each app at
-`Contents/Resources/ThirdPartyLicenses/Sparkle-LICENSE`.
-
 ## SwiftTerm
 
 - Project: <https://github.com/migueldeicaza/SwiftTerm>

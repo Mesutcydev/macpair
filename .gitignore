@@ -65,9 +65,8 @@ tokenFromHex.swift
 * 4.*
 * 5.*
 
-# Sparkle private keys
+# Private release keys
 *.priv
-sparkle_key.priv
 
 # Credentials and developer identity
 .env

@@ -162,10 +162,7 @@ package_component() {
   cp "$ROOT/THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/THIRD_PARTY_NOTICES.md"
   mkdir -p "$app/Contents/Resources/ThirdPartyLicenses"
 
-  local sparkle_license="$derived/SourcePackages/artifacts/sparkle/Sparkle/LICENSE"
   local swiftterm_license="$derived/SourcePackages/checkouts/SwiftTerm/LICENSE"
-  [[ -f "$sparkle_license" ]] || fail "Sparkle license not found: $sparkle_license"
-  cp "$sparkle_license" "$app/Contents/Resources/ThirdPartyLicenses/Sparkle-LICENSE"
   if [[ "$component" == "client" ]]; then
     [[ -f "$swiftterm_license" ]] || fail "SwiftTerm license not found: $swiftterm_license"
     cp "$swiftterm_license" "$app/Contents/Resources/ThirdPartyLicenses/SwiftTerm-LICENSE"
@@ -177,8 +174,7 @@ package_component() {
     chmod +x "$app/Contents/Resources/screenharbor"
   fi
 
-  # Re-seal the outer bundle after adding CLI and license resources. Xcode has
-  # already ad-hoc signed nested Sparkle helpers and frameworks.
+  # Re-seal the outer bundle after adding CLI and license resources.
   codesign --force --sign - --options runtime --entitlements "$entitlements" "$app"
   codesign --verify --deep --strict "$app"
 

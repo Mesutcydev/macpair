@@ -66,7 +66,7 @@ public final class CryptoIdentityService: @unchecked Sendable {
     /// Load the persisted key. On iOS the data-protection Keychain is the right, secure store. On
     /// macOS we use a 0600 file in Application Support instead: a Developer-ID (non-App-Store) app
     /// can't reliably use the data-protection Keychain (it's designed for provisioned/App-Store
-    /// apps), so re-signed builds and Sparkle updates couldn't read the prior key and the device
+    /// apps), so re-signed builds couldn't read the prior key and the device
     /// identity churned — each launch looked like a brand-new device to the host. A file is the
     /// stable, no-prompt approach Developer-ID tools use for a device keypair (FileVault encrypts it
     /// at rest). First run migrates any existing Keychain key so the identity does NOT change again.

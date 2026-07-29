@@ -22,11 +22,7 @@ let package = Package(
         .library(name: "Diagnostics", targets: ["Diagnostics"])
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.15.0"),
-        // The macOS app projects consume Sparkle directly. Keeping the exact
-        // dependency in the root graph gives SwiftPM and Xcode one shared,
-        // reproducible Package.resolved file.
-        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.4")
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.15.0")
     ],
     targets: [
         .target(name: "SharedModels"),
@@ -83,8 +79,7 @@ let package = Package(
                 "Discovery",
                 "Diagnostics",
                 "HostWidgetShared",
-                "SharedUI",
-                .product(name: "Sparkle", package: "Sparkle")
+                "SharedUI"
             ],
             exclude: [
                 "Assets.xcassets"

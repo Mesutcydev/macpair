@@ -37,7 +37,7 @@ does not match the `vX.Y.Z` tag.
 
 Mount each DMG, verify its app bundle with `codesign --verify --deep --strict`, and
 test launch, pairing, permissions, screen control, input, clipboard, file transfer,
-terminal opt-in, updater behavior, and uninstall on supported macOS versions.
+terminal opt-in, and uninstall on supported macOS versions.
 
 Compare every artifact with its `.sha256` file. Inspect its `.manifest.json` and
 `.sbom.cdx.json`; the source commit must match the release tag.
@@ -50,7 +50,7 @@ scripts/publish-screenharbor.sh --release
 
 Review and commit the website diff through its normal deployment workflow. Create a
 GitHub release from the same tag and attach the binaries, checksums, manifests, and
-SBOMs. Never upload private Sparkle or code-signing keys.
+SBOMs. Never upload private code-signing keys.
 
 ## Future Developer ID channel
 

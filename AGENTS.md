@@ -95,7 +95,7 @@ Exit codes:
 - `ScreenHarbor/Resources`: public app identities, entitlements, and icon
 - `scripts/screenharbor`: agent CLI
 - `scripts/package-screenharbor.sh`: account-independent website packaging
-- `scripts/publish-screenharbor.sh`: Sparkle-sign and stage website releases
+- `scripts/publish-screenharbor.sh`: stage website release files and metadata
 - `docs/AGENT_INTEGRATION.md`: agent usage contract
 
 ## Verification

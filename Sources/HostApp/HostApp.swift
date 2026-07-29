@@ -186,16 +186,6 @@ private struct HostMenuBarContent: View {
                 .buttonStyle(.bordered)
             }
 
-            if HostUpdaterController.shared.canCheckForUpdates {
-                Button {
-                    HostUpdaterController.shared.checkForUpdates()
-                } label: {
-                    Label("Check for Updates...", systemImage: "arrow.down.and.line.horizontal")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.bordered)
-            }
-
             Divider()
 
             // Footer

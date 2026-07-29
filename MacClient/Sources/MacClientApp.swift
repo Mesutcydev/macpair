@@ -54,14 +54,6 @@ struct MacClientApp: App {
         // or some oversized restored frame.
         .defaultSize(width: 860, height: 600)
         .commands {
-            // Sparkle "Check for Updates…" in its conventional spot, right under About.
-            CommandGroup(after: .appInfo) {
-                if MacUpdaterController.shared.canCheckForUpdates {
-                    Button("Check for Updates…") {
-                        MacUpdaterController.shared.checkForUpdates()
-                    }
-                }
-            }
             // Session verbs belong in their own menu, not buried under the app
             // app menu — and it leaves room for future actions.
             CommandMenu("Session") {

@@ -13,9 +13,6 @@ packages:
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm
     exactVersion: 1.15.0
-  Sparkle:
-    url: https://github.com/sparkle-project/Sparkle
-    exactVersion: 2.9.4
 
 fileGroups:
   - docs/xcode-security-settings.md
@@ -28,8 +25,6 @@ settings:
     DEVELOPMENT_TEAM: ""
     ENABLE_HARDENED_RUNTIME: YES
     ENABLE_ENHANCED_SECURITY: YES
-    # Sparkle is distributed as a prebuilt XCFramework. Keep pointer
-    # authentication off until every binary dependency ships arm64e slices.
     ENABLE_POINTER_AUTHENTICATION: NO
     GCC_WARN_ABOUT_RETURN_TYPE: YES_ERROR
     GCC_WARN_UNINITIALIZED_AUTOS: YES_AGGRESSIVE
@@ -68,14 +63,10 @@ targets:
           - CFBundleURLName: uk.mesut.screenharbor.host
             CFBundleURLSchemes:
               - screenharbor
-        SUFeedURL: https://mesut.uk/appcast-screenharbor-host.xml
-        SUPublicEDKey: "jyN/42y+0M/G26dx2UbQg1MNZq8lKyX2vvzUu26pcZo="
-        SUEnableAutomaticChecks: true
-        SUScheduledCheckInterval: 86400
     settings:
       base:
-        MARKETING_VERSION: 1.0.1
-        CURRENT_PROJECT_VERSION: 2
+        MARKETING_VERSION: 1.0.2
+        CURRENT_PROJECT_VERSION: 3
         PRODUCT_BUNDLE_IDENTIFIER: uk.mesut.screenharbor.host
         PRODUCT_NAME: ScreenHarbor Host
         INFOPLIST_FILE: ScreenHarbor/Resources/ScreenHarborHost-Info.plist
@@ -105,8 +96,6 @@ targets:
         product: Discovery
       - package: ScreenHarborCore
         product: Diagnostics
-      - package: Sparkle
-        product: Sparkle
 
   ScreenHarborClient:
     type: application
@@ -156,14 +145,10 @@ targets:
         NSBonjourServices:
           - _screenharbor._tcp
           - _screenharbor._tcp.
-        SUFeedURL: https://mesut.uk/appcast-screenharbor-client.xml
-        SUPublicEDKey: "jyN/42y+0M/G26dx2UbQg1MNZq8lKyX2vvzUu26pcZo="
-        SUEnableAutomaticChecks: true
-        SUScheduledCheckInterval: 86400
     settings:
       base:
-        MARKETING_VERSION: 1.0.1
-        CURRENT_PROJECT_VERSION: 2
+        MARKETING_VERSION: 1.0.2
+        CURRENT_PROJECT_VERSION: 3
         PRODUCT_BUNDLE_IDENTIFIER: uk.mesut.screenharbor.client
         PRODUCT_NAME: ScreenHarbor
         INFOPLIST_FILE: ScreenHarbor/Resources/ScreenHarborClient-Info.plist
@@ -189,8 +174,6 @@ targets:
         product: Permissions
       - package: SwiftTerm
         product: SwiftTerm
-      - package: Sparkle
-        product: Sparkle
 
   ScreenHarborTests:
     type: bundle.unit-test
