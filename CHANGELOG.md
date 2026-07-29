@@ -13,6 +13,8 @@ All notable changes to ScreenHarbor are documented here. The format follows
   with each staged release.
 - Make future-device Ultra-quality policy tests independent of the CI runner's
   hardware HEVC decoder.
+- Align CodeQL action pins and use its no-build C/C++ mode to remove workflow
+  compatibility warnings.
 
 ## [1.0.2] - 2026-07-29
 
