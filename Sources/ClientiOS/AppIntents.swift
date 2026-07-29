@@ -38,9 +38,11 @@ struct WakeMacIntent: AppIntent {
             woke.append(host.displayName)
         }
 
-        return .result(dialog: woke.isEmpty
-            ? "Couldn’t wake any computers."
-            : "Sent a wake signal to \(woke.joined(separator: ", ")).")
+        guard !woke.isEmpty else {
+            return .result(dialog: "Couldn’t wake any computers.")
+        }
+
+        return .result(dialog: "Sent a wake signal to \(woke.joined(separator: ", ")).")
     }
 
     private static func savedHosts() -> [SavedHost] {
