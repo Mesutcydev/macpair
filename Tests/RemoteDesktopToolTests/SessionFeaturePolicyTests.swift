@@ -57,7 +57,20 @@ final class SessionFeaturePolicyTests: XCTestCase {
                 isPhone: true,
                 deviceModelIdentifier: "iPhone99,9",
                 nativeBounds: CGSize(width: 1320, height: 2868),
-                physicalMemoryBytes: 8 * 1024 * 1024 * 1024
+                physicalMemoryBytes: 8 * 1024 * 1024 * 1024,
+                hardwareHEVCDecodeSupported: true
+            )
+        )
+    }
+
+    func testUltraSupportRequiresHardwareHEVCForUnknownFuturePhone() {
+        XCTAssertFalse(
+            ClientAppEnvironment.supportsUltraQualityPreset(
+                isPhone: true,
+                deviceModelIdentifier: "iPhone99,9",
+                nativeBounds: CGSize(width: 1320, height: 2868),
+                physicalMemoryBytes: 8 * 1024 * 1024 * 1024,
+                hardwareHEVCDecodeSupported: false
             )
         )
     }

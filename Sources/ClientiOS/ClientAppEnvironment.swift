@@ -266,7 +266,8 @@ final class ClientAppEnvironment: ObservableObject {
         isPhone: Bool,
         deviceModelIdentifier: String? = nil,
         nativeBounds: CGSize,
-        physicalMemoryBytes: UInt64
+        physicalMemoryBytes: UInt64,
+        hardwareHEVCDecodeSupported: Bool? = nil
     ) -> Bool {
         guard isPhone else { return true }
 
@@ -283,7 +284,7 @@ final class ClientAppEnvironment: ObservableObject {
         // newer than the last one baked into the list.) Ultra streams native-resolution
         // HEVC, so we require hardware HEVC decode plus ample memory and a
         // high-resolution display for decoder/GPU headroom.
-        let hasHardwareHEVCDecode: Bool = {
+        let hasHardwareHEVCDecode: Bool = hardwareHEVCDecodeSupported ?? {
             #if canImport(VideoToolbox)
             return VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC)
             #else

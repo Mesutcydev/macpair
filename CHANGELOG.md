@@ -11,6 +11,8 @@ All notable changes to ScreenHarbor are documented here. The format follows
 - Make website release staging idempotent when ScreenHarbor is already marked live.
 - Keep website checksum, manifest, SBOM, and software-version links synchronized
   with each staged release.
+- Make future-device Ultra-quality policy tests independent of the CI runner's
+  hardware HEVC decoder.
 
 ## [1.0.2] - 2026-07-29
 
