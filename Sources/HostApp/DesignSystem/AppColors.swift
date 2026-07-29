@@ -48,6 +48,7 @@ struct AppBackground: View {
 
     @ViewBuilder
     var body: some View {
+#if compiler(>=6.2)
         if reduceTransparency {
             Color(nsColor: .windowBackgroundColor)
                 .ignoresSafeArea()
@@ -60,5 +61,15 @@ struct AppBackground: View {
                 .fill(.regularMaterial)
                 .ignoresSafeArea()
         }
+#else
+        if reduceTransparency {
+            Color(nsColor: .windowBackgroundColor)
+                .ignoresSafeArea()
+        } else {
+            Rectangle()
+                .fill(.regularMaterial)
+                .ignoresSafeArea()
+        }
+#endif
     }
 }

@@ -24,6 +24,7 @@ private struct HostGlassSurfaceModifier<S: InsettableShape>: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
+#if compiler(>=6.2)
         if reduceTransparency {
             decorated(
                 content.background(Color(nsColor: .controlBackgroundColor), in: shape)
@@ -47,6 +48,17 @@ private struct HostGlassSurfaceModifier<S: InsettableShape>: ViewModifier {
                 content.background(.regularMaterial, in: shape)
             )
         }
+#else
+        if reduceTransparency {
+            decorated(
+                content.background(Color(nsColor: .controlBackgroundColor), in: shape)
+            )
+        } else {
+            decorated(
+                content.background(.regularMaterial, in: shape)
+            )
+        }
+#endif
     }
 
     private func decorated<Content: View>(_ content: Content) -> some View {

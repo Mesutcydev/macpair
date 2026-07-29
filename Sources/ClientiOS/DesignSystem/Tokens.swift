@@ -190,7 +190,7 @@ extension View {
         in shape: S,
         isInteractive: Bool = false
     ) -> some View {
-#if os(iOS)
+#if os(iOS) && compiler(>=6.2)
         if #available(iOS 26.0, *) {
             self.background {
                 GeometryReader { geometry in
@@ -214,7 +214,7 @@ extension View {
 
 }
 
-#if os(iOS)
+#if os(iOS) && compiler(>=6.2)
 @available(iOS 26.0, *)
 private func prNativeGlass(isInteractive: Bool) -> Glass {
     // Apple's high-transparency, neutral Liquid Glass variant. It remains
