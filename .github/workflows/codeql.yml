@@ -47,9 +47,38 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
-      - name: Build package
+      - name: Install XcodeGen
         if: matrix.build-mode == 'manual'
-        run: swift build
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        if: matrix.build-mode == 'manual'
+        run: xcodegen generate --spec screenharbor-project.yml
+
+      - name: Resolve app dependencies
+        if: matrix.build-mode == 'manual'
+        run: >-
+          xcodebuild
+          -resolvePackageDependencies
+          -project ScreenHarbor.xcodeproj
+
+      - name: Build Swift app targets
+        if: matrix.build-mode == 'manual'
+        run: |
+          xcodebuild \
+            -project ScreenHarbor.xcodeproj \
+            -scheme ScreenHarborHost \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+          xcodebuild \
+            -project ScreenHarbor.xcodeproj \
+            -scheme ScreenHarborClient \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
 
       - name: Analyze
         uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
