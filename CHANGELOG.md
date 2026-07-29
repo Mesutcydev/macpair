@@ -9,6 +9,8 @@ All notable changes to ScreenHarbor are documented here. The format follows
 ### Fixed
 
 - Make website release staging idempotent when ScreenHarbor is already marked live.
+- Keep website checksum, manifest, SBOM, and software-version links synchronized
+  with each staged release.
 
 ## [1.0.2] - 2026-07-29
 

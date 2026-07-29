@@ -78,6 +78,35 @@ def update(slug, url):
     text, count = re.subn(pattern, rf"\g<1>{url}\2", text, count=1)
     if count != 1:
         raise SystemExit(f"Could not update dmgUrl for {slug}")
+    downloads = {
+        "SHA-256": f"{url}.sha256",
+        "Release manifest": f"{url}.manifest.json",
+        "SBOM": f"{url}.sbom.cdx.json",
+    }
+    for label, download_url in downloads.items():
+        pattern = (
+            rf"(slug: '{re.escape(slug)}',[\s\S]*?"
+            rf"{{ label: '{re.escape(label)}', url: ')[^']+(')"
+        )
+        text, count = re.subn(
+            pattern,
+            rf"\g<1>{download_url}\2",
+            text,
+            count=1,
+        )
+        if count != 1:
+            raise SystemExit(f"Could not update {label} URL for {slug}")
+    version_pattern = (
+        rf"(slug: '{re.escape(slug)}',[\s\S]*?softwareVersion: ')[^']+(')"
+    )
+    text, count = re.subn(
+        version_pattern,
+        rf"\g<1>{os.environ['VERSION']}\2",
+        text,
+        count=1,
+    )
+    if count != 1:
+        raise SystemExit(f"Could not update softwareVersion for {slug}")
     if is_release:
         status_pattern = rf"(slug: '{re.escape(slug)}',[\s\S]*?status: ')[^']+(')"
         text, count = re.subn(status_pattern, r"\g<1>live\2", text, count=1)
