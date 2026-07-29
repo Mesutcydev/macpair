@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    name: Test and build
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with:
+          egress-policy: audit
+
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Verify Swift package lock
+        run: |
+          swift package resolve
+          git diff --exit-code -- Package.resolved
+
+      - name: Run core tests
+        run: swift test
+
+      - name: Generate Xcode project
+        run: xcodegen generate --spec screenharbor-project.yml
+
+      - name: Resolve app dependencies
+        run: >-
+          xcodebuild
+          -resolvePackageDependencies
+          -project ScreenHarbor.xcodeproj
+
+      - name: Build host
+        run: >-
+          xcodebuild
+          -project ScreenHarbor.xcodeproj
+          -scheme ScreenHarborHost
+          -configuration Debug
+          -destination 'platform=macOS'
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+      - name: Build and test client
+        run: >-
+          xcodebuild
+          -project ScreenHarbor.xcodeproj
+          -scheme ScreenHarborClient
+          -configuration Debug
+          -destination 'platform=macOS'
+          CODE_SIGNING_ALLOWED=NO
+          test

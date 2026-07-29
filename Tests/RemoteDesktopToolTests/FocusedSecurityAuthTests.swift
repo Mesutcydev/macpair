@@ -1,0 +1,279 @@
+import XCTest
+@testable import Discovery
+@testable import HostApp
+@testable import InputControl
+@testable import Permissions
+@testable import SharedModels
+@testable import SharedProtocol
+@testable import TransportWebRTC
+
+final class SignedSignalingRejectionTests: XCTestCase {
+
+    func testRejectsUnsignedSignalingMessageWhenEnforced() {
+        let service = BonjourSignalingService()
+        service.enforceSignedMessages = true
+
+        let sender = SignalingPeer(
+            id: UUID(),
+            role: .client,
+            displayName: "Unsigned Client",
+            publicKeyFingerprint: "deadbeef"
+        )
+        let message = VersionedSignalingMessage(
+            envelope: SignalingEnvelope(
+                protocolVersion: 1,
+                sessionID: UUID(),
+                sender: sender,
+                event: .hostBusy(HostBusyMessage(hostID: UUID()))
+            )
+        )
+
+        XCTAssertFalse(service.verifySignalingMessage(message))
+    }
+
+    func testRejectsSignedMessageWhenFingerprintDoesNotMatchKey() throws {
+        let service = BonjourSignalingService()
+        service.enforceSignedMessages = true
+
+        let signer = CryptoIdentityService(tag: "com.remotedesktop.tests.signer.\(UUID().uuidString)")
+        defer { signer.deleteKeyPair() }
+
+        let sender = SignalingPeer(
+            id: UUID(),
+            role: .client,
+            displayName: "Mismatched Client",
+            publicKeyFingerprint: "0000badfingerprint"
+        )
+
+        var message = VersionedSignalingMessage(
+            envelope: SignalingEnvelope(
+                protocolVersion: 1,
+                sessionID: UUID(),
+                sender: sender,
+                event: .hostBusy(HostBusyMessage(hostID: UUID()))
+            )
+        )
+        message.senderPublicKey = signer.publicKeyData
+        message.signature = try signer.sign(try message.unsignedPayloadData())
+
+        XCTAssertFalse(service.verifySignalingMessage(message))
+    }
+}
+
+@MainActor
+final class ControlChannelAuthEnforcementTests: XCTestCase {
+
+    func testInputRejectedBeforeControlAuthHandshake() async throws {
+        let sessionManager = ControlAuthTestSessionManager()
+        let inputService = RecordingInputInjectionService()
+        let eventLogStore = RecordingEventLogStore()
+        let modeProvider = HostSessionModeController(mode: .fullControl)
+        let router = HostInputCommandRouter(
+            inputService: inputService,
+            webRTCSessionManager: sessionManager,
+            eventLogStore: eventLogStore,
+            modeProvider: modeProvider
+        )
+
+        let sessionID = UUID()
+        let token = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
+        router.startListening(sessionID: sessionID, expectedSessionTokenHex: token)
+
+        let input = InputCommandMessage(
+            sessionID: sessionID,
+            command: .text(TextInputCommand(text: "blocked-before-auth"))
+        )
+        let envelope = try DataChannelEnvelope.inputCommand(input)
+            .authenticated(using: token, counter: 1)
+        XCTAssertNotNil(envelope)
+
+        try sessionManager.emit(envelope!)
+        try await Task.sleep(nanoseconds: 120_000_000)
+
+        XCTAssertTrue(inputService.snapshotCommands().isEmpty)
+        XCTAssertGreaterThanOrEqual(router.commandsRejected, 1)
+        router.stopListening()
+    }
+
+    func testInputAcceptedAfterControlAuthHandshake() async throws {
+        let sessionManager = ControlAuthTestSessionManager()
+        let inputService = RecordingInputInjectionService()
+        let eventLogStore = RecordingEventLogStore()
+        let modeProvider = HostSessionModeController(mode: .fullControl)
+        let router = HostInputCommandRouter(
+            inputService: inputService,
+            webRTCSessionManager: sessionManager,
+            eventLogStore: eventLogStore,
+            modeProvider: modeProvider
+        )
+
+        let sessionID = UUID()
+        let token = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
+        router.startListening(sessionID: sessionID, expectedSessionTokenHex: token)
+
+        let handshake = try DataChannelEnvelope.controlAuth(
+            ControlChannelAuthMessage(sessionID: sessionID, sessionToken: token)
+        )
+        try sessionManager.emit(handshake)
+
+        let input = InputCommandMessage(
+            sessionID: sessionID,
+            command: .text(TextInputCommand(text: "allowed-after-auth"))
+        )
+        let envelope = try DataChannelEnvelope.inputCommand(input)
+            .authenticated(using: token, counter: 1)
+        XCTAssertNotNil(envelope)
+
+        try sessionManager.emit(envelope!)
+        try await Task.sleep(nanoseconds: 120_000_000)
+
+        XCTAssertEqual(inputService.snapshotCommands().count, 1)
+        router.stopListening()
+    }
+
+    func testRejectsCounterReplayAfterSuccessfulAuth() async throws {
+        let sessionManager = ControlAuthTestSessionManager()
+        let inputService = RecordingInputInjectionService()
+        let eventLogStore = RecordingEventLogStore()
+        let modeProvider = HostSessionModeController(mode: .fullControl)
+        let router = HostInputCommandRouter(
+            inputService: inputService,
+            webRTCSessionManager: sessionManager,
+            eventLogStore: eventLogStore,
+            modeProvider: modeProvider
+        )
+
+        let sessionID = UUID()
+        let token = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
+        router.startListening(sessionID: sessionID, expectedSessionTokenHex: token)
+
+        let handshake = try DataChannelEnvelope.controlAuth(
+            ControlChannelAuthMessage(sessionID: sessionID, sessionToken: token)
+        )
+        try sessionManager.emit(handshake)
+
+        let input = InputCommandMessage(
+            sessionID: sessionID,
+            command: .text(TextInputCommand(text: "replay-check"))
+        )
+        let first = try DataChannelEnvelope.inputCommand(input)
+            .authenticated(using: token, counter: 1)
+        XCTAssertNotNil(first)
+        try sessionManager.emit(first!)
+
+        // Re-send exact same envelope (same counter + MAC)
+        try sessionManager.emit(first!)
+        try await Task.sleep(nanoseconds: 120_000_000)
+
+        XCTAssertEqual(inputService.snapshotCommands().count, 1)
+        XCTAssertGreaterThanOrEqual(router.commandsRejected, 1)
+        router.stopListening()
+    }
+
+    func testRejectsTamperedMACEnvelope() async throws {
+        let sessionManager = ControlAuthTestSessionManager()
+        let inputService = RecordingInputInjectionService()
+        let eventLogStore = RecordingEventLogStore()
+        let modeProvider = HostSessionModeController(mode: .fullControl)
+        let router = HostInputCommandRouter(
+            inputService: inputService,
+            webRTCSessionManager: sessionManager,
+            eventLogStore: eventLogStore,
+            modeProvider: modeProvider
+        )
+
+        let sessionID = UUID()
+        let token = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
+        router.startListening(sessionID: sessionID, expectedSessionTokenHex: token)
+
+        let handshake = try DataChannelEnvelope.controlAuth(
+            ControlChannelAuthMessage(sessionID: sessionID, sessionToken: token)
+        )
+        try sessionManager.emit(handshake)
+
+        let input = InputCommandMessage(
+            sessionID: sessionID,
+            command: .text(TextInputCommand(text: "tamper-check"))
+        )
+        var envelope = try XCTUnwrap(
+            try DataChannelEnvelope.inputCommand(input)
+                .authenticated(using: token, counter: 2)
+        )
+
+        // Tamper payload after MAC creation; verification must fail.
+        envelope.payload.append(0xFF)
+        try sessionManager.emit(envelope)
+        try await Task.sleep(nanoseconds: 120_000_000)
+
+        XCTAssertTrue(inputService.snapshotCommands().isEmpty)
+        XCTAssertGreaterThanOrEqual(router.commandsRejected, 1)
+        router.stopListening()
+    }
+}
+
+private final class ControlAuthTestSessionManager: WebRTCSessionManaging, @unchecked Sendable {
+    var connectionState: ConnectionState = .connected
+    var peerConnectionState: PeerConnectionState = .connected
+    var dataChannelState: DataChannelState = .open
+    var mediaChannelReadiness: MediaChannelReadiness = MediaChannelReadiness(dataChannelState: .open, videoTrackAttached: true, audioTrackAttached: false)
+    var streamDiagnostics: StreamDiagnostics = StreamDiagnostics()
+    var videoFrameSubscriberCount: Int = 0
+
+    private let lock = NSLock()
+    private var dataContinuation: AsyncStream<DataChannelEnvelope>.Continuation?
+    private var pendingEnvelopes: [DataChannelEnvelope] = []
+
+    func prepareSession(id: UUID, role: WebRTCSessionRole) async throws {}
+    func createOffer(sessionID: UUID, qualityPreset: StreamQualityPreset, displayID: String?) async throws -> SessionOfferMessage {
+        SessionOfferMessage(sessionID: sessionID, sdp: "", qualityPreset: qualityPreset)
+    }
+    func applyRemoteOffer(_ message: SessionOfferMessage) async throws -> SessionAnswerMessage {
+        SessionAnswerMessage(sessionID: message.sessionID, sdp: "")
+    }
+    func applyRemoteAnswer(_ message: SessionAnswerMessage) async throws {}
+    func addRemoteCandidate(_ message: ICECandidateMessage) async throws {}
+    func closeSession() async {}
+    func sendInputCommand(_ message: InputCommandMessage) async throws {}
+    func sendDataMessage(_ message: DataChannelEnvelope) throws {}
+    func configureControlChannelAuth(sessionTokenHex: String?) {}
+    func receiveDataMessages() -> AsyncStream<DataChannelEnvelope> {
+        AsyncStream { continuation in
+            let pending: [DataChannelEnvelope]
+            lock.lock()
+            dataContinuation = continuation
+            pending = pendingEnvelopes
+            pendingEnvelopes.removeAll()
+            lock.unlock()
+            pending.forEach { continuation.yield($0) }
+        }
+    }
+    func localICECandidates() -> AsyncStream<ICECandidateMessage> {
+        AsyncStream { continuation in continuation.finish() }
+    }
+    func attachVideoSource(_ source: (any VideoFrameSource)?) {}
+    func sendVideoFrame(_ frame: VideoFrameData) throws {}
+    func receivedVideoFrames() -> AsyncStream<VideoFrameData> {
+        AsyncStream { continuation in continuation.finish() }
+    }
+    func connectionStateUpdates() -> AsyncStream<ConnectionState> {
+        AsyncStream { continuation in continuation.yield(.connected) }
+    }
+
+    func dataChannelStateUpdates() -> AsyncStream<DataChannelState> {
+        AsyncStream { continuation in continuation.yield(.open) }
+    }
+
+    func videoChannelStateUpdates() -> AsyncStream<DataChannelState> {
+        AsyncStream { continuation in continuation.finish() }
+    }
+
+    func emit(_ envelope: DataChannelEnvelope) throws {
+        lock.lock()
+        let continuation = dataContinuation
+        if continuation == nil {
+            pendingEnvelopes.append(envelope)
+        }
+        lock.unlock()
+        continuation?.yield(envelope)
+    }
+}

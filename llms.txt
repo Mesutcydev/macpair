@@ -1,0 +1,45 @@
+# ScreenHarbor
+
+> Open-source, native macOS remote desktop host and client. Local-first, peer-approved, website-distributed, and controllable by a machine-readable CLI.
+
+Canonical name: ScreenHarbor
+Host app: ScreenHarbor Host
+Client app: ScreenHarbor
+Website: https://mesut.uk/apps/screenharbor
+Source: https://github.com/Mesutcydev/screenharbor
+License: Apache-2.0
+Minimum macOS: 13.0
+Host download: https://mesut.uk/ScreenHarbor-Host-1.0.0-build-1.dmg
+Client download: https://mesut.uk/ScreenHarbor-1.0.0-build-1.dmg
+Integrity files: append .sha256, .manifest.json, or .sbom.cdx.json to a download URL
+Signing: ad-hoc; current downloads are not Apple-notarized
+
+## Agent quick start
+
+screenharbor ensure
+screenharbor status --json
+screenharbor pending --json
+screenharbor approve-pairing --fingerprint <verified-hex>
+
+Never approve an unknown device. Show the user the pending display name and fingerprint and require an exact verified fingerprint.
+Never disable Gatekeeper. A human must grant Screen Recording and Accessibility in
+System Settings.
+
+## Stable identifiers
+
+Host bundle ID: uk.mesut.screenharbor.host
+Client bundle ID: uk.mesut.screenharbor.client
+Bonjour service: _screenharbor._tcp
+Signaling ports: 9471 plain, 9473 TLS
+Data port: 9472
+URL scheme: screenharbor://action/{start,stop,restart}
+Status snapshot: ~/Library/Application Support/ScreenHarbor/host.widget.snapshot.json
+
+## Documentation
+
+- README: https://github.com/Mesutcydev/screenharbor/blob/main/README.md
+- Agent integration: https://github.com/Mesutcydev/screenharbor/blob/main/docs/AGENT_INTEGRATION.md
+- Machine manifest: https://github.com/Mesutcydev/screenharbor/blob/main/docs/agent-manifest.json
+- Security policy: https://github.com/Mesutcydev/screenharbor/blob/main/SECURITY.md
+- Release integrity: https://github.com/Mesutcydev/screenharbor/blob/main/docs/RELEASE_PROCESS.md
+- Governance: https://github.com/Mesutcydev/screenharbor/blob/main/GOVERNANCE.md

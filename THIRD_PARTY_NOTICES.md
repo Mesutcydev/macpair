@@ -1,0 +1,35 @@
+# Third-party notices
+
+ScreenHarbor includes or links the following open-source components. Their licenses remain in effect in source and binary distributions.
+
+## Sparkle
+
+- Project: <https://github.com/sparkle-project/Sparkle>
+- License: MIT
+- Copyright: Andy Matuschak and the Sparkle contributors
+
+Sparkle provides the direct-download apps' EdDSA-verified update framework. Its complete
+license, including bundled external-code notices, is shipped inside each app at
+`Contents/Resources/ThirdPartyLicenses/Sparkle-LICENSE`.
+
+## SwiftTerm
+
+- Project: <https://github.com/migueldeicaza/SwiftTerm>
+- License: MIT
+- Copyright © 2019–2022 Miguel de Icaza; © 2017–2019 xterm.js authors; © 2014–2016 SourceLair Private Company; © 2012–2013 Christopher Jeffrey
+
+The full SwiftTerm license is shipped inside the client app at
+`Contents/Resources/ThirdPartyLicenses/SwiftTerm-LICENSE`.
+
+## Opus
+
+- Project: <https://opus-codec.org/>
+- License: 3-clause BSD-style license
+- Copyright 2001–2011 Xiph.Org, Skype Limited, Octasic, Jean-Marc Valin, Timothy B. Terriberry, CSIRO, Gregory Maxwell, Mark Borgerding, and Erik de Castro Lopo
+
+The complete license and patent notice is retained at `Sources/Copus/COPYING` and
+shipped inside each app at `Contents/Resources/ThirdPartyLicenses/Opus-COPYING`.
+
+## Apple platform frameworks
+
+ScreenHarbor uses macOS system frameworks including SwiftUI, AppKit, ScreenCaptureKit, Network, VideoToolbox, AudioToolbox, CryptoKit, and Bonjour/DNS-SD. These are supplied by macOS and Xcode and are not redistributed under this repository's Apache-2.0 license.

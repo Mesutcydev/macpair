@@ -1,0 +1,69 @@
+import AppKit
+import Foundation
+import Diagnostics
+import Discovery
+import Permissions
+import SharedModels
+import TransportWebRTC
+
+/// Builds the shared `ClientAppEnvironment` (reused unmodified from the iOS
+/// client sources) with Mac-appropriate identity values.
+@MainActor
+enum MacClientEnvironmentFactory {
+
+    static func make() -> ClientAppEnvironment {
+        let cryptoIdentity = CryptoIdentityService(tag: "com.remotedesktop.client.p256")
+        let appVersion = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0"
+        let client = ClientIdentity(
+            displayName: Foundation.Host.current().localizedName ?? "Mac",
+            deviceModel: "Mac",
+            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+            appVersion: appVersion,
+            publicKeyFingerprint: cryptoIdentity.fingerprint
+        )
+
+        let trustedPeerStore = PersistentTrustedPeerStore()
+        let browser = BonjourHostDiscoveryBrowser()
+        let signalingService = BonjourSignalingService()
+        signalingService.identityService = cryptoIdentity
+        let peerConnectionProvider = LANPeerConnectionProvider()
+        let webRTCSessionManager = WebRTCSessionManager(peerConnectionProvider: peerConnectionProvider)
+        let displayLayoutViewModel = DisplayLayoutViewModel()
+        let eventLogStore = InMemoryEventLogStore()
+        let sessionCoordinator = ClientSessionCoordinator(
+            clientIdentity: client,
+            webRTCSessionManager: webRTCSessionManager,
+            peerConnectionProvider: peerConnectionProvider,
+            eventLogStore: eventLogStore,
+            signalingService: signalingService,
+            displayLayoutViewModel: displayLayoutViewModel
+        )
+
+        // A Mac has ample HEVC decode headroom, so default to `.quality` rather
+        // than the cross-platform `.balanced`. Ultra is not the default, so a
+        // fresh install always starts with a conservative valid preset.
+        // Only applied on first launch — a saved user preference always wins.
+        let settingsSyncService = ClientSettingsSyncService()
+        let isFirstLaunch = !settingsSyncService.hasPersistedSettings()
+
+        let environment = ClientAppEnvironment(
+            clientIdentity: client,
+            discoveryService: browser,
+            signalingService: signalingService,
+            webRTCSessionManager: webRTCSessionManager,
+            eventLogStore: eventLogStore,
+            peerConnectionProvider: peerConnectionProvider,
+            hostBrowser: browser,
+            displayLayoutViewModel: displayLayoutViewModel,
+            trustedPeerStore: trustedPeerStore,
+            sessionCoordinator: sessionCoordinator,
+            settingsSyncService: settingsSyncService
+        )
+
+        if isFirstLaunch {
+            environment.preferredQualityPreset = .quality
+        }
+
+        return environment
+    }
+}

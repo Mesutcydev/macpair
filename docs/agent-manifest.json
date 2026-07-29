@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "ScreenHarbor",
+  "description": "Open-source native macOS remote desktop host and client",
+  "manifestVersion": "1.0.0",
+  "license": "Apache-2.0",
+  "website": "https://mesut.uk/apps/screenharbor",
+  "source": "https://github.com/Mesutcydev/screenharbor",
+  "platform": {
+    "os": "macOS",
+    "minimumVersion": "13.0"
+  },
+  "downloads": {
+    "host": "https://mesut.uk/ScreenHarbor-Host-1.0.0-build-1.dmg",
+    "client": "https://mesut.uk/ScreenHarbor-1.0.0-build-1.dmg",
+    "integritySuffixes": [".sha256", ".manifest.json", ".sbom.cdx.json"],
+    "appleNotarized": false,
+    "codeSignature": "ad-hoc"
+  },
+  "apps": {
+    "host": {
+      "displayName": "ScreenHarbor Host",
+      "bundleId": "uk.mesut.screenharbor.host",
+      "urlScheme": "screenharbor"
+    },
+    "client": {
+      "displayName": "ScreenHarbor",
+      "bundleId": "uk.mesut.screenharbor.client"
+    }
+  },
+  "network": {
+    "bonjourService": "_screenharbor._tcp",
+    "signalingPort": 9471,
+    "dataPort": 9472,
+    "tlsSignalingPort": 9473
+  },
+  "cli": {
+    "command": "screenharbor",
+    "installation": {
+      "appPath": "/Applications/ScreenHarbor Host.app",
+      "bundledCommand": "/Applications/ScreenHarbor Host.app/Contents/Resources/screenharbor",
+      "recommendedSymlink": "/usr/local/bin/screenharbor"
+    },
+    "status": ["status", "--json"],
+    "ensure": ["ensure"],
+    "pending": ["pending", "--json"],
+    "safeApproval": ["approve-pairing", "--fingerprint", "<verified-hex>", "--json"],
+    "statusSnapshot": "~/Library/Application Support/ScreenHarbor/host.widget.snapshot.json",
+    "exitCodes": {
+      "0": "success or ready",
+      "1": "not installed",
+      "2": "installed but not advertising",
+      "3": "human permissions required",
+      "4": "bad command or usage",
+      "5": "no pending trust request",
+      "6": "trust action did not resolve request",
+      "7": "fingerprint mismatch",
+      "8": "wait timed out"
+    }
+  },
+  "safety": {
+    "requiresVisibleHostApproval": true,
+    "agentMustVerifyFingerprint": true,
+    "agentMayBypassMacOSPermissions": false,
+    "agentMayDisableGatekeeper": false,
+    "humanConfirmationRequiredForNewPeer": true
+  }
+}

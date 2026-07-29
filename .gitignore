@@ -1,0 +1,156 @@
+# Build outputs
+.build/
+.build-*/
+.swiftpm/
+DerivedData/
+ScreenHarbor.xcodeproj/
+build/
+Build/
+.packaging-machost/
+.packaging-macclient/
+.packaging-macclient-appstore/
+.packaging-ios/
+.openmacremote-packaging/
+.screenharbor-packaging/
+.dmg-staging/
+.pkg-verify/
+dist/
+exports/
+*_pkg_extract/
+
+# Xcode user data
+*.xcuserdata/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Archives
+*.xcarchive
+
+# Distributable binaries (rebuildable from source)
+*.pkg
+*.ipa
+*.dmg
+*.zip
+
+# Logs
+*.log
+build_full_output.txt
+build_output.txt
+coordinator_test_results.txt
+task_progress.log
+sample_output.txt
+test_output.txt
+output.log
+
+# macOS
+.DS_Store
+
+# Swift Package Manager
+# Application dependency locks are committed for reproducible releases.
+__pycache__/
+*.pyc
+fix_ios_view.py
+fix_placeholder.py
+generate_buu_appstore_screenshots.swift
+tokenFromHex.swift
+/Icon*
+
+# Backups / Finder duplicates
+*.bak
+*.orig
+* 2.*
+* 3.*
+* 4.*
+* 5.*
+
+# Sparkle private keys
+*.priv
+sparkle_key.priv
+
+# Credentials and developer identity
+.env
+.env.*
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+
+# Local agent/editor state
+.claude/
+.cursor/
+.cursorignore
+.vscode/
+.wrangler/
+
+# Legacy local release state and generated applications
+.release-asc/
+*Publisher.app/
+ScreenHarborPublisher.app/
+
+# Legacy App Store / terminated-team projects retained only in this working copy
+Configuration/
+MacHost/
+MacHost.xcodeproj/
+MacHost-AppStore.xcodeproj/
+MacClient.xcodeproj/
+MacClient-AppStore.xcodeproj/
+RemoteDesktopToolApps/
+RemoteDesktopToolApps.xcodeproj/
+iOSRemote/
+Sources/HostWidget/
+Sources/ClientiOSLiveActivity/
+Sources/HostApp/Assets.xcassets/
+
+# Only the shared client files used by the macOS client belong to this fork.
+Sources/ClientiOS/*
+!Sources/ClientiOS/AppHaptics.swift
+!Sources/ClientiOS/BonjourWakeService.swift
+!Sources/ClientiOS/ClientAppEnvironment.swift
+!Sources/ClientiOS/ClientAudioRenderer.swift
+!Sources/ClientiOS/ClientClipboardSyncManager.swift
+!Sources/ClientiOS/ClientFileTransferManager.swift
+!Sources/ClientiOS/ClientHostBlockedState.swift
+!Sources/ClientiOS/ClientReconnectCoordinator.swift
+!Sources/ClientiOS/ClientSessionCoordinator.swift
+!Sources/ClientiOS/ClientSettingsSyncService.swift
+!Sources/ClientiOS/ClientTerminalSessionManager.swift
+!Sources/ClientiOS/ClientTrustedHostsViewModel.swift
+!Sources/ClientiOS/CrashSafeStartupDiagnostics.swift
+!Sources/ClientiOS/DisplayLayoutViewModel.swift
+!Sources/ClientiOS/HostsListViewModel.swift
+!Sources/ClientiOS/RemoteDisplayViewModel.swift
+!Sources/ClientiOS/SessionScreenshotService.swift
+!Sources/ClientiOS/SessionStatsViewModel.swift
+!Sources/ClientiOS/VideoFrameDecoderView.swift
+!Sources/ClientiOS/WakeCoordinator.swift
+!Sources/ClientiOS/WakeOnLANService.swift
+!Sources/ClientiOS/Localizable.xcstrings
+!Sources/ClientiOS/Models/
+Sources/ClientiOS/Models/*
+!Sources/ClientiOS/Models/Display.swift
+!Sources/ClientiOS/Models/Host.swift
+!Sources/ClientiOS/Models/Session.swift
+appstore-screenshots/
+screenshots/
+project.yml
+macclient-project.yml
+macclient-appstore-project.yml
+machost-appstore-project.yml
+AppStore-Metadata-MacClient.md
+/RELEASE_PROCESS.md
+
+# The public fork exposes only the account-independent release tools
+scripts/*
+!scripts/screenharbor
+!scripts/package-screenharbor.sh
+!scripts/install-screenharbor-cli.command
+!scripts/publish-screenharbor.sh
+!scripts/generate-screenharbor-sbom.sh
+
+# Legacy client signing and branded asset files are not used by ScreenHarbor.xcodeproj
+MacClient/Resources/Assets.xcassets/
+MacClient/Resources/MacClient-Info.plist
+MacClient/Resources/MacClient.entitlements
+MacClient/Resources/MacClient-Release.entitlements

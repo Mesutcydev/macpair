@@ -1,0 +1,1798 @@
+import CaptureEngine
+import Combine
+import Diagnostics
+import Discovery
+import EncodeEngine
+import Foundation
+import Permissions
+import SharedModels
+import SharedProtocol
+import SharedUtilities
+import TransportWebRTC
+import os
+
+/// Orchestrates the complete host session lifecycle:
+///
+/// 1. Start Bonjour advertising + signaling listener
+/// 2. Accept incoming signaling connection from a client
+/// 3. Run the trust gate for peer approval
+/// 4. Exchange SDP offer/answer via signaling
+/// 5. Prepare and start the capture → encode → transport pipeline
+/// 6. Monitor connection state for teardown/reconnect
+///
+/// Owns the `SignalingWebRTCBridge` for this session and coordinates
+/// between `HostStreamingCoordinator`, `HostInputCommandRouter`, and `PeerTrustGate`.
+@MainActor
+final class HostSessionCoordinator: ObservableObject {
+    enum SessionPhase: String, Equatable {
+        case idle
+        case advertising
+        case awaitingClient
+        case signalingConnected
+        case trustPending
+        case negotiating
+        case pipelineStarting
+        case streaming
+        case error
+    }
+
+    @Published private(set) var phase: SessionPhase = .idle {
+        didSet {
+            guard phase != oldValue else { return }
+            connectionDebugger.record("phase", phase.rawValue)
+        }
+    }
+    @Published private(set) var activeSessionID: UUID?
+    @Published private(set) var connectedClientName: String?
+    @Published private(set) var errorMessage: String?
+    /// Stable device identity that owns `activeSessionID`. A reconnect from the same device may
+    /// replace its stale transport, but a different device must not evict a healthy session.
+    private var activeClientID: UUID?
+
+    // Dependencies
+    private let hostIdentity: HostIdentity
+    private let captureEngine: any CaptureEngineProtocol
+    private let encoderPipeline: any EncoderPipelineProtocol
+    private let displayLayoutProvider: any DisplayLayoutProviding
+    private let permissionService: any PermissionServiceProtocol
+    private let webRTCSessionManager: any WebRTCSessionManaging
+    private let peerTrustGate: PeerTrustGate
+    private let streamingCoordinator: HostStreamingCoordinator
+    private let inputCommandRouter: HostInputCommandRouter
+    private let eventLogStore: any EventLogStoreProtocol
+    private let signalingService: any SessionCoordinatorSignaling
+    private let sessionModeController: HostSessionModeController
+    private let performanceStateController: HostPerformanceStateController
+    private let fileTransferManager: HostFileTransferManager
+    #if os(macOS)
+    var audioPipeline: HostAudioCapturePipeline?
+    /// Extra displays streamed in parallel to the primary, keyed by display ID. The primary
+    /// keeps the existing pipeline (wire displayID 0); these get wire IDs 1, 2, … in the
+    /// order the client requested via SetActiveDisplays.
+    private var secondaryStreamers: [String: SecondaryDisplayStreamer] = [:]
+    #endif
+    /// Returns the current host lock state. Set by HostAppEnvironment on macOS.
+    /// Defaults to unlocked so non-macOS targets and tests work without wiring.
+    var lockStateProvider: @Sendable () -> HostLockState = { .unlockedActiveSession }
+    /// Publishes lock state changes. Set by HostAppEnvironment on macOS so the
+    /// coordinator can push a `hostStatus` update to the client on every transition.
+    var lockStatePublisher: AnyPublisher<HostLockState, Never>?
+    private let ensureDiscoveryAdvertising: @MainActor @Sendable () async -> Void
+
+    private var bridgeEventTask: Task<Void, Never>?
+    private var connectionObserverTask: Task<Void, Never>?
+    private var dataChannelObserverTask: Task<Void, Never>?
+    private var disconnectGraceTask: Task<Void, Never>?
+    private var clientActivityObserverTask: Task<Void, Never>?
+    private var livenessWatchdogTask: Task<Void, Never>?
+    private var captureStateObserverTask: Task<Void, Never>?
+    private var captureFailureRestartAttempted = false
+    /// Stamped on every inbound data-channel message; nil until the first one.
+    /// Lock-backed and updated OFF the main actor on purpose: the client pings every 2 s,
+    /// but a main-actor stamp freezes whenever the main thread is blocked — Sparkle's
+    /// "Check for Updates" modal alert, an NSOpenPanel/NSSavePanel `.runModal()`, a
+    /// beachball — while pings keep arriving off-main. A frozen stamp makes the watchdog
+    /// below tear down a perfectly live session. Keeping it off-main makes liveness immune
+    /// to main-thread stalls.
+    private let clientActivityLock = NSLock()
+    private nonisolated(unsafe) var _lastClientActivityAt: Date?
+    nonisolated private var lastClientActivityAt: Date? {
+        get { clientActivityLock.lock(); defer { clientActivityLock.unlock() }; return _lastClientActivityAt }
+        set { clientActivityLock.lock(); _lastClientActivityAt = newValue; clientActivityLock.unlock() }
+    }
+    /// Transient `.disconnected` events get this long to recover before teardown.
+    /// Must exceed the client's LAN TCP retry budget (6 attempts, ~15.5 s of
+    /// backoff in LANPeerConnection.scheduleReconnectIfNeeded) — with the old 8 s
+    /// the host tore the session down while the client was still retrying, turning
+    /// every brief Wi-Fi flap or app-switch into a full renegotiation.
+    private let disconnectGraceSeconds: Double = 20.0
+    /// No inbound client traffic for this long while streaming → client is gone.
+    /// The client pings every 2 s, so a healthy session never goes quiet.
+    /// Set well above a brief app-switch/lock on the client: iOS suspends the app
+    /// (pings stop) but keeps the socket alive, and pings resume on foreground —
+    /// the old 15 s killed sessions that would have resumed seamlessly.
+    private let clientLivenessTimeoutSeconds: Double = 30.0
+    private var displayLayoutObserverTask: Task<Void, Never>?
+    private var pendingDisplayLayoutChangeTask: Task<Void, Never>?
+    private var initialDataChannelRetryTask: Task<Void, Never>?
+    private var adaptiveStreamingTask: Task<Void, Never>?
+    private var lockStateObserver: AnyCancellable?
+    private var isApplyingPerformanceProfile = false
+    private var needsPerformanceProfileReapply = false
+    private var latestObservedLayout: DisplayLayout?
+    private var activeStreamDisplayRestartKey: DisplayRestartKey?
+    private var requestedDynamicRange: StreamDynamicRange = .sdr
+    private var hasPublishedInitialSessionState = false
+    private var hasSentInitialDataChannelState = false
+    private let startupFirstFrameTimeoutSeconds: Double = 10.0
+    private let initialDataChannelRetryAttempts = 80
+    private let initialDataChannelRetryDelayMs: UInt64 = 250
+    private let displayLayoutChangeDebounceMs: UInt64 = 250
+
+    private struct DisplayRestartKey: Equatable {
+        var displayID: String
+        var logicalSize: DesktopSize
+        var pixelSize: DesktopSize
+        var scaleFactor: Double
+        var rotation: Double
+    }
+
+    private let logger = Logger(subsystem: "com.remotedesktop.host", category: "SessionCoordinator")
+    /// Records connection-signal timeline; dumps a report on connection loss.
+    private let connectionDebugger: ConnectionDebugger
+
+    init(
+        hostIdentity: HostIdentity,
+        captureEngine: any CaptureEngineProtocol,
+        encoderPipeline: any EncoderPipelineProtocol,
+        displayLayoutProvider: any DisplayLayoutProviding,
+        permissionService: any PermissionServiceProtocol,
+        webRTCSessionManager: any WebRTCSessionManaging,
+        peerTrustGate: PeerTrustGate,
+        streamingCoordinator: HostStreamingCoordinator,
+        inputCommandRouter: HostInputCommandRouter,
+        eventLogStore: any EventLogStoreProtocol,
+        signalingService: any SessionCoordinatorSignaling,
+        sessionModeController: HostSessionModeController,
+        performanceStateController: HostPerformanceStateController,
+        fileTransferManager: HostFileTransferManager,
+        ensureDiscoveryAdvertising: @escaping @MainActor @Sendable () async -> Void = {}
+    ) {
+        self.hostIdentity = hostIdentity
+        self.captureEngine = captureEngine
+        self.encoderPipeline = encoderPipeline
+        self.displayLayoutProvider = displayLayoutProvider
+        self.permissionService = permissionService
+        self.webRTCSessionManager = webRTCSessionManager
+        self.peerTrustGate = peerTrustGate
+        self.streamingCoordinator = streamingCoordinator
+        self.inputCommandRouter = inputCommandRouter
+        self.eventLogStore = eventLogStore
+        self.signalingService = signalingService
+        self.sessionModeController = sessionModeController
+        self.performanceStateController = performanceStateController
+        self.fileTransferManager = fileTransferManager
+        self.ensureDiscoveryAdvertising = ensureDiscoveryAdvertising
+        self.connectionDebugger = ConnectionDebugger(role: "host", eventLogStore: eventLogStore)
+        self.connectionDebugger.snapshotProvider = { [weak self] in
+            guard let self else { return [:] }
+            let stream = self.webRTCSessionManager.streamDiagnostics
+            var snapshot: [String: String] = [
+                "phase": self.phase.rawValue,
+                "peerState": self.webRTCSessionManager.peerConnectionState.rawValue,
+                "dataChannel": self.webRTCSessionManager.dataChannelState.rawValue,
+                "framesSent": String(stream.framesSent),
+                "bytesSent": String(stream.bytesSent),
+                "capturedFrames": String(self.captureEngine.diagnostics.capturedFrames),
+                "encodedFrames": String(self.encoderPipeline.encoderDiagnostics.encodedFrames)
+            ]
+            if let sessionID = self.activeSessionID {
+                snapshot["sessionID"] = sessionID.uuidString
+            }
+            if let clientName = self.connectedClientName {
+                snapshot["client"] = clientName
+            }
+            if let lastSent = stream.lastFrameSentAt {
+                snapshot["lastFrameSentAgo"] = String(format: "%.1fs", Date().timeIntervalSince(lastSent))
+            }
+            return snapshot
+        }
+    }
+
+    // MARK: - Start / Stop
+
+    /// Start listening for client connections.
+    func startSession() async {
+        guard phase == .idle || phase == .error else { return }
+
+        // Clean up any leftover state from a previous error/session
+        if phase == .error {
+            await stopSession()
+        }
+
+        errorMessage = nil
+        phase = .advertising
+        hasPublishedInitialSessionState = false
+
+        do {
+            // Set stable host identity on the signaling service
+            if let bonjourSig = signalingService as? BonjourSignalingService {
+                bonjourSig.localPeer = SignalingPeer(
+                    id: hostIdentity.id,
+                    role: .host,
+                    displayName: hostIdentity.displayName,
+                    publicKeyFingerprint: hostIdentity.publicKeyFingerprint
+                )
+            }
+
+            // Subscribe to signaling messages BEFORE starting the listener
+            // to avoid a race where a fast client connects and sends an offer
+            // before messageContinuation is set.
+            listenForSignalingMessages()
+
+            // Start the signaling listener on a known port.
+            // `startListening` blocks on a DispatchSemaphore (up to 5s) waiting for the
+            // NWListener to reach .ready. This coordinator is @MainActor, so calling it
+            // directly would block the main thread. `BonjourSignalingService` is
+            // @unchecked Sendable, so run the synchronous start off the main actor and
+            // await the result. The continuation subscribed above is already in place,
+            // so the listener-must-precede-later-calls ordering is preserved.
+            let signalingPort = try await Task.detached(priority: .userInitiated) { [signalingService] in
+                try signalingService.startListening(port: RemoteDesktopConstants.defaultSignalingPort)
+            }.value
+            logger.info("Signaling listener on port \(signalingPort)")
+
+            // Start a TLS-PSK listener alongside the plain listener when the host has
+            // a valid cryptographic identity.  Failure is non-fatal — older clients that
+            // don't see the "stlsp" TXT key continue using the plain port.
+            if let bonjourSig = signalingService as? BonjourSignalingService,
+               !hostIdentity.publicKeyFingerprint.isEmpty {
+                do {
+                    // Same rationale as above: this also blocks on a semaphore, so run it
+                    // off the main actor to avoid stalling the UI for up to 5s.
+                    let fingerprint = hostIdentity.publicKeyFingerprint
+                    let tlsPort = try await Task.detached(priority: .userInitiated) { [bonjourSig] in
+                        try bonjourSig.startTLSListening(
+                            pin: fingerprint,
+                            port: RemoteDesktopConstants.defaultTLSSignalingPort
+                        )
+                    }.value
+                    logger.info("TLS signaling listener on port \(tlsPort)")
+                } catch {
+                    logger.warning("TLS signaling listener could not start (plain TCP only): \(error.localizedDescription)")
+                }
+            }
+
+            phase = .awaitingClient
+
+            await eventLogStore.append(EventLogItem(
+                severity: .info,
+                category: "Session",
+                message: "Host listening for connections on port \(signalingPort)"
+            ))
+
+        } catch {
+            phase = .error
+            errorMessage = error.localizedDescription
+            logger.error("Failed to start session: \(error.localizedDescription)")
+        }
+    }
+
+    /// Tear down the active session.
+    func stopSession() async {
+        connectionDebugger.mark("stopSession (host-initiated)")
+        cancelDisconnectGraceTimer()
+        clientActivityObserverTask?.cancel()
+        clientActivityObserverTask = nil
+        livenessWatchdogTask?.cancel()
+        livenessWatchdogTask = nil
+        captureStateObserverTask?.cancel()
+        captureStateObserverTask = nil
+        let bridgeTask = bridgeEventTask
+        let connTask = connectionObserverTask
+        let dataTask = dataChannelObserverTask
+        let displayTask = displayLayoutObserverTask
+        let pendingLayoutTask = pendingDisplayLayoutChangeTask
+        bridgeEventTask?.cancel()
+        bridgeEventTask = nil
+        connectionObserverTask?.cancel()
+        connectionObserverTask = nil
+        dataChannelObserverTask?.cancel()
+        dataChannelObserverTask = nil
+        displayLayoutObserverTask?.cancel()
+        displayLayoutObserverTask = nil
+        pendingDisplayLayoutChangeTask?.cancel()
+        pendingDisplayLayoutChangeTask = nil
+        initialDataChannelRetryTask?.cancel()
+        initialDataChannelRetryTask = nil
+        adaptiveStreamingTask?.cancel()
+        adaptiveStreamingTask = nil
+        lockStateObserver?.cancel()
+        lockStateObserver = nil
+
+        // Stop signaling BEFORE awaiting tasks so their streams terminate
+        signalingService.stopListening()
+        signalingService.disconnect()
+
+        inputCommandRouter.stopListening()
+        streamingCoordinator.stopCoordinating()
+
+        // Await cancellation to ensure clean shutdown
+        await bridgeTask?.value
+        await connTask?.value
+        await dataTask?.value
+        await displayTask?.value
+        await pendingLayoutTask?.value
+
+        await webRTCSessionManager.closeSession()
+        webRTCSessionManager.configureControlChannelAuth(sessionTokenHex: nil)
+        await captureEngine.stopCapture()
+        captureEngine.setAudioReceiver(nil)
+        #if os(macOS)
+        await audioPipeline?.deactivate()
+        await stopAllSecondaryStreamers()
+        #endif
+        await encoderPipeline.stopEncoding()
+
+        activeSessionID = nil
+        activeClientID = nil
+        connectedClientName = nil
+        latestObservedLayout = nil
+        activeStreamDisplayRestartKey = nil
+        isApplyingPerformanceProfile = false
+        needsPerformanceProfileReapply = false
+        requestedDynamicRange = .sdr
+        hasPublishedInitialSessionState = false
+        hasSentInitialDataChannelState = false
+        phase = .idle
+
+        await eventLogStore.append(EventLogItem(
+            severity: .info,
+            category: "Session",
+            message: "Session stopped"
+        ))
+    }
+
+    // MARK: - Signaling
+
+    private func listenForSignalingMessages() {
+        // Call receiveMessages() SYNCHRONOUSLY here — the AsyncThrowingStream initialiser
+        // invokes its closure synchronously, which sets messageContinuation on the signaling
+        // service before this function returns.  That means the continuation is guaranteed to
+        // be in place before startListening() is called, even though startListening() blocks
+        // @MainActor via DispatchSemaphore.wait.  Without this, a fast reconnecting client
+        // (or any IP-connect attempt) can deliver an offer while messageContinuation is still
+        // nil, causing the offer to be silently dropped.
+        let messageStream = signalingService.receiveMessages()
+        bridgeEventTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                for try await message in messageStream {
+                    guard !Task.isCancelled else { break }
+                    await self.handleSignalingMessage(message)
+                }
+            } catch {
+                self.logger.warning("Signaling receive ended: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func handleSignalingMessage(_ message: VersionedSignalingMessage) async {
+        let event = message.envelope.event
+
+        switch event {
+        case .offer(let offer):
+            guard message.envelope.sender.role == .client else {
+                logger.warning("Rejected offer from non-client signaling role")
+                return
+            }
+            if let activeSessionID, activeClientID != message.envelope.sender.id {
+                await rejectAdditionalClient(
+                    offerSessionID: offer.sessionID,
+                    activeSessionID: activeSessionID,
+                    sender: message.envelope.sender
+                )
+                return
+            }
+            phase = .signalingConnected
+            connectedClientName = message.envelope.sender.displayName
+            await handleClientOffer(offer, sender: message.envelope.sender)
+
+        case .iceCandidate(let candidate):
+            guard candidate.sessionID == activeSessionID else {
+                logger.debug("Ignoring ICE candidate for inactive session \(candidate.sessionID.uuidString)")
+                return
+            }
+            do {
+                try await webRTCSessionManager.addRemoteCandidate(candidate)
+            } catch {
+                logger.warning("Failed to add ICE candidate: \(error.localizedDescription)")
+            }
+
+        default:
+            logger.info("Ignoring signaling event: \(event.kind.rawValue)")
+        }
+    }
+
+    private func rejectAdditionalClient(
+        offerSessionID: UUID,
+        activeSessionID: UUID,
+        sender: SignalingPeer
+    ) async {
+        let clientName = sender.displayName ?? "Unknown Client"
+        do {
+            try await sendSignalingEvent(
+                .hostBusy(HostBusyMessage(
+                    hostID: hostIdentity.id,
+                    activeSessionID: nil,
+                    retryAfter: 5
+                )),
+                sessionID: offerSessionID,
+                recipient: sender
+            )
+        } catch {
+            logger.warning("Could not send host-busy response to \(clientName): \(error.localizedDescription)")
+        }
+        signalingService.dropCurrentConnection()
+        logger.info("Rejected additional client \(clientName); session \(activeSessionID.uuidString) remains active")
+        await eventLogStore.append(EventLogItem(
+            severity: .info,
+            category: "Session",
+            message: "Rejected additional client '\(clientName)' because another device is connected"
+        ))
+    }
+
+    private func handleClientOffer(_ offer: SessionOfferMessage, sender: SignalingPeer) async {
+        // Record the client's advertised decoder capabilities so codec negotiation
+        // reflects what this specific client can actually decode (e.g. HEVC).
+        advertisedClientCapabilities = offer.clientCapabilities
+        requestedDynamicRange = offer.preferredDynamicRange ?? .sdr
+        webRTCSessionManager.configureVideoTransport(
+            fragmentationEnabled: offer.clientCapabilities?.contains(.supportsVideoFragmentation) == true,
+            fecEnabled: offer.clientCapabilities?.contains(.supportsVideoFEC) == true
+        )
+
+        // Trust evaluation
+        phase = .trustPending
+        let clientID = sender.id
+        let clientName = sender.displayName ?? "Unknown Client"
+
+        // Require a real cryptographic fingerprint. A missing or empty fingerprint
+        // means the client sent no public key — we cannot verify identity, so reject.
+        guard let fingerprint = sender.publicKeyFingerprint, !fingerprint.isEmpty else {
+            logger.warning("Rejected client '\(clientName)' — missing public key fingerprint")
+            signalingService.dropCurrentConnection()
+            phase = .awaitingClient
+            await eventLogStore.append(EventLogItem(
+                severity: .warning,
+                category: "Trust",
+                message: "Rejected connection from '\(clientName)': no public key fingerprint"
+            ))
+            return
+        }
+
+        let peerTrustGate = self.peerTrustGate
+        let trusted: Bool
+        do {
+            trusted = try await withTimeout(seconds: RemoteDesktopConstants.trustPromptTimeout) {
+                await peerTrustGate.evaluateAndPrompt(
+                    peerID: clientID,
+                    displayName: clientName,
+                    fingerprint: fingerprint
+                )
+            }
+        } catch {
+            logger.warning("Trust prompt timed out for \(clientName)")
+            // Clear the stuck trust gate so future connections aren't silently rejected
+            await peerTrustGate.cancelPendingPrompt()
+            signalingService.dropCurrentConnection()
+            phase = .awaitingClient
+            return
+        }
+
+        guard trusted else {
+            logger.warning("Client \(clientName) rejected by trust gate")
+            signalingService.dropCurrentConnection()
+            phase = .awaitingClient
+            await eventLogStore.append(EventLogItem(
+                severity: .warning,
+                category: "Trust",
+                message: "Rejected connection from \(clientName)"
+            ))
+            return
+        }
+
+        guard let sessionTokenHex = offer.sessionToken,
+              let sessionTokenData = ConnectionSecurity.tokenFromHex(sessionTokenHex),
+              sessionTokenData.count == 32 else {
+            logger.warning("Rejected offer with missing/invalid session token from \(clientName)")
+            signalingService.dropCurrentConnection()
+            phase = .awaitingClient
+            await eventLogStore.append(EventLogItem(
+                severity: .warning,
+                category: "Trust",
+                message: "Rejected connection from \(clientName) due to invalid session token"
+            ))
+            return
+        }
+        webRTCSessionManager.configureControlChannelAuth(sessionTokenHex: sessionTokenHex)
+
+        // Proceed with session
+        phase = .negotiating
+        let sessionID = offer.sessionID
+        activeSessionID = sessionID
+        activeClientID = sender.id
+        hasPublishedInitialSessionState = false
+        hasSentInitialDataChannelState = false
+
+        do {
+            let blockedPermissions = await blockedRequiredPermissions()
+            if !blockedPermissions.isEmpty {
+                // Don't send specific permission details to unauthenticated clients
+                try await sendSignalingEvent(
+                    .permissionBlocked(PermissionBlockedMessage(sessionID: sessionID, blockedPermissions: [])),
+                    sessionID: sessionID,
+                    recipient: sender
+                )
+                phase = .awaitingClient
+                errorMessage = "Host permissions are required before streaming can start."
+                activeSessionID = nil
+                activeClientID = nil
+                logger.warning("Blocked session: \(blockedPermissions.count) missing permissions (details withheld from client)")
+                return
+            }
+
+            // Prepare WebRTC session
+            try await webRTCSessionManager.prepareSession(id: sessionID, role: .host)
+
+            // A fast reconnect flows through here on the SAME coordinator while the PREVIOUS
+            // session's 8s disconnect-grace task is still armed. prepareSession has now closed
+            // the old peer connection, so disarm that stale timer — otherwise it fires
+            // mid-negotiation (connectionState == .connecting != .connected) and calls
+            // resetForNextClient, tearing down this in-progress new session.
+            cancelDisconnectGraceTimer()
+
+            // Apply client offer and generate answer
+            var answer = try await webRTCSessionManager.applyRemoteOffer(offer)
+            answer.sessionToken = sessionTokenHex
+
+            // Start the streaming coordinator and state observers BEFORE
+            // sending the answer so we don't miss early transport transitions.
+            streamingCoordinator.startCoordinating()
+            observeConnectionState()
+            observeDataChannelState()
+            observeDisplayLayoutChanges()
+            lastClientActivityAt = nil
+            captureFailureRestartAttempted = false
+            observeClientActivity()
+            startLivenessWatchdog()
+            observeCaptureState()
+
+            // Send answer back via signaling
+            try await signalingService.sendAnswer(answer, to: ClientIdentity(
+                displayName: clientName,
+                deviceModel: "Unknown",
+                osVersion: "Unknown",
+                appVersion: "0.1",
+                publicKeyFingerprint: fingerprint
+            ))
+
+            logger.info("SDP answer sent for session \(sessionID.uuidString)")
+
+            // Start the capture → encode → transport pipeline
+            await startPipeline(sessionID: sessionID, offer: offer)
+
+        } catch {
+            logger.error("Session negotiation failed: \(error.localizedDescription)")
+            await eventLogStore.append(EventLogItem(
+                severity: .error,
+                category: "Session",
+                message: "Negotiation failed: \(error.localizedDescription)"
+            ))
+            // Disconnect the signaling TCP so a new client connection can be accepted,
+            // then return to awaitingClient so the listener keeps running.
+            // (Using dropCurrentConnection instead of disconnect so the message stream
+            // stays alive for the next incoming offer.)
+            signalingService.dropCurrentConnection()
+            await webRTCSessionManager.closeSession()
+            activeSessionID = nil
+            activeClientID = nil
+            connectedClientName = nil
+            phase = .awaitingClient
+        }
+    }
+
+    // MARK: - Pipeline
+
+    private func startPipeline(sessionID: UUID, offer: SessionOfferMessage) async {
+        phase = .pipelineStarting
+
+        // Wire the lock state provider into the input router BEFORE startListening, so an input
+        // command processed during startup can't bypass the lock-screen gate. (startListening spawns
+        // an async receive loop; if a command arrived before this assignment, the router's default
+        // provider reports "unlocked" and would inject at the login window.)
+        inputCommandRouter.lockStateProvider = lockStateProvider
+
+        // Start the input command router regardless of capture/encode success
+        inputCommandRouter.startListening(sessionID: sessionID, expectedSessionTokenHex: offer.sessionToken)
+        inputCommandRouter.onQualityAdjust = { [weak self] preset in
+            guard let self else { return }
+            Task { await self.applyRuntimeQualityAdjust(preset) }
+        }
+        inputCommandRouter.onKeyframeRequest = { [weak self] in
+            Task { [weak self] in
+                await self?.handleKeyframeRequest()
+            }
+        }
+        inputCommandRouter.onSetActiveDisplays = { [weak self] message in
+            await self?.handleSetActiveDisplays(message)
+        }
+        // Observe lock state transitions and push a hostStatus update so the
+        // iOS client can show the "Mac is locked" overlay immediately.
+        lockStateObserver = lockStatePublisher?
+            .removeDuplicates()
+            .sink { [weak self] newState in
+                guard let self else { return }
+                Task { await self.publishHostStatusUpdate() }
+                self.logger.info("Host lock state changed: \(newState.statusLabel, privacy: .public)")
+            }
+
+        do {
+            // Fast reconnects can overlap teardown/startup for a short window.
+            // Force a clean baseline so startCapture doesn't fail with "already running".
+            await captureEngine.stopCapture()
+            await encoderPipeline.stopEncoding()
+
+            // Get display layout
+            let layout = try await displayLayoutProvider.currentDisplayLayout()
+            let displayID = offer.requestedDisplayID ?? layout.primaryDisplayID ?? layout.displays.first?.id
+            let qualityPreset = minQualityPreset(
+                performanceStateController.profile.effectivePreset,
+                offer.qualityPreset
+            )
+
+            guard let displayID else {
+                throw CaptureEngineError.displayNotFound("No display available")
+            }
+
+            // Configure and start encoder
+            guard let display = layout.display(withID: displayID) else {
+                throw CaptureEngineError.displayNotFound("Display \(displayID) not found in layout")
+            }
+            try await encoderPipeline.configure(
+                for: display,
+                qualityPreset: qualityPreset,
+                codec: negotiatedEncoderCodec,
+                dynamicRange: negotiatedDynamicRange
+            )
+            try await encoderPipeline.startEncoding()
+
+            // Wire audio pipeline before starting capture so it receives frames from the first buffer
+            #if os(macOS)
+            if let pipeline = audioPipeline {
+                captureEngine.setAudioReceiver(pipeline)
+                let sid = sessionID
+                let sendFn: (DataChannelEnvelope) throws -> Void = { [weak webRTCSessionManager = self.webRTCSessionManager] env in
+                    try webRTCSessionManager?.sendDataMessage(env)
+                }
+                let preferOpus = advertisedClientCapabilities?.contains(.supportsOpusAudio) == true
+                await pipeline.activate(sessionID: sid, preferOpus: preferOpus, send: sendFn)
+            }
+            #endif
+
+            // Start capture
+            try await captureEngine.startCapture(
+                displayID: displayID,
+                qualityPreset: qualityPreset,
+                allowsHighResolution: captureAllowsHighResolution,
+                dynamicRange: captureDynamicRange
+            )
+            encoderPipeline.forceKeyframe()
+            performanceStateController.setActivePreset(qualityPreset)
+            startAdaptiveStreamingControl(for: qualityPreset)
+
+            // Avoid hanging in "pipeline starting" when capture starts but frames never flow.
+            // This can happen on some macOS setups when ScreenCaptureKit starts successfully
+            // but no frames are produced (for example after display/runtime transitions).
+            try await waitForFirstFrame(timeoutSeconds: startupFirstFrameTimeoutSeconds)
+            markActiveStreamDisplay(display)
+
+            logger.info("Pipeline started: capture → encode → transport")
+
+            await eventLogStore.append(EventLogItem(
+                severity: .info,
+                category: "Session",
+                message: "Streaming pipeline started for display \(displayID)"
+            ))
+
+            // Publish session-ready as soon as the pipeline is confirmed running.
+            // The signaling channel is the reliable path for unblocking the client UI;
+            // data-channel messages remain best-effort inside publishInitialSessionState.
+            if let sessionID = activeSessionID,
+               !hasPublishedInitialSessionState {
+                await publishInitialSessionState(sessionID: sessionID)
+            }
+
+        } catch {
+            logger.error("Pipeline start failed: \(error.localizedDescription)")
+            // Notify the client that the pipeline failed
+            if let sessionID = activeSessionID {
+                try? await sendSignalingEvent(
+                    .permissionBlocked(PermissionBlockedMessage(sessionID: sessionID, blockedPermissions: [])),
+                    sessionID: sessionID,
+                    recipient: nil
+                )
+            }
+            await eventLogStore.append(EventLogItem(
+                severity: .error,
+                category: "Session",
+                message: "Pipeline failed: \(error.localizedDescription)"
+            ))
+
+            let isPermissionError: Bool
+            if let captureError = error as? CaptureEngineError,
+               case .permissionDenied = captureError {
+                isPermissionError = true
+            } else {
+                isPermissionError = false
+            }
+            let userMessage = isPermissionError
+                ? "Screen Recording permission required. Open System Settings → Privacy & Security → Screen Recording, enable this app, then ask the client to reconnect."
+                : "Pipeline failed. Waiting for a new client."
+            await resetForNextClient(
+                reason: "Pipeline failed; host is listening for a new client",
+                severity: .error,
+                userErrorMessage: userMessage
+            )
+        }
+    }
+
+    private func waitForFirstFrame(timeoutSeconds: Double) async throws {
+        let startedAt = Date()
+        let initialCapturedFrames = captureEngine.diagnostics.capturedFrames
+        let initialEncodedFrames = encoderPipeline.encoderDiagnostics.encodedFrames
+
+        while Date().timeIntervalSince(startedAt) < timeoutSeconds {
+            let capturedNow = captureEngine.diagnostics.capturedFrames
+            let encodedNow = encoderPipeline.encoderDiagnostics.encodedFrames
+            if capturedNow > initialCapturedFrames || encodedNow > initialEncodedFrames {
+                return
+            }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+
+        throw CaptureEngineError.streamFailed("Timed out waiting for first captured/encoded frame")
+    }
+
+    // MARK: - Connection Monitoring
+
+    private func observeConnectionState() {
+        connectionObserverTask?.cancel()
+        connectionObserverTask = Task { [weak self] in
+            guard let self else { return }
+            for await state in webRTCSessionManager.connectionStateUpdates() {
+                guard !Task.isCancelled else { break }
+                self.connectionDebugger.record("connection", state.rawValue, metadata: [
+                    "peerState": self.webRTCSessionManager.peerConnectionState.rawValue,
+                    "dataChannel": self.webRTCSessionManager.dataChannelState.rawValue,
+                    "phase": self.phase.rawValue
+                ])
+                switch state {
+                case .connected:
+                    self.logger.info("Peer connected")
+                    if self.disconnectGraceTask != nil {
+                        self.cancelDisconnectGraceTimer()
+                        self.connectionDebugger.mark("transient disconnect recovered within grace period")
+                        self.logger.info("Transient disconnect recovered — teardown cancelled")
+                    }
+                    if let sessionID = self.activeSessionID,
+                       (self.phase == .pipelineStarting || self.phase == .negotiating || self.phase == .streaming),
+                       !self.hasPublishedInitialSessionState {
+                        await self.publishInitialSessionState(sessionID: sessionID)
+                    }
+                case .disconnected:
+                    // TCP-level .disconnected is frequently transient (Wi-Fi roam,
+                    // brief congestion) and the provider retries internally — give
+                    // it a grace window instead of killing the session instantly.
+                    self.logger.warning("Peer disconnected — grace period \(self.disconnectGraceSeconds)s before teardown")
+                    self.startDisconnectGraceTimer()
+                case .failed:
+                    // A flaky relay (e.g. Tailscale DERP) surfaces a brief path flap as a
+                    // terminal `.failed` just as often as `.disconnected`. Treat it the same:
+                    // give it the grace window instead of an instant teardown. If the client
+                    // re-attaches within the window the `.connected` case above cancels the
+                    // timer; if it's genuinely dead the grace failsafe tears down after
+                    // \(disconnectGraceSeconds)s. Instant `resetForNextClient` here is what
+                    // turned single relay blips into a reconnect storm — the teardown forced a
+                    // full re-negotiation whose races (listener-port assignment, stale session
+                    // token) cascaded into minutes of churn.
+                    self.logger.warning("Peer connection failed — grace period \(self.disconnectGraceSeconds)s before teardown")
+                    self.startDisconnectGraceTimer()
+                default:
+                    break
+                }
+            }
+        }
+    }
+
+    // MARK: - Disconnect Grace + Liveness
+
+    private func startDisconnectGraceTimer() {
+        guard disconnectGraceTask == nil else { return }
+        connectionDebugger.mark("disconnect grace timer started (\(disconnectGraceSeconds)s)")
+        disconnectGraceTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: UInt64(self.disconnectGraceSeconds * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            self.disconnectGraceTask = nil
+            guard self.webRTCSessionManager.connectionState != .connected else { return }
+            self.connectionDebugger.connectionLost(
+                reason: "Peer disconnected and did not recover within \(self.disconnectGraceSeconds)s grace period"
+            )
+            await self.resetForNextClient(reason: "Client disconnected")
+        }
+    }
+
+    private func cancelDisconnectGraceTimer() {
+        disconnectGraceTask?.cancel()
+        disconnectGraceTask = nil
+    }
+
+    /// Stamps `lastClientActivityAt` on every inbound control-channel message.
+    /// The client sends a ping every 2 s, so silence means the client is gone
+    /// even when the TCP transport still reports `.connected` (half-open path).
+    private func observeClientActivity() {
+        clientActivityObserverTask?.cancel()
+        // Consume the stream OFF the main actor (Task.detached) so the activity stamp keeps
+        // updating even when the main thread is blocked by a modal — see lastClientActivityAt.
+        // The AsyncStream is Sendable (DataChannelEnvelope is); the manager itself is not, so
+        // we capture the stream, not the manager.
+        let messages = webRTCSessionManager.receiveDataMessages()
+        clientActivityObserverTask = Task.detached { [weak self] in
+            for await _ in messages {
+                guard !Task.isCancelled else { break }
+                self?.lastClientActivityAt = Date()
+            }
+        }
+    }
+
+    private func startLivenessWatchdog() {
+        livenessWatchdogTask?.cancel()
+        livenessWatchdogTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                guard !Task.isCancelled else { break }
+                guard self.phase == .streaming,
+                      self.webRTCSessionManager.connectionState == .connected,
+                      let lastActivity = self.lastClientActivityAt else { continue }
+                let silentFor = Date().timeIntervalSince(lastActivity)
+                guard silentFor > self.clientLivenessTimeoutSeconds else { continue }
+                self.logger.error("Client liveness timeout — no inbound traffic for \(String(format: "%.0f", silentFor))s")
+                self.connectionDebugger.connectionLost(
+                    reason: "Client liveness timeout — no inbound traffic for \(String(format: "%.0f", silentFor))s while transport reported connected"
+                )
+                // Hop to a fresh task: resetForNextClient cancels this watchdog,
+                // and running teardown on an already-cancelled task would make
+                // its internal sleeps/awaits bail early.
+                Task { await self.resetForNextClient(reason: "Client unresponsive — connection presumed lost") }
+                break
+            }
+        }
+    }
+
+    /// Capture failures (display sleep, ScreenCaptureKit stream stop, permission
+    /// revocation) previously stalled the stream silently while the host stayed
+    /// in `.streaming`. Observe the engine state, attempt one in-place pipeline
+    /// restart, and tear the session down cleanly if recovery fails.
+    private func observeCaptureState() {
+        captureStateObserverTask?.cancel()
+        captureStateObserverTask = Task { [weak self] in
+            guard let self else { return }
+            for await state in captureEngine.stateChanges() {
+                guard !Task.isCancelled else { break }
+                self.connectionDebugger.record("capture", state.rawValue)
+                guard self.phase == .streaming || self.phase == .pipelineStarting else { continue }
+                switch state {
+                case .failed:
+                    await self.handleCaptureFailure()
+                case .permissionBlocked:
+                    self.connectionDebugger.connectionLost(reason: "Screen Recording permission revoked mid-session")
+                    Task {
+                        await self.resetForNextClient(
+                            reason: "Screen Recording permission blocked",
+                            severity: .error,
+                            userErrorMessage: "Screen Recording permission was revoked. Re-grant it in System Settings."
+                        )
+                    }
+                default:
+                    break
+                }
+            }
+        }
+    }
+
+    private func handleCaptureFailure() async {
+        logger.error("Capture engine failed mid-session")
+        guard !captureFailureRestartAttempted else {
+            connectionDebugger.connectionLost(reason: "Screen capture failed again after a restart attempt")
+            Task {
+                await self.resetForNextClient(
+                    reason: "Screen capture failed",
+                    severity: .error,
+                    userErrorMessage: "Screen capture failed. Waiting for a new client."
+                )
+            }
+            return
+        }
+        captureFailureRestartAttempted = true
+        connectionDebugger.mark("capture failed — attempting pipeline restart")
+
+        // Let a concurrent display-change restart settle before re-checking.
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        guard captureEngine.captureState == .failed else {
+            connectionDebugger.mark("capture recovered on its own — restart skipped")
+            captureFailureRestartAttempted = false
+            return
+        }
+
+        do {
+            let layout = try await displayLayoutProvider.currentDisplayLayout()
+            let displayID = captureEngine.diagnostics.currentDisplayID
+            guard let display = displayID.flatMap({ layout.display(withID: $0) }) ?? layout.displays.first else {
+                throw CaptureEngineError.streamFailed("No display available for capture recovery")
+            }
+            try await restartPipelineForCurrentDisplay(display: display, qualityPreset: currentQualityPreset)
+            captureFailureRestartAttempted = false
+            connectionDebugger.mark("pipeline restarted after capture failure")
+            logger.info("Pipeline restarted after capture failure")
+        } catch {
+            connectionDebugger.connectionLost(reason: "Pipeline restart after capture failure failed: \(error.localizedDescription)")
+            Task {
+                await self.resetForNextClient(
+                    reason: "Screen capture failed and could not be restarted",
+                    severity: .error,
+                    userErrorMessage: "Screen capture failed. Waiting for a new client."
+                )
+            }
+        }
+    }
+
+    private func observeDataChannelState() {
+        dataChannelObserverTask?.cancel()
+        dataChannelObserverTask = Task { [weak self] in
+            guard let self else { return }
+            for await state in webRTCSessionManager.dataChannelStateUpdates() {
+                guard !Task.isCancelled else { break }
+                self.connectionDebugger.record("dataChannel", state.rawValue)
+                guard state == .open else { continue }
+                guard let sessionID = self.activeSessionID else { continue }
+                guard self.hasPublishedInitialSessionState, !self.hasSentInitialDataChannelState else { continue }
+
+                do {
+                    let layout = try await self.displayLayoutProvider.currentDisplayLayout()
+                    if self.sendInitialDataChannelState(layout: layout, sessionID: sessionID) {
+                        self.logger.info("Initial data channel messages sent on data-channel open")
+                    }
+                } catch {
+                    self.logger.warning("Failed to fetch display layout for initial data-channel send: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    private func observeDisplayLayoutChanges() {
+        displayLayoutObserverTask?.cancel()
+        guard let observer = displayLayoutProvider as? any DisplayLayoutObserving else { return }
+        displayLayoutObserverTask = Task { [weak self] in
+            guard let self else { return }
+            for await layout in observer.layoutChanges() {
+                guard !Task.isCancelled else { break }
+                guard let sessionID = self.activeSessionID else { continue }
+                guard self.phase == .streaming || self.phase == .pipelineStarting else { continue }
+                self.latestObservedLayout = layout
+                self.pendingDisplayLayoutChangeTask?.cancel()
+                self.pendingDisplayLayoutChangeTask = Task { [weak self] in
+                    guard let self else { return }
+                    do {
+                        try await Task.sleep(nanoseconds: self.displayLayoutChangeDebounceMs * 1_000_000)
+                    } catch {
+                        return
+                    }
+                    guard !Task.isCancelled else { return }
+                    guard self.activeSessionID == sessionID else { return }
+                    guard self.phase == .streaming || self.phase == .pipelineStarting else { return }
+                    guard let latestLayout = self.latestObservedLayout else { return }
+                    self.latestObservedLayout = nil
+                    await self.handleObservedDisplayLayoutChange(latestLayout, sessionID: sessionID)
+                }
+            }
+        }
+    }
+
+    private func blockedRequiredPermissions() async -> [PermissionState] {
+        await permissionService.currentStates().filter { $0.authorizationState != .granted }
+    }
+
+    private func minQualityPreset(_ a: StreamQualityPreset, _ b: StreamQualityPreset) -> StreamQualityPreset {
+        let ranking: [StreamQualityPreset] = [.performance, .balanced, .quality, .ultra]
+        guard let ai = ranking.firstIndex(of: a), let bi = ranking.firstIndex(of: b) else {
+            return a
+        }
+        return ranking[min(ai, bi)]
+    }
+
+    private func handleKeyframeRequest() {
+        encoderPipeline.forceKeyframe()
+        #if os(macOS)
+        // Refresh secondary displays too, so a client focus-switch shows the newly-focused
+        // display promptly rather than waiting for its next GOP.
+        secondaryStreamers.values.forEach { $0.forceKeyframe() }
+        #endif
+    }
+
+    private func startAdaptiveStreamingControl(for preset: StreamQualityPreset) {
+        adaptiveStreamingTask?.cancel()
+        guard let initialBitrate = encoderPipeline.encoderDiagnostics.configuredBitrate else {
+            return
+        }
+        var controller = AdaptiveStreamingController(
+            initialBitrate: initialBitrate,
+            preferredFrameRate: EncoderConfiguration.frameRate(for: preset)
+        )
+        adaptiveStreamingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                guard let self, !Task.isCancelled else { return }
+                let decision = controller.observe(
+                    bufferedBytes: self.webRTCSessionManager.videoBufferedAmount,
+                    lossPermille: self.webRTCSessionManager.lastReportedClientLossPermille,
+                    now: Date().timeIntervalSinceReferenceDate
+                )
+                if let bitrate = decision.targetBitrate {
+                    self.encoderPipeline.setBitrate(bitrate)
+                    self.logger.info("Adaptive bitrate target: \(bitrate / 1_000) kbps")
+                }
+                if let frameRate = decision.frameRateLimit {
+                    do {
+                        try await self.captureEngine.updateFrameRateLimit(frameRate)
+                    } catch {
+                        self.logger.warning("Adaptive capture FPS update failed: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+    }
+
+    private var currentQualityPreset: StreamQualityPreset {
+        captureEngine.diagnostics.qualityPreset ?? performanceStateController.profile.effectivePreset
+    }
+
+    private func displayRestartKey(for display: DisplayDescriptor) -> DisplayRestartKey {
+        DisplayRestartKey(
+            displayID: display.id,
+            logicalSize: display.frame.size,
+            pixelSize: display.pixelSize,
+            scaleFactor: display.scaleFactor,
+            rotation: display.rotation
+        )
+    }
+
+    private func markActiveStreamDisplay(_ display: DisplayDescriptor) {
+        activeStreamDisplayRestartKey = displayRestartKey(for: display)
+    }
+
+    private func currentDisplayStreamConfiguration(
+        layout: DisplayLayout,
+        overrideDisplay: DisplayDescriptor? = nil
+    ) -> DisplayStreamConfiguration? {
+        let display = overrideDisplay
+            ?? captureEngine.diagnostics.currentDisplayID.flatMap { layout.display(withID: $0) }
+            ?? layout.primaryDisplayID.flatMap { layout.display(withID: $0) }
+            ?? layout.displays.first
+        guard let display else { return nil }
+        let streamWidth = Double(encoderPipeline.encoderDiagnostics.configuredWidth ?? Int(display.pixelSize.width))
+        let streamHeight = Double(encoderPipeline.encoderDiagnostics.configuredHeight ?? Int(display.pixelSize.height))
+        return DisplayStreamConfiguration(
+            display: display,
+            streamWidth: streamWidth,
+            streamHeight: streamHeight
+        )
+    }
+
+    private func sendDisplayStateMessages(
+        layout: DisplayLayout,
+        sessionID: UUID,
+        reason: String? = nil,
+        overrideDisplay: DisplayDescriptor? = nil
+    ) -> Bool {
+        guard activeSessionID == sessionID else { return false }
+        do {
+            let layoutEnvelope = try DataChannelEnvelope.displayLayout(DisplayLayoutMessage(layout: layout))
+            try webRTCSessionManager.sendDataMessage(layoutEnvelope)
+
+            if let configuration = currentDisplayStreamConfiguration(layout: layout, overrideDisplay: overrideDisplay) {
+                let configurationEnvelope = try DataChannelEnvelope.displayConfigurationChanged(
+                    DisplayConfigurationChangedMessage(
+                        sessionID: sessionID,
+                        configuration: configuration,
+                        layout: layout,
+                        reason: reason
+                    )
+                )
+                try webRTCSessionManager.sendDataMessage(configurationEnvelope)
+            }
+
+            let selectedDisplayID = overrideDisplay?.id
+                ?? captureEngine.diagnostics.currentDisplayID
+                ?? layout.primaryDisplayID
+            let statusEnvelope = try DataChannelEnvelope.hostStatus(
+                HostStatusMessage(
+                    hostID: hostIdentity.id,
+                    connectionState: .connected,
+                    activeSessionID: sessionID,
+                    displayLayout: layout,
+                    selectedDisplayID: selectedDisplayID,
+                    sessionMode: sessionModeController.currentMode,
+                    quality: nil,
+                    thermalState: performanceStateController.thermalState,
+                    lowPowerModeEnabled: performanceStateController.lowPowerModeEnabled,
+                    lockState: lockStateProvider()
+                )
+            )
+            try webRTCSessionManager.sendDataMessage(statusEnvelope)
+            hasSentInitialDataChannelState = true
+            initialDataChannelRetryTask?.cancel()
+            initialDataChannelRetryTask = nil
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func restartStreamingPipeline(
+        for display: DisplayDescriptor,
+        layout: DisplayLayout,
+        sessionID: UUID,
+        qualityPreset: StreamQualityPreset,
+        reason: String
+    ) async throws {
+        streamingCoordinator.handleDisplayRestart()
+        await captureEngine.stopCapture()
+        await encoderPipeline.stopEncoding()
+        try await encoderPipeline.configure(
+            for: display,
+            qualityPreset: qualityPreset,
+            codec: negotiatedEncoderCodec,
+            dynamicRange: negotiatedDynamicRange
+        )
+        _ = sendDisplayStateMessages(
+            layout: layout,
+            sessionID: sessionID,
+            reason: "\(reason)_preflight",
+            overrideDisplay: display
+        )
+        try await encoderPipeline.startEncoding()
+        try await captureEngine.startCapture(
+            displayID: display.id,
+            qualityPreset: qualityPreset,
+            allowsHighResolution: captureAllowsHighResolution,
+            dynamicRange: captureDynamicRange
+        )
+        encoderPipeline.forceKeyframe()
+        startAdaptiveStreamingControl(for: qualityPreset)
+        try await waitForFirstFrame(timeoutSeconds: startupFirstFrameTimeoutSeconds)
+        markActiveStreamDisplay(display)
+        _ = sendDisplayStateMessages(
+            layout: layout,
+            sessionID: sessionID,
+            reason: reason,
+            overrideDisplay: display
+        )
+    }
+
+    private func handleObservedDisplayLayoutChange(_ layout: DisplayLayout, sessionID: UUID) async {
+        let requestedDisplayID = captureEngine.diagnostics.currentDisplayID ?? layout.primaryDisplayID ?? layout.displays.first?.id
+        guard let requestedDisplayID else {
+            _ = sendDisplayStateMessages(layout: layout, sessionID: sessionID, reason: "layout_changed_empty")
+            return
+        }
+
+        guard let display = layout.display(withID: requestedDisplayID)
+            ?? layout.primaryDisplayID.flatMap({ layout.display(withID: $0) })
+            ?? layout.displays.first else {
+            _ = sendDisplayStateMessages(layout: layout, sessionID: sessionID, reason: "layout_changed_missing_display")
+            return
+        }
+
+        let requiresRestart = requestedDisplayID != display.id
+            || activeStreamDisplayRestartKey == nil
+            || activeStreamDisplayRestartKey != displayRestartKey(for: display)
+
+        guard requiresRestart else {
+            _ = sendDisplayStateMessages(
+                layout: layout,
+                sessionID: sessionID,
+                reason: "display_layout_changed",
+                overrideDisplay: display
+            )
+            await eventLogStore.append(EventLogItem(
+                severity: .info,
+                category: "Display",
+                message: "Display layout changed; updated mapping without restarting stream for display \(display.id)"
+            ))
+            return
+        }
+
+        do {
+            try await restartStreamingPipeline(
+                for: display,
+                layout: layout,
+                sessionID: sessionID,
+                qualityPreset: currentQualityPreset,
+                reason: requestedDisplayID == display.id ? "display_configuration_changed" : "selected_display_reassigned"
+            )
+            await eventLogStore.append(EventLogItem(
+                severity: .info,
+                category: "Display",
+                message: "Display configuration changed; restarted stream for display \(display.id)"
+            ))
+        } catch {
+            logger.warning("Display configuration restart failed: \(error.localizedDescription)")
+            _ = sendDisplayStateMessages(layout: layout, sessionID: sessionID, reason: "display_configuration_restart_failed")
+        }
+    }
+
+    private func restartPipelineForCurrentDisplay(display: DisplayDescriptor, qualityPreset: StreamQualityPreset) async throws {
+        let displayID = display.id
+        await captureEngine.stopCapture()
+        await encoderPipeline.stopEncoding()
+        try await encoderPipeline.configure(
+            for: display,
+            qualityPreset: qualityPreset,
+            codec: negotiatedEncoderCodec,
+            dynamicRange: negotiatedDynamicRange
+        )
+        try await encoderPipeline.startEncoding()
+        try await captureEngine.startCapture(
+            displayID: displayID,
+            qualityPreset: qualityPreset,
+            allowsHighResolution: captureAllowsHighResolution,
+            dynamicRange: captureDynamicRange
+        )
+        encoderPipeline.forceKeyframe()
+        startAdaptiveStreamingControl(for: qualityPreset)
+        try await waitForFirstFrame(timeoutSeconds: startupFirstFrameTimeoutSeconds)
+        markActiveStreamDisplay(display)
+    }
+
+    /// Applies a client-requested runtime quality change without restarting the
+    /// active session. Only downgrades are honoured; the host-profile minimum
+    /// is always enforced.
+    @MainActor
+    private func applyRuntimeQualityAdjust(_ requested: StreamQualityPreset) async {
+        let effective = minQualityPreset(performanceStateController.profile.effectivePreset, requested)
+        logger.info("Applying runtime quality adjust to \(effective.rawValue)")
+        do {
+            guard let displayID = captureEngine.diagnostics.currentDisplayID else { return }
+            let layout = try await displayLayoutProvider.currentDisplayLayout()
+            guard let display = layout.display(withID: displayID) else { return }
+            try await restartPipelineForCurrentDisplay(display: display, qualityPreset: effective)
+            performanceStateController.setActivePreset(effective)
+            if let sessionID = activeSessionID {
+                _ = sendDisplayStateMessages(layout: layout, sessionID: sessionID, reason: "quality_adjust", overrideDisplay: display)
+            }
+            await publishHostStatusUpdate()
+            await eventLogStore.append(EventLogItem(
+                severity: .info,
+                category: "Quality",
+                message: "Runtime quality adjusted to \(effective.rawValue)"
+            ))
+        } catch {
+            logger.warning("Runtime quality adjust failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func resetForNextClient(
+        reason: String,
+        severity: EventSeverity = .warning,
+        userErrorMessage: String? = nil
+    ) async {
+        connectionDebugger.mark("resetForNextClient: \(reason)")
+        cancelDisconnectGraceTimer()
+        clientActivityObserverTask?.cancel()
+        clientActivityObserverTask = nil
+        livenessWatchdogTask?.cancel()
+        livenessWatchdogTask = nil
+        captureStateObserverTask?.cancel()
+        captureStateObserverTask = nil
+        // Keep host runtime active after disconnect/failure by tearing down
+        // only the current session and returning to awaitingClient.
+        inputCommandRouter.stopListening()
+        streamingCoordinator.stopCoordinating()
+
+        await captureEngine.stopCapture()
+        await encoderPipeline.stopEncoding()
+        await webRTCSessionManager.closeSession()
+        webRTCSessionManager.configureControlChannelAuth(sessionTokenHex: nil)
+
+        // Drop stale signaling connection so the next client can attach cleanly.
+        signalingService.dropCurrentConnection()
+        performanceStateController.resetActivePreset()
+
+        activeSessionID = nil
+        activeClientID = nil
+        connectedClientName = nil
+        hasPublishedInitialSessionState = false
+        hasSentInitialDataChannelState = false
+        pendingDisplayLayoutChangeTask?.cancel()
+        pendingDisplayLayoutChangeTask = nil
+        initialDataChannelRetryTask?.cancel()
+        initialDataChannelRetryTask = nil
+        latestObservedLayout = nil
+        activeStreamDisplayRestartKey = nil
+        isApplyingPerformanceProfile = false
+        needsPerformanceProfileReapply = false
+        errorMessage = userErrorMessage
+        phase = .awaitingClient
+
+        await ensureDiscoveryAdvertising()
+
+        await eventLogStore.append(EventLogItem(
+            severity: severity,
+            category: "Session",
+            message: reason
+        ))
+    }
+
+    // MARK: - Capability Negotiation
+
+    /// Flags this host advertises to clients. HEVC is advertised only when this
+    /// machine has a hardware HEVC encoder, so the host never negotiates HEVC it
+    /// can't encode efficiently (mirrors the client's hardware-decode gate).
+    private static let hostCapabilityFlags: HostCapabilityFlags = {
+        var flags: HostCapabilityFlags = [
+            .supportsH264,
+            .supportsMultiDisplay,
+            .supportsMacClient,
+            .supportsAudioLater,
+            .supportsVideoFragmentation
+        ]
+        if VideoEncoderCapabilities.supportsHardwareHEVCEncode {
+            flags.insert(.supportsHEVC)
+            if #available(macOS 15.0, *) {
+                flags.insert(.supportsHDR10)
+            }
+        }
+        return flags
+    }()
+    /// Assumed client capabilities for older clients that don't advertise their own
+    /// (preserves the prior behaviour: all first-party clients decode HEVC in hardware).
+    private static let assumedClientCapabilityFlags: HostCapabilityFlags =
+        [.supportsH264, .supportsHEVC, .supportsMultiDisplay, .supportsAudioLater]
+
+    /// Capabilities the connected client advertised in its session offer, if any.
+    /// `nil` until an offer with capabilities arrives (older clients leave it nil).
+    private var advertisedClientCapabilities: HostCapabilityFlags?
+
+    /// The client capabilities to negotiate against: the client's own advertisement
+    /// when present, otherwise the assumed baseline for older clients.
+    private var effectiveClientCapabilities: HostCapabilityFlags {
+        advertisedClientCapabilities ?? Self.assumedClientCapabilityFlags
+    }
+
+    /// Capabilities agreed between host and client. Falls back to an H.264-only
+    /// baseline if negotiation ever fails, so a session always has a usable codec.
+    private var negotiatedCapabilities: NegotiatedCapabilities {
+        CapabilityNegotiator.negotiate(host: Self.hostCapabilityFlags, client: effectiveClientCapabilities)
+            ?? NegotiatedCapabilities(videoCodec: .h264, supportsMultiDisplay: false, supportsAudio: false, supportsMacClient: false)
+    }
+
+    /// Codec the encoder should produce, mapped from the negotiated capabilities.
+    /// HEVC when both peers support it (decodes higher resolutions in hardware on
+    /// iOS than H.264, and compresses better at the same bitrate); H.264 otherwise.
+    private var negotiatedEncoderCodec: EncodedFrameCodec {
+        switch negotiatedCapabilities.videoCodec {
+        case .hevc: return .hevc
+        case .h264: return .h264
+        }
+    }
+
+    /// Whether capture should run at high resolution (4K for balanced/quality).
+    /// Derived from the encoder's *actual* configured codec — not the negotiated one —
+    /// so it tracks the H.264 fallback in `configure` and keeps capture and encode
+    /// dimensions in lockstep. Always read after `encoderPipeline.configure(...)`.
+    private var captureAllowsHighResolution: Bool {
+        encoderPipeline.encoderDiagnostics.configuredCodec == .hevc
+    }
+
+    private var negotiatedDynamicRange: StreamDynamicRange {
+        requestedDynamicRange == .hdr10 && negotiatedCapabilities.supportsHDR10
+            ? .hdr10
+            : .sdr
+    }
+
+    private var captureDynamicRange: StreamDynamicRange {
+        encoderPipeline.encoderDiagnostics.configuredCodec == .hevc
+            ? negotiatedDynamicRange
+            : .sdr
+    }
+
+    private func publishInitialSessionState(sessionID: UUID) async {
+        guard !hasPublishedInitialSessionState else { return }
+        hasPublishedInitialSessionState = true
+
+        do {
+            let layout = try await displayLayoutProvider.currentDisplayLayout()
+            let selectedDisplayID = captureEngine.diagnostics.currentDisplayID ?? layout.primaryDisplayID
+
+            // Use real capability negotiation
+            let negotiated = negotiatedCapabilities
+
+            // Send session-ready via signaling (reliable path)
+            try await sendSignalingEvent(
+                .sessionReady(
+                    SessionReadyMessage(
+                        sessionID: sessionID,
+                        selectedDisplayID: selectedDisplayID,
+                        negotiatedCapabilities: negotiated
+                    )
+                ),
+                sessionID: sessionID,
+                recipient: nil
+            )
+
+            let sentImmediately = sendInitialDataChannelState(layout: layout, sessionID: sessionID)
+            if !sentImmediately {
+                logger.info("Data channel messages deferred (channels not yet open). Scheduling retry.")
+                scheduleInitialDataChannelStateRetry(layout: layout, sessionID: sessionID)
+            }
+
+            phase = .streaming
+        } catch {
+            hasPublishedInitialSessionState = false
+            logger.warning("Failed to publish initial session state: \(error.localizedDescription)")
+        }
+    }
+
+    private func sendInitialDataChannelState(layout: DisplayLayout, sessionID: UUID) -> Bool {
+        sendDisplayStateMessages(layout: layout, sessionID: sessionID, reason: "initial")
+    }
+
+    private func scheduleInitialDataChannelStateRetry(layout: DisplayLayout, sessionID: UUID) {
+        initialDataChannelRetryTask?.cancel()
+        initialDataChannelRetryTask = Task { [weak self] in
+            guard let self else { return }
+            for _ in 0..<initialDataChannelRetryAttempts {
+                try? await Task.sleep(nanoseconds: initialDataChannelRetryDelayMs * 1_000_000)
+                guard !Task.isCancelled else { return }
+                guard self.activeSessionID == sessionID else { return }
+                if self.hasSentInitialDataChannelState { return }
+
+                // Wait for transport readiness rather than burning retries while closed.
+                if self.webRTCSessionManager.connectionState != .connected ||
+                    self.webRTCSessionManager.dataChannelState != .open {
+                    continue
+                }
+
+                if self.sendInitialDataChannelState(layout: layout, sessionID: sessionID) {
+                    self.logger.info("Initial data channel messages sent after retry")
+                    return
+                }
+            }
+            self.logger.warning(
+                "Initial data channel messages could not be sent after retries (connection=\(self.webRTCSessionManager.connectionState.rawValue), dataChannel=\(self.webRTCSessionManager.dataChannelState.rawValue))"
+            )
+        }
+    }
+
+    private func sendSignalingEvent(
+        _ event: SignalingEvent,
+        sessionID: UUID,
+        recipient: SignalingPeer?
+    ) async throws {
+        let envelope = VersionedSignalingMessage(
+            envelope: SignalingEnvelope(
+                protocolVersion: RemoteDesktopConstants.protocolVersion,
+                sessionID: sessionID,
+                sender: SignalingPeer(
+                    id: hostIdentity.id,
+                    role: .host,
+                    displayName: hostIdentity.displayName,
+                    publicKeyFingerprint: hostIdentity.publicKeyFingerprint
+                ),
+                recipient: recipient,
+                event: event
+            )
+        )
+        try await signalingService.sendSignalingMessage(envelope)
+    }
+
+    func publishHostStatusUpdate() async {
+        guard let sessionID = activeSessionID else { return }
+        do {
+            let layout = try await displayLayoutProvider.currentDisplayLayout()
+            let statusEnvelope = try DataChannelEnvelope.hostStatus(
+                HostStatusMessage(
+                    hostID: hostIdentity.id,
+                    connectionState: webRTCSessionManager.connectionState,
+                    activeSessionID: sessionID,
+                    displayLayout: layout,
+                    selectedDisplayID: captureEngine.diagnostics.currentDisplayID ?? layout.primaryDisplayID,
+                    sessionMode: sessionModeController.currentMode,
+                    quality: nil,
+                    thermalState: performanceStateController.thermalState,
+                    lowPowerModeEnabled: performanceStateController.lowPowerModeEnabled,
+                    lockState: lockStateProvider()
+                )
+            )
+            try webRTCSessionManager.sendDataMessage(statusEnvelope)
+        } catch {
+            logger.info("Host status update deferred: \(error.localizedDescription)")
+        }
+    }
+
+    /// Reconcile the set of additional displays streamed in parallel with the client's
+    /// request. Index 0 of the request is the primary (the existing pipeline, wire ID 0);
+    /// 1..n are streamed concurrently on wire IDs 1..n (capped to bound HW encoders).
+    private func handleSetActiveDisplays(_ message: SetActiveDisplaysMessage) async {
+        #if os(macOS)
+        // Every step below logs to the event store (which the user can export) so a silently
+        // dropped multi-display request names its exact reason instead of a black/blank screen.
+        await eventLogStore.append(EventLogItem(
+            severity: .info, category: "Display",
+            message: "Multi-display request received: [\(message.displayIDs.joined(separator: ", "))]"))
+
+        // The control message arrives on the live session's data channel, so honour it even if the
+        // client echoed a stale session ID after a reconnect (the log shows frequent reconnects) —
+        // just note the mismatch rather than silently dropping the request.
+        if activeSessionID != message.sessionID {
+            await eventLogStore.append(EventLogItem(
+                severity: .warning, category: "Display",
+                message: "Multi-display: session-ID mismatch (request \(String(describing: message.sessionID)) vs active \(String(describing: activeSessionID))) — proceeding on the live channel"))
+        }
+        guard negotiatedCapabilities.supportsMultiDisplay else {
+            await eventLogStore.append(EventLogItem(
+                severity: .warning, category: "Display",
+                message: "Multi-display request ignored: the peer didn't negotiate multi-display support"))
+            return
+        }
+        let secondaryIDs = Array(message.displayIDs.dropFirst().prefix(3))
+
+        // Stop streamers that are no longer requested.
+        for (id, streamer) in secondaryStreamers where !secondaryIDs.contains(id) {
+            await streamer.stop()
+            secondaryStreamers[id] = nil
+        }
+        guard !secondaryIDs.isEmpty else {
+            await eventLogStore.append(EventLogItem(
+                severity: .info, category: "Display",
+                message: "Multi-display: client requested no secondary displays — only the primary streams (it sent \(message.displayIDs.count) display ID(s); after de-duping the primary, none remained)"))
+            return
+        }
+        guard let layout = try? await displayLayoutProvider.currentDisplayLayout() else {
+            await eventLogStore.append(EventLogItem(
+                severity: .warning, category: "Display",
+                message: "Multi-display request ignored: couldn't read the host display layout"))
+            return
+        }
+        await eventLogStore.append(EventLogItem(
+            severity: .info, category: "Display",
+            message: "Host sees \(layout.displays.count) display(s): [\(layout.displays.map { $0.id }.joined(separator: ", "))]; starting secondaries [\(secondaryIDs.joined(separator: ", "))]"))
+        let preset = minQualityPreset(performanceStateController.profile.effectivePreset, .balanced)
+
+        var updated: [String: SecondaryDisplayStreamer] = [:]
+        for (offset, displayID) in secondaryIDs.enumerated() {
+            let wireID = UInt8(offset + 1)
+            // Reuse a running streamer whose wire ID is unchanged; otherwise (re)start it.
+            if let existing = secondaryStreamers.removeValue(forKey: displayID), existing.wireDisplayID == wireID {
+                existing.forceKeyframe()
+                updated[displayID] = existing
+                continue
+            }
+            if let stale = secondaryStreamers.removeValue(forKey: displayID) {
+                await stale.stop()
+            }
+            guard let display = layout.display(withID: displayID) else {
+                await eventLogStore.append(EventLogItem(
+                    severity: .warning, category: "Display",
+                    message: "Multi-display: requested display \(displayID) isn't in the host's layout — skipping (the client's display list is likely stale; reconnect to refresh it)"))
+                continue
+            }
+            let streamer = SecondaryDisplayStreamer(
+                wireDisplayID: wireID, displayID: displayID, webRTCSessionManager: webRTCSessionManager)
+            do {
+                try await streamer.start(display: display, preset: preset, codec: negotiatedEncoderCodec, dynamicRange: captureDynamicRange)
+                updated[displayID] = streamer
+                await eventLogStore.append(EventLogItem(
+                    severity: .info, category: "Display",
+                    message: "Secondary display “\(display.name)” streaming (wire \(wireID), \(captureDynamicRange == .hdr10 ? "HDR10" : "SDR"))"))
+            } catch {
+                logger.warning("Secondary display failed to start: \(error.localizedDescription, privacy: .public)")
+                await eventLogStore.append(EventLogItem(
+                    severity: .warning, category: "Display",
+                    message: "Secondary display “\(display.name)” failed to start: \(error.localizedDescription)"))
+            }
+        }
+        for (_, streamer) in secondaryStreamers { await streamer.stop() }
+        secondaryStreamers = updated
+        #endif
+    }
+
+    private func stopAllSecondaryStreamers() async {
+        #if os(macOS)
+        for (_, streamer) in secondaryStreamers { await streamer.stop() }
+        secondaryStreamers.removeAll()
+        #endif
+    }
+
+    func handleDisplaySwitchRequest(_ request: DisplaySwitchRequestMessage) async {
+        guard activeSessionID == request.sessionID else { return }
+
+        let startTime = Date()
+        let currentDisplayID = captureEngine.diagnostics.currentDisplayID
+
+        if currentDisplayID == request.targetDisplayID {
+            let result = DisplaySwitchResultMessage(
+                sessionID: request.sessionID,
+                selectedDisplayID: request.targetDisplayID,
+                senderDeviceID: request.senderDeviceID,
+                status: .completed,
+                startedAt: startTime
+            )
+            if let envelope = try? DataChannelEnvelope.displaySwitchResult(result) {
+                try? webRTCSessionManager.sendDataMessage(envelope)
+            }
+            return
+        }
+
+        guard let layout = try? await displayLayoutProvider.currentDisplayLayout(),
+              let display = layout.display(withID: request.targetDisplayID) else {
+            let result = DisplaySwitchResultMessage(
+                sessionID: request.sessionID,
+                selectedDisplayID: currentDisplayID ?? request.targetDisplayID,
+                senderDeviceID: request.senderDeviceID,
+                status: .failed,
+                reason: "Display is no longer available.",
+                startedAt: startTime
+            )
+            if let envelope = try? DataChannelEnvelope.displaySwitchResult(result) {
+                try? webRTCSessionManager.sendDataMessage(envelope)
+            }
+            return
+        }
+
+        let qualityPreset = minQualityPreset(
+            performanceStateController.profile.effectivePreset,
+            .balanced
+        )
+
+        let accepted = DisplaySwitchResultMessage(
+            sessionID: request.sessionID,
+            selectedDisplayID: request.targetDisplayID,
+            senderDeviceID: request.senderDeviceID,
+            status: .accepted,
+            startedAt: startTime
+        )
+        if let envelope = try? DataChannelEnvelope.displaySwitchResult(accepted) {
+            try? webRTCSessionManager.sendDataMessage(envelope)
+        }
+
+        do {
+            try await restartStreamingPipeline(
+                for: display,
+                layout: layout,
+                sessionID: request.sessionID,
+                qualityPreset: qualityPreset,
+                reason: "display_switch"
+            )
+            await publishHostStatusUpdate()
+
+            let completed = DisplaySwitchResultMessage(
+                sessionID: request.sessionID,
+                selectedDisplayID: request.targetDisplayID,
+                senderDeviceID: request.senderDeviceID,
+                status: .completed,
+                startedAt: startTime
+            )
+            if let envelope = try? DataChannelEnvelope.displaySwitchResult(completed) {
+                try? webRTCSessionManager.sendDataMessage(envelope)
+            }
+        } catch {
+            if let fallbackID = currentDisplayID,
+               let fallbackDisplay = layout.display(withID: fallbackID) {
+                try? await encoderPipeline.configure(
+                    for: fallbackDisplay,
+                    qualityPreset: qualityPreset,
+                    codec: negotiatedEncoderCodec,
+                    dynamicRange: negotiatedDynamicRange
+                )
+                try? await encoderPipeline.startEncoding()
+                try? await captureEngine.startCapture(
+                    displayID: fallbackID,
+                    qualityPreset: qualityPreset,
+                    allowsHighResolution: captureAllowsHighResolution,
+                    dynamicRange: captureDynamicRange
+                )
+                encoderPipeline.forceKeyframe()
+                startAdaptiveStreamingControl(for: qualityPreset)
+                markActiveStreamDisplay(fallbackDisplay)
+                if let sessionID = activeSessionID {
+                    _ = sendDisplayStateMessages(layout: layout, sessionID: sessionID, reason: "display_switch_fallback", overrideDisplay: fallbackDisplay)
+                }
+            }
+            await publishHostStatusUpdate()
+
+            let failed = DisplaySwitchResultMessage(
+                sessionID: request.sessionID,
+                selectedDisplayID: currentDisplayID ?? request.targetDisplayID,
+                senderDeviceID: request.senderDeviceID,
+                status: .failed,
+                reason: "Could not switch displays. Keeping the previous screen.",
+                startedAt: startTime
+            )
+            if let envelope = try? DataChannelEnvelope.displaySwitchResult(failed) {
+                try? webRTCSessionManager.sendDataMessage(envelope)
+            }
+        }
+    }
+
+    func applyPerformanceProfileIfNeeded() async {
+        guard let sessionID = activeSessionID else { return }
+        guard phase == .streaming else { return }
+        guard let displayID = captureEngine.diagnostics.currentDisplayID else { return }
+        let targetPreset = performanceStateController.profile.effectivePreset
+
+        guard captureEngine.diagnostics.qualityPreset != targetPreset else {
+            await publishHostStatusUpdate()
+            return
+        }
+
+        guard !isApplyingPerformanceProfile else {
+            needsPerformanceProfileReapply = true
+            return
+        }
+        isApplyingPerformanceProfile = true
+        defer {
+            isApplyingPerformanceProfile = false
+            if needsPerformanceProfileReapply {
+                needsPerformanceProfileReapply = false
+                Task { @MainActor [weak self] in
+                    await self?.applyPerformanceProfileIfNeeded()
+                }
+            }
+        }
+
+        do {
+            let layout = try await displayLayoutProvider.currentDisplayLayout()
+            guard activeSessionID == sessionID, phase == .streaming else { return }
+            guard captureEngine.diagnostics.qualityPreset != targetPreset else {
+                await publishHostStatusUpdate()
+                return
+            }
+            guard let display = layout.display(withID: displayID) else { return }
+            try await restartPipelineForCurrentDisplay(
+                display: display,
+                qualityPreset: targetPreset
+            )
+            _ = sendDisplayStateMessages(layout: layout, sessionID: sessionID, reason: "performance_profile", overrideDisplay: display)
+            await publishHostStatusUpdate()
+
+            await eventLogStore.append(EventLogItem(
+                severity: performanceStateController.thermalState == .serious || performanceStateController.thermalState == .critical ? .warning : .info,
+                category: "Performance",
+                message: "Applied performance profile \(targetPreset.rawValue) for session \(sessionID.uuidString)",
+                metadata: [
+                    "thermalState": performanceStateController.thermalState.rawValue,
+                    "lowPowerModeEnabled": performanceStateController.lowPowerModeEnabled ? "true" : "false"
+                ]
+            ))
+        } catch {
+            await eventLogStore.append(EventLogItem(
+                severity: .warning,
+                category: "Performance",
+                message: "Failed to apply performance profile: \(error.localizedDescription)"
+            ))
+        }
+    }
+}

@@ -1,0 +1,364 @@
+import AppKit
+import AVFoundation
+import Combine
+import CoreMedia
+import SharedModels
+import SharedUtilities
+import SwiftUI
+
+/// SwiftUI wrapper around the AppKit streaming surface: renders decoded frames
+/// into an `AVSampleBufferDisplayLayer` and captures mouse/keyboard input.
+struct MacVideoStreamView: NSViewRepresentable {
+    let renderer: VideoRendererViewModel
+    let input: MacRemoteInputController
+    var isInputEnabled: Bool
+    var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay
+    /// Bottom region reserved for local session chrome; the stream view must not
+    /// capture pointer events there so SwiftUI controls remain clickable.
+    var localChromeBottomInset: CGFloat = 0
+    /// The stream still receives the event after this callback. This lets local
+    /// chrome collapse without stealing a click intended for the remote Mac.
+    var onBackgroundPointerActivity: (() -> Void)? = nil
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> RemoteStreamNSView {
+        let view = RemoteStreamNSView()
+        view.input = input
+        view.isInputEnabled = isInputEnabled
+        view.displayMode = displayMode
+        view.onBackgroundPointerActivity = onBackgroundPointerActivity
+        input.isEnabled = isInputEnabled
+        input.updateDisplayMode(displayMode)
+        context.coordinator.cancellable = renderer.framePublisher
+            .sink { [weak view] buffer in view?.display(pixelBuffer: buffer) }
+        return view
+    }
+
+    func updateNSView(_ nsView: RemoteStreamNSView, context: Context) {
+        nsView.isInputEnabled = isInputEnabled
+        nsView.displayMode = displayMode
+        nsView.localChromeBottomInset = localChromeBottomInset
+        nsView.onBackgroundPointerActivity = onBackgroundPointerActivity
+        // Keep the controller's own gate in sync so any coalesced send path is
+        // also suppressed in view-only mode, not just the event handlers.
+        input.isEnabled = isInputEnabled
+        input.updateDisplayMode(displayMode)
+    }
+
+    static func dismantleNSView(_ nsView: RemoteStreamNSView, coordinator: Coordinator) {
+        coordinator.cancellable?.cancel()
+        nsView.display(pixelBuffer: nil)
+    }
+
+    final class Coordinator {
+        var cancellable: AnyCancellable?
+    }
+}
+
+/// Layer-backed NSView whose backing layer is an `AVSampleBufferDisplayLayer`
+/// (zero-copy GPU presentation of decoded frames). Also the first responder for
+/// the session: every local mouse/keyboard event over the video is translated
+/// into a remote input command.
+final class RemoteStreamNSView: NSView {
+
+    var input: MacRemoteInputController?
+    var isInputEnabled = true
+    var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay {
+        didSet { updateVideoGravity() }
+    }
+    var localChromeBottomInset: CGFloat = 0
+    var onBackgroundPointerActivity: (() -> Void)?
+
+    private var displayLayer: AVSampleBufferDisplayLayer { layer as! AVSampleBufferDisplayLayer }
+    private var formatDescription: CMVideoFormatDescription?
+    private var trackingArea: NSTrackingArea?
+    /// Set when a double-click was forwarded as `.doubleClick` so the matching
+    /// local mouse-up isn't also forwarded (the host posts the full pair itself).
+    private var suppressNextUpForButton: Set<MouseButton> = []
+
+    /// Cmd-shortcuts that stay local instead of going to the remote Mac. ⌘W is
+    /// NOT reserved: in a session it should close a window on the *remote* Mac,
+    /// not the client window (use ⇧⌘D / the red button to leave the session).
+    private static let locallyReservedKeyEquivalents: Set<String> = ["q", "m", "h", ","]
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layerContentsRedrawPolicy = .duringViewResize
+        layer?.backgroundColor = NSColor.black.cgColor
+        updateVideoGravity()
+        // EDR opt-in: without it the layer tone-maps the host's HDR10 (PQ/BT.2020)
+        // frames down to SDR. macOS 14+; older falls back to SDR (no worse than before).
+        if #available(macOS 14.0, *) {
+            displayLayer.wantsExtendedDynamicRangeContent = true
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+
+    override func makeBackingLayer() -> CALayer {
+        AVSampleBufferDisplayLayer()
+    }
+
+    private func updateVideoGravity() {
+        switch displayMode {
+        case .fillScreen:
+            displayLayer.videoGravity = .resizeAspectFill
+        case .fitDisplay, .actualSize:
+            displayLayer.videoGravity = .resizeAspect
+        }
+    }
+
+    /// Top-left origin so view coordinates match the shared coordinate mapper.
+    override var isFlipped: Bool { true }
+    override var acceptsFirstResponder: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard bounds.contains(point) else { return nil }
+        if point.y >= bounds.height - localChromeBottomInset {
+            return nil
+        }
+        return super.hitTest(point)
+    }
+
+    // MARK: - Geometry
+
+    override func layout() {
+        super.layout()
+        notifyGeometry()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        notifyGeometry()
+        window?.makeFirstResponder(self)
+    }
+
+    private func notifyGeometry() {
+        input?.updateViewGeometry(
+            size: bounds.size,
+            pixelScale: Double(window?.backingScaleFactor ?? 2)
+        )
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea {
+            removeTrackingArea(trackingArea)
+            self.trackingArea = nil
+        }
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    // MARK: - Rendering
+
+    func display(pixelBuffer: CVPixelBuffer?) {
+        guard let pixelBuffer else {
+            displayLayer.flushAndRemoveImage()
+            formatDescription = nil
+            return
+        }
+
+        // `flush()` does not clear a failed layer; `flushAndRemoveImage()` does.
+        if displayLayer.status == .failed {
+            displayLayer.flushAndRemoveImage()
+            formatDescription = nil
+        }
+
+        if formatDescription == nil ||
+            !CMVideoFormatDescriptionMatchesImageBuffer(formatDescription!, imageBuffer: pixelBuffer) {
+            var fmt: CMVideoFormatDescription?
+            CMVideoFormatDescriptionCreateForImageBuffer(
+                allocator: kCFAllocatorDefault, imageBuffer: pixelBuffer, formatDescriptionOut: &fmt)
+            formatDescription = fmt
+        }
+        guard let formatDescription else { return }
+
+        var timing = CMSampleTimingInfo(duration: .invalid,
+                                        presentationTimeStamp: .invalid,
+                                        decodeTimeStamp: .invalid)
+        var sampleBuffer: CMSampleBuffer?
+        let status = CMSampleBufferCreateForImageBuffer(
+            allocator: kCFAllocatorDefault,
+            imageBuffer: pixelBuffer,
+            dataReady: true,
+            makeDataReadyCallback: nil,
+            refcon: nil,
+            formatDescription: formatDescription,
+            sampleTiming: &timing,
+            sampleBufferOut: &sampleBuffer
+        )
+        guard status == noErr, let sampleBuffer else { return }
+
+        // Live video: present immediately rather than by timestamp.
+        if let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: true),
+           CFArrayGetCount(attachments) > 0 {
+            let dict = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
+            CFDictionarySetValue(dict,
+                                 Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
+                                 Unmanaged.passUnretained(kCFBooleanTrue).toOpaque())
+        }
+
+        displayLayer.enqueue(sampleBuffer)
+    }
+
+    // MARK: - Mouse
+
+    private func viewPoint(for event: NSEvent) -> CGPoint {
+        convert(event.locationInWindow, from: nil)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let point = viewPoint(for: event)
+        guard !isPointInLocalChrome(point) else { return }
+        onBackgroundPointerActivity?()
+        guard isInputEnabled else { return }
+        input?.pointerMoved(to: point)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard isInputEnabled else { return }
+        input?.pointerMoved(to: viewPoint(for: event))
+    }
+
+    override func rightMouseDragged(with event: NSEvent) {
+        guard isInputEnabled else { return }
+        input?.pointerMoved(to: viewPoint(for: event))
+    }
+
+    override func otherMouseDragged(with event: NSEvent) {
+        guard isInputEnabled else { return }
+        input?.pointerMoved(to: viewPoint(for: event))
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let point = viewPoint(for: event)
+        guard !isPointInLocalChrome(point) else { return }
+        window?.makeFirstResponder(self)
+        onBackgroundPointerActivity?()
+        handleButton(.left, isDown: true, event: event)
+    }
+
+    private func isPointInLocalChrome(_ point: CGPoint) -> Bool {
+        guard localChromeBottomInset > 0 else { return false }
+        return point.y >= bounds.height - localChromeBottomInset
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        handleButton(.left, isDown: false, event: event)
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        handleButton(.right, isDown: true, event: event)
+    }
+
+    override func rightMouseUp(with event: NSEvent) {
+        handleButton(.right, isDown: false, event: event)
+    }
+
+    override func otherMouseDown(with event: NSEvent) {
+        handleButton(.middle, isDown: true, event: event)
+    }
+
+    override func otherMouseUp(with event: NSEvent) {
+        handleButton(.middle, isDown: false, event: event)
+    }
+
+    private func handleButton(_ button: MouseButton, isDown: Bool, event: NSEvent) {
+        guard isInputEnabled else { return }
+        let point = viewPoint(for: event)
+        if isDown {
+            if event.clickCount == 2 {
+                // The host posts the complete double-click pair (clickState 2);
+                // swallow the local mouse-up that follows.
+                suppressNextUpForButton.insert(button)
+                input?.pointerButton(button, action: .doubleClick, at: point)
+            } else {
+                input?.pointerButton(button, action: .down, at: point)
+            }
+        } else {
+            if suppressNextUpForButton.remove(button) != nil { return }
+            input?.pointerButton(button, action: .up, at: point)
+        }
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        guard isInputEnabled else { return }
+        input?.scrolled(
+            deltaX: Double(event.scrollingDeltaX),
+            deltaY: Double(event.scrollingDeltaY),
+            isPrecise: event.hasPreciseScrollingDeltas
+        )
+    }
+
+    // MARK: - Keyboard
+
+    override func keyDown(with event: NSEvent) {
+        guard isInputEnabled else { return }
+        // No super: avoids the system beep for "unhandled" keys.
+        input?.keyEvent(
+            keyCode: event.keyCode,
+            action: .down,
+            modifiers: MacRemoteInputController.modifierFlags(from: event.modifierFlags)
+        )
+    }
+
+    override func keyUp(with event: NSEvent) {
+        guard isInputEnabled else { return }
+        input?.keyEvent(
+            keyCode: event.keyCode,
+            action: .up,
+            modifiers: MacRemoteInputController.modifierFlags(from: event.modifierFlags)
+        )
+    }
+
+    /// Forward Cmd-shortcuts to the host (Cmd+C/V, Cmd+Tab won't get here, but
+    /// app-level equivalents do) except a few reserved for this app itself.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard isInputEnabled, event.type == .keyDown else { return false }
+        guard event.modifierFlags.contains(.command) else { return false }
+        if let chars = event.charactersIgnoringModifiers?.lowercased(),
+           Self.locallyReservedKeyEquivalents.contains(chars),
+           !event.modifierFlags.contains(.shift) {
+            return false
+        }
+        // Cmd-shortcuts don't generate a matching keyUp through this path, so send
+        // the full down/up pair here — otherwise the key sticks down on the host.
+        let modifiers = MacRemoteInputController.modifierFlags(from: event.modifierFlags)
+        input?.keyEvent(keyCode: event.keyCode, action: .down, modifiers: modifiers)
+        input?.keyEvent(keyCode: event.keyCode, action: .up, modifiers: modifiers)
+        return true
+    }
+
+    override func flagsChanged(with event: NSEvent) {
+        guard isInputEnabled else { return }
+        guard let flag = Self.modifierFlag(forKeyCode: event.keyCode) else { return }
+        let isDown = event.modifierFlags.contains(flag)
+        input?.keyEvent(
+            keyCode: event.keyCode,
+            action: isDown ? .down : .up,
+            modifiers: MacRemoteInputController.modifierFlags(from: event.modifierFlags)
+        )
+    }
+
+    private static func modifierFlag(forKeyCode keyCode: UInt16) -> NSEvent.ModifierFlags? {
+        switch keyCode {
+        case 54, 55: return .command
+        case 56, 60: return .shift
+        case 58, 61: return .option
+        case 59, 62: return .control
+        case 63: return .function
+        default: return nil
+        }
+    }
+}

@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a reproducible problem in the host or client.
+title: "[Bug]: "
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, fingerprints, personal files, screen contents, or security vulnerabilities.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Host
+        - Client
+        - CLI or agent interface
+        - Packaging or website download
+        - Build from source
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ScreenHarbor version and build
+      placeholder: 1.0.0 (1)
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac model
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Give the smallest reliable sequence.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized diagnostics
+      description: Remove personal data, network addresses, fingerprints, and secrets.
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true
