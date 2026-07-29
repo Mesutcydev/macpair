@@ -20,7 +20,7 @@ concurrency:
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
-    runs-on: macos-26
+    runs-on: macos-26-intel
     timeout-minutes: 60
     strategy:
       fail-fast: false
