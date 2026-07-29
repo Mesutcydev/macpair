@@ -6,6 +6,11 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Pin OpenSSF Scorecard to the dereferenced v2.4.3 commit so its provenance
+  verifier accepts the workflow action.
+
 ## [1.0.1] - 2026-07-29
 
 ### Fixed

@@ -29,7 +29,9 @@ jobs:
           persist-credentials: false
 
       - name: Run Scorecard
-        uses: ossf/scorecard-action@99c09fe975337306107572b4fdf4db224cf8e2f2 # v2.4.3
+        # Pin the dereferenced commit, not the annotated tag object's SHA.
+        # Scorecard's provenance verifier rejects tag-object SHAs as imposters.
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
         with:
           results_file: results.sarif
           results_format: sarif
