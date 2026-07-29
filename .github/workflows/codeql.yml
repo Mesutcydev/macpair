@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   analyze:
-    name: Analyze ${{ matrix.language }}
+    name: Analyze ${{ matrix.language }} (${{ matrix.component }})
     permissions:
       contents: read
       security-events: write
@@ -30,8 +30,26 @@ jobs:
         include:
           - language: swift
             build-mode: manual
+            component: host
+            scheme: ScreenHarborHost
+            destination: platform=macOS
+            category: /language:swift/component:host
+          - language: swift
+            build-mode: manual
+            component: macos-client
+            scheme: ScreenHarborClient
+            destination: platform=macOS
+            category: /language:swift/component:macos-client
+          - language: swift
+            build-mode: manual
+            component: ios-client
+            scheme: ScreenHarborIOS
+            destination: generic/platform=iOS Simulator
+            category: /language:swift/component:ios-client
           - language: c-cpp
             build-mode: none
+            component: core
+            category: /language:c-cpp/component:core
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
@@ -62,32 +80,18 @@ jobs:
           -resolvePackageDependencies
           -project ScreenHarbor.xcodeproj
 
-      - name: Build Swift app targets
+      - name: Build Swift app target
         if: matrix.build-mode == 'manual'
-        run: |
-          xcodebuild \
-            -project ScreenHarbor.xcodeproj \
-            -scheme ScreenHarborHost \
-            -configuration Debug \
-            -destination 'platform=macOS' \
-            CODE_SIGNING_ALLOWED=NO \
-            build
-          xcodebuild \
-            -project ScreenHarbor.xcodeproj \
-            -scheme ScreenHarborClient \
-            -configuration Debug \
-            -destination 'platform=macOS' \
-            CODE_SIGNING_ALLOWED=NO \
-            build
-          xcodebuild \
-            -project ScreenHarbor.xcodeproj \
-            -scheme ScreenHarborIOS \
-            -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+        run: >-
+          xcodebuild
+          -project ScreenHarbor.xcodeproj
+          -scheme "${{ matrix.scheme }}"
+          -configuration Debug
+          -destination "${{ matrix.destination }}"
+          CODE_SIGNING_ALLOWED=NO
+          build
 
       - name: Analyze
         uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
         with:
-          category: /language:${{ matrix.language }}
+          category: ${{ matrix.category }}
