@@ -24,6 +24,7 @@ private struct MacWindowBackdrop: View {
 
     @ViewBuilder
     var body: some View {
+#if compiler(>=6.2)
         if reduceTransparency {
             Color(nsColor: .windowBackgroundColor)
                 .ignoresSafeArea()
@@ -41,6 +42,16 @@ private struct MacWindowBackdrop: View {
                 .fill(.ultraThinMaterial)
                 .ignoresSafeArea()
         }
+#else
+        if reduceTransparency {
+            Color(nsColor: .windowBackgroundColor)
+                .ignoresSafeArea()
+        } else {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea()
+        }
+#endif
     }
 }
 
@@ -51,6 +62,7 @@ private struct MacGlassSurfaceModifier<S: InsettableShape>: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
+#if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             content.background {
                 GeometryReader { proxy in
@@ -67,8 +79,16 @@ private struct MacGlassSurfaceModifier<S: InsettableShape>: ViewModifier {
                 content.background(.ultraThinMaterial, in: shape)
             }
         }
+#else
+        if role == .content {
+            content.background(.thinMaterial, in: shape)
+        } else {
+            content.background(.ultraThinMaterial, in: shape)
+        }
+#endif
     }
 
+#if compiler(>=6.2)
     @available(macOS 26.0, *)
     private var nativeGlass: Glass {
         // Chrome can stay highly transparent, while information-bearing rows
@@ -77,6 +97,7 @@ private struct MacGlassSurfaceModifier<S: InsettableShape>: ViewModifier {
         let glass: Glass = role == .content ? .regular : .clear
         return glass.interactive(isInteractive)
     }
+#endif
 }
 
 private enum MacGlassSurfaceRole {
