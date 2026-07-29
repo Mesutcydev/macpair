@@ -54,7 +54,16 @@ jobs:
       - name: Install Metal toolchain
         if: matrix.build-mode == 'manual'
         run: |
-          xcodebuild -downloadComponent MetalToolchain
+          metal_download_dir="$RUNNER_TEMP/metal-toolchain"
+          mkdir -p "$metal_download_dir"
+          sudo xcodebuild \
+            -downloadComponent MetalToolchain \
+            -exportPath "$metal_download_dir"
+          sudo chown -R "$(id -u):$(id -g)" "$metal_download_dir"
+
+          metal_dmg="$(find "$metal_download_dir" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+          test -n "$metal_dmg"
+          xcodebuild -importComponent MetalToolchain "$metal_dmg"
           xcodebuild -showComponent MetalToolchain
           xcrun --find metal
           xcrun metal --version
