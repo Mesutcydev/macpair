@@ -12,7 +12,7 @@ packages:
     path: .
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm
-    exactVersion: 1.13.0
+    exactVersion: 1.15.0
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     exactVersion: 2.9.4

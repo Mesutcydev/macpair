@@ -22,7 +22,7 @@ let package = Package(
         .library(name: "Diagnostics", targets: ["Diagnostics"])
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.13.0"),
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.15.0"),
         // The macOS app projects consume Sparkle directly. Keeping the exact
         // dependency in the root graph gives SwiftPM and Xcode one shared,
         // reproducible Package.resolved file.

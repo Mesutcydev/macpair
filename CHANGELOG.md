@@ -13,6 +13,7 @@ All notable changes to ScreenHarbor are documented here. The format follows
 - Commit the complete application dependency lock, including Sparkle 2.9.4, so
   release packaging does not dirty the source tree.
 - Recheck source-tree cleanliness after packaging before allowing publication.
+- Update SwiftTerm to 1.15.0 and refresh pinned GitHub security actions.
 
 ## [1.0.0] - 2026-07-29
 
