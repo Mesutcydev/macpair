@@ -40,7 +40,7 @@ struct WakeCoordinator {
         }
     }
 
-    private static let logger = Logger(subsystem: "com.remotedesktop.client", category: "Wake")
+    private static let logger = Logger(subsystem: "uk.mesut.screenharbor.ios", category: "Wake")
 
     /// Fires both wake paths in parallel and reports what was actually dispatched.
     /// - Parameters:

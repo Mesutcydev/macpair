@@ -1,18 +1,21 @@
 # ScreenHarbor
 
-> Open-source, native macOS remote desktop host and client. Local-first, peer-approved, website-distributed, and controllable by a machine-readable CLI.
+> Open-source, native macOS remote desktop host with Mac and iPhone/iPad clients. Local-first, peer-approved, website-distributed, and controllable by a machine-readable CLI.
 
 Canonical name: ScreenHarbor
 Host app: ScreenHarbor Host
 Client app: ScreenHarbor
+iOS client: ScreenHarbor for iPhone and iPad
 Website: https://mesut.uk/apps/screenharbor
 Source: https://github.com/Mesutcydev/screenharbor
 License: Apache-2.0
 Minimum macOS: 13.0
-Host download: https://mesut.uk/ScreenHarbor-Host-1.0.0-build-1.dmg
-Client download: https://mesut.uk/ScreenHarbor-1.0.0-build-1.dmg
+Host download: https://mesut.uk/ScreenHarbor-Host-1.0.2-build-3.dmg
+Mac client download: https://mesut.uk/ScreenHarbor-1.0.2-build-3.dmg
+iOS client download: https://mesut.uk/ScreenHarbor-iOS-1.0.3-build-4-unsigned.ipa
 Integrity files: append .sha256, .manifest.json, or .sbom.cdx.json to a download URL
-Signing: ad-hoc; current downloads are not Apple-notarized
+Mac signing: ad-hoc; current Mac downloads are not Apple-notarized
+iOS signing: unsigned; a sideload tool must re-sign the IPA with the installer's Apple ID/team
 
 ## Agent quick start
 
@@ -29,6 +32,8 @@ System Settings.
 
 Host bundle ID: uk.mesut.screenharbor.host
 Client bundle ID: uk.mesut.screenharbor.client
+iOS client bundle ID: uk.mesut.screenharbor.ios
+Minimum iOS/iPadOS: 18.0
 Bonjour service: _screenharbor._tcp
 Signaling ports: 9471 plain, 9473 TLS
 Data port: 9472
@@ -42,4 +47,5 @@ Status snapshot: ~/Library/Application Support/ScreenHarbor/host.widget.snapshot
 - Machine manifest: https://github.com/Mesutcydev/screenharbor/blob/main/docs/agent-manifest.json
 - Security policy: https://github.com/Mesutcydev/screenharbor/blob/main/SECURITY.md
 - Release integrity: https://github.com/Mesutcydev/screenharbor/blob/main/docs/RELEASE_PROCESS.md
+- iOS sideloading: https://github.com/Mesutcydev/screenharbor/blob/main/docs/IOS_SIDELOAD.md
 - Governance: https://github.com/Mesutcydev/screenharbor/blob/main/GOVERNANCE.md

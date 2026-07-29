@@ -27,7 +27,7 @@ final class RemoteDisplayViewModel: ObservableObject {
     @Published private(set) var resubscribeCount: Int = 0
 
     private let webRTCSessionManager: any WebRTCSessionManaging
-    private let logger = Logger(subsystem: "com.remotedesktop.client", category: "DisplayViewModel")
+    private let logger = Logger(subsystem: "uk.mesut.screenharbor.ios", category: "DisplayViewModel")
 
     private var connectionTask: Task<Void, Never>?
     private var videoTask: Task<Void, Never>?

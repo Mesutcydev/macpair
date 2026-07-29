@@ -1,17 +1,19 @@
 # Release process
 
 ScreenHarbor releases are built from a clean, committed source tree. The direct
-website channel is ad-hoc signed and is not Apple-notarized.
+Mac website channel is ad-hoc signed and is not Apple-notarized. The iOS IPA is
+unsigned and must be re-signed by the installer's sideloading tool.
 
 ## Prepare
 
 1. Update `CHANGELOG.md`, versions, documentation, and dependency locks.
 2. Run `swift test`.
-3. Regenerate the Xcode project and build both app schemes with signing disabled.
-4. Run the client scheme tests.
-5. Review `git diff`, secret scanning results, dependency notices, and the provenance
+3. Regenerate the Xcode project and build both macOS app schemes with signing disabled.
+4. Build the `ScreenHarborIOS` scheme for a generic iOS device with signing disabled.
+5. Run the client scheme tests.
+6. Review `git diff`, secret scanning results, dependency notices, and the provenance
    attestation in `PROVENANCE.md`.
-6. Commit and tag the exact release source as `vX.Y.Z`.
+7. Commit and tag the exact release source as `vX.Y.Z`.
 
 ## Package
 
@@ -19,6 +21,7 @@ From the clean tagged commit:
 
 ```bash
 scripts/package-screenharbor.sh all --format both --clean --release
+scripts/package-screenharbor-ios.sh --clean
 ```
 
 The packaging script:
@@ -29,6 +32,10 @@ The packaging script:
 - creates SHA-256 checksum files;
 - records the source commit and tree state in JSON manifests; and
 - generates a CycloneDX SBOM for every artifact.
+
+The iOS script creates an unsigned, arm64 IPA for a sideload tool to re-sign. It
+also creates a checksum, source manifest, and CycloneDX SBOM, and refuses a dirty
+tree unless `--allow-dirty` is explicitly used for development.
 
 Packaging with `--release` refuses a dirty tree, a missing commit, or a version that
 does not match the `vX.Y.Z` tag.

@@ -51,6 +51,10 @@ jobs:
         if: matrix.build-mode == 'manual'
         run: brew install xcodegen
 
+      - name: Install Metal toolchain
+        if: matrix.build-mode == 'manual'
+        run: sudo xcodebuild -downloadComponent MetalToolchain
+
       - name: Generate Xcode project
         if: matrix.build-mode == 'manual'
         run: xcodegen generate --spec screenharbor-project.yml
@@ -77,6 +81,13 @@ jobs:
             -scheme ScreenHarborClient \
             -configuration Debug \
             -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+          xcodebuild \
+            -project ScreenHarbor.xcodeproj \
+            -scheme ScreenHarborIOS \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build
 

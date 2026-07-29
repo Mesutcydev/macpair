@@ -2,7 +2,7 @@ import Foundation
 import os
 
 enum CrashSafeStartupDiagnostics {
-    private static let logger = Logger(subsystem: "com.remotedesktop.client", category: "Startup")
+    private static let logger = Logger(subsystem: "uk.mesut.screenharbor.ios", category: "Startup")
 
     static func mark(_ event: String, details: String? = nil) {
         if let details, !details.isEmpty {

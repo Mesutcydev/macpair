@@ -10,7 +10,6 @@ Build/
 .packaging-macclient/
 .packaging-macclient-appstore/
 .packaging-ios/
-.openmacremote-packaging/
 .screenharbor-packaging/
 .dmg-staging/
 .pkg-verify/
@@ -102,35 +101,8 @@ Sources/HostWidget/
 Sources/ClientiOSLiveActivity/
 Sources/HostApp/Assets.xcassets/
 
-# Only the shared client files used by the macOS client belong to this fork.
-Sources/ClientiOS/*
-!Sources/ClientiOS/AppHaptics.swift
-!Sources/ClientiOS/BonjourWakeService.swift
-!Sources/ClientiOS/ClientAppEnvironment.swift
-!Sources/ClientiOS/ClientAudioRenderer.swift
-!Sources/ClientiOS/ClientClipboardSyncManager.swift
-!Sources/ClientiOS/ClientFileTransferManager.swift
-!Sources/ClientiOS/ClientHostBlockedState.swift
-!Sources/ClientiOS/ClientReconnectCoordinator.swift
-!Sources/ClientiOS/ClientSessionCoordinator.swift
-!Sources/ClientiOS/ClientSettingsSyncService.swift
-!Sources/ClientiOS/ClientTerminalSessionManager.swift
-!Sources/ClientiOS/ClientTrustedHostsViewModel.swift
-!Sources/ClientiOS/CrashSafeStartupDiagnostics.swift
-!Sources/ClientiOS/DisplayLayoutViewModel.swift
-!Sources/ClientiOS/HostsListViewModel.swift
-!Sources/ClientiOS/RemoteDisplayViewModel.swift
-!Sources/ClientiOS/SessionScreenshotService.swift
-!Sources/ClientiOS/SessionStatsViewModel.swift
-!Sources/ClientiOS/VideoFrameDecoderView.swift
-!Sources/ClientiOS/WakeCoordinator.swift
-!Sources/ClientiOS/WakeOnLANService.swift
-!Sources/ClientiOS/Localizable.xcstrings
-!Sources/ClientiOS/Models/
-Sources/ClientiOS/Models/*
-!Sources/ClientiOS/Models/Display.swift
-!Sources/ClientiOS/Models/Host.swift
-!Sources/ClientiOS/Models/Session.swift
+# The old StoreKit paywall is intentionally excluded from direct/open-source builds.
+Sources/ClientiOS/StreamingPaywallView.swift
 appstore-screenshots/
 screenshots/
 project.yml
@@ -147,6 +119,7 @@ scripts/*
 !scripts/install-screenharbor-cli.command
 !scripts/publish-screenharbor.sh
 !scripts/generate-screenharbor-sbom.sh
+!scripts/package-screenharbor-ios.sh
 
 # Legacy client signing and branded asset files are not used by ScreenHarbor.xcodeproj
 MacClient/Resources/Assets.xcassets/

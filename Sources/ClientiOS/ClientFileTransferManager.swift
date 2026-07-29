@@ -67,7 +67,7 @@ final class ClientFileTransferManager: ObservableObject {
     }
 
     private enum DefaultsKeys {
-        static let isEnabled = "com.remotedesktop.client.filetransfer.enabled"
+        static let isEnabled = "uk.mesut.screenharbor.ios.filetransfer.enabled"
     }
 
     @Published var isImporterPresented = false

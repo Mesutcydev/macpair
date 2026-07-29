@@ -1,6 +1,6 @@
 # ScreenHarbor
 
-**ScreenHarbor is an open-source, native remote desktop for macOS.** It pairs a lightweight Mac host with a Mac client for low-latency screen sharing, keyboard and pointer control, clipboard sync, file transfer, audio, and an opt-in remote terminal.
+**ScreenHarbor is an open-source, native remote desktop for macOS, iOS, and iPadOS.** It pairs a lightweight Mac host with Mac and iPhone/iPad clients for low-latency screen sharing, keyboard and pointer control, clipboard sync, file transfer, audio, and an opt-in remote terminal.
 
 The project is local-first. Discovery uses Bonjour on your LAN, peer identities are signed, and every new client must be visibly approved on the host. For access beyond the local network, use a private network you control, such as Tailscale; ScreenHarbor does not require a hosted relay or account.
 
@@ -9,17 +9,21 @@ The project is local-first. Discovery uses Bonjour on your LAN, peer identities 
 | App | Purpose | Bundle ID |
 | --- | --- | --- |
 | ScreenHarbor Host | Runs on the Mac being controlled | `uk.mesut.screenharbor.host` |
-| ScreenHarbor | Connects to an approved host | `uk.mesut.screenharbor.client` |
+| ScreenHarbor for Mac | Connects to an approved host | `uk.mesut.screenharbor.client` |
+| ScreenHarbor for iOS | Sideloadable iPhone/iPad client | `uk.mesut.screenharbor.ios` |
 
-Both apps are distributed directly from the project website and can be built without
+All three apps are distributed directly from the project website and can be built without
 App Store services.
 
 ## Download and install
 
 Download the [Mac client](https://mesut.uk/apps/screenharbor) and
 [host](https://mesut.uk/apps/screenharbor-host) DMGs directly from the project website.
+The unsigned iOS 18+ IPA and its checksum are available from the
+[ScreenHarbor client page](https://mesut.uk/apps/screenharbor); read the
+[sideloading guide](docs/IOS_SIDELOAD.md) before installing it.
 
-Current website builds are ad-hoc signed, not Developer ID signed or Apple-notarized.
+Current Mac website builds are ad-hoc signed, not Developer ID signed or Apple-notarized.
 Verify the adjacent SHA-256 checksum and manifest before opening a download. On first
 launch:
 
@@ -52,8 +56,15 @@ Build the client by changing the scheme to `ScreenHarborClient`. Create website-
 scripts/package-screenharbor.sh all --format both --clean
 ```
 
+Create an unsigned, device-only iOS IPA with:
+
+```bash
+scripts/package-screenharbor-ios.sh --clean
+```
+
 No Apple account, certificate, provisioning profile, or notarization credential is
-required for a local build.
+required to build the IPA. A sideloading tool must re-sign it with an Apple ID/team
+controlled by the person installing it.
 
 ## Agent and automation interface
 

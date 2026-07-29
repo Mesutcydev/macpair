@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 [[ $# -eq 6 ]] || {
-  printf 'Usage: %s <artifact> <host|client> <version> <build> <commit> <output>\n' "$0" >&2
+  printf 'Usage: %s <artifact> <host|client|ios-client> <version> <build> <commit> <output>\n' "$0" >&2
   exit 64
 }
 
@@ -19,8 +19,8 @@ commit="$5"
 output="$6"
 
 [[ -f "$artifact" ]] || { printf 'Artifact not found: %s\n' "$artifact" >&2; exit 1; }
-[[ "$component" == host || "$component" == client ]] || {
-  printf 'Component must be host or client\n' >&2
+[[ "$component" == host || "$component" == client || "$component" == ios-client ]] || {
+  printf 'Component must be host, client, or ios-client\n' >&2
   exit 64
 }
 
@@ -45,11 +45,11 @@ sha = os.environ["SHA"]
 serial = os.environ["SERIAL"]
 
 app_name = "ScreenHarbor Host" if component == "host" else "ScreenHarbor"
-bundle_id = (
-    "uk.mesut.screenharbor.host"
-    if component == "host"
-    else "uk.mesut.screenharbor.client"
-)
+bundle_id = {
+    "host": "uk.mesut.screenharbor.host",
+    "client": "uk.mesut.screenharbor.client",
+    "ios-client": "uk.mesut.screenharbor.ios",
+}[component]
 
 application = {
     "type": "application",
@@ -79,7 +79,7 @@ dependencies = [
         "licenses": [{"license": {"id": "BSD-3-Clause"}}],
     },
 ]
-if component == "client":
+if component in {"client", "ios-client"}:
     dependencies.append(
         {
             "type": "library",
@@ -112,7 +112,10 @@ payload = {
         "component": application,
         "properties": [
             {"name": "screenharbor:sourceCommit", "value": commit},
-            {"name": "screenharbor:codeSignature", "value": "ad-hoc"},
+            {
+                "name": "screenharbor:codeSignature",
+                "value": "unsigned" if component == "ios-client" else "ad-hoc",
+            },
             {"name": "screenharbor:appleNotarized", "value": "false"},
         ],
     },

@@ -8,8 +8,8 @@ ScreenHarbor includes or links the following open-source components. Their licen
 - License: MIT
 - Copyright © 2019–2022 Miguel de Icaza; © 2017–2019 xterm.js authors; © 2014–2016 SourceLair Private Company; © 2012–2013 Christopher Jeffrey
 
-The full SwiftTerm license is shipped inside the client app at
-`Contents/Resources/ThirdPartyLicenses/SwiftTerm-LICENSE`.
+The full SwiftTerm license is shipped inside each client app under
+`ThirdPartyLicenses/SwiftTerm-LICENSE`.
 
 ## Opus
 
@@ -18,8 +18,11 @@ The full SwiftTerm license is shipped inside the client app at
 - Copyright 2001–2011 Xiph.Org, Skype Limited, Octasic, Jean-Marc Valin, Timothy B. Terriberry, CSIRO, Gregory Maxwell, Mark Borgerding, and Erik de Castro Lopo
 
 The complete license and patent notice is retained at `Sources/Copus/COPYING` and
-shipped inside each app at `Contents/Resources/ThirdPartyLicenses/Opus-COPYING`.
+shipped inside each app under `ThirdPartyLicenses/Opus-COPYING`.
 
 ## Apple platform frameworks
 
-ScreenHarbor uses macOS system frameworks including SwiftUI, AppKit, ScreenCaptureKit, Network, VideoToolbox, AudioToolbox, CryptoKit, and Bonjour/DNS-SD. These are supplied by macOS and Xcode and are not redistributed under this repository's Apache-2.0 license.
+ScreenHarbor uses Apple system frameworks including SwiftUI, AppKit, UIKit,
+ScreenCaptureKit, Network, VideoToolbox, AudioToolbox, CryptoKit, and Bonjour/DNS-SD.
+These are supplied by macOS, iOS/iPadOS, and Xcode and are not redistributed under
+this repository's Apache-2.0 license.

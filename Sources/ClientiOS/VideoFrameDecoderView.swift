@@ -27,7 +27,7 @@ final class VideoFrameDecoder: @unchecked Sendable {
     private static let maxDecodeDimension: Int32 = 8192
 
     private let lock = NSLock()
-    private let decodeQueue = DispatchQueue(label: "com.remotedesktop.client.video-decode", qos: .userInitiated)
+    private let decodeQueue = DispatchQueue(label: "uk.mesut.screenharbor.ios.video-decode", qos: .userInitiated)
     private var decompressionSession: VTDecompressionSession?
     private var formatDescription: CMVideoFormatDescription?
     private var currentDynamicRange: StreamDynamicRange = .sdr
@@ -39,7 +39,7 @@ final class VideoFrameDecoder: @unchecked Sendable {
     /// a stream that's receiving frames but never decoding (e.g. the initial keyframe's
     /// parameter sets were lost on the unreliable channel). Nil until the first success.
     private var _lastSuccessfulDecodeAt: TimeInterval?
-    private let logger = Logger(subsystem: "com.remotedesktop.client", category: "VideoDecoder")
+    private let logger = Logger(subsystem: "uk.mesut.screenharbor.ios", category: "VideoDecoder")
     private var hasLoggedDecodeStart = false
     private var hasLoggedDecodeSuccess = false
 
@@ -532,7 +532,7 @@ final class VideoRendererViewModel: ObservableObject {
     /// frames but not decoding any (lost initial keyframe). The decoder's own debounce
     /// rate-limits the actual request, so polling at ~1 Hz can't spam the host.
     private var decodeWatchdogTask: Task<Void, Never>?
-    private let logger = Logger(subsystem: "com.remotedesktop.client", category: "VideoRenderer")
+    private let logger = Logger(subsystem: "uk.mesut.screenharbor.ios", category: "VideoRenderer")
     private var hasLoggedFirstRender = false
     private var receiveGeneration: UInt64 = 0
     /// Gate for late frames: a frame decoded just before stop must not set a stale

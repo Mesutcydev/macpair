@@ -157,7 +157,7 @@ final class ClientSessionCoordinator: ObservableObject {
     private var reconnectOperationCount = 0
 
     private let pathMonitor = NWPathMonitor()
-    private let pathMonitorQueue = DispatchQueue(label: "com.remotedesktop.client.vpnmonitor")
+    private let pathMonitorQueue = DispatchQueue(label: "uk.mesut.screenharbor.ios.vpnmonitor")
     private var expectedSessionTokenHex: String?
     private var expectedHostFingerprint: String?
     /// Last NWPath satisfaction state — used to detect heal transitions.
@@ -169,7 +169,7 @@ final class ClientSessionCoordinator: ObservableObject {
     /// Preset most recently sent as a downgrade request (avoids re-sending the same request).
     private var lastDowngradeRequestPreset: StreamQualityPreset?
 
-    private let logger = Logger(subsystem: "com.remotedesktop.client", category: "SessionCoordinator")
+    private let logger = Logger(subsystem: "uk.mesut.screenharbor.ios", category: "SessionCoordinator")
     /// Records connection-signal timeline; dumps a report on connection loss.
     private let connectionDebugger: ConnectionDebugger
     private var debugChannelObserverTask: Task<Void, Never>?

@@ -6,6 +6,22 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-07-29
+
+### Added
+
+- Add the open-source ScreenHarbor iPhone/iPad client for iOS 18 and later.
+- Add reproducible unsigned IPA packaging with SHA-256, source manifest, and
+  CycloneDX SBOM output for user-controlled sideload re-signing.
+- Add iOS sideloading and agent-discovery documentation.
+
+### Changed
+
+- Use the ScreenHarbor bundle identity and `_screenharbor._tcp` discovery
+  contract throughout the iOS client.
+- Remove the obsolete App Store paywall and daily streaming cap from the
+  direct/open-source iOS build.
+
 ### Fixed
 
 - Make website release staging idempotent when ScreenHarbor is already marked live.
@@ -15,6 +31,10 @@ All notable changes to ScreenHarbor are documented here. The format follows
   hardware HEVC decoder.
 - Align CodeQL action pins and use its no-build C/C++ mode to remove workflow
   compatibility warnings.
+- Install the Metal build component in CodeQL and include the iOS client in the
+  audited Swift target set.
+- Keep direct-distribution settings local so iOS launch does not require an
+  unavailable iCloud KVS entitlement.
 
 ## [1.0.2] - 2026-07-29
 
@@ -46,7 +66,8 @@ All notable changes to ScreenHarbor are documented here. The format follows
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
-[Unreleased]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Mesutcydev/screenharbor/releases/tag/v1.0.0

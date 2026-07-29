@@ -10,7 +10,7 @@ protocol ClientSettingsSyncing: AnyObject {
 
 final class ClientSettingsSyncService: ClientSettingsSyncing {
     private enum Keys {
-        static let featureSettings = "com.remotedesktop.client.featureSettings"
+        static let featureSettings = "uk.mesut.screenharbor.ios.featureSettings"
     }
 
     private let defaults: UserDefaults
@@ -18,9 +18,20 @@ final class ClientSettingsSyncService: ClientSettingsSyncing {
     private var observer: NSObjectProtocol?
     private var changeHandler: (@Sendable (SessionFeatureSettings) -> Void)?
 
+    private static var defaultCloudStore: NSUbiquitousKeyValueStore? {
+        #if DIRECTDIST
+        // Website and sideload builds intentionally carry no iCloud entitlement.
+        // Initializing the default KVS store without that entitlement produces a
+        // launch-time client fault, so keep settings local for this channel.
+        nil
+        #else
+        NSUbiquitousKeyValueStore.default
+        #endif
+    }
+
     init(
         defaults: UserDefaults = .standard,
-        cloudStore: NSUbiquitousKeyValueStore? = NSUbiquitousKeyValueStore.default
+        cloudStore: NSUbiquitousKeyValueStore? = ClientSettingsSyncService.defaultCloudStore
     ) {
         self.defaults = defaults
         self.cloudStore = cloudStore
