@@ -12,8 +12,8 @@ Program rules change; verify the linked requirements immediately before applying
 - named maintainers, governance, support, and security policies
 - dependency lock files and automated dependency review
 - macOS CI, CodeQL, OpenSSF Scorecard, and hardened-runner workflows
-- release tooling for checksums, source-commit manifests, SBOMs, and signed update
-  feeds
+- release tooling for checksums, source-commit manifests, SBOMs, and staged
+  website artifacts
 - an agent contract, machine-readable manifest, and `llms.txt`
 
 ## Evidence to accumulate after launch
