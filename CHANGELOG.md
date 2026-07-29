@@ -6,6 +6,10 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Make website release staging idempotent when ScreenHarbor is already marked live.
+
 ## [1.0.2] - 2026-07-29
 
 ### Fixed

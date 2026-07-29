@@ -108,9 +108,13 @@ if is_release:
                 ("- Planned source:", "- Source:"),
             )
             for old, new in replacements:
-                if section.count(old) != 1:
+                old_count = section.count(old)
+                if old_count == 1:
+                    section = section.replace(old, new, 1)
+                elif old_count == 0 and new in section:
+                    continue
+                else:
                     raise SystemExit(f"Unexpected llms-full marker count for {title}: {old}")
-                section = section.replace(old, new, 1)
             full_text = full_text[:match.start()] + section + full_text[match.end():]
         open(full_path, "w", encoding="utf-8").write(full_text)
 
@@ -132,9 +136,13 @@ if is_release:
             ),
         )
         for old, new, expected in replacements:
-            if index_text.count(old) != expected:
+            old_count = index_text.count(old)
+            if old_count == expected:
+                index_text = index_text.replace(old, new)
+            elif old_count == 0 and index_text.count(new) >= expected:
+                continue
+            else:
                 raise SystemExit(f"Unexpected llms.txt marker count: {old}")
-            index_text = index_text.replace(old, new)
         open(index_path, "w", encoding="utf-8").write(index_text)
 PY
 
