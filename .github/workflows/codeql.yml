@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: read
       security-events: write
-    runs-on: macos-26-intel
+    runs-on: macos-15-intel
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -50,32 +50,6 @@ jobs:
       - name: Install XcodeGen
         if: matrix.build-mode == 'manual'
         run: brew install xcodegen
-
-      - name: Install Metal toolchain
-        if: matrix.build-mode == 'manual'
-        run: |
-          metal_download_dir="$RUNNER_TEMP/metal-toolchain"
-          mkdir -p "$metal_download_dir"
-          sudo xcodebuild \
-            -downloadComponent MetalToolchain \
-            -exportPath "$metal_download_dir"
-          sudo chown -R "$(id -u):$(id -g)" "$metal_download_dir"
-
-          metal_bundle="$(
-            find "$metal_download_dir" \
-              -maxdepth 1 \
-              -type d \
-              -name '*.exportedBundle' \
-              -print \
-              -quit
-          )"
-          test -n "$metal_bundle"
-          xcodebuild \
-            -importComponent MetalToolchain \
-            -importPath "$metal_bundle"
-          xcodebuild -showComponent MetalToolchain
-          xcrun --find metal
-          xcrun metal --version
 
       - name: Generate Xcode project
         if: matrix.build-mode == 'manual'
