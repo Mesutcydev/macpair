@@ -281,4 +281,9 @@ if [[ "$TARGET" == "client" || "$TARGET" == "all" ]]; then
   package_component client
 fi
 
+if [[ "$RELEASE" -eq 1 ]]; then
+  [[ -z "$(git -C "$ROOT" status --porcelain --untracked-files=normal)" ]] ||
+    fail "Release packaging changed the source tree; commit dependency lock updates before publishing"
+fi
+
 log "Done. Website artifacts are in $DIST"

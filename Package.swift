@@ -22,7 +22,11 @@ let package = Package(
         .library(name: "Diagnostics", targets: ["Diagnostics"])
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.13.0")
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.13.0"),
+        // The macOS app projects consume Sparkle directly. Keeping the exact
+        // dependency in the root graph gives SwiftPM and Xcode one shared,
+        // reproducible Package.resolved file.
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.4")
     ],
     targets: [
         .target(name: "SharedModels"),
@@ -79,7 +83,11 @@ let package = Package(
                 "Discovery",
                 "Diagnostics",
                 "HostWidgetShared",
-                "SharedUI"
+                "SharedUI",
+                .product(name: "Sparkle", package: "Sparkle")
+            ],
+            exclude: [
+                "Assets.xcassets"
             ],
             resources: [
                 .process("Localizable.xcstrings"),
@@ -99,6 +107,31 @@ let package = Package(
                 .product(name: "SwiftTerm", package: "SwiftTerm")
             ],
             path: "Sources/ClientiOS",
+            exclude: [
+                "AnnotationOverlayStore.swift",
+                "AppIntents.swift",
+                "AppLockService.swift",
+                "AppLockView.swift",
+                "Assets.xcassets",
+                "BackgroundKeepaliveService.swift",
+                "BluetoothInputController.swift",
+                "BluetoothInputStatusView.swift",
+                "ClientiOSApp.swift",
+                "Components",
+                "DesignSystem",
+                "KeyboardOverlayView.swift",
+                "LiveActivityService.swift",
+                "Onboarding",
+                "PrivacyInfo.xcprivacy",
+                "ReceivedFileSaveSheet.swift",
+                "RemoteInteractionViewModel.swift",
+                "ScreenAIToolsView.swift",
+                "SessionNotesStore.swift",
+                "StreamingPaywallView.swift",
+                "TerminalModeView.swift",
+                "Views",
+                "VoiceDictationService.swift"
+            ],
             sources: [
                 "AppHaptics.swift",
                 "BonjourWakeService.swift",

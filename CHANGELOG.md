@@ -6,6 +6,14 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-29
+
+### Fixed
+
+- Commit the complete application dependency lock, including Sparkle 2.9.4, so
+  release packaging does not dirty the source tree.
+- Recheck source-tree cleanliness after packaging before allowing publication.
+
 ## [1.0.0] - 2026-07-29
 
 ### Added
@@ -17,5 +25,6 @@ All notable changes to ScreenHarbor are documented here. The format follows
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
-[Unreleased]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Mesutcydev/screenharbor/releases/tag/v1.0.0
