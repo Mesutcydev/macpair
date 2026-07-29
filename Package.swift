@@ -1,6 +1,24 @@
 // swift-tools-version: 5.9
 
+import Foundation
 import PackageDescription
+
+let packageRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+
+func packagePathExists(_ relativePath: String) -> Bool {
+    FileManager.default.fileExists(
+        atPath: packageRoot.appendingPathComponent(relativePath).path
+    )
+}
+
+// These legacy, ignored files can exist in pre-open-source working copies. Keep
+// SwiftPM quiet locally without producing invalid-exclude warnings in clean clones.
+let hostAppLocalExcludes = packagePathExists("Sources/HostApp/Assets.xcassets")
+    ? ["Assets.xcassets"]
+    : []
+let clientLocalExcludes = packagePathExists("Sources/ClientiOS/StreamingPaywallView.swift")
+    ? ["StreamingPaywallView.swift"]
+    : []
 
 let package = Package(
     name: "ScreenHarborCore",
@@ -81,9 +99,7 @@ let package = Package(
                 "HostWidgetShared",
                 "SharedUI"
             ],
-            exclude: [
-                "Assets.xcassets"
-            ],
+            exclude: hostAppLocalExcludes,
             resources: [
                 .process("Localizable.xcstrings"),
                 .process("PrivacyInfo.xcprivacy")
@@ -122,11 +138,10 @@ let package = Package(
                 "RemoteInteractionViewModel.swift",
                 "ScreenAIToolsView.swift",
                 "SessionNotesStore.swift",
-                "StreamingPaywallView.swift",
                 "TerminalModeView.swift",
                 "Views",
                 "VoiceDictationService.swift"
-            ],
+            ] + clientLocalExcludes,
             sources: [
                 "AppHaptics.swift",
                 "BonjourWakeService.swift",
