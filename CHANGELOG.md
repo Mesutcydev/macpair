@@ -6,6 +6,8 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-07-31
+
 ### Fixed
 
 - Stop treating a transient ScreenCaptureKit probe error as Screen Recording
@@ -88,7 +90,8 @@ All notable changes to ScreenHarbor are documented here. The format follows
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
-[Unreleased]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.5...HEAD
+[1.0.5]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.1...v1.0.2
