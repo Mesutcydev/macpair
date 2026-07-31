@@ -140,7 +140,8 @@ if is_release:
                 old_count = section.count(old)
                 if old_count == 1:
                     section = section.replace(old, new, 1)
-                elif old_count == 0 and new in section:
+                elif old_count == 0:
+                    # Already flipped to live, possibly with reworded copy.
                     continue
                 else:
                     raise SystemExit(f"Unexpected llms-full marker count for {title}: {old}")
@@ -168,7 +169,8 @@ if is_release:
             old_count = index_text.count(old)
             if old_count == expected:
                 index_text = index_text.replace(old, new)
-            elif old_count == 0 and index_text.count(new) >= expected:
+            elif old_count == 0:
+                # Already flipped to live, possibly with reworded copy.
                 continue
             else:
                 raise SystemExit(f"Unexpected llms.txt marker count: {old}")
