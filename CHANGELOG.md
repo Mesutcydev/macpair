@@ -6,6 +6,8 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-07-31
+
 ### Fixed
 
 - Detect when an ad-hoc Host rebuild invalidates Screen Recording /
@@ -77,7 +79,8 @@ All notable changes to ScreenHarbor are documented here. The format follows
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
-[Unreleased]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.0...v1.0.1

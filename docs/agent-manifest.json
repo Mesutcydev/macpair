@@ -16,8 +16,8 @@
     "iosClient": {"os": "iOS/iPadOS", "minimumVersion": "18.0"}
   },
   "downloads": {
-    "host": "https://mesut.uk/ScreenHarbor-Host-1.0.2-build-4.dmg",
-    "client": "https://mesut.uk/ScreenHarbor-1.0.2-build-4.dmg",
+    "host": "https://mesut.uk/ScreenHarbor-Host-1.0.4-build-5.dmg",
+    "client": "https://mesut.uk/ScreenHarbor-1.0.4-build-5.dmg",
     "iosClient": "https://mesut.uk/ScreenHarbor-iOS-1.0.3-build-4-unsigned.ipa",
     "integritySuffixes": [".sha256", ".manifest.json", ".sbom.cdx.json"],
     "appleNotarized": false,

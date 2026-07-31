@@ -10,8 +10,8 @@ Website: https://mesut.uk/apps/screenharbor
 Source: https://github.com/Mesutcydev/screenharbor
 License: Apache-2.0
 Minimum macOS: 13.0
-Host download: https://mesut.uk/ScreenHarbor-Host-1.0.2-build-4.dmg
-Mac client download: https://mesut.uk/ScreenHarbor-1.0.2-build-4.dmg
+Host download: https://mesut.uk/ScreenHarbor-Host-1.0.4-build-5.dmg
+Mac client download: https://mesut.uk/ScreenHarbor-1.0.4-build-5.dmg
 iOS client download: https://mesut.uk/ScreenHarbor-iOS-1.0.3-build-4-unsigned.ipa
 Integrity files: append .sha256, .manifest.json, or .sbom.cdx.json to a download URL
 Mac signing: ad-hoc; current Mac downloads are not Apple-notarized

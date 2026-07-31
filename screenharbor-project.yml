@@ -66,8 +66,8 @@ targets:
               - screenharbor
     settings:
       base:
-        MARKETING_VERSION: 1.0.2
-        CURRENT_PROJECT_VERSION: 4
+        MARKETING_VERSION: 1.0.4
+        CURRENT_PROJECT_VERSION: 5
         PRODUCT_BUNDLE_IDENTIFIER: uk.mesut.screenharbor.host
         PRODUCT_NAME: ScreenHarbor Host
         INFOPLIST_FILE: ScreenHarbor/Resources/ScreenHarborHost-Info.plist
@@ -148,8 +148,8 @@ targets:
           - _screenharbor._tcp.
     settings:
       base:
-        MARKETING_VERSION: 1.0.2
-        CURRENT_PROJECT_VERSION: 4
+        MARKETING_VERSION: 1.0.4
+        CURRENT_PROJECT_VERSION: 5
         PRODUCT_BUNDLE_IDENTIFIER: uk.mesut.screenharbor.client
         PRODUCT_NAME: ScreenHarbor
         INFOPLIST_FILE: ScreenHarbor/Resources/ScreenHarborClient-Info.plist
