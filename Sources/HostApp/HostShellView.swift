@@ -1749,6 +1749,26 @@ private struct HostPermissionsView: View {
                         .padding(4)
                     }
 
+                    if viewModel.permissionsResetByUpdate {
+                        GroupBox {
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(AppColor.warning)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Approvals were cleared by the update")
+                                        .font(.callout.weight(.semibold))
+                                        .foregroundStyle(.primary)
+                                    Text(viewModel.permissionsResetByUpdateMessage)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(4)
+                        }
+                    }
+
                     // Required permissions
                     let required = viewModel.statuses.filter(\.isRequired)
                     if !required.isEmpty {

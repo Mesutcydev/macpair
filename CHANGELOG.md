@@ -6,6 +6,12 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Detect when an ad-hoc Host rebuild invalidates Screen Recording /
+  Accessibility grants, re-prompt for the new binary, and tell the operator
+  how to remove the stale System Settings entry.
+
 ### Changed
 
 - Give ScreenHarbor Host and ScreenHarbor distinct macOS app icons (bloodbag

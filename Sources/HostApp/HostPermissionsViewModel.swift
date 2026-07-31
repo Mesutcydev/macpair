@@ -14,6 +14,27 @@ final class HostPermissionsViewModel: ObservableObject {
     private let eventLogStore: any EventLogStoreProtocol
     private var previousStates: [PermissionKind: PermissionAuthorizationState] = [:]
 
+    private static let explainerShownKey = "host.didShowPermissionExplainer"
+    /// Code identity the OS permission prompt was last fired for. Stored instead
+    /// of a one-shot flag because an ad-hoc signed rebuild invalidates the
+    /// previous TCC grants, and the operator needs a fresh prompt for the new
+    /// binary rather than silence.
+    private static let promptedIdentityKey = "host.lastPermissionPromptCodeIdentity"
+    /// Code identity that last had every required permission granted.
+    private static let grantedIdentityKey = "host.lastGrantedPermissionCodeIdentity"
+    /// Superseded one-shot flag, kept only to migrate existing installs.
+    private static let legacyPromptedKey = "host.didRequestScreenRecording"
+
+    /// Whether an earlier build of the host already drove the OS prompt, sampled
+    /// before this launch overwrites the stored identity.
+    private let promptedForEarlierBuild: Bool = {
+        let defaults = UserDefaults.standard
+        guard let prompted = defaults.string(forKey: "host.lastPermissionPromptCodeIdentity") else {
+            return defaults.bool(forKey: "host.didRequestScreenRecording")
+        }
+        return prompted != AppCodeIdentity.current()
+    }()
+
     init(
         permissionService: any PermissionServiceProtocol,
         eventLogStore: any EventLogStoreProtocol
@@ -66,17 +87,17 @@ final class HostPermissionsViewModel: ObservableObject {
     func refresh() async {
         isRefreshing = true
         lastErrorMessage = nil
-        // The system permission request is now gated behind the in-app
-        // explainer sheet (HostPermissionExplainerSheet).  We only fire it
-        // once the user has seen the explainer AND we haven't already
-        // prompted, so the OS dialog never appears without context.
-        if UserDefaults.standard.bool(forKey: "host.didShowPermissionExplainer"),
-            !UserDefaults.standard.bool(forKey: "host.didRequestScreenRecording") {
-            UserDefaults.standard.set(true, forKey: "host.didRequestScreenRecording")
+        // The system permission request is gated behind the in-app explainer
+        // sheet (HostPermissionExplainerSheet) so the OS dialog never appears
+        // without context. It fires once per code identity: a rebuilt ad-hoc
+        // binary loses its TCC grants, so the new build has to ask again.
+        if UserDefaults.standard.bool(forKey: Self.explainerShownKey), promptIdentityIsStale {
+            UserDefaults.standard.set(AppCodeIdentity.current(), forKey: Self.promptedIdentityKey)
             _ = CGRequestScreenCaptureAccess()
         }
         let newStatuses = await permissionService.friendlyStatuses()
         statuses = newStatuses
+        recordGrantedIdentityIfReady()
         await logPermissionChanges(newStatuses)
         isRefreshing = false
     }
@@ -84,12 +105,41 @@ final class HostPermissionsViewModel: ObservableObject {
     /// Called by the explainer sheet on dismiss.  Marks the explainer as
     /// shown so the next refresh() call is free to fire the OS prompt.
     func markExplainerShown() {
-        UserDefaults.standard.set(true, forKey: "host.didShowPermissionExplainer")
+        UserDefaults.standard.set(true, forKey: Self.explainerShownKey)
     }
 
     /// True when the explainer has never been shown for this user account.
     var shouldShowExplainer: Bool {
-        !UserDefaults.standard.bool(forKey: "host.didShowPermissionExplainer")
+        !UserDefaults.standard.bool(forKey: Self.explainerShownKey)
+    }
+
+    /// True when this build has never fired the OS prompt, including the case
+    /// where only an earlier build of the app did.
+    private var promptIdentityIsStale: Bool {
+        UserDefaults.standard.string(forKey: Self.promptedIdentityKey) != AppCodeIdentity.current()
+    }
+
+    /// True when a previous build of the host was already approved but this one
+    /// has blockers, which is what macOS does after the app binary changes.
+    /// The stale System Settings entry has to be removed and re-added.
+    var permissionsResetByUpdate: Bool {
+        guard !blockers.isEmpty else { return false }
+        guard let granted = UserDefaults.standard.string(forKey: Self.grantedIdentityKey) else {
+            // Installs that predate identity tracking have no granted identity
+            // to compare, so fall back to whether an earlier build prompted.
+            return promptedForEarlierBuild
+        }
+        return granted != AppCodeIdentity.current()
+    }
+
+    private func recordGrantedIdentityIfReady() {
+        guard allRequiredGranted else { return }
+        UserDefaults.standard.set(AppCodeIdentity.current(), forKey: Self.grantedIdentityKey)
+    }
+
+    var permissionsResetByUpdateMessage: String {
+        "macOS ties these approvals to the exact app binary, so updating the host cleared them. "
+            + "In System Settings, select ScreenHarbor Host, remove it with the − button, then approve it again and relaunch the host."
     }
 
     func retry(_ kind: PermissionKind) async {
