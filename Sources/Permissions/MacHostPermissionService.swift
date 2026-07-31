@@ -106,53 +106,73 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
     }
 
     private func screenRecordingState() async -> PermissionState {
-        // Three-way race. All three run concurrently; first to finish wins.
+        // Combine CGPreflight and ScreenCaptureKit instead of first-wins.
         //
         // Why not call CGPreflightScreenCaptureAccess() before withCheckedContinuation:
         // on macOS 26 beta the privacy daemon can stall, making the synchronous C call
         // block indefinitely — the timeout would never be reached. Running it on a
         // DispatchQueue thread keeps it off the Swift cooperative pool.
+        //
+        // Why not resume on the first SCK error: after the operator grants Screen
+        // Recording in System Settings, SCK often fails until relaunch while
+        // CGPreflight already returns true. A first-wins deny hid that grant.
         return await withCheckedContinuation { continuation in
             let lock = NSLock()
             var resumed = false
+            var preflight: ScreenRecordingPermissionResolver.PreflightSignal?
+            var shareableContent: ScreenRecordingPermissionResolver.ShareableContentSignal?
+            var timedOut = false
 
-            func resumeOnce(_ authState: PermissionAuthorizationState) {
+            func considerResolve() {
                 lock.lock()
                 defer { lock.unlock() }
                 guard !resumed else { return }
+                guard let state = ScreenRecordingPermissionResolver.resolve(
+                    preflight: preflight,
+                    shareableContent: shareableContent,
+                    timedOut: timedOut
+                ) else {
+                    return
+                }
                 resumed = true
                 continuation.resume(returning: PermissionState(
                     kind: .screenRecording,
-                    authorizationState: authState,
+                    authorizationState: state,
                     lastCheckedAt: Date()
                 ))
             }
 
             // Path A: synchronous C API on a background OS thread (not cooperative pool)
             DispatchQueue.global(qos: .userInitiated).async {
-                if CGPreflightScreenCaptureAccess() {
-                    resumeOnce(.granted)
-                }
-                // If false, don't resolve — SCShareableContent may still confirm granted.
+                let granted = CGPreflightScreenCaptureAccess()
+                lock.lock()
+                preflight = granted ? .granted : .denied
+                lock.unlock()
+                considerResolve()
             }
 
             // Path B: ScreenCaptureKit probe (authoritative when C API lies)
             Task {
                 do {
                     let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                    resumeOnce(content.displays.isEmpty ? .denied : .granted)
+                    lock.lock()
+                    shareableContent = content.displays.isEmpty ? .deniedEmptyDisplays : .granted
+                    lock.unlock()
                 } catch {
-                    resumeOnce(.denied)
+                    lock.lock()
+                    shareableContent = .error
+                    lock.unlock()
                 }
+                considerResolve()
             }
 
             // Path C: 5-second ceiling so UI never stalls.
-            // Returns .unknown (not .denied) so the UI shows "Needs checking"
-            // rather than "Blocked" when the TCC daemon is temporarily stalled
-            // (common on macOS 26+ after install or OS update).
             Task {
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
-                resumeOnce(.unknown)
+                lock.lock()
+                timedOut = true
+                lock.unlock()
+                considerResolve()
             }
         }
     }
@@ -188,7 +208,7 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
     private func helperText(for kind: PermissionKind) -> String {
         switch kind {
         case .screenRecording:
-            return "Needed so ScreenCaptureKit can capture your Mac display for the remote stream. If an older MacHost build is already approved, enable this updated build in System Settings and relaunch it."
+            return "Needed so ScreenCaptureKit can capture your Mac display for the remote stream. If an older MacHost build is already approved, enable this updated build in System Settings, then quit and relaunch ScreenHarbor Host."
         case .accessibility:
             if policy.canRequestAccessibilityPermission {
                 if policy.supportsRemoteInput {

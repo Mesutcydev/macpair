@@ -6,6 +6,15 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Stop treating a transient ScreenCaptureKit probe error as Screen Recording
+  denial, so the Host reads an approval that CoreGraphics already sees
+  (common right after granting permission from the 1.0.4 DMG).
+- Re-check Host permissions when returning to the app and while setup
+  blockers remain, and re-prompt Accessibility as well as Screen Recording
+  after an ad-hoc binary identity change.
+
 ## [1.0.4] - 2026-07-31
 
 ### Fixed

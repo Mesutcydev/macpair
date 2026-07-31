@@ -263,12 +263,27 @@ private struct HostMinimalDashboard: View {
         }
         .onChange(of: scenePhase) { phase in
             guard phase == .active else { return }
+            // Re-read TCC after returning from System Settings. Without this,
+            // the dashboard keeps showing stale blockers until a manual Refresh.
+            Task { await permissionsViewModel.refresh() }
             Task.detached(priority: .utility) {
                 let info = getTailscaleConnectionInfo()
                 await MainActor.run {
                     tailscaleInfo = info
                     Task { await discoveryViewModel.updateTailscaleIdentity(hostname: info?.dnsName, ip: info?.ipAddress) }
                 }
+            }
+        }
+        .task(id: permissionsViewModel.blockers.count) {
+            // While setup is blocked, keep probing so a grant + relaunch or a
+            // late TCC settle is picked up without requiring another click.
+            guard !permissionsViewModel.blockers.isEmpty else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                guard !Task.isCancelled else { return }
+                guard !permissionsViewModel.blockers.isEmpty else { return }
+                guard !permissionsViewModel.isRefreshing else { continue }
+                await permissionsViewModel.refresh()
             }
         }
         .onChange(of: sessionCoordinator.phase) { _ in
