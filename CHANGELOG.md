@@ -6,6 +6,11 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Give ScreenHarbor Host and ScreenHarbor distinct macOS app icons (bloodbag
+  host, fang client), with matching splash artwork.
+
 ## [1.0.3] - 2026-07-29
 
 ### Added
