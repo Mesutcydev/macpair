@@ -3,6 +3,9 @@ import Foundation
 import Diagnostics
 import Permissions
 import SharedModels
+#if os(macOS)
+import ApplicationServices
+#endif
 
 @MainActor
 final class HostPermissionsViewModel: ObservableObject {
@@ -93,13 +96,25 @@ final class HostPermissionsViewModel: ObservableObject {
         // binary loses its TCC grants, so the new build has to ask again.
         if UserDefaults.standard.bool(forKey: Self.explainerShownKey), promptIdentityIsStale {
             UserDefaults.standard.set(AppCodeIdentity.current(), forKey: Self.promptedIdentityKey)
-            _ = CGRequestScreenCaptureAccess()
+            requestPermissionsForCurrentIdentity()
         }
         let newStatuses = await permissionService.friendlyStatuses()
         statuses = newStatuses
         recordGrantedIdentityIfReady()
         await logPermissionChanges(newStatuses)
         isRefreshing = false
+    }
+
+    /// Ask macOS to register/prompt for the current binary's TCC identity.
+    /// Screen Recording and Accessibility are both pinned to the ad-hoc cdhash,
+    /// so an update must re-request both — not only Screen Recording.
+    private func requestPermissionsForCurrentIdentity() {
+        _ = CGRequestScreenCaptureAccess()
+        #if os(macOS)
+        let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+        let options = [promptKey: true] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
+        #endif
     }
 
     /// Called by the explainer sheet on dismiss.  Marks the explainer as
@@ -139,7 +154,8 @@ final class HostPermissionsViewModel: ObservableObject {
 
     var permissionsResetByUpdateMessage: String {
         "macOS ties these approvals to the exact app binary, so updating the host cleared them. "
-            + "In System Settings, select ScreenHarbor Host, remove it with the − button, then approve it again and relaunch the host."
+            + "In System Settings, select ScreenHarbor Host, remove it with the − button, then approve it again. "
+            + "Quit ScreenHarbor Host completely and reopen it so Screen Recording takes effect."
     }
 
     func retry(_ kind: PermissionKind) async {
@@ -267,7 +283,7 @@ final class HostPermissionsViewModel: ObservableObject {
     private func helperText(for kind: PermissionKind) -> String {
         switch kind {
         case .screenRecording:
-            return "Needed so ScreenCaptureKit can capture your Mac display for the remote stream."
+            return "Needed so ScreenCaptureKit can capture your Mac display for the remote stream. After approving in System Settings, quit and relaunch the host."
         case .accessibility:
             return "Needed so trusted clients can control the pointer, keyboard, and shortcuts."
         case .localNetwork:
