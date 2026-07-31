@@ -47,7 +47,7 @@ targets:
           - Assets.xcassets
       - path: Sources/HostWidgetShared
       - path: Sources/SharedUI
-      - path: ScreenHarbor/Resources/Assets.xcassets
+      - path: ScreenHarbor/Resources/HostAssets.xcassets
     info:
       path: ScreenHarbor/Resources/ScreenHarborHost-Info.plist
       properties:
@@ -105,7 +105,7 @@ targets:
     sources:
       - path: MacClient/Sources
       - path: MacClient/Resources/PrivacyInfo.xcprivacy
-      - path: ScreenHarbor/Resources/Assets.xcassets
+      - path: ScreenHarbor/Resources/ClientAssets.xcassets
       - path: Sources/SharedUI
       - path: Sources/ClientiOS
         includes:
