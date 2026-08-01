@@ -8,6 +8,10 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ### Fixed
 
+- Stop passive permission refreshes and the “Open Settings” action from
+  re-triggering Screen Recording or Accessibility prompts. Native prompts are
+  now explicit and one-shot per launch, while stale ad-hoc TCC approvals show
+  a repair path instead of prompting in a loop.
 - Keep waiting for the CoreGraphics Screen Recording preflight when
   ScreenCaptureKit briefly reports no displays, so a fresh System Settings
   grant is not first-wins denied.

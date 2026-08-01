@@ -238,8 +238,8 @@ private struct HostMinimalDashboard: View {
             if !isCompact { AppBackground() }
         }
         .task {
-            // Show the in-app explainer before any system permission dialog
-            // fires.  Once dismissed, refresh() is free to call CGRequest...
+            // Show the in-app explainer before any native permission action.
+            // Passive refreshes never summon a system dialog.
             if permissionsViewModel.shouldShowExplainer {
                 showPermissionExplainer = true
             } else {
@@ -2967,9 +2967,9 @@ private struct TrustPromptBanner: View {
 // MARK: - Permission Explainer
 
 /// First-run explainer that runs *before* macOS's TCC dialogs so the
-/// operator understands what's being asked and why.  After tapping
-/// "Continue", the host calls CGRequestScreenCaptureAccess() which fires
-/// the real OS dialog.
+/// operator understands what's being asked and why. "Continue" only dismisses
+/// the explainer; native permission prompts remain explicit actions so
+/// lifecycle refreshes stay quiet while the operator repairs a stale TCC entry.
 private struct HostPermissionExplainerSheet: View {
     let supportsRemoteInput: Bool
     let onContinue: () -> Void
