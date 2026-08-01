@@ -113,9 +113,10 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
         // block indefinitely — the timeout would never be reached. Running it on a
         // DispatchQueue thread keeps it off the Swift cooperative pool.
         //
-        // Why not resume on the first SCK error: after the operator grants Screen
-        // Recording in System Settings, SCK often fails until relaunch while
-        // CGPreflight already returns true. A first-wins deny hid that grant.
+        // Why not resume on the first SCK error/empty-display result: after the
+        // operator grants Screen Recording in System Settings, SCK often fails
+        // or briefly reports no displays until relaunch while CGPreflight
+        // already returns true. A first-wins deny hid that grant.
         return await withCheckedContinuation { continuation in
             let lock = NSLock()
             var resumed = false

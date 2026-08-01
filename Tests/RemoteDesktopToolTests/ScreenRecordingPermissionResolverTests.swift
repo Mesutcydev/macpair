@@ -39,13 +39,31 @@ final class ScreenRecordingPermissionResolverTests: XCTestCase {
         XCTAssertEqual(state, .denied)
     }
 
-    func testEmptyDisplaysIsDenied() {
+    func testEmptyDisplaysDoesNotDenyBeforePreflightReturns() {
         let state = ScreenRecordingPermissionResolver.resolve(
             preflight: nil,
             shareableContent: .deniedEmptyDisplays,
             timedOut: false
         )
+        XCTAssertNil(state)
+    }
+
+    func testEmptyDisplaysDeniedWhenPreflightAlsoDenied() {
+        let state = ScreenRecordingPermissionResolver.resolve(
+            preflight: .denied,
+            shareableContent: .deniedEmptyDisplays,
+            timedOut: false
+        )
         XCTAssertEqual(state, .denied)
+    }
+
+    func testGrantedPreflightWinsOverEmptyDisplays() {
+        let state = ScreenRecordingPermissionResolver.resolve(
+            preflight: .granted,
+            shareableContent: .deniedEmptyDisplays,
+            timedOut: false
+        )
+        XCTAssertEqual(state, .granted)
     }
 
     func testTimeoutWithHungPreflightIsUnknown() {
@@ -55,6 +73,15 @@ final class ScreenRecordingPermissionResolverTests: XCTestCase {
             timedOut: true
         )
         XCTAssertEqual(state, .unknown)
+    }
+
+    func testTimeoutWithEmptyDisplaysIsDenied() {
+        let state = ScreenRecordingPermissionResolver.resolve(
+            preflight: nil,
+            shareableContent: .deniedEmptyDisplays,
+            timedOut: true
+        )
+        XCTAssertEqual(state, .denied)
     }
 
     func testTimeoutWithDeniedPreflightIsDenied() {

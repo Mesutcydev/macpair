@@ -79,6 +79,15 @@ final class HostWidgetBridge {
                 if self.pollTick % 5 == 0 {
                     self.environment?.refreshWidgetInstallSuppression()
                 }
+                // Tray-only / widget-suppressed launches may never mount the
+                // dashboard scenePhase refresh. While setup is blocked, keep
+                // re-reading TCC so a System Settings grant is noticed.
+                if self.pollTick % 3 == 0,
+                   let environment = self.environment,
+                   !environment.permissionsViewModel.blockers.isEmpty,
+                   !environment.permissionsViewModel.isRefreshing {
+                    await environment.permissionsViewModel.refresh()
+                }
             }
         }
         RunLoop.main.add(timer, forMode: .common)

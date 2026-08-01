@@ -562,6 +562,10 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
            UserDefaults.standard.bool(forKey: HostWidgetConstants.installedCacheKey) {
             HostWindowCloseBehaviorController.shared.suppressWindowForWidget()
         }
+        // Re-read Screen Recording / Accessibility after System Settings.
+        // Critical when the dashboard scene is suppressed (widget / tray-only)
+        // or when scenePhase never left `.active` while Settings was frontmost.
+        HostAppEnvironment.shared?.refreshPermissionsAfterActivation()
     }
 
     private func startWidgetBridgeWhenReady(attempt: Int) {

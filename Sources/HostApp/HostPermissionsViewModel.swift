@@ -1,11 +1,7 @@
-import CoreGraphics
 import Foundation
 import Diagnostics
 import Permissions
 import SharedModels
-#if os(macOS)
-import ApplicationServices
-#endif
 
 @MainActor
 final class HostPermissionsViewModel: ObservableObject {
@@ -16,6 +12,7 @@ final class HostPermissionsViewModel: ObservableObject {
     private let permissionService: any PermissionServiceProtocol
     private let eventLogStore: any EventLogStoreProtocol
     private var previousStates: [PermissionKind: PermissionAuthorizationState] = [:]
+    private var explicitPromptRequests: Set<PermissionKind> = []
 
     private static let explainerShownKey = "host.didShowPermissionExplainer"
     /// Code identity the OS permission prompt was last fired for. Stored instead
@@ -28,15 +25,14 @@ final class HostPermissionsViewModel: ObservableObject {
     /// Superseded one-shot flag, kept only to migrate existing installs.
     private static let legacyPromptedKey = "host.didRequestScreenRecording"
 
-    /// Whether an earlier build of the host already drove the OS prompt, sampled
-    /// before this launch overwrites the stored identity.
-    private let promptedForEarlierBuild: Bool = {
+    /// Whether this installation has ever asked macOS to create a permission
+    /// entry. This is used only to explain a stale ad-hoc TCC approval; it never
+    /// triggers another prompt during a passive status refresh.
+    private var hasPromptedForAnyBuild: Bool {
         let defaults = UserDefaults.standard
-        guard let prompted = defaults.string(forKey: "host.lastPermissionPromptCodeIdentity") else {
-            return defaults.bool(forKey: "host.didRequestScreenRecording")
-        }
-        return prompted != AppCodeIdentity.current()
-    }()
+        return defaults.string(forKey: Self.promptedIdentityKey) != nil
+            || defaults.bool(forKey: Self.legacyPromptedKey)
+    }
 
     init(
         permissionService: any PermissionServiceProtocol,
@@ -90,14 +86,10 @@ final class HostPermissionsViewModel: ObservableObject {
     func refresh() async {
         isRefreshing = true
         lastErrorMessage = nil
-        // The system permission request is gated behind the in-app explainer
-        // sheet (HostPermissionExplainerSheet) so the OS dialog never appears
-        // without context. It fires once per code identity: a rebuilt ad-hoc
-        // binary loses its TCC grants, so the new build has to ask again.
-        if UserDefaults.standard.bool(forKey: Self.explainerShownKey), promptIdentityIsStale {
-            UserDefaults.standard.set(AppCodeIdentity.current(), forKey: Self.promptedIdentityKey)
-            requestPermissionsForCurrentIdentity()
-        }
+        // Refresh is deliberately read-only. Lifecycle callbacks, widget
+        // polling, and returning from System Settings must never summon another
+        // native prompt. The explicit "Request Prompt" action below is the only
+        // path that asks macOS to create/update a TCC entry.
         let newStatuses = await permissionService.friendlyStatuses()
         statuses = newStatuses
         recordGrantedIdentityIfReady()
@@ -105,20 +97,8 @@ final class HostPermissionsViewModel: ObservableObject {
         isRefreshing = false
     }
 
-    /// Ask macOS to register/prompt for the current binary's TCC identity.
-    /// Screen Recording and Accessibility are both pinned to the ad-hoc cdhash,
-    /// so an update must re-request both — not only Screen Recording.
-    private func requestPermissionsForCurrentIdentity() {
-        _ = CGRequestScreenCaptureAccess()
-        #if os(macOS)
-        let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-        let options = [promptKey: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
-        #endif
-    }
-
-    /// Called by the explainer sheet on dismiss.  Marks the explainer as
-    /// shown so the next refresh() call is free to fire the OS prompt.
+    /// Called by the explainer sheet on dismiss. Marks the explainer as shown;
+    /// the operator can choose when to request a native prompt or open Settings.
     func markExplainerShown() {
         UserDefaults.standard.set(true, forKey: Self.explainerShownKey)
     }
@@ -128,12 +108,6 @@ final class HostPermissionsViewModel: ObservableObject {
         !UserDefaults.standard.bool(forKey: Self.explainerShownKey)
     }
 
-    /// True when this build has never fired the OS prompt, including the case
-    /// where only an earlier build of the app did.
-    private var promptIdentityIsStale: Bool {
-        UserDefaults.standard.string(forKey: Self.promptedIdentityKey) != AppCodeIdentity.current()
-    }
-
     /// True when a previous build of the host was already approved but this one
     /// has blockers, which is what macOS does after the app binary changes.
     /// The stale System Settings entry has to be removed and re-added.
@@ -141,8 +115,8 @@ final class HostPermissionsViewModel: ObservableObject {
         guard !blockers.isEmpty else { return false }
         guard let granted = UserDefaults.standard.string(forKey: Self.grantedIdentityKey) else {
             // Installs that predate identity tracking have no granted identity
-            // to compare, so fall back to whether an earlier build prompted.
-            return promptedForEarlierBuild
+            // to compare, so show the repair guidance after any prior prompt.
+            return hasPromptedForAnyBuild
         }
         return granted != AppCodeIdentity.current()
     }
@@ -154,7 +128,7 @@ final class HostPermissionsViewModel: ObservableObject {
 
     var permissionsResetByUpdateMessage: String {
         "macOS ties these approvals to the exact app binary, so updating the host cleared them. "
-            + "In System Settings, select ScreenHarbor Host, remove it with the − button, then approve it again. "
+            + "In System Settings, select ScreenHarbor Host, remove the old entry with the − button, then use Add to add /Applications/ScreenHarbor Host.app and enable it. "
             + "Quit ScreenHarbor Host completely and reopen it so Screen Recording takes effect."
     }
 
@@ -182,10 +156,18 @@ final class HostPermissionsViewModel: ObservableObject {
     }
 
     func requestPrompt(for kind: PermissionKind) async {
+        // A native TCC request can remain visible while Settings is frontmost.
+        // Do not issue another request from repeated clicks or refresh cycles.
+        guard explicitPromptRequests.insert(kind).inserted else {
+            await refresh()
+            return
+        }
+        UserDefaults.standard.set(AppCodeIdentity.current(), forKey: Self.promptedIdentityKey)
         do {
             _ = try await permissionService.requestPermission(for: kind)
             await refresh()
         } catch {
+            explicitPromptRequests.remove(kind)
             lastErrorMessage = error.localizedDescription
             await eventLogStore.append(
                 EventLogItem(
@@ -199,14 +181,10 @@ final class HostPermissionsViewModel: ObservableObject {
 
     func openSettings(for kind: PermissionKind) async {
         do {
-            // Trigger the native permission prompt first so macOS creates the
-            // app entry in Privacy & Security before deep-linking to Settings.
-            switch kind {
-            case .screenRecording, .accessibility:
-                _ = try await permissionService.requestPermission(for: kind)
-            case .localNetwork, .microphone:
-                break
-            }
+            // Opening Settings is navigation only. In particular, do not call
+            // CGRequestScreenCaptureAccess or AXIsProcessTrustedWithOptions here:
+            // pressing "Open Settings" repeatedly must not re-trigger the OS
+            // dialog while the operator is repairing a stale TCC entry.
             try await permissionService.openSettings(for: kind)
             await eventLogStore.append(
                 EventLogItem(
@@ -215,6 +193,10 @@ final class HostPermissionsViewModel: ObservableObject {
                     message: "Opened settings for \(title(for: kind))"
                 )
             )
+            // Settings often stays frontmost after the toggle flips; scenePhase
+            // may not change. Probe a few times so the grant is picked up even
+            // if the operator never brings the Host window forward.
+            schedulePostSettingsRefresh()
         } catch {
             lastErrorMessage = error.localizedDescription
             await eventLogStore.append(
@@ -224,6 +206,22 @@ final class HostPermissionsViewModel: ObservableObject {
                     message: "Could not open settings for \(title(for: kind)): \(error.localizedDescription)"
                 )
             )
+        }
+    }
+
+    private func schedulePostSettingsRefresh() {
+        Task { @MainActor in
+            // Absolute delays from openSettings: 2s, 5s, 10s.
+            let targets: [UInt64] = [2_000_000_000, 5_000_000_000, 10_000_000_000]
+            var elapsed: UInt64 = 0
+            for target in targets {
+                try? await Task.sleep(nanoseconds: target - elapsed)
+                elapsed = target
+                guard !Task.isCancelled else { return }
+                guard !blockers.isEmpty else { return }
+                guard !isRefreshing else { continue }
+                await refresh()
+            }
         }
     }
 
