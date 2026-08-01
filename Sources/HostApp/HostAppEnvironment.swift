@@ -123,6 +123,8 @@ final class HostAppEnvironment: ObservableObject {
     /// Retains the bridge between capture engine and encoder so the weak
     /// reference inside ScreenCaptureEngine doesn't nil out.
     private var encoderCaptureFrameBridge: AnyObject?
+    /// Throttle for activation-driven TCC re-reads (focus churn can fire often).
+    private var lastPermissionActivationRefreshAt: Date?
 
     init(
         hostIdentity: HostIdentity,
@@ -566,6 +568,22 @@ final class HostAppEnvironment: ObservableObject {
         await permissionsViewModel.refresh()
         await discoveryAdvertiserViewModel.startIfNeeded()
         await sessionCoordinator.startSession()
+    }
+
+    /// Re-read TCC after the operator returns from System Settings.
+    ///
+    /// HostShellView already refreshes on `scenePhase` and while blockers remain,
+    /// but tray-only / widget-suppressed launches never mount that view, and
+    /// macOS often keeps `scenePhase == .active` while Settings is frontmost —
+    /// so activation is the reliable catch-all.
+    func refreshPermissionsAfterActivation() {
+        let now = Date()
+        if let lastPermissionActivationRefreshAt,
+           now.timeIntervalSince(lastPermissionActivationRefreshAt) < 1.0 {
+            return
+        }
+        lastPermissionActivationRefreshAt = now
+        Task { await permissionsViewModel.refresh() }
     }
 
     func stopRuntime() async {

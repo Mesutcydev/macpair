@@ -6,6 +6,16 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep waiting for the CoreGraphics Screen Recording preflight when
+  ScreenCaptureKit briefly reports no displays, so a fresh System Settings
+  grant is not first-wins denied.
+- Re-read Host privacy permissions on app activation, while the tray/widget
+  bridge is polling with setup blockers, and shortly after opening System
+  Settings — covering tray-only launches where the dashboard scene never
+  mounts.
+
 ## [1.0.5] - 2026-07-31
 
 ### Fixed

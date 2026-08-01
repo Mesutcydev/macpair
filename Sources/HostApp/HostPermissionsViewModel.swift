@@ -215,6 +215,10 @@ final class HostPermissionsViewModel: ObservableObject {
                     message: "Opened settings for \(title(for: kind))"
                 )
             )
+            // Settings often stays frontmost after the toggle flips; scenePhase
+            // may not change. Probe a few times so the grant is picked up even
+            // if the operator never brings the Host window forward.
+            schedulePostSettingsRefresh()
         } catch {
             lastErrorMessage = error.localizedDescription
             await eventLogStore.append(
@@ -224,6 +228,22 @@ final class HostPermissionsViewModel: ObservableObject {
                     message: "Could not open settings for \(title(for: kind)): \(error.localizedDescription)"
                 )
             )
+        }
+    }
+
+    private func schedulePostSettingsRefresh() {
+        Task { @MainActor in
+            // Absolute delays from openSettings: 2s, 5s, 10s.
+            let targets: [UInt64] = [2_000_000_000, 5_000_000_000, 10_000_000_000]
+            var elapsed: UInt64 = 0
+            for target in targets {
+                try? await Task.sleep(nanoseconds: target - elapsed)
+                elapsed = target
+                guard !Task.isCancelled else { return }
+                guard !blockers.isEmpty else { return }
+                guard !isRefreshing else { continue }
+                await refresh()
+            }
         }
     }
 

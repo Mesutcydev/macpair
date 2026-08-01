@@ -4,9 +4,10 @@ import SharedModels
 /// Combines Screen Recording probe signals without a first-wins race.
 ///
 /// `CGPreflightScreenCaptureAccess()` and `SCShareableContent` disagree often:
-/// after a grant in System Settings, ScreenCaptureKit can still fail until the
-/// process relaunches, while CoreGraphics already reports granted. Treating an
-/// early SCK error as denied made the Host UI ignore a real approval.
+/// after a grant in System Settings, ScreenCaptureKit can still fail or briefly
+/// report no displays until the process relaunches, while CoreGraphics already
+/// reports granted. Treating an early SCK error/empty-display result as denied
+/// made the Host UI ignore a real approval.
 public enum ScreenRecordingPermissionResolver: Sendable {
     public enum PreflightSignal: Equatable, Sendable {
         case granted
@@ -36,20 +37,21 @@ public enum ScreenRecordingPermissionResolver: Sendable {
             return .granted
         }
 
-        if shareableContent == .deniedEmptyDisplays {
-            return .denied
-        }
-
-        // Both probes finished without a grant. An SCK settle/error plus a false
-        // preflight is the normal "not approved yet" path for a fresh install.
-        if preflight == .denied, shareableContent == .error {
+        // Both probes finished without a grant. An SCK settle/error/empty-display
+        // result plus a false preflight is the normal "not approved yet" path.
+        // Do not first-wins deny on empty displays while preflight is still
+        // outstanding — after a System Settings grant, SCK can report no
+        // displays briefly while CoreGraphics already sees approval.
+        if preflight == .denied,
+           shareableContent == .error || shareableContent == .deniedEmptyDisplays {
             return .denied
         }
 
         if timedOut {
             // Prefer "Needs checking" when the privacy daemon may still be hung,
-            // but surface denial when preflight already returned false.
-            if preflight == .denied {
+            // but surface denial when preflight already returned false or SCK
+            // already reported empty displays after the budget elapsed.
+            if preflight == .denied || shareableContent == .deniedEmptyDisplays {
                 return .denied
             }
             return .unknown
