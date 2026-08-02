@@ -47,7 +47,10 @@ final class HostPermissionsViewModel: ObservableObject {
     }
 
     var blockers: [FriendlyPermissionStatus] {
-        statuses.filter { $0.isRequired && !$0.isGranted }
+        // Only hard denials block setup. `.unknown` means the privacy daemon
+        // has not answered yet — treat that as still checking, not as a missing
+        // grant, or the dashboard nags forever while TCC is merely slow.
+        statuses.filter { $0.isRequired && $0.authorizationState == .denied }
     }
 
     var allRequiredGranted: Bool {
@@ -87,17 +90,16 @@ final class HostPermissionsViewModel: ObservableObject {
             : "Screen Recording is required for streaming. This build runs in View Only mode — remote keyboard and pointer control are available in the direct-download host."
     }
 
-    func refresh() async {
+    /// Re-read TCC state.
+    /// - Parameter requestOSPromptIfNeeded: Ignored for OS sheet presentation.
+    ///   Kept so call sites stay source-compatible. Automatic refresh must never
+    ///   present CG/AX dialogs — those APIs are only reached from explicit user
+    ///   actions (`openSettings` / `requestPrompt`), and at most once per kind
+    ///   per process inside `MacHostPermissionService`.
+    func refresh(requestOSPromptIfNeeded: Bool = true) async {
+        _ = requestOSPromptIfNeeded
         isRefreshing = true
         lastErrorMessage = nil
-        // The system permission request is gated behind the in-app explainer
-        // sheet (HostPermissionExplainerSheet) so the OS dialog never appears
-        // without context. It fires once per code identity: a rebuilt ad-hoc
-        // binary loses its TCC grants, so the new build has to ask again.
-        if UserDefaults.standard.bool(forKey: Self.explainerShownKey), promptIdentityIsStale {
-            UserDefaults.standard.set(AppCodeIdentity.current(), forKey: Self.promptedIdentityKey)
-            requestPermissionsForCurrentIdentity()
-        }
         let newStatuses = await permissionService.friendlyStatuses()
         statuses = newStatuses
         recordGrantedIdentityIfReady()
@@ -105,20 +107,8 @@ final class HostPermissionsViewModel: ObservableObject {
         isRefreshing = false
     }
 
-    /// Ask macOS to register/prompt for the current binary's TCC identity.
-    /// Screen Recording and Accessibility are both pinned to the ad-hoc cdhash,
-    /// so an update must re-request both — not only Screen Recording.
-    private func requestPermissionsForCurrentIdentity() {
-        _ = CGRequestScreenCaptureAccess()
-        #if os(macOS)
-        let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-        let options = [promptKey: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
-        #endif
-    }
-
     /// Called by the explainer sheet on dismiss.  Marks the explainer as
-    /// shown so the next refresh() call is free to fire the OS prompt.
+    /// shown so the operator can open System Settings from the dashboard.
     func markExplainerShown() {
         UserDefaults.standard.set(true, forKey: Self.explainerShownKey)
     }
@@ -126,12 +116,6 @@ final class HostPermissionsViewModel: ObservableObject {
     /// True when the explainer has never been shown for this user account.
     var shouldShowExplainer: Bool {
         !UserDefaults.standard.bool(forKey: Self.explainerShownKey)
-    }
-
-    /// True when this build has never fired the OS prompt, including the case
-    /// where only an earlier build of the app did.
-    private var promptIdentityIsStale: Bool {
-        UserDefaults.standard.string(forKey: Self.promptedIdentityKey) != AppCodeIdentity.current()
     }
 
     /// True when a previous build of the host was already approved but this one
@@ -199,11 +183,16 @@ final class HostPermissionsViewModel: ObservableObject {
 
     func openSettings(for kind: PermissionKind) async {
         do {
-            // Trigger the native permission prompt first so macOS creates the
-            // app entry in Privacy & Security before deep-linking to Settings.
+            // Register a TCC entry at most once per process (gated inside the
+            // permission service), then deep-link to Settings. Never call this
+            // from a poll — only from an explicit button.
             switch kind {
             case .screenRecording, .accessibility:
-                _ = try await permissionService.requestPermission(for: kind)
+                let current = await permissionService.refreshState(for: kind)
+                if current.authorizationState != .granted {
+                    _ = try await permissionService.requestPermission(for: kind)
+                    UserDefaults.standard.set(AppCodeIdentity.current(), forKey: Self.promptedIdentityKey)
+                }
             case .localNetwork, .microphone:
                 break
             }

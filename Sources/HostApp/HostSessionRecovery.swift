@@ -79,7 +79,7 @@ final class HostSessionRecovery: ObservableObject {
         do {
             // Step 1: Re-check permissions
             let permissions = await permissionService.currentStates()
-            let blocked = permissions.filter { $0.authorizationState != .granted }
+            let blocked = permissions.filter { $0.authorizationState == .denied }
 
             if !blocked.isEmpty {
                 logger.warning("Permissions blocked during recovery: \(blocked.map(\.kind.rawValue))")
@@ -211,7 +211,7 @@ final class HostSessionRecovery: ObservableObject {
     /// Called when the host detects a permission state change.
     func handlePermissionChange(sessionID: UUID) async {
         let permissions = await permissionService.currentStates()
-        let blocked = permissions.filter { $0.authorizationState != .granted }
+        let blocked = permissions.filter { $0.authorizationState == .denied }
 
         if blocked.isEmpty {
             logger.info("All permissions granted — session can proceed")

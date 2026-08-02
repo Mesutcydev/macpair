@@ -6,6 +6,16 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-08-02
+
+### Fixed
+
+- Stop the Host Screen Recording prompt storm: status polls no longer call
+  `SCShareableContent` while unauthorized (that API itself presents the system
+  sheet), automatic refresh never opens CG/AX dialogs, and each permission
+  kind may show at most one OS prompt per process from an explicit Fix/Open
+  Settings action.
+
 ## [1.0.6] - 2026-08-02
 
 ### Changed

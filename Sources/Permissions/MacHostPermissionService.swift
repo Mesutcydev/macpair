@@ -9,6 +9,9 @@ import ScreenCaptureKit
 
 public final class MacHostPermissionService: PermissionServiceProtocol {
     private let policy: MacHostRuntimePolicy
+    /// Hard cap: each permission kind may present at most one OS sheet per process.
+    private static let osPromptLock = NSLock()
+    private static var osPromptedKinds: Set<PermissionKind> = []
 
     public init(policy: MacHostRuntimePolicy = .current) {
         self.policy = policy
@@ -34,10 +37,23 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
     public func requestPermission(for kind: PermissionKind) async throws -> PermissionState {
         switch kind {
         case .screenRecording:
+            // Already granted for this process — do not re-open the system sheet.
+            if CGPreflightScreenCaptureAccess() {
+                return await screenRecordingState()
+            }
+            guard Self.claimOSPrompt(for: .screenRecording) else {
+                return await screenRecordingState()
+            }
             await MainActor.run { NSApplication.shared.activate(ignoringOtherApps: true) }
             _ = CGRequestScreenCaptureAccess()
         case .accessibility:
             guard policy.canRequestAccessibilityPermission else {
+                return refreshStateSync(for: kind)
+            }
+            if AXIsProcessTrusted() {
+                return refreshStateSync(for: kind)
+            }
+            guard Self.claimOSPrompt(for: .accessibility) else {
                 return refreshStateSync(for: kind)
             }
             let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
@@ -47,6 +63,15 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
             break
         }
         return await refreshState(for: kind)
+    }
+
+    /// Returns true the first time this process may show an OS prompt for `kind`.
+    private static func claimOSPrompt(for kind: PermissionKind) -> Bool {
+        osPromptLock.lock()
+        defer { osPromptLock.unlock() }
+        if osPromptedKinds.contains(kind) { return false }
+        osPromptedKinds.insert(kind)
+        return true
     }
 
     public func friendlyStatuses() async -> [FriendlyPermissionStatus] {
@@ -106,20 +131,32 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
     }
 
     private func screenRecordingState() async -> PermissionState {
-        // Combine CGPreflight and ScreenCaptureKit instead of first-wins.
+        // CRITICAL: never call SCShareableContent while CGPreflight is false.
+        // ScreenCaptureKit presents the system Screen Recording sheet on access
+        // when unauthorized. The host polls this path every few seconds while
+        // setup is blocked, which produced a prompt storm (10–15+ dialogs).
         //
-        // Why not call CGPreflightScreenCaptureAccess() before withCheckedContinuation:
-        // on macOS 26 beta the privacy daemon can stall, making the synchronous C call
-        // block indefinitely — the timeout would never be reached. Running it on a
-        // DispatchQueue thread keeps it off the Swift cooperative pool.
-        //
-        // Why not resume on the first SCK error: after the operator grants Screen
-        // Recording in System Settings, SCK often fails until relaunch while
-        // CGPreflight already returns true. A first-wins deny hid that grant.
+        // CGPreflight runs on a background OS thread because on macOS 26 beta the
+        // privacy daemon can stall the synchronous C call indefinitely.
+        let preflightGranted = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                continuation.resume(returning: CGPreflightScreenCaptureAccess())
+            }
+        }
+
+        if !preflightGranted {
+            return PermissionState(
+                kind: .screenRecording,
+                authorizationState: .denied,
+                lastCheckedAt: Date()
+            )
+        }
+
+        // Preflight already says granted. Optionally confirm via SCK; if SCK is
+        // still settling after a fresh grant, trust preflight (do not deny).
         return await withCheckedContinuation { continuation in
             let lock = NSLock()
             var resumed = false
-            var preflight: ScreenRecordingPermissionResolver.PreflightSignal?
             var shareableContent: ScreenRecordingPermissionResolver.ShareableContentSignal?
             var timedOut = false
 
@@ -128,7 +165,7 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
                 defer { lock.unlock() }
                 guard !resumed else { return }
                 guard let state = ScreenRecordingPermissionResolver.resolve(
-                    preflight: preflight,
+                    preflight: .granted,
                     shareableContent: shareableContent,
                     timedOut: timedOut
                 ) else {
@@ -142,16 +179,6 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
                 ))
             }
 
-            // Path A: synchronous C API on a background OS thread (not cooperative pool)
-            DispatchQueue.global(qos: .userInitiated).async {
-                let granted = CGPreflightScreenCaptureAccess()
-                lock.lock()
-                preflight = granted ? .granted : .denied
-                lock.unlock()
-                considerResolve()
-            }
-
-            // Path B: ScreenCaptureKit probe (authoritative when C API lies)
             Task {
                 do {
                     let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
@@ -166,7 +193,6 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
                 considerResolve()
             }
 
-            // Path C: 5-second ceiling so UI never stalls.
             Task {
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
                 lock.lock()

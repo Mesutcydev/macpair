@@ -563,7 +563,9 @@ final class HostAppEnvironment: ObservableObject {
     #endif
 
     func startRuntimeIfNeeded() async {
-        await permissionsViewModel.refresh()
+        // Probe only — the dashboard owns the one-shot OS prompt so startup
+        // and the blocker poll cannot each open CG/AX sheets.
+        await permissionsViewModel.refresh(requestOSPromptIfNeeded: false)
         await discoveryAdvertiserViewModel.startIfNeeded()
         await sessionCoordinator.startSession()
     }
