@@ -265,7 +265,9 @@ private struct HostMinimalDashboard: View {
             guard phase == .active else { return }
             // Re-read TCC after returning from System Settings. Without this,
             // the dashboard keeps showing stale blockers until a manual Refresh.
-            Task { await permissionsViewModel.refresh() }
+            // Never re-fire OS prompts here — Settings return is exactly when
+            // a second CG/AX sheet feels like a permission loop.
+            Task { await permissionsViewModel.refresh(requestOSPromptIfNeeded: false) }
             Task.detached(priority: .utility) {
                 let info = getTailscaleConnectionInfo()
                 await MainActor.run {
@@ -283,7 +285,7 @@ private struct HostMinimalDashboard: View {
                 guard !Task.isCancelled else { return }
                 guard !permissionsViewModel.blockers.isEmpty else { return }
                 guard !permissionsViewModel.isRefreshing else { continue }
-                await permissionsViewModel.refresh()
+                await permissionsViewModel.refresh(requestOSPromptIfNeeded: false)
             }
         }
         .onChange(of: sessionCoordinator.phase) { _ in
@@ -2440,7 +2442,7 @@ private struct HostStreamingView: View {
         .navigationTitle("Streaming")
         .background(HostPageBackground())
         .task {
-            await permissionsViewModel.refresh()
+            await permissionsViewModel.refresh(requestOSPromptIfNeeded: false)
             await captureViewModel.loadDisplayLayout()
             captureViewModel.startObservingState()
             if let changes = environment.displayLayoutChanges {
@@ -2619,7 +2621,7 @@ private struct HostDiagnosticsView: View {
             }
             Button {
                 Task {
-                    await permissionsVM.refresh()
+                    await permissionsVM.refresh(requestOSPromptIfNeeded: false)
                     await viewModel.refresh()
                 }
             } label: {
@@ -2627,7 +2629,7 @@ private struct HostDiagnosticsView: View {
             }
         }
         .task {
-            await permissionsVM.refresh()
+            await permissionsVM.refresh(requestOSPromptIfNeeded: false)
             await viewModel.refresh()
         }
     }

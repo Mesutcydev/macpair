@@ -34,10 +34,17 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
     public func requestPermission(for kind: PermissionKind) async throws -> PermissionState {
         switch kind {
         case .screenRecording:
+            // Already granted for this process — do not re-open the system sheet.
+            if CGPreflightScreenCaptureAccess() {
+                return await screenRecordingState()
+            }
             await MainActor.run { NSApplication.shared.activate(ignoringOtherApps: true) }
             _ = CGRequestScreenCaptureAccess()
         case .accessibility:
             guard policy.canRequestAccessibilityPermission else {
+                return refreshStateSync(for: kind)
+            }
+            if AXIsProcessTrusted() {
                 return refreshStateSync(for: kind)
             }
             let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String

@@ -16,6 +16,10 @@ final class HostPermissionsViewModel: ObservableObject {
     private let permissionService: any PermissionServiceProtocol
     private let eventLogStore: any EventLogStoreProtocol
     private var previousStates: [PermissionKind: PermissionAuthorizationState] = [:]
+    /// Process-local gate so concurrent `refresh()` calls (startup + Settings
+    /// return + blocker poll) cannot each fire CG/AX prompts before UserDefaults
+    /// catches up. Persisted identity alone is not enough under overlap.
+    private var didAutoRequestOSPromptThisProcess = false
 
     private static let explainerShownKey = "host.didShowPermissionExplainer"
     /// Code identity the OS permission prompt was last fired for. Stored instead
@@ -87,14 +91,24 @@ final class HostPermissionsViewModel: ObservableObject {
             : "Screen Recording is required for streaming. This build runs in View Only mode — remote keyboard and pointer control are available in the direct-download host."
     }
 
-    func refresh() async {
+    /// Re-read TCC state.
+    /// - Parameter requestOSPromptIfNeeded: When true, may show the system
+    ///   Screen Recording / Accessibility dialogs once for this process if this
+    ///   binary has not prompted yet. Pollers and “app became active” refreshes
+    ///   must pass false so a grant loop cannot spam prompts every few seconds.
+    func refresh(requestOSPromptIfNeeded: Bool = true) async {
         isRefreshing = true
         lastErrorMessage = nil
         // The system permission request is gated behind the in-app explainer
         // sheet (HostPermissionExplainerSheet) so the OS dialog never appears
-        // without context. It fires once per code identity: a rebuilt ad-hoc
-        // binary loses its TCC grants, so the new build has to ask again.
-        if UserDefaults.standard.bool(forKey: Self.explainerShownKey), promptIdentityIsStale {
+        // without context. It fires once per code identity per process: a
+        // rebuilt ad-hoc binary loses its TCC grants, so the new build asks
+        // again — but never from the blocker poll.
+        if requestOSPromptIfNeeded,
+           UserDefaults.standard.bool(forKey: Self.explainerShownKey),
+           promptIdentityIsStale,
+           !didAutoRequestOSPromptThisProcess {
+            didAutoRequestOSPromptThisProcess = true
             UserDefaults.standard.set(AppCodeIdentity.current(), forKey: Self.promptedIdentityKey)
             requestPermissionsForCurrentIdentity()
         }
@@ -108,12 +122,17 @@ final class HostPermissionsViewModel: ObservableObject {
     /// Ask macOS to register/prompt for the current binary's TCC identity.
     /// Screen Recording and Accessibility are both pinned to the ad-hoc cdhash,
     /// so an update must re-request both — not only Screen Recording.
+    /// Skip APIs that already report granted so we do not re-open system sheets.
     private func requestPermissionsForCurrentIdentity() {
-        _ = CGRequestScreenCaptureAccess()
+        if !CGPreflightScreenCaptureAccess() {
+            _ = CGRequestScreenCaptureAccess()
+        }
         #if os(macOS)
-        let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-        let options = [promptKey: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
+        if !AXIsProcessTrusted() {
+            let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+            let options = [promptKey: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+        }
         #endif
     }
 
@@ -199,11 +218,15 @@ final class HostPermissionsViewModel: ObservableObject {
 
     func openSettings(for kind: PermissionKind) async {
         do {
-            // Trigger the native permission prompt first so macOS creates the
-            // app entry in Privacy & Security before deep-linking to Settings.
+            // Trigger the native permission prompt only when still missing so
+            // macOS creates the Privacy & Security entry — never when already
+            // granted (that re-opens the system sheet and feels like a loop).
             switch kind {
             case .screenRecording, .accessibility:
-                _ = try await permissionService.requestPermission(for: kind)
+                let current = await permissionService.refreshState(for: kind)
+                if current.authorizationState != .granted {
+                    _ = try await permissionService.requestPermission(for: kind)
+                }
             case .localNetwork, .microphone:
                 break
             }

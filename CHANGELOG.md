@@ -6,6 +6,15 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-08-02
+
+### Fixed
+
+- Stop the Host from re-opening Screen Recording / Accessibility system
+  prompts on every permission poll and app activation. Prompt at most once
+  per process for a new ad-hoc binary, and skip APIs that already report
+  granted.
+
 ## [1.0.6] - 2026-08-02
 
 ### Changed
