@@ -10,10 +10,11 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ### Fixed
 
-- Stop the Host from re-opening Screen Recording / Accessibility system
-  prompts on every permission poll and app activation. Prompt at most once
-  per process for a new ad-hoc binary, and skip APIs that already report
-  granted.
+- Stop the Host Screen Recording prompt storm: status polls no longer call
+  `SCShareableContent` while unauthorized (that API itself presents the system
+  sheet), automatic refresh never opens CG/AX dialogs, and each permission
+  kind may show at most one OS prompt per process from an explicit Fix/Open
+  Settings action.
 
 ## [1.0.6] - 2026-08-02
 

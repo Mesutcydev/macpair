@@ -1011,7 +1011,10 @@ final class HostSessionCoordinator: ObservableObject {
     }
 
     private func blockedRequiredPermissions() async -> [PermissionState] {
-        await permissionService.currentStates().filter { $0.authorizationState != .granted }
+        // Match the dashboard: only `.denied` blocks streaming. `.unknown` is a
+        // transient probe miss (common right after granting on macOS 26) and must
+        // not look like a permanent permission failure to the client.
+        await permissionService.currentStates().filter { $0.authorizationState == .denied }
     }
 
     private func minQualityPreset(_ a: StreamQualityPreset, _ b: StreamQualityPreset) -> StreamQualityPreset {
