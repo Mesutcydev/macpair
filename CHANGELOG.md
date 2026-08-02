@@ -6,6 +6,13 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-08-02
+
+### Changed
+
+- Remove the Mac client reconnect dimming scrim so the last remote frame
+  stays full brightness while reconnecting; the reconnect card still appears.
+
 ## [1.0.5] - 2026-07-31
 
 ### Fixed
