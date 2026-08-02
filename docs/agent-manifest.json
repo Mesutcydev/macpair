@@ -16,8 +16,8 @@
     "iosClient": {"os": "iOS/iPadOS", "minimumVersion": "18.0"}
   },
   "downloads": {
-    "host": "https://github.com/Mesutcydev/screenharbor/releases/download/v1.0.5/ScreenHarbor-Host-1.0.5-build-6.dmg",
-    "client": "https://github.com/Mesutcydev/screenharbor/releases/download/v1.0.5/ScreenHarbor-1.0.5-build-6.dmg",
+    "host": "https://github.com/Mesutcydev/screenharbor/releases/download/v1.0.6/ScreenHarbor-Host-1.0.6-build-7.dmg",
+    "client": "https://github.com/Mesutcydev/screenharbor/releases/download/v1.0.6/ScreenHarbor-1.0.6-build-7.dmg",
     "iosClient": "https://mesut.uk/ScreenHarbor-iOS-1.0.3-build-4-unsigned.ipa",
     "integritySuffixes": [".sha256", ".manifest.json", ".sbom.cdx.json"],
     "appleNotarized": false,

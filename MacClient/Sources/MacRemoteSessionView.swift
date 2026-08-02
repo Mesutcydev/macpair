@@ -512,43 +512,42 @@ struct MacRemoteSessionView: View {
 
     private var reconnectOverlay: some View {
         let status = reconnectCoordinator.reconnectStatus
-        return ZStack {
-            Color.black.opacity(0.45).ignoresSafeArea()
-            VStack(spacing: 14) {
-                ProgressView()
-                    .controlSize(.large)
-                Text("Connection lost — reconnecting…")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                if status.maxAttempts > 0, status.attempt > 0 {
-                    Text("Attempt \(status.attempt) of \(status.maxAttempts)")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-                if let error = status.lastError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 360)
-                }
-                HStack(spacing: 12) {
-                    Button("Retry Now") { reconnectCoordinator.retryNow() }
-                        .buttonStyle(.borderedProminent)
-                    Button("Disconnect", role: .destructive) {
-                        reconnectCoordinator.cancelReconnect()
-                    }
-                    .buttonStyle(.bordered)
-                }
+        // No full-frame scrim — keep the last remote frame at full brightness.
+        return VStack(spacing: 14) {
+            ProgressView()
                 .controlSize(.large)
-                .padding(.top, 2)
+            Text("Connection lost — reconnecting…")
+                .font(.headline)
+                .foregroundStyle(.primary)
+            if status.maxAttempts > 0, status.attempt > 0 {
+                Text("Attempt \(status.attempt) of \(status.maxAttempts)")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
-            .padding(32)
-            .macGlassSurface(
-                in: RoundedRectangle(cornerRadius: MacBrand.cardCornerRadius, style: .continuous),
-                isInteractive: true
-            )
+            if let error = status.lastError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 360)
+            }
+            HStack(spacing: 12) {
+                Button("Retry Now") { reconnectCoordinator.retryNow() }
+                    .buttonStyle(.borderedProminent)
+                Button("Disconnect", role: .destructive) {
+                    reconnectCoordinator.cancelReconnect()
+                }
+                .buttonStyle(.bordered)
+            }
+            .controlSize(.large)
+            .padding(.top, 2)
         }
+        .padding(32)
+        .macGlassSurface(
+            in: RoundedRectangle(cornerRadius: MacBrand.cardCornerRadius, style: .continuous),
+            isInteractive: true
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var networkQualityColor: Color {
