@@ -167,7 +167,7 @@ public final class CoreGraphicsDisplayLayoutProvider: DisplayLayoutObserving {
 
     private func wakeDisplay() {
         var id: IOPMAssertionID = 0
-        IOPMAssertionDeclareUserActivity("ScreenHarbor display layout query" as CFString, kIOPMUserActiveLocal, &id)
+        IOPMAssertionDeclareUserActivity("MacPair display layout query" as CFString, kIOPMUserActiveLocal, &id)
     }
 }
 #endif

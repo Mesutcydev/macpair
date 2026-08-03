@@ -1018,7 +1018,7 @@ struct SimpleHomeView: View {
     private var homeHostPromo: some View {
         VStack(spacing: 12) {
             HStack {
-                Text("GET SCREENHARBOR HOST")
+                Text("GET MACPAIR HOST")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .tracking(1.5)
                     .foregroundColor(PR.dim)

@@ -553,7 +553,7 @@ struct ScreenHarborHostPromoCard: View {
 struct HowItWorksCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("HOW SCREENHARBOR WORKS")
+            Text("HOW MACPAIR WORKS")
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .tracking(1.5)
                 .foregroundColor(PR.dim)

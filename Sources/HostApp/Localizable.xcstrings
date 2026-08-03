@@ -7263,7 +7263,7 @@
         }
       }
     },
-    "ScreenHarbor Host Guide": {
+    "MacPair Host Guide": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
@@ -7275,55 +7275,55 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host-Anleitung"
+            "value": "MacPair Host-Anleitung"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guía de ScreenHarbor Host"
+            "value": "Guía de MacPair Host"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guide ScreenHarbor Host"
+            "value": "Guide MacPair Host"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Hostガイド"
+            "value": "MacPair Hostガイド"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host Kılavuzu"
+            "value": "MacPair Host Kılavuzu"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host 指南"
+            "value": "MacPair Host 指南"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "ScreenHarbor Host Guide"
+            "value": "MacPair Host Guide"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guía de ScreenHarbor Host"
+            "value": "Guía de MacPair Host"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host 指南"
+            "value": "MacPair Host 指南"
           }
         }
       }
@@ -7372,120 +7372,120 @@
         }
       }
     },
-    "mesut.uk/apps/screenharbor": {
+    "mesut.uk/apps/macpair-host": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesut.uk/apps/macpair-host"
           }
         }
       }
