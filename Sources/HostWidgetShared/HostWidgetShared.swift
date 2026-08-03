@@ -151,8 +151,15 @@ public enum HostWidgetStore {
     /// Signed widget builds use their App Group. The account-independent website
     /// build has no Apple team entitlement and uses an ordinary app support folder.
     private static var containerURL: URL? {
-        if let url = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: HostWidgetConstants.appGroup) {
+        // `containerURL(forSecurityApplicationGroupIdentifier:)` can still return
+        // an old, on-disk group container for an unsigned direct-download build,
+        // even though the app has no application-groups entitlement. That makes a
+        // renamed install reuse the old ScreenHarbor state and, on macOS 26, can
+        // block the first atomic snapshot write during app launch. Only signed
+        // sandboxed builds should use the shared App Group.
+        if ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil,
+           let url = FileManager.default
+                .containerURL(forSecurityApplicationGroupIdentifier: HostWidgetConstants.appGroup) {
             return url
         }
         return FileManager.default.homeDirectoryForCurrentUser

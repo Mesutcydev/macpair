@@ -1,5 +1,11 @@
 # MacPair
 
+<p align="center">
+  <a href="https://mesut.uk/apps/macpair">
+    <img src="https://raw.githubusercontent.com/Mesutcydev/macpair/main/ScreenHarbor/Resources/ClientAssets.xcassets/AppIcon.appiconset/icon_1024.png" alt="MacPair logo" width="160">
+  </a>
+</p>
+
 **MacPair is an open-source, native Mac remote desktop for macOS, iOS, and iPadOS.** It pairs a lightweight Mac host with Mac and iPhone/iPad clients for low-latency screen sharing, keyboard and pointer control, clipboard sync, file transfer, audio, and an opt-in remote terminal.
 
 The project is local-first. Discovery uses Bonjour on your LAN, peer identities are signed, and every new client must be visibly approved on the host. For access beyond the local network, use a private network you control, such as Tailscale; MacPair does not require a hosted relay or account.

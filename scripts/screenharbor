@@ -58,17 +58,17 @@ err() { printf '%s\n' "$*" >&2; }
 
 resolve_app_path() {
   local candidate
-  candidate=$(mdfind "kMDItemCFBundleIdentifier == '$BUNDLE_ID'" 2>/dev/null | head -1 || true)
-  if [[ -n "$candidate" && -d "$candidate" ]]; then
-    printf '%s' "$candidate"
-    return 0
-  fi
   for candidate in "/Applications/MacPair Host.app" "/Applications/ScreenHarbor Host.app"; do
     if [[ -d "$candidate" ]]; then
       printf '%s' "$candidate"
       return 0
     fi
   done
+  candidate=$(mdfind "kMDItemCFBundleIdentifier == '$BUNDLE_ID'" 2>/dev/null | head -1 || true)
+  if [[ -n "$candidate" && -d "$candidate" ]]; then
+    printf '%s' "$candidate"
+    return 0
+  fi
   return 1
 }
 
