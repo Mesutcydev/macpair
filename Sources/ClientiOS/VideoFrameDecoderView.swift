@@ -458,6 +458,31 @@ final class VideoFrameDecoder: @unchecked Sendable {
                         kCVImageBufferYCbCrMatrix_ITU_R_2020,
                         .shouldPropagate
                     )
+                } else {
+                    // The decoder outputs SDR as BGRA. The format description is
+                    // created from parameter sets without color extensions, so
+                    // VideoToolbox may otherwise leave the decoded buffer without
+                    // an explicit SDR color interpretation. Tag it as BT.709 so
+                    // AVSampleBufferDisplayLayer does not guess (or treat it as
+                    // extended-range content).
+                    CVBufferSetAttachment(
+                        pixelBuffer,
+                        kCVImageBufferColorPrimariesKey,
+                        kCVImageBufferColorPrimaries_ITU_R_709_2,
+                        .shouldPropagate
+                    )
+                    CVBufferSetAttachment(
+                        pixelBuffer,
+                        kCVImageBufferTransferFunctionKey,
+                        kCVImageBufferTransferFunction_ITU_R_709_2,
+                        .shouldPropagate
+                    )
+                    CVBufferSetAttachment(
+                        pixelBuffer,
+                        kCVImageBufferYCbCrMatrixKey,
+                        kCVImageBufferYCbCrMatrix_ITU_R_709_2,
+                        .shouldPropagate
+                    )
                 }
                 decoder.lock.lock()
                 decoder._decodedFrames += 1
@@ -647,17 +672,19 @@ final class VideoRendererViewModel: ObservableObject {
 /// buffer and enqueues it into an `AVSampleBufferDisplayLayer` for zero-copy GPU
 /// presentation, and opts the layer into EDR so HDR10 content actually shows in HDR.
 enum VideoLayerPresenter {
-    /// EDR opt-in. `AVSampleBufferDisplayLayer` is a `CALayer`, and a CALayer
-    /// tone-maps PQ/BT.2020 content down to SDR *unless* it opts into extended
-    /// dynamic range — so without this line all the host's HDR10 encode work is
-    /// invisible. iOS 17 / macOS 14+; older OSes fall back to SDR tone-mapping.
-    static func enableHDR(on layer: AVSampleBufferDisplayLayer) {
+    /// Keep EDR presentation synchronized with the decoded frame. The client can
+    /// receive SDR when HDR was requested but the host cannot negotiate it (for
+    /// example, while connecting to an older host), so enabling EDR once at view
+    /// creation incorrectly tone-maps that SDR fallback and makes it look faded.
+    /// iOS 17 / macOS 14+; older OSes stay on the system's SDR path.
+    static func updateDynamicRange(for pixelBuffer: CVPixelBuffer?, on layer: AVSampleBufferDisplayLayer) {
         if #available(iOS 17.0, macOS 14.0, *) {
-            layer.wantsExtendedDynamicRangeContent = true
+            layer.wantsExtendedDynamicRangeContent = pixelBuffer.map(isHDRPixelBuffer) ?? false
         }
     }
 
     static func clear(_ layer: AVSampleBufferDisplayLayer) {
+        updateDynamicRange(for: nil, on: layer)
         flushRemovingImage(layer)
     }
 
@@ -667,6 +694,7 @@ enum VideoLayerPresenter {
     static func present(_ pixelBuffer: CVPixelBuffer,
                         in layer: AVSampleBufferDisplayLayer,
                         formatDescription: inout CMVideoFormatDescription?) {
+        updateDynamicRange(for: pixelBuffer, on: layer)
         if status(of: layer) == .failed {
             flushRemovingImage(layer)
             formatDescription = nil
@@ -705,6 +733,19 @@ enum VideoLayerPresenter {
                                  Unmanaged.passUnretained(kCFBooleanTrue).toOpaque())
         }
         enqueue(sampleBuffer, into: layer)
+    }
+
+    private static func isHDRPixelBuffer(_ pixelBuffer: CVPixelBuffer) -> Bool {
+        guard let transferFunction = CVBufferCopyAttachment(
+            pixelBuffer,
+            kCVImageBufferTransferFunctionKey,
+            nil
+        ) else {
+            return false
+        }
+
+        return CFEqual(transferFunction, kCVImageBufferTransferFunction_SMPTE_ST_2084_PQ)
+            || CFEqual(transferFunction, kCVImageBufferTransferFunction_ITU_R_2100_HLG)
     }
 
     // iOS 18 / macOS 15 moved enqueue/flush/status onto `sampleBufferRenderer`. The
@@ -789,7 +830,6 @@ final class VideoDisplayUIView: UIView {
         super.init(frame: frame)
         backgroundColor = .black
         displayLayer.videoGravity = .resizeAspect
-        VideoLayerPresenter.enableHDR(on: displayLayer)
     }
 
     @available(*, unavailable)
@@ -839,7 +879,6 @@ final class VideoDisplayNSView: NSView {
         layerContentsRedrawPolicy = .onSetNeedsDisplay
         displayLayer.backgroundColor = NSColor.black.cgColor
         displayLayer.videoGravity = .resizeAspect
-        VideoLayerPresenter.enableHDR(on: displayLayer)
     }
 
     @available(*, unavailable)

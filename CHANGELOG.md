@@ -6,6 +6,15 @@ All notable changes to ScreenHarbor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-08-03
+
+### Fixed
+
+- Keep Mac and iOS client EDR presentation synchronized with the decoded frame's
+  actual dynamic range, so an SDR fallback is not displayed with HDR tone mapping.
+- Tag decoded SDR frames as BT.709 for consistent color interpretation in the
+  sample-buffer display layer.
+
 ## [1.0.7] - 2026-08-02
 
 ### Fixed
@@ -107,7 +116,8 @@ All notable changes to ScreenHarbor are documented here. The format follows
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
-[Unreleased]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.5...HEAD
+[Unreleased]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.8...HEAD
+[1.0.8]: https://github.com/Mesutcydev/screenharbor/releases/tag/v1.0.8
 [1.0.5]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.2...v1.0.3

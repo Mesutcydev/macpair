@@ -88,11 +88,6 @@ final class RemoteStreamNSView: NSView {
         layerContentsRedrawPolicy = .duringViewResize
         layer?.backgroundColor = NSColor.black.cgColor
         updateVideoGravity()
-        // EDR opt-in: without it the layer tone-maps the host's HDR10 (PQ/BT.2020)
-        // frames down to SDR. macOS 14+; older falls back to SDR (no worse than before).
-        if #available(macOS 14.0, *) {
-            displayLayer.wantsExtendedDynamicRangeContent = true
-        }
     }
 
     @available(*, unavailable)
@@ -164,10 +159,16 @@ final class RemoteStreamNSView: NSView {
 
     func display(pixelBuffer: CVPixelBuffer?) {
         guard let pixelBuffer else {
+            VideoLayerPresenter.updateDynamicRange(for: nil, on: displayLayer)
             displayLayer.flushAndRemoveImage()
             formatDescription = nil
             return
         }
+
+        // A session can legitimately fall back from HDR10 to SDR. EDR must follow
+        // the actual decoded buffer, not the user's quality preset or the first
+        // frame that happened to create this view.
+        VideoLayerPresenter.updateDynamicRange(for: pixelBuffer, on: displayLayer)
 
         // `flush()` does not clear a failed layer; `flushAndRemoveImage()` does.
         if displayLayer.status == .failed {
