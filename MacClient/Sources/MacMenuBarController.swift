@@ -9,7 +9,7 @@ final class MacMenuBarController: NSObject, ObservableObject {
     private static let templateImage: NSImage? = {
         let image = NSImage(
             systemSymbolName: "display",
-            accessibilityDescription: "ScreenHarbor"
+            accessibilityDescription: "MacPair"
         )
         image?.isTemplate = true
         image?.size = NSSize(width: 18, height: 18)
@@ -115,16 +115,16 @@ final class MacMenuBarController: NSObject, ObservableObject {
     private var tooltip: String {
         switch stateGate.current ?? .disconnected {
         case .disconnected:
-            return "ScreenHarbor — Disconnected"
+            return "MacPair — Disconnected"
         case .connecting:
-            return "ScreenHarbor — Connecting"
+            return "MacPair — Connecting"
         case .connected:
             if let currentHostName, !currentHostName.isEmpty {
-                return "ScreenHarbor — Connected to \(currentHostName)"
+                return "MacPair — Connected to \(currentHostName)"
             }
-            return "ScreenHarbor — Connected"
+            return "MacPair — Connected"
         case .warning:
-            return "ScreenHarbor — Attention Required"
+            return "MacPair — Attention Required"
         }
     }
 
@@ -136,7 +136,7 @@ final class MacMenuBarController: NSObject, ObservableObject {
         menu.addItem(.separator())
 
         let show = NSMenuItem(
-            title: "Show ScreenHarbor",
+            title: "Show MacPair",
             action: #selector(showApplication),
             keyEquivalent: ""
         )

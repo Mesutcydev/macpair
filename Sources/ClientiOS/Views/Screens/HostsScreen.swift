@@ -77,7 +77,7 @@ struct HostsScreen: View {
                         VStack(spacing: 0) {
                             connectSectionHeader(
                                 title: "manual",
-                                subtitle: "paste the IP, hostname, or Tailscale address from ScreenHarbor Host"
+                                subtitle: "paste the IP, hostname, or Tailscale address from MacPair Host"
                             )
 
                             VStack(alignment: .leading, spacing: 10) {
@@ -163,7 +163,7 @@ struct HostsScreen: View {
                                     Text("scan qr")
                                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
                                         .foregroundColor(PR.fg)
-                                    Text("scan a code shown by ScreenHarbor Host")
+                                    Text("scan a code shown by MacPair Host")
                                         .font(.system(size: 10, design: .monospaced))
                                         .foregroundColor(PR.dim)
                                 }
@@ -724,8 +724,8 @@ struct HostsScreen: View {
                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
                         .foregroundColor(PR.fg)
                     Text(isRefreshing
-                         ? "looking for ScreenHarbor Host on your network"
-                         : "open ScreenHarbor Host on your Mac, then scan")
+                         ? "looking for MacPair Host on your network"
+                         : "open MacPair Host on your Mac, then scan")
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(PR.dim)
                         .fixedSize(horizontal: false, vertical: true)
@@ -880,5 +880,5 @@ struct HostsScreen: View {
 }
 
 #Preview("HostsScreen") {
-    HostsScreen(environment: ClientAppEnvironment.makeDefault(clientName: "ScreenHarbor iOS"))
+    HostsScreen(environment: ClientAppEnvironment.makeDefault(clientName: "MacPair iOS"))
 }

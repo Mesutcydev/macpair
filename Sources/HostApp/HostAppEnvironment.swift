@@ -402,7 +402,7 @@ final class HostAppEnvironment: ObservableObject {
         guard appNapActivity == nil else { return }
         appNapActivity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiatedAllowingIdleSystemSleep, .suddenTerminationDisabled],
-            reason: "ScreenHarbor Host stays reachable for incoming remote connections"
+            reason: "MacPair Host stays reachable for incoming remote connections"
         )
     }
     #endif
@@ -551,7 +551,7 @@ final class HostAppEnvironment: ObservableObject {
         let snapshot = HostWidgetSnapshot(
             phase: .idle,
             statusTitle: "host app closed",
-            hostName: "screenharbor host",
+            hostName: "macpair host",
             primaryAddress: nil,
             addressLabel: nil,
             connectedClient: nil,
@@ -819,7 +819,7 @@ final class HostAppEnvironment: ObservableObject {
         IOPMAssertionCreateWithName(
             kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),
-            "ScreenHarbor Host is actively streaming to a remote client" as CFString,
+            "MacPair Host is actively streaming to a remote client" as CFString,
             &streamingAssertionID
         )
     }
@@ -835,7 +835,7 @@ final class HostAppEnvironment: ObservableObject {
         IOPMAssertionCreateWithName(
             kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),
-            "ScreenHarbor Host is keeping this Mac awake so it stays reachable for remote connections" as CFString,
+            "MacPair Host is keeping this Mac awake so it stays reachable for remote connections" as CFString,
             &keepAwakeAssertionID
         )
     }

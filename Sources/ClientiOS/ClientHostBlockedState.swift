@@ -17,9 +17,9 @@ struct ClientHostBlockedState: Equatable {
         // to an unauthenticated client) and on a generic pipeline-start failure — so don't render
         // "approval for  before…" with a blank. Give actionable guidance instead.
         if names.isEmpty {
-            self.message = "ScreenHarbor Host needs permission on the Mac before it can stream or accept control. On the Mac, open ScreenHarbor Host and grant Screen Recording (and Accessibility for control) — macOS can reset these after an app identity changes."
+            self.message = "MacPair Host needs permission on the Mac before it can stream or accept control. On the Mac, open MacPair Host and grant Screen Recording (and Accessibility for control) — macOS can reset these after an app identity changes."
         } else {
-            self.message = "ScreenHarbor Host needs approval for \(names) before streaming or control can start."
+            self.message = "MacPair Host needs approval for \(names) before streaming or control can start."
         }
     }
 }

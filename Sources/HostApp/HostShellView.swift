@@ -551,7 +551,7 @@ private struct HostMinimalDashboard: View {
             // ── header ───────────────────────────────────────────
             HStack(spacing: 7) {
                 HostPulseDot(color: statusColor)
-                Text("screenharbor host")
+                Text("macpair host")
                     .font(.system(size: 12.5, weight: .bold, design: .monospaced))
                     .foregroundStyle(AppColor.textPrimary)
                     .tracking(0.4)
@@ -1414,7 +1414,7 @@ private struct HostOnboardingView: View {
 
                             guideStep(1, "Open Notification Center", "Click the clock / date in the menu bar.")
                             guideStep(2, "Edit Widgets", "Scroll down and click “Edit Widgets”.")
-                            guideStep(3, "Search for ScreenHarbor Host", "Find it in the widget gallery.")
+                            guideStep(3, "Search for MacPair Host", "Find it in the widget gallery.")
                             guideStep(4, "Drag the medium size onto your desktop", "Use the medium size — it has the start, stop, and restart buttons.")
 
                             Label {
@@ -1607,14 +1607,14 @@ private struct HostOnboardingView: View {
     }
 }
 
-/// A small native SwiftUI mock of the medium "ScreenHarbor Host" desktop widget so users
+/// A small native SwiftUI mock of the medium "MacPair Host" desktop widget so users
 /// can recognize it in the widget gallery. Static — not interactive.
 private struct HostWidgetMockPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Circle().fill(Color.green).frame(width: 7, height: 7)
-                Text("screenharbor host")
+                Text("macpair host")
                     .font(.system(.caption, design: .default).weight(.semibold))
                     .foregroundStyle(.primary)
                 Spacer()
@@ -1676,7 +1676,7 @@ private struct HostWidgetHelpView: View {
             VStack(alignment: .leading, spacing: 10) {
                 step(1, "Open Notification Center", "Click the date & time in the menu bar.")
                 step(2, "Edit Widgets", "Scroll down and click “Edit Widgets”.")
-                step(3, "Add “ScreenHarbor Host”", "Find it in the gallery and drag it out. Use the medium size for start / stop / restart buttons.")
+                step(3, "Add “MacPair Host”", "Find it in the gallery and drag it out. Use the medium size for start / stop / restart buttons.")
             }
 
             Label {
@@ -2983,8 +2983,8 @@ private struct HostPermissionExplainerSheet: View {
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(.primary)
                 Text(supportsRemoteInput
-                    ? "ScreenHarbor Host needs two macOS privacy permissions to stream your screen and accept input from another Mac. Both prompts will appear next."
-                    : "ScreenHarbor Host needs Screen Recording permission to stream your Mac display.")
+                    ? "MacPair Host needs two macOS privacy permissions to stream your screen and accept input from another Mac. Both prompts will appear next."
+                    : "MacPair Host needs Screen Recording permission to stream your Mac display.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

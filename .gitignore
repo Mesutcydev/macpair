@@ -4,6 +4,7 @@
 .swiftpm/
 DerivedData/
 ScreenHarbor.xcodeproj/
+MacPair.xcodeproj/
 build/
 Build/
 .packaging-machost/

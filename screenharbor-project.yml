@@ -1,4 +1,4 @@
-name: ScreenHarbor
+name: MacPair
 
 options:
   minimumXcodeGenVersion: 2.45.0
@@ -51,12 +51,12 @@ targets:
     info:
       path: ScreenHarbor/Resources/ScreenHarborHost-Info.plist
       properties:
-        CFBundleDisplayName: ScreenHarbor Host
+        CFBundleDisplayName: MacPair Host
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSApplicationCategoryType: public.app-category.utilities
-        NSHumanReadableCopyright: "Copyright © 2026 ScreenHarbor contributors."
-        NSLocalNetworkUsageDescription: "ScreenHarbor Host advertises on your local network so approved clients can discover and connect to this Mac."
+        NSHumanReadableCopyright: "Copyright © 2026 MacPair contributors."
+        NSLocalNetworkUsageDescription: "MacPair Host advertises on your local network so approved clients can discover and connect to this Mac."
         NSBonjourServices:
           - _screenharbor._tcp
           - _screenharbor._tcp.
@@ -66,10 +66,10 @@ targets:
               - screenharbor
     settings:
       base:
-        MARKETING_VERSION: 1.0.8
-        CURRENT_PROJECT_VERSION: 9
+        MARKETING_VERSION: 1.0.9
+        CURRENT_PROJECT_VERSION: 10
         PRODUCT_BUNDLE_IDENTIFIER: uk.mesut.screenharbor.host
-        PRODUCT_NAME: ScreenHarbor Host
+        PRODUCT_NAME: MacPair Host
         INFOPLIST_FILE: ScreenHarbor/Resources/ScreenHarborHost-Info.plist
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: ScreenHarbor/Resources/ScreenHarborHost.entitlements
@@ -136,22 +136,22 @@ targets:
     info:
       path: ScreenHarbor/Resources/ScreenHarborClient-Info.plist
       properties:
-        CFBundleDisplayName: ScreenHarbor
+        CFBundleDisplayName: MacPair
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
         LSApplicationCategoryType: public.app-category.utilities
-        NSHumanReadableCopyright: "Copyright © 2026 ScreenHarbor contributors."
-        NSLocalNetworkUsageDescription: "ScreenHarbor uses your local network to discover and connect to Macs running ScreenHarbor Host."
+        NSHumanReadableCopyright: "Copyright © 2026 MacPair contributors."
+        NSLocalNetworkUsageDescription: "MacPair uses your local network to discover and connect to Macs running MacPair Host."
         NSBonjourServices:
           - _screenharbor._tcp
           - _screenharbor._tcp.
     settings:
       base:
-        MARKETING_VERSION: 1.0.8
-        CURRENT_PROJECT_VERSION: 9
+        MARKETING_VERSION: 1.0.9
+        CURRENT_PROJECT_VERSION: 10
         PRODUCT_BUNDLE_IDENTIFIER: uk.mesut.screenharbor.client
-        PRODUCT_NAME: ScreenHarbor
+        PRODUCT_NAME: MacPair
         INFOPLIST_FILE: ScreenHarbor/Resources/ScreenHarborClient-Info.plist
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: ScreenHarbor/Resources/ScreenHarborClient.entitlements
@@ -188,14 +188,14 @@ targets:
     info:
       path: ScreenHarbor/Resources/ScreenHarborIOS-Info.plist
       properties:
-        CFBundleDisplayName: ScreenHarbor
+        CFBundleDisplayName: MacPair
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
-        NSHumanReadableCopyright: "Copyright © 2026 ScreenHarbor contributors."
-        NSLocalNetworkUsageDescription: "ScreenHarbor uses your local network to discover and connect to Macs running ScreenHarbor Host."
-        NSSpeechRecognitionUsageDescription: "ScreenHarbor transcribes your voice on-device so you can dictate text into your approved Mac."
-        NSMicrophoneUsageDescription: "ScreenHarbor captures your voice for on-device dictation into your approved Mac."
+        NSHumanReadableCopyright: "Copyright © 2026 MacPair contributors."
+        NSLocalNetworkUsageDescription: "MacPair uses your local network to discover and connect to Macs running MacPair Host."
+        NSSpeechRecognitionUsageDescription: "MacPair transcribes your voice on-device so you can dictate text into your approved Mac."
+        NSMicrophoneUsageDescription: "MacPair captures your voice for on-device dictation into your approved Mac."
         NSBonjourServices:
           - _screenharbor._tcp
           - _screenharbor._tcp.
@@ -212,10 +212,10 @@ targets:
           - UIInterfaceOrientationLandscapeRight
     settings:
       base:
-        MARKETING_VERSION: 1.0.3
-        CURRENT_PROJECT_VERSION: 4
+        MARKETING_VERSION: 1.0.4
+        CURRENT_PROJECT_VERSION: 5
         PRODUCT_BUNDLE_IDENTIFIER: uk.mesut.screenharbor.ios
-        PRODUCT_NAME: ScreenHarbor
+        PRODUCT_NAME: MacPair
         INFOPLIST_FILE: ScreenHarbor/Resources/ScreenHarborIOS-Info.plist
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: 1,2

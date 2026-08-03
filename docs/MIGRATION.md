@@ -1,6 +1,6 @@
 # Legacy identifier compatibility
 
-ScreenHarbor is the public name of the macOS host and client. Some internal source
+MacPair is the public name of the macOS host and client. Some internal source
 types, persisted keys, and protocol fields still contain historical names such as
 `MacHost`, `MacClient`, or `com.remotedesktop`.
 
@@ -11,7 +11,7 @@ Those identifiers are intentionally retained where changing them could:
 - change stable notification or snapshot keys; or
 - create an unsafe migration in a security-sensitive path.
 
-They are implementation details, not public branding. New user-facing text, bundle
-identifiers, URL schemes, Bonjour services, documentation, and release artifacts use
-ScreenHarbor identifiers. A legacy identifier should only be renamed with a
+They are implementation details, not public branding. New user-facing text uses MacPair,
+while the existing bundle identifiers, URL schemes, Bonjour service, CLI, and persisted
+storage names remain stable for compatibility. A legacy identifier should only be renamed with a
 documented compatibility migration and regression tests.

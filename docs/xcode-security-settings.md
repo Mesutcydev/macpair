@@ -1,6 +1,6 @@
 # Xcode Security Settings
 
-Security build-setting decisions for ScreenHarbor.
+Security build-setting decisions for MacPair.
 
 ## Enabled settings
 

@@ -9,7 +9,7 @@ struct StreamStep: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            PRScreenHeader(title: "pair", host: "screenharbor.host", state: .live)
+            PRScreenHeader(title: "pair", host: "macpair.host", state: .live)
 
             VStack(spacing: 12) {
                 terminalCard

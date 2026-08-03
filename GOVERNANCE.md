@@ -1,6 +1,6 @@
 # Governance
 
-ScreenHarbor is a maintainer-led open-source project.
+MacPair is a maintainer-led open-source project.
 
 ## Roles
 

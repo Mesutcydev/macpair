@@ -1,6 +1,6 @@
 # Agent integration
 
-ScreenHarbor Host is a normal menu-bar macOS app, not a daemon. Launching the app starts its runtime automatically after required permissions are available.
+MacPair Host is a normal menu-bar macOS app, not a daemon. Launching the app starts its runtime automatically after required permissions are available.
 
 ## Discovery and readiness
 

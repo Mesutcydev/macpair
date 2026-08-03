@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Shared ScreenHarbor splash for the Mac client and host.
+// Shared MacPair splash for the Mac client and host.
 
 // Self-contained color helper because this module is shared by both Mac apps.
 private func vsHex(_ hex: UInt32, _ a: Double = 1) -> Color {
@@ -16,8 +16,8 @@ public struct ScreenHarborSplashConfig {
 
     var layout: Layout
     var iconSize: CGFloat
-    var wordmarkLead: String            // "Screen"
-    var wordmarkAccent: String          // " Harbor" / " Harbor Host"
+    var wordmarkLead: String            // "Mac"
+    var wordmarkAccent: String          // "Pair" / "Pair Host"
     var accentColor: Color
     var wordmarkSize: CGFloat
     var taglineSize: CGFloat
@@ -46,7 +46,7 @@ public struct ScreenHarborSplashConfig {
         // before screenHarborSplash dismisses the overlay.
         ScreenHarborSplashConfig(
             layout: .iosFullScreen, iconSize: 116,
-            wordmarkLead: "Screen", wordmarkAccent: " Harbor", accentColor: vsHex(0x35C6D3),
+            wordmarkLead: "Mac", wordmarkAccent: "Pair", accentColor: vsHex(0x35C6D3),
             wordmarkSize: 29, taglineSize: 14,
             taglines: ["Your Mac, anywhere.", "Private by design.", "Ready when you are."],
             statusText: nil, version: nil, progressWidth: 132,
@@ -59,7 +59,7 @@ public struct ScreenHarborSplashConfig {
     public static func macClient(version: String) -> ScreenHarborSplashConfig {
         ScreenHarborSplashConfig(
             layout: .macPanel, iconSize: 92,
-            wordmarkLead: "Screen", wordmarkAccent: " Harbor", accentColor: vsHex(0x35C6D3),
+            wordmarkLead: "Mac", wordmarkAccent: "Pair", accentColor: vsHex(0x35C6D3),
             wordmarkSize: 26, taglineSize: 13.5,
             taglines: ["Your Mac, anywhere.", "Private by design."],
             statusText: nil, version: version, progressWidth: 150,
@@ -72,7 +72,7 @@ public struct ScreenHarborSplashConfig {
     public static func host(version: String, statusText: String) -> ScreenHarborSplashConfig {
         ScreenHarborSplashConfig(
             layout: .macPanel, iconSize: 92,
-            wordmarkLead: "Screen", wordmarkAccent: " Harbor Host", accentColor: vsHex(0x35C6D3),
+            wordmarkLead: "Mac", wordmarkAccent: "Pair Host", accentColor: vsHex(0x35C6D3),
             wordmarkSize: 26, taglineSize: 13.5,
             taglines: ["Sharing this Mac."],
             statusText: statusText, version: version, progressWidth: 150,
@@ -348,7 +348,7 @@ struct ScreenHarborSplashView: View {
 // MARK: - Presentation
 
 public extension View {
-    /// Overlays the ScreenHarbor splash on launch, then cross-fades it out after `minimumDuration`.
+    /// Overlays the MacPair splash on launch, then cross-fades it out after `minimumDuration`.
     /// Pass `enabled: false` when the window won't actually be shown to the user — e.g. the
     /// host launches straight into the menu bar when its desktop widget is installed, which
     /// order-outs the window and would otherwise make the splash flash for a frame and vanish.

@@ -1,10 +1,19 @@
 # Changelog
 
-All notable changes to ScreenHarbor are documented here. The format follows
+All notable changes to MacPair are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.0.9] - 2026-08-03
+
+### Changed
+
+- Rename the public product to MacPair with shorter installed app names and
+  clearer open-source Mac remote desktop positioning.
+- Keep the `screenharbor` CLI, bundle IDs, URL scheme, Bonjour service, and
+  persisted storage identifiers compatible with existing installations.
 
 ## [1.0.8] - 2026-08-03
 
@@ -116,8 +125,9 @@ All notable changes to ScreenHarbor are documented here. The format follows
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
-[Unreleased]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.8...HEAD
-[1.0.8]: https://github.com/Mesutcydev/screenharbor/releases/tag/v1.0.8
+[Unreleased]: https://github.com/Mesutcydev/macpair/compare/v1.0.9...HEAD
+[1.0.9]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.9
+[1.0.8]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.8
 [1.0.5]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.2...v1.0.3

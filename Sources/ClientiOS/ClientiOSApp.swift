@@ -45,7 +45,7 @@ private struct AppLockPrivacyCover: View {
 @main
 struct ClientiOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var environment = ClientAppEnvironment.makeDefault(clientName: "ScreenHarbor iOS")
+    @StateObject private var environment = ClientAppEnvironment.makeDefault(clientName: "MacPair iOS")
     @StateObject private var keepaliveService = BackgroundKeepaliveService()
     @StateObject private var appLock = AppLockService()
     @State private var observersInstalled = false

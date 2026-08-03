@@ -60,9 +60,9 @@ final class HostFileTransferSettingsStore: ObservableObject {
             return displayName(for: URL(fileURLWithPath: path, isDirectory: true))
         }
         if supportsDefaultDownloadsLocation {
-            return "Downloads/ScreenHarbor Transfers"
+            return "Downloads/MacPair Transfers"
         }
-        return "Choose a folder in ScreenHarbor Host settings"
+        return "Choose a folder in MacPair Host settings"
     }
 
     func scopedSaveDirectory() -> ScopedDirectoryAccess? {
@@ -104,7 +104,7 @@ final class HostFileTransferSettingsStore: ObservableObject {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.prompt = "Choose Folder"
-        panel.message = "Choose where incoming files from ScreenHarbor should be saved."
+        panel.message = "Choose where incoming files from MacPair should be saved."
 
         if panel.runModal() == .OK, let url = panel.url {
             let bookmark = try? url.bookmarkData(
@@ -125,7 +125,7 @@ final class HostFileTransferSettingsStore: ObservableObject {
         #endif
         return homeDir
             .appendingPathComponent("Downloads", isDirectory: true)
-            .appendingPathComponent("ScreenHarbor Transfers", isDirectory: true)
+            .appendingPathComponent("MacPair Transfers", isDirectory: true)
     }
 
     private func displayName(for url: URL) -> String {
@@ -334,7 +334,7 @@ actor HostFileTransferManager {
             return
         }
         guard let scopedDirectory = settingsSnapshot.destination else {
-            await sendResponse(rejectEnvelope(reason: "Choose a save folder in ScreenHarbor Host settings first.", offer: offer))
+            await sendResponse(rejectEnvelope(reason: "Choose a save folder in MacPair Host settings first.", offer: offer))
             return
         }
 
@@ -894,9 +894,9 @@ actor HostFileTransferManager {
     }
 
     private static func destinationDisplayName(for state: IncomingTransferState) -> String {
-        if state.destinationDirectory.url.lastPathComponent == "ScreenHarbor Transfers",
+        if ["ScreenHarbor Transfers", "MacPair Transfers"].contains(state.destinationDirectory.url.lastPathComponent),
            state.destinationDirectory.url.path.contains("/Downloads/") {
-            return "Downloads/ScreenHarbor Transfers"
+            return "Downloads/MacPair Transfers"
         }
 
         let finalDirectory = state.finalURL.deletingLastPathComponent()

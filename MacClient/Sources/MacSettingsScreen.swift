@@ -273,7 +273,7 @@ struct MacSettingsScreen: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 380)
             Link("Source, licenses, and release integrity",
-                 destination: URL(string: "https://github.com/Mesutcydev/screenharbor")!)
+                 destination: URL(string: "https://github.com/Mesutcydev/macpair")!)
                 .buttonStyle(.link)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Generates a CycloneDX 1.5 SBOM for one ScreenHarbor release artifact.
+# Generates a CycloneDX 1.5 SBOM for one MacPair release artifact.
 
 set -euo pipefail
 
@@ -44,7 +44,7 @@ output = os.environ["OUTPUT"]
 sha = os.environ["SHA"]
 serial = os.environ["SERIAL"]
 
-app_name = "ScreenHarbor Host" if component == "host" else "ScreenHarbor"
+app_name = "MacPair Host" if component == "host" else "MacPair"
 bundle_id = {
     "host": "uk.mesut.screenharbor.host",
     "client": "uk.mesut.screenharbor.client",
@@ -64,7 +64,7 @@ application = {
         },
         {
             "type": "vcs",
-            "url": f"https://github.com/Mesutcydev/screenharbor/tree/{commit}",
+            "url": f"https://github.com/Mesutcydev/macpair/tree/{commit}",
         },
     ],
 }

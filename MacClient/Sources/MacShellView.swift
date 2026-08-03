@@ -108,13 +108,13 @@ struct MacShellView: View {
         switch coordinator.phase {
         case .receiving:
             if let name = coordinator.connectedHostName {
-                return "\(name) — ScreenHarbor"
+                return "\(name) — MacPair"
             }
-            return "ScreenHarbor"
+            return "MacPair"
         case .connecting, .signalingConnected, .negotiating, .waitingForMedia:
-            return "Connecting… — ScreenHarbor"
+            return "Connecting… — MacPair"
         case .idle, .error:
-            return "ScreenHarbor"
+            return "MacPair"
         }
     }
 }

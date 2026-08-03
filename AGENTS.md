@@ -1,19 +1,19 @@
-# AGENTS.md — ScreenHarbor
+# AGENTS.md — MacPair
 
-This file is the operational contract for AI agents working with ScreenHarbor.
+This file is the operational contract for AI agents working with MacPair.
 
 ## Product
 
-ScreenHarbor is an open-source native remote desktop suite:
+MacPair is an open-source native Mac remote desktop suite:
 
 | Component | Value |
 | --- | --- |
-| Host app | `ScreenHarbor Host` |
-| Client app | `ScreenHarbor` |
+| Host app | `MacPair Host` |
+| Client app | `MacPair` |
 | Host bundle ID | `uk.mesut.screenharbor.host` |
 | Client bundle ID | `uk.mesut.screenharbor.client` |
 | iOS client bundle ID | `uk.mesut.screenharbor.ios` |
-| Project | `ScreenHarbor.xcodeproj` |
+| Project | `MacPair.xcodeproj` |
 | Host scheme | `ScreenHarborHost` |
 | Client scheme | `ScreenHarborClient` |
 | iOS client scheme | `ScreenHarborIOS` |
@@ -32,15 +32,15 @@ provisioning profile, App Store Connect account, or notarization service.
 ```bash
 xcodegen generate --spec screenharbor-project.yml
 
-xcodebuild -project ScreenHarbor.xcodeproj \
+xcodebuild -project MacPair.xcodeproj \
   -scheme ScreenHarborHost -configuration Release \
   CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
 
-xcodebuild -project ScreenHarbor.xcodeproj \
+xcodebuild -project MacPair.xcodeproj \
   -scheme ScreenHarborClient -configuration Release \
   CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
 
-xcodebuild -project ScreenHarbor.xcodeproj \
+xcodebuild -project MacPair.xcodeproj \
   -scheme ScreenHarborIOS -configuration Release \
   -sdk iphoneos -destination 'generic/platform=iOS' \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= build
@@ -60,7 +60,7 @@ Do not add a hard-coded Apple team or private credential to the public project.
 After the host app is installed, the CLI lives at:
 
 ```text
-/Applications/ScreenHarbor Host.app/Contents/Resources/screenharbor
+/Applications/MacPair Host.app/Contents/Resources/screenharbor
 ```
 
 Its optional PATH symlink is `/usr/local/bin/screenharbor`.

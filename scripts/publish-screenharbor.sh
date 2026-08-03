@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Publishes already-packaged ScreenHarbor artifacts to the website working tree.
+# Publishes already-packaged MacPair artifacts to the website working tree.
 
 set -euo pipefail
 
@@ -37,8 +37,8 @@ if [[ "$RELEASE" -eq 1 ]]; then
   [[ "$source_tag" == "v$version" ]] || fail "Release commit must have the exact tag v$version"
 fi
 
-host_base="ScreenHarbor-Host-${version}-build-${build}"
-client_base="ScreenHarbor-${version}-build-${build}"
+host_base="MacPair-Host-${version}-build-${build}"
+client_base="MacPair-${version}-build-${build}"
 
 for base in "$host_base" "$client_base"; do
   for extension in dmg zip; do
@@ -62,6 +62,8 @@ done
 
 cp "$ROOT/docs/agent-manifest.json" "$WEBSITE/screenharbor-agent.json"
 cp "$ROOT/llms.txt" "$WEBSITE/screenharbor-llms.txt"
+cp "$ROOT/docs/agent-manifest.json" "$WEBSITE/macpair-agent.json"
+cp "$ROOT/llms.txt" "$WEBSITE/macpair-llms.txt"
 
 APPS_JS="$WEBSITE/js/data/apps.js" HOST_URL="/$host_base.dmg" CLIENT_URL="/$client_base.dmg" \
   VERSION="$version" BUILD="$build" RELEASE="$RELEASE" WEBSITE="$WEBSITE" python3 - <<'PY'
@@ -113,8 +115,8 @@ def update(slug, url):
         if count != 1:
             raise SystemExit(f"Could not update status for {slug}")
 
-update("screenharbor-host", os.environ["HOST_URL"])
-update("screenharbor", os.environ["CLIENT_URL"])
+update("macpair-host", os.environ["HOST_URL"])
+update("macpair", os.environ["CLIENT_URL"])
 open(path, "w", encoding="utf-8").write(text)
 
 if is_release:
@@ -122,7 +124,7 @@ if is_release:
     full_path = os.path.join(website, "llms-full.txt")
     if os.path.isfile(full_path):
         full_text = open(full_path, encoding="utf-8").read()
-        for title in ("ScreenHarbor", "ScreenHarbor Host"):
+        for title in ("MacPair", "MacPair Host"):
             pattern = rf"(?ms)(^### {re.escape(title)}\n)(.*?)(?=^### |\Z)"
             match = re.search(pattern, full_text)
             if not match:
@@ -177,5 +179,5 @@ if is_release:
         open(index_path, "w", encoding="utf-8").write(index_text)
 PY
 
-log "Published ScreenHarbor $version build $build into $WEBSITE"
+log "Published MacPair $version build $build into $WEBSITE"
 log "Review the website diff, then commit and deploy it with the website's normal workflow."

@@ -234,7 +234,7 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
     private func helperText(for kind: PermissionKind) -> String {
         switch kind {
         case .screenRecording:
-            return "Needed so ScreenCaptureKit can capture your Mac display for the remote stream. If an older MacHost build is already approved, enable this updated build in System Settings, then quit and relaunch ScreenHarbor Host."
+            return "Needed so ScreenCaptureKit can capture your Mac display for the remote stream. If an older MacHost build is already approved, enable this updated build in System Settings, then quit and relaunch MacPair Host."
         case .accessibility:
             if policy.canRequestAccessibilityPermission {
                 if policy.supportsRemoteInput {

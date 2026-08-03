@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Account-independent website packaging for ScreenHarbor.
+# Account-independent website packaging for MacPair.
 # Produces ad-hoc-signed DMG/ZIP artifacts, SHA-256 files, and JSON manifests.
 # No Apple account, certificate, provisioning profile, or notarization is used.
 
@@ -8,7 +8,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SPEC="$ROOT/screenharbor-project.yml"
-PROJECT="$ROOT/ScreenHarbor.xcodeproj"
+PROJECT="$ROOT/MacPair.xcodeproj"
 DIST="$ROOT/dist"
 WORK_ROOT="$ROOT/.screenharbor-packaging"
 
@@ -97,7 +97,7 @@ export GIT_CONFIG_COUNT=1
 export GIT_CONFIG_KEY_0=safe.bareRepository
 export GIT_CONFIG_VALUE_0=all
 
-log "Generating ScreenHarbor.xcodeproj"
+log "Generating MacPair.xcodeproj"
 xcodegen generate --spec "$SPEC" >/dev/null
 
 package_component() {
@@ -107,17 +107,17 @@ package_component() {
   case "$component" in
     host)
       scheme="ScreenHarborHost"
-      product="ScreenHarbor Host.app"
+      product="MacPair Host.app"
       bundle_id="uk.mesut.screenharbor.host"
       entitlements="$ROOT/ScreenHarbor/Resources/ScreenHarborHost.entitlements"
-      artifact_stem="ScreenHarbor-Host"
+      artifact_stem="MacPair-Host"
       ;;
     client)
       scheme="ScreenHarborClient"
-      product="ScreenHarbor.app"
+      product="MacPair.app"
       bundle_id="uk.mesut.screenharbor.client"
       entitlements="$ROOT/ScreenHarbor/Resources/ScreenHarborClient.entitlements"
-      artifact_stem="ScreenHarbor"
+      artifact_stem="MacPair"
       ;;
   esac
 
@@ -205,8 +205,8 @@ package_component() {
     cp "$ROOT/README.md" "$staging/README.md"
     cp "$ROOT/LICENSE" "$staging/LICENSE"
     if [[ "$component" == "host" ]]; then
-      cp "$ROOT/scripts/install-screenharbor-cli.command" "$staging/Install ScreenHarbor CLI.command"
-      chmod +x "$staging/Install ScreenHarbor CLI.command"
+      cp "$ROOT/scripts/install-screenharbor-cli.command" "$staging/Install MacPair CLI.command"
+      chmod +x "$staging/Install MacPair CLI.command"
     fi
     log "Creating $(basename "$dmg")"
     hdiutil create -volname "${product%.app}" -srcfolder "$staging" -ov -format UDZO "$dmg" >/dev/null
@@ -250,7 +250,7 @@ payload = {
     "sha256": sha,
     "appleNotarized": False,
     "codeSignature": "ad-hoc",
-    "sourceRepository": "https://github.com/Mesutcydev/screenharbor",
+    "sourceRepository": "https://github.com/Mesutcydev/macpair",
     "sourceCommit": source_commit,
     "sourceCommitDate": source_commit_date,
     "sourceTreeState": source_tree_state,

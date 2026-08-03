@@ -45,12 +45,12 @@ jobs:
         run: >-
           xcodebuild
           -resolvePackageDependencies
-          -project ScreenHarbor.xcodeproj
+          -project MacPair.xcodeproj
 
       - name: Build host
         run: >-
           xcodebuild
-          -project ScreenHarbor.xcodeproj
+          -project MacPair.xcodeproj
           -scheme ScreenHarborHost
           -configuration Debug
           -destination 'platform=macOS'
@@ -60,7 +60,7 @@ jobs:
       - name: Build and test client
         run: >-
           xcodebuild
-          -project ScreenHarbor.xcodeproj
+          -project MacPair.xcodeproj
           -scheme ScreenHarborClient
           -configuration Debug
           -destination 'platform=macOS'

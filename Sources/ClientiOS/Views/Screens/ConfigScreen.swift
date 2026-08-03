@@ -111,7 +111,7 @@ struct ConfigScreen: View {
                         Text("\(trustedHostCount) · mixed")
                     }) {
                         if trustedVM.trustedHosts.isEmpty && hostsVM.savedHosts.isEmpty {
-                            Text("No trusted hosts. Pair a ScreenHarbor Host to create trust.")
+                            Text("No trusted hosts. Pair a MacPair Host to create trust.")
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(PR.dim)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -209,7 +209,7 @@ struct ConfigScreen: View {
                         )
                         PRRow(
                             label: "trust model",
-                            hint: "new hosts require visible approval in ScreenHarbor Host before access",
+                            hint: "new hosts require visible approval in MacPair Host before access",
                             trailing: { secBadge("pinned", tint: PR.accent) },
                             isLast: false
                         )
@@ -262,18 +262,18 @@ struct ConfigScreen: View {
                         )
                     }
 
-                    PRCard("screenharbor host") {
+                    PRCard("macpair host") {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("ScreenHarbor requires ScreenHarbor Host running on macOS.")
+                            Text("MacPair requires MacPair Host running on macOS.")
                                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                                 .foregroundColor(PR.fg)
-                            Text("ScreenHarbor Host receives your approved commands and performs them on your Mac.")
+                            Text("MacPair Host receives your approved commands and performs them on your Mac.")
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(PR.dim)
                             Text("For outside-LAN access, connect both devices with Tailscale and use the Mac’s Tailscale IP.")
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(PR.dim)
-                            Text("Only control Macs you own or are authorized to access. You can stop ScreenHarbor Host at any time.")
+                            Text("Only control Macs you own or are authorized to access. You can stop MacPair Host at any time.")
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(PR.dim)
 
@@ -313,7 +313,7 @@ struct ConfigScreen: View {
                         }, isLast: false)
 
                         PRRow(label: "protocol", trailing: {
-                            Text("screenharbor/1")
+                            Text("macpair/1")
                                 .font(.system(size: 12, design: .monospaced))
                                 .foregroundColor(PR.fg)
                         }, isLast: false)
@@ -322,7 +322,7 @@ struct ConfigScreen: View {
                             Image(systemName: "chevron.right")
                                 .foregroundColor(PR.dim)
                         }, onTap: {
-                            if let url = URL(string: "https://github.com/Mesutcydev/screenharbor") {
+                            if let url = URL(string: "https://github.com/Mesutcydev/macpair") {
                                 openURL(url)
                             }
                         }, isLast: true)
@@ -335,7 +335,7 @@ struct ConfigScreen: View {
 
             PRScreenHeader(
                 title: "config",
-                host: "screenharbor.host · v1.0.3",
+                host: "macpair.host · v1.0.4",
                 state: sessionCoordinator.phase == .error ? .error : .live
             )
             .zIndex(1)
@@ -431,23 +431,23 @@ struct ConfigScreen: View {
 
 #Preview("ConfigScreen") {
     ConfigScreen(
-        environment: ClientAppEnvironment.makeDefault(clientName: "ScreenHarbor iOS"),
+        environment: ClientAppEnvironment.makeDefault(clientName: "MacPair iOS"),
         appLock: AppLockService()
     )
 }
 
-// MARK: - ScreenHarbor Host promo + explainer
+// MARK: - MacPair Host promo + explainer
 //
-// Shared UI for getting the required ScreenHarbor Host Mac app and explaining how ScreenHarbor works.
+// Shared UI for getting the required MacPair Host Mac app and explaining how MacPair works.
 // Reused by the home empty state, the first-run welcome, and this config screen. Lives
 // here (an already-compiled file) rather than a new file to skip the two-target pbxproj
 // registration dance — see [[build-targets-and-file-membership]].
 
 enum ScreenHarborHostLinks {
-    static let direct = URL(string: "https://mesut.uk/apps/screenharbor-host")!
+    static let direct = URL(string: "https://mesut.uk/apps/macpair-host")!
 }
 
-/// A cross-promo–style card for installing ScreenHarbor Host.
+/// A cross-promo–style card for installing MacPair Host.
 struct ScreenHarborHostPromoCard: View {
     struct Badge: Identifiable {
         let id = UUID()
@@ -539,7 +539,7 @@ struct ScreenHarborHostPromoCard: View {
     static var direct: ScreenHarborHostPromoCard {
         ScreenHarborHostPromoCard(
             eyebrow: "DIRECT DOWNLOAD",
-            title: "ScreenHarbor Host",
+            title: "MacPair Host",
             subtitle: "The open-source Mac host distributed directly by the project.",
             badges: [Badge(icon: "bolt.fill", label: "full build"), Badge(icon: "chevron.left.forwardslash.chevron.right", label: "open source")],
             ctaLabel: "Download",
@@ -549,7 +549,7 @@ struct ScreenHarborHostPromoCard: View {
     }
 }
 
-/// Three-step ScreenHarbor explainer.
+/// Three-step MacPair explainer.
 struct HowItWorksCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -557,7 +557,7 @@ struct HowItWorksCard: View {
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .tracking(1.5)
                 .foregroundColor(PR.dim)
-            step(1, title: "Get ScreenHarbor Host on your Mac", detail: "Download it from mesut.uk or build it from source, then open it.")
+            step(1, title: "Get MacPair Host on your Mac", detail: "Download it from mesut.uk or build it from source, then open it.")
             step(2, title: "Approve this iPhone", detail: "The first time, accept the connection on your Mac.")
             step(3, title: "Tap your Mac to connect", detail: "It shows up here — tap to mirror and control it.")
         }

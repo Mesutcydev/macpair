@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# screenharbor — Terminal control for the ScreenHarbor Host macOS app.
+# screenharbor — Terminal control for the MacPair Host macOS app.
 #
 # Usage:
 #   screenharbor start|stop|restart|open|status|ensure|path|version|pending|wait-pending
@@ -63,7 +63,7 @@ resolve_app_path() {
     printf '%s' "$candidate"
     return 0
   fi
-  for candidate in "/Applications/ScreenHarbor Host.app"; do
+  for candidate in "/Applications/MacPair Host.app" "/Applications/ScreenHarbor Host.app"; do
     if [[ -d "$candidate" ]]; then
       printf '%s' "$candidate"
       return 0
@@ -73,6 +73,7 @@ resolve_app_path() {
 }
 
 is_running() {
+  pgrep -x "MacPair Host" >/dev/null 2>&1 && return 0
   pgrep -x "ScreenHarbor Host" >/dev/null 2>&1 && return 0
   local app_path
   app_path=$(resolve_app_path 2>/dev/null || true)
@@ -81,7 +82,7 @@ is_running() {
 
 open_app() {
   local app_path
-  app_path=$(resolve_app_path) || { err "ScreenHarbor Host is not installed (bundle: $BUNDLE_ID)"; exit 1; }
+  app_path=$(resolve_app_path) || { err "MacPair Host is not installed (bundle: $BUNDLE_ID)"; exit 1; }
   open -a "$app_path"
 }
 
@@ -223,10 +224,10 @@ print(json.dumps({
 PY
   else
     if [[ "$installed" -eq 0 ]]; then
-      log "ScreenHarbor Host: not installed"
+      log "MacPair Host: not installed"
       return 1
     fi
-    log "ScreenHarbor Host: installed at $app_path"
+    log "MacPair Host: installed at $app_path"
     log "Running: $([[ "$running" -eq 1 ]] && echo yes || echo no)"
     log "Phase: $phase"
     [[ -n "$status_title" ]] && log "Status: $status_title"
@@ -282,7 +283,7 @@ cmd_ensure() {
 
 cmd_version() {
   local app_path version build
-  app_path=$(resolve_app_path) || { err "ScreenHarbor Host is not installed (bundle: $BUNDLE_ID)"; exit 1; }
+  app_path=$(resolve_app_path) || { err "MacPair Host is not installed (bundle: $BUNDLE_ID)"; exit 1; }
   version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$app_path/Contents/Info.plist" 2>/dev/null || true)
   build=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$app_path/Contents/Info.plist" 2>/dev/null || true)
   if [[ -z "$version" || -z "$build" ]]; then
@@ -299,7 +300,7 @@ print(json.dumps({
 }, indent=2))
 PY
   else
-    log "ScreenHarbor Host $version ($build)"
+    log "MacPair Host $version ($build)"
     log "$app_path"
   fi
 }
@@ -509,7 +510,7 @@ main() {
     open)               parse_common_options "$@" || { err "Unknown option: $1"; usage; exit 4; }; open_app ;;
     path)
       parse_common_options "$@" || { err "Unknown option: $1"; usage; exit 4; }
-      resolve_app_path || { err "ScreenHarbor Host is not installed"; exit 1; }
+      resolve_app_path || { err "MacPair Host is not installed"; exit 1; }
       ;;
     status)             parse_common_options "$@" || { err "Unknown option: $1"; usage; exit 4; }; cmd_status ;;
     ensure)             parse_common_options "$@" || { err "Unknown option: $1"; usage; exit 4; }; cmd_ensure ;;

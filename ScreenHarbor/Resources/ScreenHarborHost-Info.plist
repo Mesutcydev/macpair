@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>ScreenHarbor Host</string>
+		<string>MacPair Host</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -39,8 +39,8 @@
 		<string>_screenharbor._tcp.</string>
 	</array>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2026 ScreenHarbor contributors.</string>
+	<string>Copyright © 2026 MacPair contributors.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>ScreenHarbor Host advertises on your local network so approved clients can discover and connect to this Mac.</string>
+	<string>MacPair Host advertises on your local network so approved clients can discover and connect to this Mac.</string>
 </dict>
 </plist>

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Build a device-only, unsigned ScreenHarbor IPA for sideload tools to re-sign.
+# Build a device-only, unsigned MacPair IPA for sideload tools to re-sign.
 
 set -euo pipefail
 
@@ -59,7 +59,7 @@ for tool in xcodebuild xcodegen ditto plutil file otool shasum python3 unzip; do
   command -v "$tool" >/dev/null 2>&1 || fail "Required tool not found: $tool"
 done
 
-[[ -d "$ROOT/.git" ]] || fail "Run this script from a ScreenHarbor Git checkout"
+[[ -d "$ROOT/.git" ]] || fail "Run this script from a MacPair Git checkout"
 COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
 if [[ "$ALLOW_DIRTY" -ne 1 ]] && [[ -n "$(git -C "$ROOT" status --porcelain)" ]]; then
   fail "Release packaging requires a clean source tree; commit changes or use --allow-dirty"
@@ -73,12 +73,12 @@ fi
 
 mkdir -p "$WORK" "$OUTPUT_DIR"
 
-log "Generating ScreenHarbor.xcodeproj"
+log "Generating MacPair.xcodeproj"
 (cd "$ROOT" && xcodegen generate --spec screenharbor-project.yml)
 
 log "Building unsigned Release app for generic iOS device"
 xcodebuild \
-  -project "$ROOT/ScreenHarbor.xcodeproj" \
+  -project "$ROOT/MacPair.xcodeproj" \
   -scheme ScreenHarborIOS \
   -configuration Release \
   -sdk iphoneos \
@@ -89,9 +89,9 @@ xcodebuild \
   CODE_SIGN_IDENTITY= \
   build
 
-APP="$DERIVED_DATA/Build/Products/Release-iphoneos/ScreenHarbor.app"
+APP="$DERIVED_DATA/Build/Products/Release-iphoneos/MacPair.app"
 INFO="$APP/Info.plist"
-EXECUTABLE="$APP/ScreenHarbor"
+EXECUTABLE="$APP/MacPair"
 [[ -d "$APP" ]] || fail "Built app not found: $APP"
 [[ -f "$INFO" ]] || fail "Built Info.plist not found"
 [[ -x "$EXECUTABLE" ]] || fail "Built executable not found"
@@ -113,9 +113,9 @@ BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw "$INFO")"
 DISPLAY_NAME="$(plutil -extract CFBundleDisplayName raw "$INFO")"
 
 [[ "$BUNDLE_ID" == "uk.mesut.screenharbor.ios" ]] || fail "Unexpected bundle ID: $BUNDLE_ID"
-[[ "$DISPLAY_NAME" == "ScreenHarbor" ]] || fail "Unexpected display name: $DISPLAY_NAME"
+[[ "$DISPLAY_NAME" == "MacPair" ]] || fail "Unexpected display name: $DISPLAY_NAME"
 plutil -extract NSBonjourServices xml1 -o - "$INFO" | grep -q "_screenharbor._tcp" \
-  || fail "ScreenHarbor Bonjour service is missing"
+  || fail "MacPair Bonjour service is missing"
 file "$EXECUTABLE" | grep -q "arm64" || fail "The device executable is not arm64"
 if otool -L "$EXECUTABLE" | grep -qi "Sparkle"; then
   fail "Sparkle must not be linked into the iOS client"
@@ -130,7 +130,7 @@ fi
 [[ -f "$APP/ThirdPartyLicenses/Opus-COPYING" ]] || fail "Opus license was not embedded"
 [[ -f "$APP/ThirdPartyLicenses/SwiftTerm-LICENSE" ]] || fail "SwiftTerm license was not embedded"
 
-ARTIFACT_NAME="ScreenHarbor-iOS-${VERSION}-build-${BUILD}-unsigned.ipa"
+ARTIFACT_NAME="MacPair-iOS-${VERSION}-build-${BUILD}-unsigned.ipa"
 IPA="$OUTPUT_DIR/$ARTIFACT_NAME"
 SHA_FILE="$IPA.sha256"
 MANIFEST="$IPA.manifest.json"
@@ -139,7 +139,7 @@ SBOM="$IPA.sbom.cdx.json"
 [[ "$STAGING" == "$WORK/staging" ]] || fail "Refusing to replace an unexpected staging path"
 rm -rf "$STAGING"
 mkdir -p "$STAGING/Payload"
-ditto "$APP" "$STAGING/Payload/ScreenHarbor.app"
+ditto "$APP" "$STAGING/Payload/MacPair.app"
 (cd "$STAGING" && ditto -c -k --keepParent Payload "$IPA")
 
 unzip -tq "$IPA" >/dev/null || fail "IPA ZIP integrity check failed"
@@ -161,7 +161,7 @@ import os
 payload = {
     "schemaVersion": 1,
     "artifact": os.environ["ARTIFACT_NAME"],
-    "application": "ScreenHarbor",
+    "application": "MacPair",
     "platform": "iOS",
     "minimumOSVersion": "18.0",
     "version": os.environ["VERSION"],

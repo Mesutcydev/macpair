@@ -11,7 +11,7 @@ struct AppLockView: View {
             VStack(spacing: 0) {
                 PRScreenHeader(
                     title: "locked",
-                    host: "screenharbor · auth required",
+                    host: "macpair · auth required",
                     state: .idle
                 )
 

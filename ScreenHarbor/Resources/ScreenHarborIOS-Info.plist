@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>ScreenHarbor</string>
+		<string>MacPair</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -28,13 +28,13 @@
 		<string>_screenharbor._tcp.</string>
 	</array>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2026 ScreenHarbor contributors.</string>
+	<string>Copyright © 2026 MacPair contributors.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>ScreenHarbor uses your local network to discover and connect to Macs running ScreenHarbor Host.</string>
+	<string>MacPair uses your local network to discover and connect to Macs running MacPair Host.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>ScreenHarbor captures your voice for on-device dictation into your approved Mac.</string>
+	<string>MacPair captures your voice for on-device dictation into your approved Mac.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>ScreenHarbor transcribes your voice on-device so you can dictate text into your approved Mac.</string>
+	<string>MacPair transcribes your voice on-device so you can dictate text into your approved Mac.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

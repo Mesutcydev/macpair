@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve ScreenHarbor.
+Thanks for helping improve MacPair.
 
 ## Development setup
 
@@ -10,10 +10,10 @@ Thanks for helping improve ScreenHarbor.
 4. Build both schemes with ad-hoc signing:
 
    ```bash
-   xcodebuild -project ScreenHarbor.xcodeproj -scheme ScreenHarborHost \
+   xcodebuild -project MacPair.xcodeproj -scheme ScreenHarborHost \
      -configuration Debug CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
 
-   xcodebuild -project ScreenHarbor.xcodeproj -scheme ScreenHarborClient \
+   xcodebuild -project MacPair.xcodeproj -scheme ScreenHarborClient \
      -configuration Debug CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
    ```
 

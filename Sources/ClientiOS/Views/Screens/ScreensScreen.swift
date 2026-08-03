@@ -256,5 +256,5 @@ private struct DottedGrid: View {
 }
 
 #Preview("ScreensScreen") {
-    ScreensScreen(environment: ClientAppEnvironment.makeDefault(clientName: "ScreenHarbor iOS"))
+    ScreensScreen(environment: ClientAppEnvironment.makeDefault(clientName: "MacPair iOS"))
 }

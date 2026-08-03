@@ -1,18 +1,18 @@
-# ScreenHarbor
+# MacPair
 
-> Open-source, native macOS remote desktop host with Mac and iPhone/iPad clients. Local-first, peer-approved, website-distributed, and controllable by a machine-readable CLI.
+> Open-source, native Mac remote desktop host with Mac and iPhone/iPad clients. Local-first, peer-approved, website-distributed, and controllable by a machine-readable CLI.
 
-Canonical name: ScreenHarbor
-Host app: ScreenHarbor Host
-Client app: ScreenHarbor
-iOS client: ScreenHarbor for iPhone and iPad
-Website: https://mesut.uk/apps/screenharbor
-Source: https://github.com/Mesutcydev/screenharbor
+Canonical name: MacPair
+Host app: MacPair Host
+Client app: MacPair
+iOS client: MacPair for iPhone and iPad
+Website: https://mesut.uk/apps/macpair
+Source: https://github.com/Mesutcydev/macpair
 License: Apache-2.0
 Minimum macOS: 13.0
-Host download: https://github.com/Mesutcydev/screenharbor/releases/download/v1.0.8/ScreenHarbor-Host-1.0.8-build-9.dmg
-Mac client download: https://github.com/Mesutcydev/screenharbor/releases/download/v1.0.8/ScreenHarbor-1.0.8-build-9.dmg
-iOS client download: https://mesut.uk/ScreenHarbor-iOS-1.0.3-build-4-unsigned.ipa
+Host download: https://github.com/Mesutcydev/macpair/releases/download/v1.0.9/MacPair-Host-1.0.9-build-10.dmg
+Mac client download: https://github.com/Mesutcydev/macpair/releases/download/v1.0.9/MacPair-1.0.9-build-10.dmg
+iOS client download: https://mesut.uk/MacPair-iOS-1.0.4-build-5-unsigned.ipa
 Integrity files: append .sha256, .manifest.json, or .sbom.cdx.json to a download URL
 Mac signing: ad-hoc; current Mac downloads are not Apple-notarized
 iOS signing: unsigned; a sideload tool must re-sign the IPA with the installer's Apple ID/team
@@ -42,10 +42,10 @@ Status snapshot: ~/Library/Application Support/ScreenHarbor/host.widget.snapshot
 
 ## Documentation
 
-- README: https://github.com/Mesutcydev/screenharbor/blob/main/README.md
-- Agent integration: https://github.com/Mesutcydev/screenharbor/blob/main/docs/AGENT_INTEGRATION.md
-- Machine manifest: https://github.com/Mesutcydev/screenharbor/blob/main/docs/agent-manifest.json
-- Security policy: https://github.com/Mesutcydev/screenharbor/blob/main/SECURITY.md
-- Release integrity: https://github.com/Mesutcydev/screenharbor/blob/main/docs/RELEASE_PROCESS.md
-- iOS sideloading: https://github.com/Mesutcydev/screenharbor/blob/main/docs/IOS_SIDELOAD.md
-- Governance: https://github.com/Mesutcydev/screenharbor/blob/main/GOVERNANCE.md
+- README: https://github.com/Mesutcydev/macpair/blob/main/README.md
+- Agent integration: https://github.com/Mesutcydev/macpair/blob/main/docs/AGENT_INTEGRATION.md
+- Machine manifest: https://github.com/Mesutcydev/macpair/blob/main/docs/agent-manifest.json
+- Security policy: https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md
+- Release integrity: https://github.com/Mesutcydev/macpair/blob/main/docs/RELEASE_PROCESS.md
+- iOS sideloading: https://github.com/Mesutcydev/macpair/blob/main/docs/IOS_SIDELOAD.md
+- Governance: https://github.com/Mesutcydev/macpair/blob/main/GOVERNANCE.md

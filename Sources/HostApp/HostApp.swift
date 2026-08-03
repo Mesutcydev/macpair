@@ -77,7 +77,7 @@ private struct HostMenuBarContent: View {
             HStack(spacing: 10) {
                 HostAppLogo(size: 26, cornerRadius: 6)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("ScreenHarbor Host")
+                    Text("MacPair Host")
                         .font(.headline)
                     Text(headerCaption)
                         .font(.caption)

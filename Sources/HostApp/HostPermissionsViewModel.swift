@@ -138,8 +138,8 @@ final class HostPermissionsViewModel: ObservableObject {
 
     var permissionsResetByUpdateMessage: String {
         "macOS ties these approvals to the exact app binary, so updating the host cleared them. "
-            + "In System Settings, select ScreenHarbor Host, remove it with the − button, then approve it again. "
-            + "Quit ScreenHarbor Host completely and reopen it so Screen Recording takes effect."
+            + "In System Settings, select MacPair Host, remove it with the − button, then approve it again. "
+            + "Quit MacPair Host completely and reopen it so Screen Recording takes effect."
     }
 
     func retry(_ kind: PermissionKind) async {

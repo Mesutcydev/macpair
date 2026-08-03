@@ -53,7 +53,7 @@ final class OnboardingViewModel: ObservableObject {
 
         let script: [LogLine] = [
             .init(kind: .cmd, text: "$ screenharbor ensure", host: nil),
-            .init(kind: .info, text: "· checking ScreenHarbor Host status", host: nil),
+            .init(kind: .info, text: "· checking MacPair Host status", host: nil),
             .init(kind: .info, text: "· reading signed peer identity", host: nil),
             .init(kind: .ok, text: "✓ key fingerprint: SHA256:7f3c…b201", host: nil),
             .init(kind: .cmd, text: "$ scan --lan", host: nil),

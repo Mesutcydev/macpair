@@ -129,7 +129,7 @@ struct MacHostsScreen: View {
         } else if isInitialScan {
             centeredState {
                 DiscoveryHero(isScanning: true)
-                Text("Searching for Macs running ScreenHarbor Host…")
+                Text("Searching for Macs running MacPair Host…")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
@@ -159,7 +159,7 @@ struct MacHostsScreen: View {
                 .padding(.bottom, 4)
             Text("No Macs found yet")
                 .font(.title2.weight(.semibold))
-            Text("Open the ScreenHarbor Host app on the Mac you want to control, and make sure both Macs are on the same network — or reachable over Tailscale.")
+            Text("Open the MacPair Host app on the Mac you want to control, and make sure both Macs are on the same network — or reachable over Tailscale.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 440)
@@ -181,12 +181,12 @@ struct MacHostsScreen: View {
         }
     }
 
-    // MARK: - Get ScreenHarbor Host
+    // MARK: - Get MacPair Host
 
     /// Canonical direct-download page for the host companion.
-    private static let hostWebsiteURL = URL(string: "https://mesut.uk/apps/screenharbor-host")!
+    private static let hostWebsiteURL = URL(string: "https://mesut.uk/apps/macpair-host")!
 
-    /// Small directional card pointing users to install the free ScreenHarbor Host on the Mac they
+    /// Small directional card pointing users to install the free MacPair Host on the Mac they
     /// want to control.
     private var screenHarborHostBox: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -197,9 +197,9 @@ struct MacHostsScreen: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.08)))
             VStack(alignment: .leading, spacing: 5) {
-                Text("Don’t have ScreenHarbor Host yet?")
+                Text("Don’t have MacPair Host yet?")
                     .font(.headline)
-                Text("Install the free ScreenHarbor Host app on the Mac you want to control.")
+                Text("Install the free MacPair Host app on the Mac you want to control.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -345,7 +345,7 @@ struct MacHostsScreen: View {
                 ProgressView().controlSize(.large)
                 Text(connectingStatusText)
                     .font(.title3.weight(.semibold))
-                Text("If this is the first connection, approve this Mac in the ScreenHarbor Host window on the other computer.")
+                Text("If this is the first connection, approve this Mac in the MacPair Host window on the other computer.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

@@ -471,7 +471,7 @@ struct SimpleHomeView: View {
     /// (tap to go fullscreen) instead of auto-opening fullscreen. Mirrors the old
     /// developer "stream" card. Off keeps the simple straight-to-fullscreen flow.
     @AppStorage("client.ui.inlineStreamPreview") private var inlineStreamPreview = false
-    /// Set once the user confirms that ScreenHarbor Host is installed —
+    /// Set once the user confirms that MacPair Host is installed —
     /// permanently hides the host download cards on the home screen. Settings still shows them.
     @AppStorage("client.ui.screenHarborHostInstalled") private var screenHarborHostInstalled = false
 
@@ -598,7 +598,7 @@ struct SimpleHomeView: View {
                 // generic network message here told users to check Wi-Fi for a permission problem.
                 errorText = sessionCoordinator.blockedState?.message
                     ?? sessionCoordinator.errorMessage
-                    ?? "Couldn’t reach that Mac. Make sure ScreenHarbor Host is open on the same network."
+                    ?? "Couldn’t reach that Mac. Make sure MacPair Host is open on the same network."
             case .idle:
                 connectingHostID = nil
                 showStream = false
@@ -662,9 +662,9 @@ struct SimpleHomeView: View {
             }
             Button("Cancel", role: .cancel) { pendingUnwakeableHost = nil }
         } message: {
-            Text("It’s an Apple-Silicon Mac on Wi-Fi, which macOS can’t wake from sleep over the network without an Apple TV/HomePod acting as a Sleep Proxy.\n\nFix: on the Mac, open ScreenHarbor Host → Settings → turn on “Keep Mac Awake & Reachable” (so it never sleeps), or connect it via Ethernet. Tap “Wake anyway” to try regardless (works if a Sleep Proxy is on the network).")
+            Text("It’s an Apple-Silicon Mac on Wi-Fi, which macOS can’t wake from sleep over the network without an Apple TV/HomePod acting as a Sleep Proxy.\n\nFix: on the Mac, open MacPair Host → Settings → turn on “Keep Mac Awake & Reachable” (so it never sleeps), or connect it via Ethernet. Tap “Wake anyway” to try regardless (works if a Sleep Proxy is on the network).")
         }
-        .alert("Is ScreenHarbor Host installed on your Mac?", isPresented: $showInstalledPrompt) {
+        .alert("Is MacPair Host installed on your Mac?", isPresented: $showInstalledPrompt) {
             Button("Yes, it’s installed") {
                 screenHarborHostInstalled = true
                 AppHaptics.selection()
@@ -674,7 +674,7 @@ struct SimpleHomeView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("ScreenHarbor Host is the Mac app this controls. If it’s already installed, we’ll stop showing the download card here. You can still find it in settings.")
+            Text("MacPair Host is the Mac app this controls. If it’s already installed, we’ll stop showing the download card here. You can still find it in settings.")
         }
     }
 
@@ -693,7 +693,7 @@ struct SimpleHomeView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("ScreenHarbor")
+                Text("MacPair")
                     .font(.headline)
                     .foregroundColor(PR.fg)
                 Text(headerSubtitle)
@@ -973,7 +973,7 @@ struct SimpleHomeView: View {
             Text(isScanning ? "scanning for macs…" : "no macs found yet")
                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
                 .foregroundColor(PR.fg)
-            Text("open ScreenHarbor Host on your Mac and make sure both devices share the same Wi-Fi, then scan. Away from your network? Tap “connect by address” below and enter the Mac’s Tailscale address.")
+            Text("open MacPair Host on your Mac and make sure both devices share the same Wi-Fi, then scan. Away from your network? Tap “connect by address” below and enter the Mac’s Tailscale address.")
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(PR.dim)
                 .multilineTextAlignment(.center)
@@ -1012,7 +1012,7 @@ struct SimpleHomeView: View {
 
     // MARK: Home host promo (dismissible)
 
-    /// The ScreenHarbor Host download card shown on the home screen below "connect by address".
+    /// The MacPair Host download card shown on the home screen below "connect by address".
     /// Dismissible: tapping ✕ asks whether the host is installed; "yes" hides it for good
     /// (`screenHarborHostInstalled`), "not yet" hides it until the next launch.
     private var homeHostPromo: some View {
@@ -1191,7 +1191,7 @@ struct SimpleHomeView: View {
         // Offline and only reachable over Tailscale: a wake signal can't travel over Tailscale,
         // so be honest instead of attempting a doomed connect to a sleeping Mac.
         if isWakeBlockedByRelay(host) {
-            showWakeInfo("Can’t wake over Tailscale — a wake signal only travels on the same Wi-Fi. Wake this Mac from its local network, or keep it awake in ScreenHarbor Host → Settings.", isError: true)
+            showWakeInfo("Can’t wake over Tailscale — a wake signal only travels on the same Wi-Fi. Wake this Mac from its local network, or keep it awake in MacPair Host → Settings.", isError: true)
             return
         }
         // Remind to enable the VPN before attempting a Tailscale/relay address —
@@ -1323,7 +1323,7 @@ struct SimpleHomeView: View {
             // The Mac never came back. Give actionable guidance instead of leaving a silent failure —
             // the usual cause is an Apple-Silicon Mac on Wi-Fi that can't be woken remotely.
             withAnimation(.easeOut(duration: 0.2)) {
-                wakeFeedback = "Your Mac didn’t respond. Apple-Silicon Macs on Wi-Fi can’t be woken remotely — on the Mac, open ScreenHarbor Host → Settings → turn on “Keep Mac Awake & Reachable”, or connect it via Ethernet."
+                wakeFeedback = "Your Mac didn’t respond. Apple-Silicon Macs on Wi-Fi can’t be woken remotely — on the Mac, open MacPair Host → Settings → turn on “Keep Mac Awake & Reachable”, or connect it via Ethernet."
                 wakeFeedbackIsError = true
             }
             let shown = wakeFeedback
@@ -3132,6 +3132,6 @@ private extension Color {
 
 #Preview("MirrorScreen") {
     if #available(iOS 16.1, *) {
-        MirrorScreen(environment: ClientAppEnvironment.makeDefault(clientName: "ScreenHarbor iOS"))
+        MirrorScreen(environment: ClientAppEnvironment.makeDefault(clientName: "MacPair iOS"))
     }
 }

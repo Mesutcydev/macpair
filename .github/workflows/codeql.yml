@@ -78,13 +78,13 @@ jobs:
         run: >-
           xcodebuild
           -resolvePackageDependencies
-          -project ScreenHarbor.xcodeproj
+          -project MacPair.xcodeproj
 
       - name: Build Swift app target
         if: matrix.build-mode == 'manual'
         run: >-
           xcodebuild
-          -project ScreenHarbor.xcodeproj
+          -project MacPair.xcodeproj
           -scheme "${{ matrix.scheme }}"
           -configuration Debug
           -destination "${{ matrix.destination }}"

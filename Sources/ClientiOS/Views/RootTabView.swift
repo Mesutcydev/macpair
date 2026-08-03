@@ -5,7 +5,7 @@ import SharedModels
 /// The app now ships a single front-end: the friendly Simple Mode home (laptop grid →
 /// tap to connect → fullscreen stream, with everything else behind the gear). The old
 /// tabbed "developer" UI and its first-run mode chooser were retired. First launch shows
-/// a one-screen welcome that explains how ScreenHarbor works and points to ScreenHarbor Host, then drops
+/// a one-screen welcome that explains how MacPair works and points to MacPair Host, then drops
 /// straight into the home — no mode question, no fake terminal pairing.
 @available(iOS 16.1, *)
 struct RootTabView: View {
@@ -55,7 +55,7 @@ extension Notification.Name {
 #Preview("RootTabView") {
     if #available(iOS 16.1, *) {
         RootTabView(
-            environment: ClientAppEnvironment.makeDefault(clientName: "ScreenHarbor iOS"),
+            environment: ClientAppEnvironment.makeDefault(clientName: "MacPair iOS"),
             appLock: AppLockService()
         )
     }

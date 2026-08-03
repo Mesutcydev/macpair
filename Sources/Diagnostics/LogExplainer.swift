@@ -4,7 +4,7 @@ import FoundationModels
 import Foundation
 import SharedModels
 
-/// Turns an ScreenHarbor connection/event log into a plain-language "what happened + what to try"
+/// Turns a MacPair connection/event log into a plain-language "what happened + what to try"
 /// using Apple's Foundation Models.
 ///
 /// Engine selection (best first):
@@ -124,7 +124,7 @@ public enum LogExplainer {
     #endif
 
     private static let instructions = """
-    You are a support assistant inside "ScreenHarbor", a Mac remote-desktop app: a Mac "host" is \
+    You are a support assistant inside "MacPair", a Mac remote-desktop app: a Mac "host" is \
     screen-shared and controlled by an iPhone or Mac "client", usually over Tailscale. You are \
     given the client's recent connection log — a tally of repeated errors followed by recent lines.
 

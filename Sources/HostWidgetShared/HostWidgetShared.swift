@@ -112,7 +112,7 @@ public struct HostWidgetSnapshot: Codable, Equatable, Sendable {
         HostWidgetSnapshot(
             phase: .ready,
             statusTitle: "ready",
-            hostName: "ScreenHarbor Host",
+            hostName: "MacPair Host",
             primaryAddress: "192.168.1.148:9471",
             addressLabel: "lan",
             connectedClient: nil,

@@ -1,6 +1,6 @@
 # Release process
 
-ScreenHarbor releases are built from a clean, committed source tree. The direct
+MacPair releases are built from a clean, committed source tree. The direct
 Mac website channel is ad-hoc signed and is not Apple-notarized. The iOS IPA is
 unsigned and must be re-signed by the installer's sideloading tool.
 

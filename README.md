@@ -1,26 +1,26 @@
-# ScreenHarbor
+# MacPair
 
-**ScreenHarbor is an open-source, native remote desktop for macOS, iOS, and iPadOS.** It pairs a lightweight Mac host with Mac and iPhone/iPad clients for low-latency screen sharing, keyboard and pointer control, clipboard sync, file transfer, audio, and an opt-in remote terminal.
+**MacPair is an open-source, native Mac remote desktop for macOS, iOS, and iPadOS.** It pairs a lightweight Mac host with Mac and iPhone/iPad clients for low-latency screen sharing, keyboard and pointer control, clipboard sync, file transfer, audio, and an opt-in remote terminal.
 
-The project is local-first. Discovery uses Bonjour on your LAN, peer identities are signed, and every new client must be visibly approved on the host. For access beyond the local network, use a private network you control, such as Tailscale; ScreenHarbor does not require a hosted relay or account.
+The project is local-first. Discovery uses Bonjour on your LAN, peer identities are signed, and every new client must be visibly approved on the host. For access beyond the local network, use a private network you control, such as Tailscale; MacPair does not require a hosted relay or account.
 
 ## Apps
 
 | App | Purpose | Bundle ID |
 | --- | --- | --- |
-| ScreenHarbor Host | Runs on the Mac being controlled | `uk.mesut.screenharbor.host` |
-| ScreenHarbor for Mac | Connects to an approved host | `uk.mesut.screenharbor.client` |
-| ScreenHarbor for iOS | Sideloadable iPhone/iPad client | `uk.mesut.screenharbor.ios` |
+| MacPair Host | Runs on the Mac being controlled | `uk.mesut.screenharbor.host` |
+| MacPair for Mac | Connects to an approved host | `uk.mesut.screenharbor.client` |
+| MacPair for iOS | Sideloadable iPhone/iPad client | `uk.mesut.screenharbor.ios` |
 
 All three apps are distributed directly from the project website and can be built without
 App Store services.
 
 ## Download and install
 
-Download the [Mac client](https://mesut.uk/apps/screenharbor) and
-[host](https://mesut.uk/apps/screenharbor-host) DMGs directly from the project website.
+Download the [MacPair client](https://mesut.uk/apps/macpair) and
+[MacPair Host](https://mesut.uk/apps/macpair-host) DMGs directly from the project website.
 The unsigned iOS 18+ IPA and its checksum are available from the
-[ScreenHarbor client page](https://mesut.uk/apps/screenharbor); read the
+[MacPair client page](https://mesut.uk/apps/macpair); read the
 [sideloading guide](docs/IOS_SIDELOAD.md) before installing it.
 
 Current Mac website builds are ad-hoc signed, not Developer ID signed or Apple-notarized.
@@ -43,7 +43,7 @@ brew install xcodegen
 xcodegen generate --spec screenharbor-project.yml
 
 xcodebuild \
-  -project ScreenHarbor.xcodeproj \
+  -project MacPair.xcodeproj \
   -scheme ScreenHarborHost \
   -configuration Release \
   CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
@@ -73,7 +73,7 @@ The host bundles the `screenharbor` CLI. Install it after copying the host app:
 ```bash
 sudo mkdir -p /usr/local/bin
 sudo ln -sf \
-  "/Applications/ScreenHarbor Host.app/Contents/Resources/screenharbor" \
+  "/Applications/MacPair Host.app/Contents/Resources/screenharbor" \
   /usr/local/bin/screenharbor
 ```
 
@@ -99,7 +99,7 @@ Agents must never approve an unknown pairing request. Present the device name an
 
 ## Security
 
-Only use ScreenHarbor on devices you own or are authorized to control. New peer identities require host approval, terminal access is opt-in, and the host can be stopped at any time.
+Only use MacPair on devices you own or are authorized to control. New peer identities require host approval, terminal access is opt-in, and the host can be stopped at any time.
 
 Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
@@ -107,7 +107,7 @@ Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.m
 
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-ScreenHarbor is licensed under the [Apache License 2.0](LICENSE). Third-party
+MacPair is licensed under the [Apache License 2.0](LICENSE). Third-party
 components retain their own licenses; see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Project governance, support,
 release integrity, and name-use policies are documented in
@@ -117,5 +117,5 @@ release integrity, and name-use policies are documented in
 [open-source program readiness checklist](docs/PROGRAM_READINESS.md) records the
 evidence to maintain as the project grows.
 
-ScreenHarbor is an independent project. It is not affiliated with, endorsed by, or
+MacPair is an independent project. It is not affiliated with, endorsed by, or
 sponsored by Apple Inc.

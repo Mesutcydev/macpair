@@ -145,7 +145,7 @@ final class HostWidgetBridge {
         let snapshot = HostWidgetSnapshot(
             phase: widgetPhase,
             statusTitle: statusTitle,
-            hostName: "screenharbor host",
+            hostName: "macpair host",
             primaryAddress: address,
             addressLabel: address == nil ? nil : "lan",
             connectedClient: environment.sessionCoordinator.connectedClientName,
@@ -160,7 +160,7 @@ final class HostWidgetBridge {
         #if canImport(WidgetKit)
         // Target this widget explicitly. On macOS, reloadAllTimelines() can be
         // coalesced with unrelated widget work and leave the final offline entry
-        // visible after ScreenHarbor Host has already relaunched.
+        // visible after MacPair Host has already relaunched.
         WidgetCenter.shared.reloadTimelines(ofKind: HostWidgetConstants.widgetKind)
         #endif
     }

@@ -1,6 +1,6 @@
 # Support
 
-ScreenHarbor is community-supported.
+MacPair is community-supported.
 
 - Read the [README](README.md) for installation and Gatekeeper steps.
 - Read [docs/AGENT_INTEGRATION.md](docs/AGENT_INTEGRATION.md) for CLI and automation
