@@ -60,6 +60,25 @@ for base in "$host_base" "$client_base"; do
   done
 done
 
+ios_artifact="$(python3 -c 'import json,os,sys; print(os.path.basename(json.load(open(sys.argv[1], encoding="utf-8"))["downloads"]["iosClient"]))' "$ROOT/docs/agent-manifest.json")"
+[[ "$ios_artifact" == MacPair-iOS-*-unsigned.ipa ]] ||
+  fail "Unexpected iOS release filename: $ios_artifact"
+for suffix in "" .sha256 .manifest.json .sbom.cdx.json; do
+  source="$DIST/$ios_artifact$suffix"
+  [[ -f "$source" ]] || fail "Missing release file: $source"
+  if [[ "$suffix" == ".manifest.json" ]]; then
+    manifest_commit="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["sourceCommit"])' "$source")"
+    manifest_state="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["sourceTreeState"])' "$source")"
+    [[ "$manifest_commit" == "$source_commit" ]] ||
+      fail "iOS manifest source commit does not match HEAD: $source"
+    if [[ "$RELEASE" -eq 1 ]]; then
+      [[ "$manifest_state" == "clean" ]] ||
+        fail "iOS release manifest was not produced from a clean tree: $source"
+    fi
+  fi
+  cp "$source" "$WEBSITE/"
+done
+
 cp "$ROOT/docs/agent-manifest.json" "$WEBSITE/screenharbor-agent.json"
 cp "$ROOT/llms.txt" "$WEBSITE/screenharbor-llms.txt"
 cp "$ROOT/docs/agent-manifest.json" "$WEBSITE/macpair-agent.json"
