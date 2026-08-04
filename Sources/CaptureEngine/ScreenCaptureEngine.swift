@@ -1,6 +1,7 @@
 #if os(macOS)
 import AVFoundation
 import CoreMedia
+import CoreGraphics
 import Foundation
 import IOKit.pwr_mgt
 import ScreenCaptureKit
@@ -193,6 +194,14 @@ public final class ScreenCaptureEngine: NSObject, CaptureEngineProtocol, @unchec
             streamConfig.queueDepth = config.queueDepth
             if dynamicRange == .sdr {
                 streamConfig.pixelFormat = config.pixelFormat
+                // ScreenCaptureKit otherwise inherits the display's color profile. On
+                // wide-gamut Macs that leaves the encoder receiving Display P3/HDR-ish
+                // buffers while the client presents them as SDR BT.709, producing the
+                // washed-out, low-contrast "veil" seen in the remote stream. Normalize
+                // the SDR wire path at capture time: sRGB transfer, BT.709 matrix, and
+                // full-range luma/chroma.
+                streamConfig.colorSpaceName = CGColorSpace.sRGB
+                streamConfig.colorMatrix = kCVImageBufferYCbCrMatrix_ITU_R_709_2
             }
             if dynamicRange == .hdr10 {
                 // The HDR preset doesn't pin a pixel format, but the encoder/decoder are

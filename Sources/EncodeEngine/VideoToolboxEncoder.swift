@@ -311,30 +311,38 @@ public final class VideoToolboxEncoder: EncoderPipelineProtocol, @unchecked Send
             value: configuration.profileLevel as CFString
         )
 
+        // The capture side explicitly normalizes SDR to sRGB/BT.709. Write the same
+        // colorimetry into the compressed format description so every decoder expands
+        // the luma range and applies the intended transfer function instead of guessing
+        // from an untagged stream. This is especially important for dark UI content,
+        // where a range/profile mismatch is immediately visible as a faded veil.
+        VTSessionSetProperty(
+            created,
+            key: kVTCompressionPropertyKey_ColorPrimaries,
+            value: configuration.dynamicRange == .hdr10
+                ? kCVImageBufferColorPrimaries_ITU_R_2020
+                : kCVImageBufferColorPrimaries_ITU_R_709_2
+        )
+        VTSessionSetProperty(
+            created,
+            key: kVTCompressionPropertyKey_TransferFunction,
+            value: configuration.dynamicRange == .hdr10
+                ? kCVImageBufferTransferFunction_SMPTE_ST_2084_PQ
+                : kCVImageBufferTransferFunction_sRGB
+        )
+        VTSessionSetProperty(
+            created,
+            key: kVTCompressionPropertyKey_YCbCrMatrix,
+            value: configuration.dynamicRange == .hdr10
+                ? kCVImageBufferYCbCrMatrix_ITU_R_2020
+                : kCVImageBufferYCbCrMatrix_ITU_R_709_2
+        )
+
         if configuration.dynamicRange == .hdr10 {
             VTSessionSetProperty(
                 created,
                 key: kVTCompressionPropertyKey_OutputBitDepth,
                 value: NSNumber(value: 10)
-            )
-            // Standards-correct HDR10: BT.2020 primaries + PQ transfer + BT.2020
-            // non-constant luminance matrix. (Previously P3-D65 primaries with a 709
-            // matrix, which is internally consistent but not real HDR10 and can render
-            // with wrong saturation on HDR displays.)
-            VTSessionSetProperty(
-                created,
-                key: kVTCompressionPropertyKey_ColorPrimaries,
-                value: kCVImageBufferColorPrimaries_ITU_R_2020
-            )
-            VTSessionSetProperty(
-                created,
-                key: kVTCompressionPropertyKey_TransferFunction,
-                value: kCVImageBufferTransferFunction_SMPTE_ST_2084_PQ
-            )
-            VTSessionSetProperty(
-                created,
-                key: kVTCompressionPropertyKey_YCbCrMatrix,
-                value: kCVImageBufferYCbCrMatrix_ITU_R_2020
             )
             VTSessionSetProperty(
                 created,

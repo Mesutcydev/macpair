@@ -60,7 +60,10 @@ extension CaptureConfiguration {
             scaleFactor: scale,
             minimumFrameInterval: frameInterval(for: preset),
             queueDepth: queueDepth(),
-            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            // Screen content is full-range RGB data. Keep the capture surface full-range
+            // so dark UI pixels do not get lifted when the frame crosses the Y'CbCr
+            // conversion and VideoToolbox encoder.
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
             showsCursor: true,
             presetsUsed: preset
         )
