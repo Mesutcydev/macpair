@@ -6,6 +6,16 @@ All notable changes to MacPair are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-08-04
+
+### Fixed
+
+- Normalize SDR screen capture to sRGB, BT.709, and full-range pixels before
+  encoding, and carry matching color metadata through VideoToolbox so dark UI
+  content is not rendered with a faded low-contrast veil.
+- Keep the iOS and Mac client decoders on the same sRGB transfer-function
+  contract for SDR frames.
+
 ## [1.0.9] - 2026-08-03
 
 ### Changed

@@ -44,9 +44,9 @@ manifest, and CycloneDX SBOM to `dist/`.
 
 ## Compatibility
 
-- Client: MacPair for iOS 1.0.4 or later
+- Client: MacPair for iOS 1.0.5 or later
 - Minimum OS: iOS/iPadOS 18
-- Host: MacPair Host 1.0.9 or later
+- Host: MacPair Host 1.0.10 or later
 - Discovery: `_screenharbor._tcp`
 - Bundle ID before re-signing: `uk.mesut.screenharbor.ios`
 

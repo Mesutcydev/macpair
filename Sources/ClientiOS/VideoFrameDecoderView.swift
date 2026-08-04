@@ -462,9 +462,9 @@ final class VideoFrameDecoder: @unchecked Sendable {
                     // The decoder outputs SDR as BGRA. The format description is
                     // created from parameter sets without color extensions, so
                     // VideoToolbox may otherwise leave the decoded buffer without
-                    // an explicit SDR color interpretation. Tag it as BT.709 so
-                    // AVSampleBufferDisplayLayer does not guess (or treat it as
-                    // extended-range content).
+                    // an explicit SDR color interpretation. Tag it as the same
+                    // sRGB/BT.709 contract used by ScreenCaptureKit and the encoder;
+                    // the sRGB transfer function preserves dark UI contrast.
                     CVBufferSetAttachment(
                         pixelBuffer,
                         kCVImageBufferColorPrimariesKey,
@@ -474,7 +474,7 @@ final class VideoFrameDecoder: @unchecked Sendable {
                     CVBufferSetAttachment(
                         pixelBuffer,
                         kCVImageBufferTransferFunctionKey,
-                        kCVImageBufferTransferFunction_ITU_R_709_2,
+                        kCVImageBufferTransferFunction_sRGB,
                         .shouldPropagate
                     )
                     CVBufferSetAttachment(
