@@ -99,6 +99,7 @@ struct VampTerminalHomeView: View {
                                 VampHostPromoCard {
                                     hostPromoDismissed = true
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             } else {
                                 hostSetupRecovery
                             }
@@ -116,12 +117,7 @@ struct VampTerminalHomeView: View {
                                 )
                             } else if let error = environment.sessionCoordinator.errorMessage,
                                       environment.sessionCoordinator.phase == .error {
-                                messageCard(
-                                    title: "Connection needs attention",
-                                    message: error,
-                                    icon: "exclamationmark.triangle",
-                                    tint: VampGlassPalette.warning
-                                )
+                                connectionAttentionCard(error)
                             } else if let unavailable = terminalUnavailableMessage {
                                 terminalUnavailableCard(
                                     title: unavailable.title,
@@ -137,8 +133,8 @@ struct VampTerminalHomeView: View {
                         .padding(.horizontal, VampTerminalDesign.space4)
                         .padding(.top, VampTerminalDesign.space3)
                         .padding(.bottom, VampTerminalDesign.space7)
-                        .frame(maxWidth: 760, alignment: .leading)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
+            .frame(maxWidth: 760, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
                     .scrollDismissesKeyboard(.interactively)
                     .onChange(of: manualAddressFocused) { _, isFocused in
@@ -220,6 +216,7 @@ struct VampTerminalHomeView: View {
                     .foregroundStyle(VampGlassPalette.inkTertiary)
             }
             .padding(VampTerminalDesign.space3)
+            .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.cardMinHeight, alignment: .leading)
             .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
             .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius)
         }
@@ -252,6 +249,7 @@ struct VampTerminalHomeView: View {
                     .foregroundStyle(VampGlassPalette.inkTertiary)
             }
             .padding(VampTerminalDesign.space3)
+            .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.cardMinHeight, alignment: .leading)
             .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
             .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius)
         }
@@ -310,6 +308,7 @@ struct VampTerminalHomeView: View {
             )
         }
         .padding(VampTerminalDesign.space4)
+        .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.hostCardMinHeight, alignment: .leading)
         .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
         .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius)
     }
@@ -530,6 +529,7 @@ struct VampTerminalHomeView: View {
             }
         }
         .padding(.top, VampTerminalDesign.space1)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: showingManualAddress) { _, isShowing in
             if !isShowing {
                 manualAddressFocused = false
@@ -594,6 +594,7 @@ struct VampTerminalHomeView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(VampTerminalDesign.space4)
+        .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.cardMinHeight, alignment: .leading)
         .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
         .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: VampGlassPalette.good.opacity(0.28))
     }
@@ -606,7 +607,7 @@ struct VampTerminalHomeView: View {
                 Text(connectionPhaseTitle)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(VampGlassPalette.ink)
-                Text("Waiting for the signed WebRTC session to become ready…")
+                Text(connectionPhaseMessage)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(VampGlassPalette.inkTertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -626,6 +627,7 @@ struct VampTerminalHomeView: View {
             .buttonStyle(VampGlassPressStyle())
         }
         .padding(VampTerminalDesign.space4)
+        .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.cardMinHeight, alignment: .leading)
         .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
         .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: VampGlassPalette.ruleStrong)
     }
@@ -646,8 +648,68 @@ struct VampTerminalHomeView: View {
             }
         }
         .padding(VampTerminalDesign.space4)
+        .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.cardMinHeight, alignment: .leading)
         .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
         .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: tint.opacity(0.30))
+    }
+
+    private func connectionAttentionCard(_ error: String) -> some View {
+        VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
+            HStack(alignment: .top, spacing: VampTerminalDesign.space3) {
+                Image(systemName: "exclamationmark.triangle")
+                    .foregroundStyle(VampGlassPalette.warning)
+                    .frame(width: VampTerminalDesign.space6)
+                VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
+                    Text("Connection needs attention")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(VampGlassPalette.ink)
+                    Text(error)
+                        .font(.footnote)
+                        .foregroundStyle(VampGlassPalette.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack(spacing: VampTerminalDesign.space2) {
+                Button {
+                    if let row = selectedHostForRetry {
+                        connect(to: row)
+                    } else {
+                        Task { await hosts.refresh() }
+                    }
+                } label: {
+                    Label(selectedHostForRetry == nil ? "Refresh hosts" : "Retry", systemImage: "arrow.clockwise")
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(VampGlassPalette.ink)
+                        .padding(.horizontal, VampTerminalDesign.space3)
+                        .frame(minHeight: VampTerminalDesign.minTapTarget)
+                        .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                        .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
+                }
+                .buttonStyle(VampGlassPressStyle())
+
+                Button {
+                    Task { await environment.sessionCoordinator.endSession() }
+                } label: {
+                    Text("Dismiss")
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(VampGlassPalette.inkSecondary)
+                        .padding(.horizontal, VampTerminalDesign.space3)
+                        .frame(minHeight: VampTerminalDesign.minTapTarget)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(VampTerminalDesign.space4)
+        .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.cardMinHeight, alignment: .leading)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: VampGlassPalette.warning.opacity(0.30))
+    }
+
+    private var selectedHostForRetry: DiscoveredHostRow? {
+        guard let selectedHostID = hosts.selectedHostID else { return nil }
+        return hosts.displayHosts.first(where: { $0.id == selectedHostID })
+            ?? hosts.hosts.first(where: { $0.id == selectedHostID })
     }
 
     private func terminalUnavailableCard(title: String, message: String, icon: String) -> some View {
@@ -681,6 +743,7 @@ struct VampTerminalHomeView: View {
             .buttonStyle(VampGlassPressStyle())
         }
         .padding(VampTerminalDesign.space4)
+        .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.cardMinHeight, alignment: .leading)
         .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
         .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: VampGlassPalette.warning.opacity(0.30))
     }
@@ -697,9 +760,22 @@ struct VampTerminalHomeView: View {
     private var connectionPhaseTitle: String {
         switch environment.sessionCoordinator.phase {
         case .connecting: return "Connecting to Mac"
-        case .signalingConnected: return "Pairing with Mac"
+        case .signalingConnected: return "Approve this device on the Mac"
         case .negotiating: return "Opening secure channel"
         default: return "Connecting"
+        }
+    }
+
+    private var connectionPhaseMessage: String {
+        switch environment.sessionCoordinator.phase {
+        case .connecting:
+            return "Looking for the host over LAN or Tailscale…"
+        case .signalingConnected:
+            return "Vamp Host is waiting for approval. Bring the host dashboard forward and tap Approve."
+        case .negotiating:
+            return "The host approved pairing. Establishing the signed WebRTC channel…"
+        default:
+            return "Waiting for the signed WebRTC session to become ready…"
         }
     }
 

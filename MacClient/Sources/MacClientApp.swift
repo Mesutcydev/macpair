@@ -46,7 +46,7 @@ struct MacClientApp: App {
                         newValue == ConnectionControlsPresentation.menuBarItem.rawValue
                     )
                 }
-                .screenHarborSplashWindow(.macClient(version: Self.versionString))
+                .vampSplashWindow(.macClient(version: Self.versionString))
         }
         .windowStyle(.titleBar)
         .windowResizability(.contentMinSize)

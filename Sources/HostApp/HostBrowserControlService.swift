@@ -932,7 +932,7 @@ function closeTab(id){if(ws&&ws.readyState===1)send({type:'close',terminalID:id}
 function ensureStream(id){let t=tabs.get(id);if(!t)return null;let el=document.querySelector('.stream[data-id="'+id+'"]');if(!el){el=document.createElement('div');el.className='stream '+(active===id?'active':'');el.dataset.id=id;el.innerHTML='<div class="terminal" tabindex="0" aria-label="Terminal output"></div><div class="quick"><button data-k="ctrlc">Ctrl-C</button><button data-k="esc">Esc</button><button data-k="tab">Tab</button><button data-k="up">↑</button><button data-k="down">↓</button><button data-k="left">←</button><button data-k="right">→</button><button data-k="ctrld">Ctrl-D</button><button data-k="clear">Clear</button></div>';let keys={ctrlc:'\u0003',esc:'\u001b',tab:'\t',up:'\u001b[A',down:'\u001b[B',left:'\u001b[D',right:'\u001b[C',ctrld:'\u0004',clear:'\u000c'};el.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{sendInput(id,keys[b.dataset.k]||'')});$('chat').appendChild(el)}return el}
 function appendOutput(id,text){let t=tabs.get(id);if(!t)return;t.out+=strip(text);if(t.out.length>200000)t.out=t.out.slice(-200000);let el=ensureStream(id),term=el.querySelector('.terminal');term.textContent=t.out;term.scrollTop=term.scrollHeight;if(active!==id){t.unread=true;renderTabs()}}
 function sendInput(id,text){let bytes=new TextEncoder().encode(text),bin='';bytes.forEach(x=>bin+=String.fromCharCode(x));send({type:'input',terminalID:id,data:btoa(bin)})}
-function send(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))}
+function send(o){if(ws&&ws.readyState===1){ws.send(JSON.stringify(o));return true}return false}
 function reviewCommand(){let value=$('input').value.trim();if(!value||!active)return;$('input').value='';if(approved.has(value)){sendInput(active,value+'\n');appendCommand(value,'Approved');return}let card=document.createElement('div');card.className='command-card';card.innerHTML='<div class="eyebrow">⌁ Permission required</div><div class="approval">Awaiting approval</div><div class="command"><span class="prompt">$ </span>'+esc(value)+'<br><span style="color:#888">No output yet.</span></div><div class="approval-actions"><button>Allow</button><button class="secondary">Always allow here</button><button class="danger">Deny</button></div>';card.querySelectorAll('button')[0].onclick=()=>{sendInput(active,value+'\n');appendCommand(value,'Allowed');card.remove()};card.querySelectorAll('button')[1].onclick=()=>{approved.add(value);sendInput(active,value+'\n');appendCommand(value,'Always allowed here');card.remove()};card.querySelectorAll('button')[2].onclick=()=>{appendCommand(value,'Denied');card.remove()};$('chat').appendChild(card);card.scrollIntoView({block:'center',inline:'nearest'})}
 function appendCommand(v,status){addMessage('<div class="meta">You · '+esc(status)+'</div><div class="body"><span style="color:#aaa">$ </span>'+esc(v)+'</div>')}
 function showPair(){$('pair').classList.remove('hidden');$('code').focus()}
@@ -953,6 +953,11 @@ const vampUpdateViewportInset = () => {
   const visibleBottom = viewport ? viewport.height + viewport.offsetTop : layoutHeight;
   const inset = Math.max(0, Math.round(layoutHeight - visibleBottom));
   document.documentElement.style.setProperty('--vamp-bottom-inset', inset + 'px');
+  // iOS Safari may report the entire keyboard height here while the shell is
+  // already sized to the visual viewport. Capping the composer lift avoids a
+  // second full-height compensation that would strand the composer halfway
+  // up the page instead of just above the keyboard.
+  document.documentElement.style.setProperty('--vamp-composer-inset', Math.min(20, inset) + 'px');
   const visibleHeight = viewport ? Math.max(240, Math.round(viewport.height)) : layoutHeight;
   document.documentElement.style.setProperty('--vamp-visual-height', visibleHeight + 'px');
   const terminalHeight = Math.min(460, Math.max(160, Math.round(visibleHeight * 0.42)));
@@ -969,14 +974,116 @@ const vampRestoreShellPosition = () => {
   });
 };
 const vampTerminalSize = (id = active) => {
-  const stream = id ? document.querySelector('.stream[data-id="' + id + '"]') : null;
-  const terminal = stream?.querySelector('.terminal');
-  const width = terminal?.clientWidth || Math.max(320, innerWidth - 28);
-  const height = terminal?.clientHeight || Math.min(460, Math.max(180, Math.round(innerHeight * 0.42)));
+  // The terminal screen is intentionally not rendered in Safari anymore. Use
+  // a stable, readable PTY size instead of measuring a hidden DOM node. Safari
+  // changes visualViewport.height when its URL bar or keyboard moves; using
+  // that value here makes agent TUIs reflow while the user is only scrolling.
+  const width = Math.max(320, innerWidth - 28);
+  const height = 480;
   return {
-    cols: Math.max(40, Math.min(240, Math.floor((width - 28) / 8.4))),
-    rows: Math.max(12, Math.min(100, Math.floor((height - 28) / 20)))
+    cols: Math.max(64, Math.min(120, Math.floor((width - 28) / 8.4))),
+    rows: Math.max(24, Math.min(28, Math.floor((height - 28) / 20)))
   };
+};
+
+const vampScrollChatToLatest = () => {
+  const content = document.querySelector('.content');
+  if (!content) return;
+  requestAnimationFrame(() => {
+    // Keep the latest assistant/approval card visible while output streams.
+    // This is deliberately an immediate scroll: a long command must not
+    // queue dozens of overlapping smooth animations in Safari.
+    content.scrollTop = content.scrollHeight;
+  });
+};
+
+addMessage = (html, tabID = active) => {
+  const element = document.createElement('article');
+  element.className = 'message';
+  if (tabID) element.dataset.tabId = tabID;
+  element.innerHTML = html;
+  $('chat').appendChild(element);
+  vampScrollChatToLatest();
+  return element;
+};
+
+const vampNormalizeChatOutput = (text, tab) => {
+  let value = String(text || '')
+    .replace(/\u001b\][\s\S]*?(?:\u0007|\u001b\\)/g, '')
+    .replace(/\u001b(?:\[[0-?]*[ -\/]*[@-~]|[()][0-2A-Z0-9]|.)/g, '')
+    .replace(/\u009b[0-?]*[ -\/]*[@-~]/g, '')
+    .replace(/\r/g, '')
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '');
+  const pending = String(tab?.pendingCommand || '').trim();
+  const lines = value.split('\n').map((line) => line.trimEnd()).filter((line) => {
+    const normalized = line.trim();
+    if (!normalized) return false;
+    if (/^(?:~|[$%❯>#]|~\s*[%$#❯>])\s*$/.test(normalized)) return false;
+    if (pending && (normalized === pending || normalized === '$ ' + pending || normalized === '% ' + pending || normalized === '❯ ' + pending)) return false;
+    if (pending && normalized.endsWith(pending) && /(?:^|[\s~\/])[%$#❯>]\s/.test(normalized)) return false;
+    if (/^(?:~|\/[^ ]*|[\w.-]+@[\w.-]+).*[%$#❯>]\s*$/.test(normalized)) return false;
+    return true;
+  });
+  return lines.join('\n').trim();
+};
+
+// PTYs echo input with cursor movement and may split that echo across several
+// WebSocket frames. Normalising each raw frame independently can turn a clean
+// command such as `date` into `ddate` or `eec\nho`. The browser terminal already
+// applies carriage returns, backspaces, and ANSI cursor movement, so use its
+// rendered screen to locate the command echo and expose only the response.
+const vampRenderedCommandResponse = (tab) => {
+  const pending = String(tab?.pendingCommand || '').trim();
+  const rendered = tab?.terminal?.render?.() || '';
+  if (!pending || !rendered) return { found: false, text: '' };
+  const lines = rendered.split('\n');
+  let commandIndex = -1;
+  lines.forEach((line, index) => {
+    const normalized = line.trim();
+    if (!normalized) return;
+    if (normalized === pending || normalized.endsWith(pending)) commandIndex = index;
+  });
+  if (commandIndex < 0) return { found: false, text: '' };
+  return {
+    found: true,
+    text: vampNormalizeChatOutput(lines.slice(commandIndex + 1).join('\n'), { pendingCommand: null })
+  };
+};
+
+const vampSetChatOutput = (id, text) => {
+  const tab = tabs.get(id);
+  if (!tab || !text) return;
+  if (!tab.outputCard || !tab.outputCard.isConnected) {
+    const card = document.createElement('article');
+    card.className = 'message output-message';
+    card.dataset.tabId = id;
+    card.innerHTML = '<div class="meta"><span>Vamp · ' + esc(tab.title) + '</span><span class="live-label">Live</span></div><div class="body"></div>';
+    $('chat').appendChild(card);
+    tab.outputCard = card;
+    tab.outputText = '';
+  }
+  const next = String(text).slice(-24000);
+  if (tab.outputText === next) return;
+  tab.outputText = next;
+  tab.outputCard.querySelector('.body').textContent = next;
+  if (id === active) vampScrollChatToLatest();
+};
+
+const vampAppendChatOutput = (id, text) => {
+  const tab = tabs.get(id);
+  if (!tab || !text) return;
+  if (!tab.outputCard || !tab.outputCard.isConnected) {
+    const card = document.createElement('article');
+    card.className = 'message output-message';
+    card.dataset.tabId = id;
+    card.innerHTML = '<div class="meta"><span>Vamp · ' + esc(tab.title) + '</span><span class="live-label">Live</span></div><div class="body"></div>';
+    $('chat').appendChild(card);
+    tab.outputCard = card;
+    tab.outputText = '';
+  }
+  tab.outputText = ((tab.outputText || '') + (tab.outputText ? '\n' : '') + text).slice(-24000);
+  tab.outputCard.querySelector('.body').textContent = tab.outputText;
+  if (id === active) vampScrollChatToLatest();
 };
 
 const vampMoreStyle = document.createElement('style');
@@ -1007,19 +1114,38 @@ vampMoreStyle.textContent = `
   .shell { position: fixed; inset: 0; width: 100%; height: var(--vamp-visual-height, 100svh); min-height: 0; padding-bottom: 0; overflow: hidden; }
   .content { min-height: 0; overflow: auto; overscroll-behavior: contain; }
   .chat { min-height: 100%; padding-bottom: 24px; }
-  .stream { min-height: 0; }
-  .terminal { height: var(--vamp-terminal-height, clamp(180px, 42svh, 460px)); max-height: none; white-space: pre; word-break: normal; overflow-wrap: normal; line-height: 1.45; }
-  .quick { min-height: 60px; padding: 10px 0 12px; flex-shrink: 0; }
-  .quick button { flex: 0 0 auto; }
-  .composer { position: relative; left: auto; right: auto; bottom: auto; width: min(calc(100% - 28px), 952px); margin: 0 auto max(12px, env(safe-area-inset-bottom)); flex: 0 0 auto; }
+  /* Safari is a task-chat surface. The PTY emulator remains mounted in
+     JavaScript for ANSI/cursor parsing, but its raw screen and desktop-style
+     quick-key rail must never compete with the conversation or composer. */
+  .stream, .terminal, .quick { display: none !important; }
+  .message { max-width: 820px; }
+  .message.user-message { margin-top: 18px; }
+  .message.output-message { margin-top: 8px; }
+  .message.output-message .meta { display: flex; align-items: center; gap: 8px; }
+  .message.output-message .body { padding-left: 0; color: #f1f1f1; }
+  .message.output-message .live-label { color: var(--good); font-size: 11px; }
+  .message.output-message .live-label::before { content: '●'; margin-right: 4px; }
+  .message.system-message .body { color: #ddd; }
+  .command-card { margin-bottom: 18px; }
+  .approval-actions { display: grid; gap: 8px; }
+  .approval-choice { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 9px 12px; border: 1px solid rgba(255,255,255,.10); border-radius: 12px; background: rgba(255,255,255,.06); color: #eee; text-align: left; }
+  .approval-choice.selected { border-color: rgba(255,255,255,.34); background: rgba(255,255,255,.14); }
+  .approval-choice .choice-number { color: #aaa; flex: 0 0 20px; }
+  .approval-choice strong { display: block; }
+  .approval-choice small { display: block; margin-top: 2px; color: #999; font-size: 12px; }
+  .approval-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+  .approval-footer .hint { margin: 0; color: #999; font-size: 12px; line-height: 1.35; }
+  .approval-footer .confirm { flex: 0 0 auto; min-height: 44px; border-radius: 11px; padding: 0 16px; background: #f5f5f5; color: #111; font-weight: 700; }
+  .composer { position: fixed; left: 14px; right: 14px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--vamp-bottom-inset, 0px)); width: min(calc(100% - 28px), 952px); margin: 0 auto; }
   .modal { z-index: 20; height: var(--vamp-visual-height, 100svh); bottom: auto; }
   .modal-card { max-height: calc(var(--vamp-visual-height, 100svh) - 32px); overflow: auto; }
-  .dashboard { min-height: 100%; padding: 24px 0 40px; }
+  .dashboard, .dashboard-heading, .dashboard-heading > div, .host-card, .session-card, .session-card-top { min-width: 0; max-width: 100%; }
+  .dashboard { width: 100%; min-height: 100%; padding: 24px 0 40px; overflow-x: hidden; }
   .dashboard-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
   .dashboard-kicker { color: #999; font-size: 11px; font-weight: 700; letter-spacing: .12em; }
   .dashboard h1, .dashboard h2, .dashboard p { margin: 0; }
   .dashboard h1 { margin-top: 6px; font-size: clamp(26px, 7vw, 36px); letter-spacing: -.03em; }
-  .dashboard-heading p { max-width: 560px; margin-top: 8px; color: #aaa; line-height: 1.5; }
+  .dashboard-heading p { max-width: 560px; margin-top: 8px; color: #aaa; line-height: 1.5; overflow-wrap: anywhere; word-break: break-word; }
   .dashboard-open { min-height: 44px; padding: 0 14px; border: 1px solid rgba(255,255,255,.18); border-radius: 12px; background: rgba(255,255,255,.9); color: #111; font-weight: 700; white-space: nowrap; }
   .host-card, .session-card { border: 1px solid rgba(255,255,255,.16); border-radius: 18px; background: linear-gradient(145deg, rgba(61,61,61,.72), rgba(28,28,28,.72)); box-shadow: 0 18px 46px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.08); backdrop-filter: blur(18px); }
   .host-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px; }
@@ -1033,7 +1159,7 @@ vampMoreStyle.textContent = `
   .session-card { min-height: 138px; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; }
   .session-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
   .session-card-title { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 700; }
-  .session-card-title span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .session-card-title span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .session-card-dot { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: #999; }
   .session-card-dot.open { background: var(--good); }
   .session-card-dot.opening { background: var(--warn); }
@@ -1044,12 +1170,13 @@ vampMoreStyle.textContent = `
   @media (min-width: 720px) { .composer { width: min(calc(100% - 56px), 952px); } }
   @media (max-width: 520px) {
     .shell { padding-top: max(44px, env(safe-area-inset-top)); }
-    .composer { width: 100%; min-height: 60px; height: 60px; padding: 8px; border-radius: 14px; }
+    .composer { left: 0; right: 0; width: 100%; min-height: 60px; height: 60px; padding: 8px; border-radius: 14px; }
     .composer > button { flex-basis: 44px; width: 44px; }
-    .quick { position: static; min-height: 44px; padding: 10px 0 12px; border: 0; border-radius: 0; background: transparent; }
-    .quick button { min-height: 42px; }
+    .approval-footer { align-items: flex-end; }
+    .approval-footer .hint { max-width: 58%; }
     .provider-grid { grid-template-columns: 1fr; }
     .dashboard-heading { display: block; }
+    .dashboard-heading p { max-width: 100%; }
     .dashboard-open { width: 100%; margin-top: 16px; }
     .session-grid { grid-template-columns: 1fr; }
   }
@@ -1234,6 +1361,7 @@ const vampOpenTerminal = (id) => {
   const tab = tabs.get(id);
   if (!tab || !ws || ws.readyState !== WebSocket.OPEN) return false;
   tab.state = 'opening';
+  tab.readyNotified = false;
   renderTabs();
   ensureStream(id);
   const size = vampTerminalSize(id);
@@ -1293,6 +1421,28 @@ renderTabs = () => {
     };
     navigation.insertBefore(button, $('newtab'));
   });
+  const selected = navigation.querySelector('.tab.active');
+  if (selected) {
+    requestAnimationFrame(() => {
+      const margin = 12;
+      const left = selected.offsetLeft;
+      const right = left + selected.offsetWidth;
+      const newTab = $('newtab');
+      const focusRight = selected.nextElementSibling === newTab
+        ? Math.max(right, newTab.offsetLeft + newTab.offsetWidth)
+        : right;
+      const visibleLeft = navigation.scrollLeft;
+      const visibleRight = visibleLeft + navigation.clientWidth;
+      if (focusRight > visibleRight - margin) {
+        navigation.scrollLeft = Math.min(
+          navigation.scrollWidth - navigation.clientWidth,
+          focusRight - navigation.clientWidth + margin
+        );
+      } else if (left < visibleLeft + margin) {
+        navigation.scrollLeft = Math.max(0, left - margin);
+      }
+    });
+  }
   renderDashboard();
 };
 
@@ -1302,13 +1452,18 @@ function renderDashboard() {
   if (!grid || !count) return;
   count.textContent = order.length + ' / 8';
   const status = vampStatus;
+  // The WebSocket is the authoritative signal once a browser is paired. The
+  // status endpoint can still contain the previous pre-pair result while its
+  // refresh is in flight, which used to make a live dashboard look offline.
+  const socketReady = Boolean(ws && ws.readyState === WebSocket.OPEN);
+  const hostReady = Boolean(status?.running) || socketReady;
   const hostDetail = status?.tailscaleHost
     ? 'Tailscale · ' + status.tailscaleHost + ':' + (status.port || 9475)
-    : status?.running ? 'This device · localhost:' + (status.port || 9475) : 'Host control is offline';
+    : hostReady ? 'Connected to Vamp Host' : 'Host control is offline';
   $('dashboard-host-detail').textContent = hostDetail;
   const state = $('dashboard-host-state');
-  state.textContent = status?.running ? '●' : '○';
-  state.style.color = status?.running ? 'var(--good)' : 'var(--danger)';
+  state.textContent = hostReady ? '●' : '○';
+  state.style.color = hostReady ? 'var(--good)' : 'var(--danger)';
   grid.innerHTML = '';
   if (order.length === 0) {
     grid.innerHTML = '<div class="dashboard-empty">No shell tabs yet. Open task chat to start a session.</div>';
@@ -1359,8 +1514,14 @@ createTab = (startup = null, title = null) => {
     title: title || vampNextTerminalTitle(),
     startupCommand: startup,
     out: '',
+    outputCard: null,
+    outputText: '',
+    pendingCommand: null,
     unread: false,
     opened: false,
+    readyNotified: false,
+    followOutput: false,
+    startupSeen: false,
     state: 'opening',
     decoder: new TextDecoder(),
     approvals: new Set(),
@@ -1390,6 +1551,7 @@ selectTab = (id) => {
   });
   renderTabs();
   requestAnimationFrame(() => vampResizeTerminal(id));
+  vampScrollChatToLatest();
 };
 
 closeTab = (id) => {
@@ -1414,37 +1576,11 @@ ensureStream = (id) => {
   let element = document.querySelector('.stream[data-id="' + id + '"]');
   if (!element) {
     element = document.createElement('div');
-    element.className = 'stream ' + (active === id ? 'active' : '');
+    element.className = 'stream';
     element.dataset.id = id;
-  element.innerHTML =
-      '<div class="terminal" tabindex="0" aria-label="Terminal output"></div>' +
-      '<div class="quick">' +
-      '<button data-k="ctrlc">Ctrl-C</button><button data-k="esc">Esc</button>' +
-      '<button data-k="tab">Tab</button><button data-k="up">↑</button>' +
-      '<button data-k="down">↓</button><button data-k="left">←</button>' +
-      '<button data-k="right">→</button><button data-k="ctrld">Ctrl-D</button>' +
-      '<button data-k="clear">Clear</button></div>';
-    const keys = {
-      ctrlc: '\u0003', esc: '\u001b', tab: '\t', up: '\u001b[A',
-      down: '\u001b[B', left: '\u001b[D', right: '\u001b[C',
-      ctrld: '\u0004', clear: '\u000c'
-    };
-    element.querySelectorAll('[data-k]').forEach((button) => {
-      button.onclick = () => {
-        if (button.dataset.k === 'clear') {
-          const terminal = element.querySelector('.terminal');
-          tab.terminal ||= new VampBrowserTerminal();
-          tab.terminal.clearScreen();
-          tab.out = tab.terminal.render();
-          if (terminal) { terminal.textContent = tab.out; terminal.scrollTop = terminal.scrollHeight; }
-        }
-        sendInput(id, keys[button.dataset.k] || '');
-      };
-    });
+    element.setAttribute('aria-hidden', 'true');
     $('chat').appendChild(element);
   }
-  const terminal = element.querySelector('.terminal');
-  if (terminal) terminal.textContent = tab.terminal?.render() || tab.out || '';
   return element;
 };
 
@@ -1454,14 +1590,33 @@ appendOutput = (id, text) => {
   tab.decoder ||= new TextDecoder();
   tab.approvals ||= new Set();
   tab.terminal ||= new VampBrowserTerminal();
-  const element = ensureStream(id);
-  const terminal = element?.querySelector('.terminal');
-  const wasAtBottom = !terminal || terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight < 32;
   tab.terminal.feed(text);
   tab.out = tab.terminal.render();
-  if (terminal) {
-    terminal.textContent = tab.out;
-    if (id === active && wasAtBottom) terminal.scrollTop = terminal.scrollHeight;
+  const commandResponse = vampRenderedCommandResponse(tab);
+  if (commandResponse.found) {
+    tab.pendingCommand = null;
+    if (commandResponse.text) vampSetChatOutput(id, commandResponse.text);
+    if (active !== id) {
+      tab.unread = true;
+      renderTabs();
+    }
+    return;
+  }
+  if (tab.pendingCommand) {
+    // Hold back PTY echo fragments until the terminal emulator has a complete
+    // command line. This keeps the task stream readable while bytes arrive.
+    if (active !== id) {
+      tab.unread = true;
+      renderTabs();
+    }
+    return;
+  }
+  const visibleText = vampNormalizeChatOutput(text, tab);
+  if (visibleText) {
+    vampAppendChatOutput(id, visibleText);
+    // Ignore only the echoed command. Subsequent output belongs to the
+    // response card even when it happens to contain the same prompt symbols.
+    tab.pendingCommand = null;
   }
   if (active !== id) {
     tab.unread = true;
@@ -1479,17 +1634,25 @@ const vampAppendOutputChunk = (id, encoded) => {
 
 sendInput = (id, text) => {
   const tab = tabs.get(id);
-  if (!tab || !tab.opened) return;
+  if (!tab || !tab.opened || !ws || ws.readyState !== WebSocket.OPEN) return false;
   const bytes = new TextEncoder().encode(text);
   let binary = '';
   bytes.forEach((value) => { binary += String.fromCharCode(value); });
-  send({ type: 'input', terminalID: id, data: btoa(binary) });
+  return send({ type: 'input', terminalID: id, data: btoa(binary) });
 };
 
 appendCommand = (value, status, tabID = active) => {
-  const title = tabs.get(tabID)?.title || 'Terminal';
-  addMessage('<div class="meta">You · ' + esc(title) + ' · ' + esc(status) +
-    '</div><div class="body"><span style="color:#aaa">$ </span>' + esc(value) + '</div>');
+  const tab = tabs.get(tabID);
+  if (tab) {
+    tab.pendingCommand = value;
+    tab.outputCard = null;
+    tab.outputText = '';
+  }
+  const title = tab?.title || 'Terminal';
+  const element = addMessage('<div class="meta">You · ' + esc(title) + ' · ' + esc(status) +
+    '</div><div class="body"><span style="color:#aaa">$ </span>' + esc(value) + '</div>', tabID);
+  element.classList.add('user-message');
+  return element;
 };
 
 reviewCommand = () => {
@@ -1497,15 +1660,18 @@ reviewCommand = () => {
   const tabID = active;
   const tab = tabs.get(tabID);
   if (!value || !tabID) return;
-  $('input').value = '';
-  if (!tab || !tab.opened) {
-    addMessage('<div class="badge">This terminal is still opening.</div>');
+  if (!tab || !tab.opened || !ws || ws.readyState !== WebSocket.OPEN) {
+    addMessage('<div class="badge">This terminal is still opening. Your command is still in the composer.</div>', tabID);
     return;
   }
   tab.approvals ||= new Set();
   if (tab.approvals.has(value)) {
-    sendInput(tabID, value + '\n');
-    appendCommand(value, 'Approved', tabID);
+    if (sendInput(tabID, value + '\n')) {
+      $('input').value = '';
+      appendCommand(value, 'Running', tabID);
+    } else {
+      addMessage('<div class="badge">The host connection is not ready. Try again; your command is still in the composer.</div>', tabID);
+    }
     return;
   }
   const card = document.createElement('div');
@@ -1515,33 +1681,42 @@ reviewCommand = () => {
     '<div class="approval">Awaiting approval · ' + esc(tab.title) + '</div>' +
     '<div class="command"><span class="prompt">$ </span>' + esc(value) +
     '<br><span style="color:#888">No output yet.</span></div>' +
-    '<div class="approval-actions"><button>Allow</button>' +
-    '<button class="secondary">Always allow here</button>' +
-    '<button class="danger">Deny</button></div>';
-  const buttons = card.querySelectorAll('button');
-  buttons[0].onclick = () => {
-    if (tabs.get(tabID)?.opened) sendInput(tabID, value + '\n');
-    appendCommand(value, 'Allowed', tabID);
+    '<div class="approval-actions">' +
+    '<button type="button" class="approval-choice selected" data-choice="once"><span class="choice-number">1.</span><span><strong>Allow</strong><small>Allow only this time</small></span></button>' +
+    '<button type="button" class="approval-choice" data-choice="always"><span class="choice-number">2.</span><span><strong>Always allow</strong><small>Do not ask again for this command</small></span></button>' +
+    '<button type="button" class="approval-choice" data-choice="deny"><span class="choice-number">3.</span><span><strong>Deny</strong><small>Reject it for now</small></span></button>' +
+    '</div><div class="approval-footer"><p class="hint">Choose an action, then press Confirm.</p><button type="button" class="confirm">Confirm</button></div>';
+  let choice = 'once';
+  card.querySelectorAll('[data-choice]').forEach((button) => {
+    button.onclick = () => {
+      choice = button.dataset.choice || 'once';
+      card.querySelectorAll('[data-choice]').forEach((candidate) => candidate.classList.toggle('selected', candidate === button));
+    };
+  });
+  card.querySelector('.confirm').onclick = () => {
     card.remove();
-  };
-  buttons[1].onclick = () => {
+    if (choice === 'deny') {
+      $('input').value = '';
+      appendCommand(value, 'Denied', tabID);
+      return;
+    }
     const current = tabs.get(tabID);
-    if (current) {
+    if (choice === 'always' && current) {
       current.approvals ||= new Set();
       current.approvals.add(value);
-      if (current.opened) sendInput(tabID, value + '\n');
     }
-    appendCommand(value, 'Always allowed here', tabID);
-    card.remove();
-  };
-  buttons[2].onclick = () => {
-    appendCommand(value, 'Denied', tabID);
-    card.remove();
+    if (sendInput(tabID, value + '\n')) {
+      $('input').value = '';
+      appendCommand(value, choice === 'always' ? 'Always allowed · running' : 'Running', tabID);
+    } else {
+      if (choice === 'always' && current) current.approvals.delete(value);
+      $('input').value = value;
+      addMessage('<div class="badge">The host connection closed before the command was sent. Try again.</div>', tabID);
+    }
   };
   $('chat').appendChild(card);
-  // The composer is fixed over the bottom edge of the page. Center the
-  // approval card so its actions never sit underneath clipboard/send controls.
-  card.scrollIntoView({ block: 'center', inline: 'nearest' });
+  $('input').value = '';
+  vampScrollChatToLatest();
 };
 
 showPair = () => {
@@ -1622,6 +1797,28 @@ connect = () => {
   ws = connection;
   connection.onopen = () => {
     setState('Connected');
+    // A reconnect can follow a temporarily unavailable browser socket. Do
+    // not leave that transient notice above the fresh task stream once the
+    // new session is actually live.
+    document.querySelectorAll('.message').forEach((element) => {
+      if (element.textContent?.trim() === 'Browser session ended. Pair again to reconnect.') element.remove();
+    });
+    // A reconnect starts a fresh PTY workspace. Remove cards from the prior
+    // socket so ready/output history cannot be mistaken for live state.
+    chat.querySelectorAll('[data-tab-id], .explore-row[data-tab-id]').forEach((element) => element.remove());
+    tabs.forEach((tab) => {
+      tab.readyNotified = false;
+      tab.outputCard = null;
+      tab.outputText = '';
+      tab.pendingCommand = null;
+      tab.commandCount = 0;
+      tab.followOutput = false;
+      tab.startupSeen = false;
+    });
+    // Refresh the host card after pairing/reconnect so the dashboard reflects
+    // the same live host that accepted this WebSocket.
+    void vampRefreshStatus();
+    renderDashboard();
     $('empty').hidden = true;
     if (order.length === 0) createTab();
     else order.forEach((id) => {
@@ -1644,9 +1841,14 @@ connect = () => {
       tab.decoder = new TextDecoder();
       tab.terminal = new VampBrowserTerminal();
       tab.lastSize = null;
+      tab.readyNotified = false;
+      tab.followOutput = false;
+      tab.startupSeen = false;
     });
     document.querySelectorAll('.stream').forEach((element) => element.remove());
-    addMessage('<div class="badge">Browser session ended. Pair again to reconnect.</div>');
+    chat.querySelectorAll('[data-tab-id], .explore-row[data-tab-id]').forEach((element) => element.remove());
+    const notice = addMessage('<div class="badge">Browser session ended. Pair again to reconnect.</div>');
+    notice.classList.add('session-ended');
     showPair();
     vampRefreshStatus();
   };
@@ -1661,6 +1863,11 @@ connect = () => {
       const terminalID = vampTerminalKey(value.terminalID);
       const tab = tabs.get(terminalID);
       if (tab) {
+        // A reconnect or host-side PTY notification can repeat ready for the
+        // same terminal. Keep the session state idempotent and do not duplicate
+        // the visible system card in the task stream.
+        if (tab.readyNotified || chat.querySelector('.ready-message[data-tab-id="' + terminalID + '"]')) return;
+        tab.readyNotified = true;
         tab.opened = true;
         tab.state = 'open';
         tab.terminal ||= new VampBrowserTerminal(value.cols, value.rows);
@@ -1668,8 +1875,9 @@ connect = () => {
         ensureStream(terminalID);
         vampResizeTerminal(terminalID);
         renderTabs();
-        addMessage('<div class="meta">System · terminal ready</div><div class="body">' +
-          esc(tab.title) + ' is connected.</div>');
+        const readyMessage = addMessage('<span class="check" aria-hidden="true">✓</span><span>' +
+          esc(tab.title) + ' ready</span>', terminalID);
+        readyMessage.classList.add('status-chip', 'ready-message');
       }
     } else if (value.type === 'output') {
       vampAppendOutputChunk(vampTerminalKey(value.terminalID), value.data);
@@ -1681,6 +1889,7 @@ connect = () => {
         if (remainder) appendOutput(terminalID, remainder);
         tab.opened = false;
         tab.state = 'closed';
+        tab.readyNotified = false;
         tab.unread = active !== terminalID;
         renderTabs();
       }
@@ -1702,6 +1911,7 @@ connect = () => {
       if (tab) {
         tab.opened = false;
         tab.state = 'error';
+        tab.readyNotified = false;
         tab.unread = active !== terminalID;
         renderTabs();
       }
@@ -1788,8 +1998,8 @@ const openMoreTab = (command, title) => {
 $('more').onclick = openMoreModal;
 $('more-cancel').onclick = closeMoreModal;
 $('more-shell').onclick = () => openMoreTab(null, null);
-$('more-tmux').onclick = () => { moreCommand.value = 'tmux attach -t work'; moreCommand.focus(); };
-$('more-screen').onclick = () => { moreCommand.value = 'screen -r work'; moreCommand.focus(); };
+$('more-tmux').onclick = () => { moreCommand.value = 'tmux new-session -A -s work'; moreCommand.focus(); };
+$('more-screen').onclick = () => { moreCommand.value = 'screen -D -RR work'; moreCommand.focus(); };
 $('more-open').onclick = () => {
   const command = moreCommand.value.trim();
   openMoreTab(command || null, command ? 'Session ' + (order.length + 1) : null);
@@ -1833,6 +2043,736 @@ if (!$('pair').classList.contains('hidden')) $('composer').classList.add('hidden
 renderDashboard();
 window.addEventListener('beforeunload', () => ws?.close());
 vampRefreshStatus();
+</script>
+<script>
+// The browser client is a task stream, not a miniature terminal window. Keep
+// the PTY emulator mounted for protocol correctness, then project its useful
+// events into a readable, z.ai-style conversation surface.
+(() => {
+  const shell = document.querySelector('.shell');
+  const chat = $('chat');
+  const content = document.querySelector('.content');
+  if (!shell || !chat || !content) return;
+
+  const style = document.createElement('style');
+  style.textContent = `
+    :root { --vamp-surface: rgba(38,38,38,.82); --vamp-surface-strong: rgba(48,48,48,.94); --vamp-border: rgba(255,255,255,.14); --vamp-grid: rgba(255,255,255,.045); }
+    html, body { position: fixed !important; inset: 0 !important; width: 100% !important; height: 100% !important; min-height: 0 !important; overflow: hidden !important; overscroll-behavior: none !important; }
+    body { background: #121212 !important; }
+    .shell { position: fixed !important; inset: 0 !important; width: 100% !important; max-width: 1080px !important; height: 100dvh !important; min-height: 0 !important; margin: 0 auto !important; padding: env(safe-area-inset-top) clamp(12px, 3vw, 28px) 0 !important; overflow: hidden !important; transform: none !important; }
+    .shell.vamp-keyboard-open { height: var(--vamp-keyboard-height, 100dvh) !important; }
+    .top { flex: 0 0 54px; height: 54px !important; }
+    .task-context { flex: 0 0 52px; min-width: 0; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); overflow: hidden; }
+    .task-context .workspace { min-width: 0; max-width: min(42vw, 270px); color: #f3f3f3; font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .context-pill, .context-icon { flex: 0 0 auto; min-height: 34px; border: 1px solid rgba(255,255,255,.10); border-radius: 11px; background: rgba(255,255,255,.075); color: #c8c8c8; }
+    .context-pill { max-width: 38vw; padding: 0 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .context-icon { width: 36px; padding: 0; font-size: 16px; }
+    .context-icon:active, .context-pill:active { background: rgba(255,255,255,.16); }
+    .tabs { flex: 0 0 64px; min-height: 64px; padding: 10px 0 !important; }
+    .content { flex: 1 1 auto !important; height: 0 !important; min-height: 0 !important; display: block !important; overflow-x: hidden !important; overflow-y: auto !important; overscroll-behavior: contain !important; -webkit-overflow-scrolling: touch; scrollbar-gutter: stable; }
+    .chat { min-height: 100% !important; padding: 18px 0 calc(112px + env(safe-area-inset-bottom)) !important; }
+    .chat > .hidden, .chat > [data-tab-id].vamp-tab-hidden { display: none !important; }
+    .message, .command-card, .stream-card, .explore-row { max-width: 820px; margin-left: auto; margin-right: auto; }
+    .message { margin-bottom: 22px; line-height: 1.62; }
+    .message .meta { display: flex; align-items: center; gap: 8px; color: #858585; font-size: 12px; letter-spacing: .01em; }
+    .message .body { color: #ededed; }
+    .message.user-message { margin-top: 18px; }
+    .message.user-message .body { color: #dcdcdc; }
+    .message.system-message { margin-top: 8px; }
+    .message.system-message .body { color: #d7d7d7; }
+    .explore-row { display: flex; align-items: center; gap: 7px; width: 100%; margin: 15px auto 16px; color: #808080; font-size: 13px; }
+    .explore-row .explore-icon { color: #6b6b6b; font-size: 18px; line-height: 1; }
+    .explore-row .explore-kind { color: #bcbcbc; font-weight: 650; }
+    .explore-row .explore-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .status-chip { display: inline-flex; align-items: center; gap: 7px; width: fit-content; max-width: 100%; margin: 0 0 18px; padding: 8px 12px; border: 1px solid rgba(66,211,146,.24); border-radius: 999px; background: rgba(66,211,146,.10); color: #d7f7e7; font-size: 13px; font-weight: 650; }
+    .status-chip .check { color: var(--good); }
+    .stream-card { margin-top: 12px; margin-bottom: 24px; padding: 14px; border: 1px solid var(--vamp-border); border-radius: 18px; background: linear-gradient(145deg, rgba(45,45,45,.78), rgba(25,25,25,.88)); box-shadow: 0 16px 44px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.045); }
+    .stream-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+    .stream-card-title { display: flex; align-items: center; gap: 9px; min-width: 0; color: #f3f3f3; font-weight: 700; }
+    .stream-card-title span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-glyph { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; border-radius: 9px; background: rgba(255,255,255,.10); color: #e9e9e9; font-size: 17px; }
+    .stream-state { flex: 0 0 auto; color: var(--good); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .stream-state::before { content: '●'; margin-right: 5px; }
+    .stream-caption { margin: 9px 0 12px 37px; color: #8f8f8f; font-size: 12px; }
+    .rich-body { min-width: 0; color: #ededed; overflow-wrap: anywhere; }
+    .rich-body p { margin: 0 0 12px; line-height: 1.6; }
+    .rich-body p:last-child { margin-bottom: 0; }
+    .rich-body h3 { margin: 0 0 10px; color: #f5f5f5; font-size: 16px; }
+    .inline-code { display: inline; padding: 2px 5px; border: 1px solid rgba(255,255,255,.12); border-radius: 5px; background: rgba(255,255,255,.09); color: #f2f2f2; font: .92em ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .rich-code, .rich-box { margin: 0 0 12px; padding: 12px; border: 1px solid rgba(255,255,255,.11); border-radius: 12px; background: rgba(10,10,10,.74); color: #e7e7e7; font: 13px/1.52 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-x: auto; }
+    .rich-code:last-child, .rich-box:last-child { margin-bottom: 0; }
+    .rich-code .code-language { display: block; margin-bottom: 7px; color: #8d8d8d; font: 10px -apple-system, BlinkMacSystemFont, sans-serif; letter-spacing: .10em; text-transform: uppercase; }
+    .rich-table-wrap { margin: 0 0 12px; overflow-x: auto; border: 1px solid rgba(255,255,255,.11); border-radius: 12px; background: rgba(10,10,10,.50); }
+    .rich-table { width: 100%; min-width: 360px; border-collapse: collapse; font-size: 13px; }
+    .rich-table th, .rich-table td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,.10); text-align: left; vertical-align: top; }
+    .rich-table th { color: #f0f0f0; background: rgba(255,255,255,.07); font-weight: 700; }
+    .rich-table td { color: #d1d1d1; }
+    .rich-table tr:last-child td { border-bottom: 0; }
+    .rich-step { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 10px; padding: 9px 10px; border-left: 2px solid rgba(255,255,255,.22); color: #dedede; }
+    .rich-step.good { border-color: var(--good); background: rgba(66,211,146,.07); }
+    .rich-step.warn { border-color: var(--warn); background: rgba(255,200,87,.07); }
+    .rich-step.bad { border-color: var(--danger); background: rgba(255,117,107,.07); }
+    .rich-step .step-mark { flex: 0 0 auto; font-weight: 800; }
+    .rich-step.good .step-mark { color: var(--good); }
+    .rich-step.warn .step-mark { color: var(--warn); }
+    .rich-step.bad .step-mark { color: var(--danger); }
+    .rich-empty { color: #969696; font-size: 13px; }
+    .command-card { margin-top: 14px; margin-bottom: 24px; padding: 16px; border: 1px solid rgba(255,255,255,.15); border-radius: 18px; background: linear-gradient(145deg, rgba(52,52,52,.88), rgba(35,35,35,.94)); box-shadow: 0 18px 48px rgba(0,0,0,.24); }
+    .command-card .eyebrow { color: #d0d0d0; font-size: 15px; font-weight: 700; }
+    .command-card .approval { color: #a7a7a7; margin: 6px 0 13px; font-size: 13px; }
+    .command-card .command { padding: 13px; border-radius: 13px; background: rgba(12,12,12,.76); font-size: 13px; line-height: 1.5; }
+    .command-card .command .prompt { color: #aaa; }
+    .approval-actions { gap: 7px !important; }
+    .approval-choice { min-height: 52px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.12); color: #f1f1f1 !important; background: rgba(255,255,255,.055) !important; }
+    .approval-choice strong { color: #f1f1f1 !important; }
+    .approval-choice small { color: #a7a7a7 !important; }
+    .approval-choice.selected { border-color: rgba(66,211,146,.62); background: rgba(66,211,146,.13) !important; }
+    .approval-choice:focus-visible, .confirm:focus-visible, .context-icon:focus-visible, .context-pill:focus-visible { outline: 2px solid rgba(255,255,255,.72); outline-offset: 2px; }
+    .approval-footer { margin-top: 14px; }
+    .approval-footer .hint { color: #a7a7a7; }
+    .composer { left: 12px !important; right: 12px !important; bottom: max(10px, env(safe-area-inset-bottom)) !important; width: min(calc(100% - 24px), 952px) !important; height: 60px !important; min-height: 60px !important; margin: 0 auto !important; }
+    .modal { height: 100% !important; }
+    .modal-card { max-height: calc(100% - 32px) !important; }
+    @media (min-width: 720px) { .shell { left: 50% !important; right: auto !important; width: min(100%, 1080px) !important; transform: translateX(-50%) !important; } .chat { padding-left: 24px !important; padding-right: 24px !important; } }
+    @media (max-width: 520px) { .shell { padding-left: 12px !important; padding-right: 12px !important; } .task-context .workspace { max-width: 36vw; } .context-pill { max-width: 31vw; } .message, .command-card, .stream-card, .explore-row { max-width: none; } }
+    @media (prefers-reduced-motion: reduce) { .content { scroll-behavior: auto !important; } }
+    /* Final iPhone fit pass. Safari zooms the page when a text field is below
+       16px and fixed left/right/width combinations can create a second
+       horizontal layout viewport. Keep every mobile surface inside the
+       device bounds and let the browser resize the visual viewport naturally. */
+    html { -webkit-text-size-adjust: 100%; overflow-x: hidden !important; }
+    body { width: 100% !important; max-width: 100% !important; overflow-x: hidden !important; }
+    .shell { left: 0 !important; right: auto !important; width: 100% !important; max-width: none !important; margin: 0 !important; transform: none !important; overflow-x: hidden !important; }
+    .top { position: relative !important; z-index: 8 !important; display: flex !important; visibility: visible !important; opacity: 1 !important; color: #f1f1f1 !important; background: rgba(18,18,18,.96) !important; }
+    .top .back, .top .title, .top .state, .top .state .dot, .top .state span { visibility: visible !important; opacity: 1 !important; color: #f1f1f1 !important; -webkit-text-fill-color: #f1f1f1 !important; }
+    .top .back { display: grid !important; place-items: center !important; flex: 0 0 32px !important; width: 32px !important; min-width: 32px !important; }
+    .top .title { display: block !important; flex: 0 1 auto !important; min-width: 0 !important; }
+    .top .state { display: flex !important; align-items: center !important; white-space: nowrap !important; }
+    .task-context { width: 100% !important; max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; gap: 5px !important; }
+    .task-context .workspace { flex: 1 1 auto !important; width: auto !important; max-width: none !important; min-width: 0 !important; }
+    .task-context .context-pill { flex: 0 1 108px !important; width: auto !important; max-width: 108px !important; min-width: 0 !important; padding-left: 8px !important; padding-right: 8px !important; }
+    .task-context .context-icon { flex: 0 0 32px !important; width: 32px !important; min-width: 32px !important; }
+    .tabs { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+    .content { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+    .chat { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+    .composer { left: 12px !important; right: auto !important; width: calc(100% - 24px) !important; max-width: none !important; margin: 0 !important; transform: none !important; }
+    .composer input, .modal-card input, .more-command input { font-size: 16px !important; line-height: 22px !important; -webkit-text-size-adjust: 100%; }
+    @media (min-width: 720px) {
+      .shell { left: 50% !important; right: auto !important; width: min(100%, 1080px) !important; max-width: 1080px !important; margin: 0 !important; transform: translateX(-50%) !important; }
+      .composer { left: 50% !important; right: auto !important; width: min(calc(100% - 56px), 952px) !important; transform: translateX(-50%) !important; }
+    }
+    /* iOS Safari can pan a flex document when its keyboard is presented even
+       when the document has no page scroll. Pin the navigation chrome to the
+       visual viewport in that mode and give the conversation its own bounded
+       scrolling region. This keeps the task header, tabs, latest text, and
+       composer on the same screen while typing. */
+    @media (max-width: 719px) {
+      .shell.vamp-keyboard-open { padding-top: 0 !important; }
+      .shell.vamp-keyboard-open .top,
+      .shell.vamp-keyboard-open .task-context,
+      .shell.vamp-keyboard-open .tabs {
+        position: fixed !important;
+        left: 12px !important;
+        right: 12px !important;
+        width: auto !important;
+        max-width: none !important;
+        margin: 0 !important;
+        background: rgba(18,18,18,.98) !important;
+      }
+      .shell.vamp-keyboard-open .top {
+        top: max(44px, env(safe-area-inset-top)) !important;
+        height: 54px !important;
+        z-index: 12 !important;
+      }
+      .shell.vamp-keyboard-open .task-context {
+        top: calc(max(44px, env(safe-area-inset-top)) + 54px) !important;
+        height: 52px !important;
+        z-index: 11 !important;
+      }
+      .shell.vamp-keyboard-open .tabs {
+        top: calc(max(44px, env(safe-area-inset-top)) + 106px) !important;
+        height: 64px !important;
+        z-index: 10 !important;
+      }
+      .shell.vamp-keyboard-open .content {
+        position: fixed !important;
+        top: calc(max(44px, env(safe-area-inset-top)) + 170px) !important;
+        left: 12px !important;
+        right: 12px !important;
+        bottom: 72px !important;
+        width: auto !important;
+        height: auto !important;
+        max-width: none !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        z-index: 1 !important;
+      }
+      .shell.vamp-keyboard-open .composer {
+        z-index: 20 !important;
+      }
+    }
+    /* Final viewport-canvas pass. iOS Safari can move the visual viewport
+       over the layout viewport while the keyboard is opening. A fixed root
+       then paints its chrome outside the visible screen. Keep one absolute
+       canvas sized from VisualViewport and place every mobile surface inside
+       it; the JS offset tracks Safari's pan without competing z-index layers. */
+    html {
+      position: relative !important;
+      inset: auto !important;
+      width: 100% !important;
+      height: 100% !important;
+      overflow: hidden !important;
+    }
+    body {
+      position: relative !important;
+      inset: auto !important;
+      width: 100% !important;
+      height: 100% !important;
+      min-height: 0 !important;
+      overflow: hidden !important;
+    }
+    .shell {
+      position: absolute !important;
+      left: var(--vamp-vv-left, 0px) !important;
+      top: var(--vamp-vv-top, 0px) !important;
+      right: auto !important;
+      bottom: auto !important;
+      width: var(--vamp-visual-width, 100%) !important;
+      height: var(--vamp-visual-height, 100dvh) !important;
+      max-width: none !important;
+      min-height: 0 !important;
+      margin: 0 !important;
+      transform: none !important;
+      padding: env(safe-area-inset-top) clamp(12px, 3vw, 28px) env(safe-area-inset-bottom) !important;
+      overflow: hidden !important;
+    }
+    .top, .task-context, .tabs {
+      position: relative !important;
+      top: auto !important;
+      left: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      width: 100% !important;
+      transform: none !important;
+    }
+    .task-context .context-pill {
+      flex: 0 0 76px !important;
+      width: 76px !important;
+      max-width: 76px !important;
+      padding-left: 8px !important;
+      padding-right: 8px !important;
+    }
+    .task-context .context-pill span {
+      min-width: 0 !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      white-space: nowrap !important;
+    }
+    .content {
+      position: relative !important;
+      top: auto !important;
+      left: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      width: 100% !important;
+      height: 0 !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
+      transform: none !important;
+    }
+    .composer {
+      position: absolute !important;
+      left: 12px !important;
+      right: auto !important;
+      bottom: max(10px, env(safe-area-inset-bottom)) !important;
+      width: calc(100% - 24px) !important;
+      max-width: none !important;
+      margin: 0 !important;
+      transform: none !important;
+      z-index: 30 !important;
+    }
+    .modal {
+      position: absolute !important;
+      top: var(--vamp-vv-top, 0px) !important;
+      left: var(--vamp-vv-left, 0px) !important;
+      right: auto !important;
+      bottom: auto !important;
+      width: var(--vamp-visual-width, 100%) !important;
+      height: var(--vamp-visual-height, 100dvh) !important;
+      z-index: 50 !important;
+    }
+    @media (max-width: 520px) {
+      .task-context { gap: 4px !important; }
+      .task-context .workspace { font-size: 14px !important; }
+      .task-context .context-pill { flex-basis: 66px !important; width: 66px !important; max-width: 66px !important; }
+      .task-context .context-pill span { font-size: 12px !important; }
+      .task-context .context-icon { flex-basis: 30px !important; width: 30px !important; min-width: 30px !important; }
+    }
+    @media (min-width: 720px) {
+      .shell {
+        left: 50% !important;
+        width: min(var(--vamp-visual-width, 100%), 1080px) !important;
+        transform: translateX(-50%) !important;
+      }
+      .composer {
+        left: 50% !important;
+        width: min(calc(100% - 56px), 952px) !important;
+        transform: translateX(-50%) !important;
+      }
+    }
+    @media (max-width: 719px) {
+      .shell.vamp-keyboard-open { padding-top: env(safe-area-inset-top) !important; }
+      .shell.vamp-keyboard-open .top,
+      .shell.vamp-keyboard-open .task-context,
+      .shell.vamp-keyboard-open .tabs,
+      .shell.vamp-keyboard-open .content {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        width: 100% !important;
+        transform: none !important;
+      }
+      .shell.vamp-keyboard-open .content {
+        height: 0 !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+      }
+      .shell.vamp-keyboard-open .composer { position: absolute !important; z-index: 30 !important; }
+    }
+    /* Final chat projection contract: one stacking context, one scroll owner,
+       and a visual hierarchy that reads like a task conversation instead of
+       a terminal window. */
+    :root {
+      --vamp-z-content: 1;
+      --vamp-z-chrome: 10;
+      --vamp-z-composer: 30;
+      --vamp-z-menu: 40;
+      --vamp-z-modal: 50;
+    }
+    .shell { isolation: isolate !important; }
+    .top, .task-context, .tabs { z-index: var(--vamp-z-chrome) !important; }
+    .tabs { padding-right: 12px !important; }
+    .tabs > .tab, .tabs > .newtab { flex: 0 0 auto; }
+    .content { z-index: var(--vamp-z-content) !important; touch-action: pan-y; }
+    .composer { z-index: var(--vamp-z-composer) !important; }
+    .clipboard-menu { z-index: var(--vamp-z-menu) !important; }
+    .modal { z-index: var(--vamp-z-modal) !important; }
+    .message, .command-card, .stream-card, .explore-row { width: 100%; min-width: 0; }
+    .message.ready-message.status-chip {
+      display: flex !important;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      max-width: min(100%, 360px);
+      margin: 12px 0 20px auto !important;
+      padding: 9px 13px;
+      border: 1px solid rgba(66,211,146,.25);
+      border-radius: 999px;
+      background: rgba(66,211,146,.10);
+      color: #d7f7e7;
+      font-size: 13px;
+      font-weight: 650;
+      line-height: 1.25;
+    }
+    .message.ready-message .check { color: var(--good); font-size: 16px; line-height: 1; }
+    .stream-card.output-message {
+      padding: 0;
+      border-color: transparent;
+      background: transparent;
+      box-shadow: none;
+    }
+    .stream-card.output-message:not(.structured-output) .rich-body {
+      padding-left: 37px;
+    }
+    .stream-card.output-message:not(.structured-output) .rich-body p {
+      color: #f0f0f0;
+      font-size: 16px;
+      line-height: 1.62;
+    }
+    .stream-card.output-message.structured-output {
+      padding: 16px;
+      border-color: var(--vamp-border);
+      background: linear-gradient(145deg, rgba(45,45,45,.78), rgba(25,25,25,.90));
+      box-shadow: 0 16px 44px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.045);
+    }
+    .stream-card.output-message.structured-output .rich-body { margin-top: 12px; }
+    .rich-body .rich-code, .rich-body .rich-box, .rich-body .rich-table-wrap {
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .rich-body .rich-code, .rich-body .rich-box { white-space: pre-wrap; overflow-wrap: anywhere; }
+    @media (max-width: 719px) {
+      html, body { overscroll-behavior: none !important; }
+      .content { overscroll-behavior-y: contain !important; }
+      .stream-card.output-message:not(.structured-output) .rich-body { padding-left: 0; }
+    }
+  `;
+  document.head.appendChild(style);
+
+  const context = document.createElement('div');
+  context.className = 'task-context';
+  context.id = 'task-context';
+  context.innerHTML = '<div class="workspace" id="context-workspace">Task workspace</div>' +
+    '<button class="context-pill" id="context-repo" type="button" aria-label="Workspace source">▣ <span>Host</span></button>' +
+    '<button class="context-icon" id="context-branch" type="button" aria-label="Session routing">⑂</button>' +
+    '<button class="context-icon" id="context-more" type="button" aria-label="Terminal actions">•••</button>' +
+    '<button class="context-icon" id="context-panel" type="button" aria-label="Open sessions dashboard">◧</button>';
+  document.querySelector('.top')?.insertAdjacentElement('afterend', context);
+
+  const keyboardViewportUpdate = () => {
+    const viewport = window.visualViewport;
+    const layoutWidth = document.documentElement.clientWidth || window.innerWidth;
+    const layoutHeight = document.documentElement.clientHeight || window.innerHeight;
+    const visibleWidth = viewport?.width || layoutWidth;
+    const visibleHeight = viewport?.height || layoutHeight;
+    // iOS Safari moves the visual viewport over the layout viewport while the
+    // keyboard or its browser chrome is visible. The shell is positioned at
+    // this offset so absolute children behave like device-fixed UI without
+    // relying on Safari's unreliable position:fixed compositor path.
+    const offsetLeft = Number.isFinite(viewport?.offsetLeft) ? viewport.offsetLeft : 0;
+    const offsetTop = Number.isFinite(viewport?.offsetTop) ? viewport.offsetTop : 0;
+    const inset = Math.max(0, Math.round(layoutHeight - visibleHeight - Math.max(0, offsetTop)));
+    const keyboardOpen = visibleHeight < layoutHeight - 80 || inset > 100;
+    document.documentElement.style.setProperty('--vamp-visual-width', Math.max(280, Math.round(visibleWidth)) + 'px');
+    document.documentElement.style.setProperty('--vamp-visual-height', Math.max(240, Math.round(visibleHeight)) + 'px');
+    document.documentElement.style.setProperty('--vamp-vv-left', Math.round(offsetLeft) + 'px');
+    document.documentElement.style.setProperty('--vamp-vv-top', Math.round(offsetTop) + 'px');
+    shell.classList.toggle('vamp-keyboard-open', keyboardOpen);
+    document.documentElement.classList.toggle('vamp-keyboard-open', keyboardOpen);
+    if (keyboardOpen) document.documentElement.style.setProperty('--vamp-keyboard-height', Math.max(240, Math.round(visibleHeight)) + 'px');
+    else document.documentElement.style.removeProperty('--vamp-keyboard-height');
+  };
+  const resetPagePosition = () => {
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    window.scrollTo(0, 0);
+    content.dataset.userScrolled = 'false';
+    requestAnimationFrame(() => { document.documentElement.scrollTop = 0; document.body.scrollTop = 0; window.scrollTo(0, 0); });
+  };
+  const isNearBottom = () => content.scrollHeight - content.scrollTop - content.clientHeight < 96;
+  const scrollLatest = (force = false) => {
+    if (!force && !isNearBottom()) return;
+    requestAnimationFrame(() => {
+      content.dataset.vampProgrammatic = '1';
+      content.scrollTop = content.scrollHeight;
+      requestAnimationFrame(() => { delete content.dataset.vampProgrammatic; });
+    });
+  };
+  content.addEventListener('scroll', () => {
+    if (!content.dataset.vampProgrammatic) {
+      const nearBottom = isNearBottom();
+      content.dataset.userScrolled = content.scrollTop > 4 && !nearBottom ? 'true' : 'false';
+      const tab = tabs.get(active);
+      if (tab) tab.followOutput = nearBottom;
+    }
+  }, { passive: true });
+  window.addEventListener('resize', keyboardViewportUpdate, { passive: true });
+  window.visualViewport?.addEventListener('resize', keyboardViewportUpdate, { passive: true });
+  window.visualViewport?.addEventListener('scroll', keyboardViewportUpdate, { passive: true });
+  window.addEventListener('orientationchange', () => { keyboardViewportUpdate(); resetPagePosition(); }, { passive: true });
+  document.addEventListener('focusin', () => setTimeout(keyboardViewportUpdate, 60), { passive: true });
+  document.addEventListener('visibilitychange', keyboardViewportUpdate, { passive: true });
+  keyboardViewportUpdate();
+
+  // The page itself is a visual-viewport canvas. Only the conversation owns
+  // vertical scrolling; allowing the body to rubber-band is what exposes a
+  // clipped header and makes users pull the whole page down to "fit" it.
+  document.addEventListener('touchmove', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('.content, .tabs, .task-context, .composer, .modal')) return;
+    event.preventDefault();
+  }, { passive: false });
+
+  const filterTabContent = () => {
+    chat.querySelectorAll('[data-tab-id]').forEach((element) => {
+      element.classList.toggle('vamp-tab-hidden', Boolean(active) && element.dataset.tabId !== active);
+    });
+  };
+
+  const inline = (value) => {
+    const source = String(value || '');
+    const matcher = /`([^`\n]+)`/g;
+    let result = '';
+    let cursor = 0;
+    let match;
+    while ((match = matcher.exec(source))) {
+      result += esc(source.slice(cursor, match.index));
+      result += '<code class="inline-code">' + esc(match[1]) + '</code>';
+      cursor = match.index + match[0].length;
+    }
+    return result + esc(source.slice(cursor));
+  };
+  const cells = (line) => {
+    let value = String(line || '').trim();
+    if (value.startsWith('|')) value = value.slice(1);
+    if (value.endsWith('|')) value = value.slice(0, -1);
+    return value.split('|').map((cell) => cell.trim());
+  };
+  const delimiter = (line) => {
+    const values = cells(line);
+    return values.length > 0 && values.every((value) => /^:?-{3,}:?$/.test(value));
+  };
+  const pipeRow = (line) => String(line || '').includes('|');
+  const boxRow = (line) => /[┌┐└┘├┤┬┴┼│─╭╮╰╯╠╣╦╩╬]/.test(line) || /^\s*[+|-]{4,}\s*$/.test(line);
+  const stepRow = (line) => /^\s*(?:✓|✔|✗|✘|⚠|!|→|›|•)\s+/.test(line);
+
+  const renderBlocks = (raw) => {
+    const lines = String(raw || '').replace(/\r/g, '').split('\n');
+    const blocks = [];
+    let index = 0;
+    while (index < lines.length) {
+      const line = lines[index];
+      if (!line.trim()) { index += 1; continue; }
+      const fence = line.trim().match(/^```\s*([\w.+-]*)/);
+      if (fence) {
+        const language = fence[1] || 'output';
+        index += 1;
+        const code = [];
+        while (index < lines.length && !/^\s*```/.test(lines[index])) { code.push(lines[index]); index += 1; }
+        if (index < lines.length) index += 1;
+        blocks.push('<pre class="rich-code"><span class="code-language">' + esc(language) + '</span>' + esc(code.join('\n')) + '</pre>');
+        continue;
+      }
+      if (index + 1 < lines.length && pipeRow(line) && delimiter(lines[index + 1])) {
+        const header = cells(line);
+        const rows = [];
+        index += 2;
+        while (index < lines.length && pipeRow(lines[index]) && lines[index].trim()) { rows.push(cells(lines[index])); index += 1; }
+        blocks.push('<div class="rich-table-wrap"><table class="rich-table"><thead><tr>' + header.map((value) => '<th>' + inline(value) + '</th>').join('') + '</tr></thead><tbody>' + rows.map((row) => '<tr>' + header.map((_, cellIndex) => '<td>' + inline(row[cellIndex] || '') + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>');
+        continue;
+      }
+      if (boxRow(line)) {
+        const box = [];
+        while (index < lines.length && lines[index].trim() && boxRow(lines[index])) { box.push(lines[index]); index += 1; }
+        blocks.push('<pre class="rich-box">' + esc(box.join('\n')) + '</pre>');
+        continue;
+      }
+      const heading = line.match(/^\s*#{1,3}\s+(.+)/);
+      if (heading) { blocks.push('<h3>' + inline(heading[1]) + '</h3>'); index += 1; continue; }
+      if (stepRow(line)) {
+        const step = line.trim().match(/^([^\s]+)\s+(.+)/);
+        const mark = step?.[1] || '•';
+        const body = step?.[2] || line.trim();
+        const kind = /^(?:✓|✔)/.test(mark) ? 'good' : /^(?:⚠|!)/.test(mark) ? 'warn' : /^(?:✗|✘)/.test(mark) ? 'bad' : '';
+        blocks.push('<div class="rich-step ' + kind + '"><span class="step-mark">' + esc(mark) + '</span><span>' + inline(body) + '</span></div>');
+        index += 1;
+        continue;
+      }
+      const paragraph = [line];
+      index += 1;
+      while (index < lines.length && lines[index].trim() && !/^```/.test(lines[index].trim()) && !(index + 1 < lines.length && pipeRow(lines[index]) && delimiter(lines[index + 1])) && !boxRow(lines[index]) && !stepRow(lines[index]) && !/^\s*#{1,3}\s+/.test(lines[index])) {
+        paragraph.push(lines[index]);
+        index += 1;
+      }
+      blocks.push('<p>' + inline(paragraph.join('\n')) + '</p>');
+    }
+    return blocks.join('');
+  };
+
+  const ensureOutputCard = (id) => {
+    const tab = tabs.get(id);
+    if (!tab) return null;
+    if (!tab.outputCard || !tab.outputCard.isConnected) {
+      const card = document.createElement('article');
+      card.className = 'message stream-card output-message';
+      card.dataset.tabId = id;
+      card.innerHTML = '<div class="stream-card-head"><div class="stream-card-title"><span class="card-glyph">⌁</span><span>' + esc(tab.title) + '</span></div><span class="stream-state">Streaming</span></div><div class="stream-caption">Terminal output · live</div><div class="rich-body" role="log" aria-live="polite"></div>';
+      chat.appendChild(card);
+      tab.outputCard = card;
+    }
+    return tab.outputCard;
+  };
+  const updateOutputCard = (id, text, replace = true) => {
+    const tab = tabs.get(id);
+    if (!tab) return;
+    const stickToLatest = id === active && (tab.followOutput === true || isNearBottom());
+    const card = ensureOutputCard(id);
+    if (!card) return;
+    const value = String(text || '').slice(-24000);
+    const meaningful = value.trim() && value.trim() !== 'No output.' && value.trim() !== 'No output yet.';
+    if (replace) tab.outputText = meaningful ? value : '';
+    else tab.outputText = ((tab.outputText || '') + value).slice(-24000);
+    const body = card.querySelector('.rich-body');
+    if (body) {
+      const rendered = renderBlocks(tab.outputText) || '<div class="rich-empty">Waiting for terminal output…</div>';
+      body.innerHTML = rendered;
+      card.classList.toggle('structured-output', /rich-(?:code|box|table-wrap|step)/.test(rendered));
+    }
+    const state = card.querySelector('.stream-state');
+    if (state) state.textContent = tab.pendingCommand ? 'Streaming' : 'Live';
+    filterTabContent();
+    // Measure stickiness before the card grows. Checking after rendering
+    // makes a long response look like the user scrolled away and breaks the
+    // chat-following behavior once the card becomes taller than the viewport.
+    if (stickToLatest) scrollLatest(true);
+  };
+  const addExplore = (id, detail) => {
+    const tab = tabs.get(id);
+    if (!tab || !detail) return;
+    const row = document.createElement('div');
+    row.className = 'explore-row';
+    row.dataset.tabId = id;
+    row.innerHTML = '<span class="explore-icon" aria-hidden="true">⌕</span><span class="explore-kind">Explore</span><span>·</span><span class="explore-detail">' + esc(detail) + '</span>';
+    chat.appendChild(row);
+    filterTabContent();
+    if (id === active) scrollLatest(false);
+  };
+
+  addMessage = (html, tabID = active) => {
+    const stick = isNearBottom();
+    const element = document.createElement('article');
+    element.className = 'message';
+    if (tabID) element.dataset.tabId = tabID;
+    element.innerHTML = html;
+    if (/terminal ready/i.test(element.textContent || '')) element.classList.add('system-message');
+    chat.appendChild(element);
+    filterTabContent();
+    if (stick) scrollLatest(true);
+    return element;
+  };
+
+  appendOutput = (id, text) => {
+    const tab = tabs.get(id);
+    if (!tab) return;
+    tab.decoder ||= new TextDecoder();
+    tab.approvals ||= new Set();
+    tab.terminal ||= new VampBrowserTerminal();
+    tab.terminal.feed(text);
+    tab.out = tab.terminal.render();
+    const commandResponse = vampRenderedCommandResponse(tab);
+    if (commandResponse.found) {
+      tab.pendingCommand = null;
+      updateOutputCard(id, commandResponse.text || 'No output.', true);
+      if (active !== id) { tab.unread = true; renderTabs(); }
+      return;
+    }
+    if (tab.pendingCommand) {
+      if (active !== id) { tab.unread = true; renderTabs(); }
+      return;
+    }
+    // Do not project the shell prompt or an agent's alternate-screen startup
+    // banner into the conversation. The z.ai-style surface starts with a
+    // compact ready chip and only promotes deliberate command responses into
+    // readable assistant cards. This prevents Grok/Claude/OpenCode TUIs from
+    // becoming a giant raw terminal screenshot when a tab first connects.
+    if (!tab.commandCount) {
+      tab.startupSeen = true;
+    } else {
+      const visible = vampNormalizeChatOutput(text, { pendingCommand: null });
+      if (visible) updateOutputCard(id, visible, false);
+    }
+    if (active !== id) { tab.unread = true; renderTabs(); }
+  };
+
+  appendCommand = (value, status, tabID = active) => {
+    const tab = tabs.get(tabID);
+    if (tab) {
+      tab.pendingCommand = value;
+      tab.followOutput = true;
+      tab.outputCard = null;
+      tab.outputText = '';
+      tab.commandCount = (tab.commandCount || 0) + 1;
+    }
+    const title = tab?.title || 'Terminal';
+    const element = addMessage('<div class="meta">You · ' + esc(title) + ' · ' + esc(status) + '</div><div class="body"><span style="color:#aaa">$ </span>' + esc(value) + '</div>', tabID);
+    element.classList.add('user-message');
+    addExplore(tabID, 'Running ' + value);
+    return element;
+  };
+
+  reviewCommand = () => {
+    const value = $('input').value.trim();
+    const tabID = active;
+    const tab = tabs.get(tabID);
+    if (!value || !tabID) return;
+    if (!tab || !tab.opened || !ws || ws.readyState !== WebSocket.OPEN) {
+      addMessage('<div class="badge">This terminal is still opening. The command stays in the composer.</div>', tabID);
+      return;
+    }
+    tab.approvals ||= new Set();
+    if (tab.approvals.has(value)) {
+      if (sendInput(tabID, value + '\n')) { $('input').value = ''; appendCommand(value, 'Running', tabID); }
+      return;
+    }
+    const card = document.createElement('article');
+    card.className = 'command-card';
+    card.dataset.tabId = tabID;
+    card.innerHTML = '<div class="eyebrow">⌁ Permission required</div><div class="approval">Awaiting approval · ' + esc(tab.title) + '</div><div class="command"><span class="prompt">$ </span>' + esc(value) + '<br><span style="color:#888">No output.</span></div><div class="approval-actions"><button type="button" class="approval-choice selected" data-choice="once"><span class="choice-number">1.</span><span><strong>Allow</strong><small>Allow only this time</small></span></button><button type="button" class="approval-choice" data-choice="always"><span class="choice-number">2.</span><span><strong>Always allow</strong><small>Do not ask again for this command</small></span></button><button type="button" class="approval-choice" data-choice="deny"><span class="choice-number">3.</span><span><strong>Deny</strong><small>Reject it for now</small></span></button></div><div class="approval-footer"><p class="hint">Choose an action, then press Confirm.</p><button type="button" class="confirm">Confirm</button></div>';
+    let choice = 'once';
+    card.querySelectorAll('[data-choice]').forEach((button) => {
+      button.onclick = () => { choice = button.dataset.choice || 'once'; card.querySelectorAll('[data-choice]').forEach((candidate) => candidate.classList.toggle('selected', candidate === button)); };
+    });
+    card.querySelector('.confirm').onclick = () => {
+      card.remove();
+      const current = tabs.get(tabID);
+      if (choice === 'deny') {
+        $('input').value = '';
+        const denied = addMessage('<div class="meta">You · ' + esc(current?.title || 'Terminal') + ' · Denied</div><div class="body"><span style="color:#aaa">$ </span>' + esc(value) + '</div>', tabID);
+        denied.classList.add('user-message');
+        return;
+      }
+      if (choice === 'always' && current) { current.approvals ||= new Set(); current.approvals.add(value); }
+      if (sendInput(tabID, value + '\n')) { $('input').value = ''; appendCommand(value, choice === 'always' ? 'Always allowed · running' : 'Running', tabID); }
+      else { if (choice === 'always' && current) current.approvals.delete(value); $('input').value = value; addMessage('<div class="badge">The host connection closed before the command was sent. Try again.</div>', tabID); }
+    };
+    const stick = isNearBottom();
+    chat.appendChild(card);
+    filterTabContent();
+    $('input').value = '';
+    if (stick) scrollLatest(true);
+  };
+
+  selectTab = (id) => {
+    const tab = tabs.get(id);
+    if (!tab) return;
+    active = id;
+    tab.unread = false;
+    tab.followOutput = true;
+    if (tab.opened) ensureStream(id);
+    document.querySelectorAll('.stream').forEach((element) => element.classList.toggle('active', element.dataset.id === id));
+    filterTabContent();
+    renderTabs();
+    requestAnimationFrame(() => { if (tab.outputCard?.isConnected) scrollLatest(true); else content.scrollTop = 0; });
+  };
+
+  closeTab = (id) => {
+    const tab = tabs.get(id);
+    if (!tab) return;
+    if (tab.opened && !window.confirm('Close ' + tab.title + '? This ends the shell unless it is inside tmux or screen.')) return;
+    if (tab.opened && ws && ws.readyState === WebSocket.OPEN) send({ type: 'close', terminalID: id });
+    chat.querySelectorAll('[data-tab-id="' + id + '"]').forEach((element) => element.remove());
+    document.querySelector('.stream[data-id="' + id + '"]')?.remove();
+    tabs.delete(id);
+    order = order.filter((value) => value !== id);
+    if (active === id) active = order[0] || null;
+    if (!active) createTab();
+    if (active) selectTab(active);
+    renderTabs();
+  };
+
+  const originalDashboardToggle = vampToggleDashboard;
+  vampToggleDashboard = (force) => {
+    originalDashboardToggle(force);
+    const showing = !$('dashboard').classList.contains('hidden');
+    context.classList.toggle('hidden', showing);
+    shell.classList.toggle('dashboard-mode', showing);
+    if (!showing) { filterTabContent(); resetPagePosition(); requestAnimationFrame(() => { if (active) selectTab(active); }); }
+  };
+  $('context-panel').onclick = () => vampToggleDashboard(true);
+  $('context-more').onclick = () => { $('more-modal').classList.remove('hidden'); $('more-command').focus(); };
+  $('context-branch').onclick = () => addExplore(active, 'Session routing · ' + (tabs.get(active)?.title || 'Terminal'));
+  $('context-repo').onclick = () => addExplore(active, 'Connected to Vamp Host');
+
+  resetPagePosition();
+  filterTabContent();
+})();
 </script></body></html>
 """#
 }

@@ -302,6 +302,7 @@ struct VampHostPromoCard: View {
             .controlSize(.small)
         }
         .padding(13)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .vampGlassSurface(.card, cornerRadius: 16)
         .vampGlassOutline(cornerRadius: 16)
         .accessibilityElement(children: .contain)

@@ -863,14 +863,14 @@ final class ClientSessionCoordinator: ObservableObject {
                 if self.activeSessionID == sessionID,
                    (self.phase == .negotiating || self.phase == .signalingConnected) {
                     self.phase = .error
-                    self.errorMessage = "Host closed the connection. Open the host app and approve the connection request."
+                    self.errorMessage = "Vamp Host closed the pairing request. Open Vamp Host and approve this device, then tap Connect again."
                 }
             } catch {
                 self.logger.warning("Signaling receive ended: \(error.localizedDescription)")
                 if self.activeSessionID == sessionID,
                    (self.phase == .negotiating || self.phase == .signalingConnected) {
                     self.phase = .error
-                    self.errorMessage = "Lost connection to host. Open the host app and try again."
+                    self.errorMessage = "Waiting for Vamp Host approval ended. Open Vamp Host, approve this device, then tap Connect again."
                 }
             }
         }
@@ -1381,8 +1381,10 @@ final class ClientSessionCoordinator: ObservableObject {
         guard activeSessionID != nil,
               webRTCSessionManager.connectionState == .connected,
               webRTCSessionManager.dataChannelState == .open else {
+            logger.notice("Terminal envelope deferred: kind=\(envelope.kind.rawValue, privacy: .public), connection=\(self.webRTCSessionManager.connectionState.rawValue, privacy: .public), data=\(self.webRTCSessionManager.dataChannelState.rawValue, privacy: .public)")
             throw WebRTCSessionError.dataChannelUnavailable
         }
+        logger.notice("Sending terminal envelope: kind=\(envelope.kind.rawValue, privacy: .public)")
         try webRTCSessionManager.sendDataMessage(envelope)
     }
 

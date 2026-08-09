@@ -30,6 +30,14 @@ enum VampTerminalDesign {
     static let controlRadius = unit * 3
     static let smallRadius = unit * 2
     static let tabRadius = unit * 2.5
+    /// Cards share a common baseline height while still growing naturally for
+    /// Dynamic Type and longer host diagnostics.
+    static let cardMinHeight = unit * 20
+    static let hostCardMinHeight = unit * 24
+    /// Chat is a readable activity feed, so a full-screen terminal repaint
+    /// must stay inside a bounded card. The Raw view remains the escape hatch
+    /// for inspecting the complete PTY stream.
+    static let chatOutputMaxHeight = unit * 56
 
     static let heroTitleSize: CGFloat = 22
     static let sectionTitleSize: CGFloat = 16
@@ -121,14 +129,30 @@ extension VampAgentProvider {
     /// and Qwen the reference project has no logo, so the fallback mark is
     /// deliberately typographic rather than pretending to be an official
     /// vendor asset.
-    var fallbackGlyph: String {
+    var markLabel: String {
         switch self {
         case .pi: return "π"
         case .commandCode: return "⌘"
-        case .qwen: return "Q"
+        case .qwen: return "QW"
         case .aider: return "A"
         case .grok: return "G"
         default: return "·"
+        }
+    }
+
+    /// Menu labels need an actual Image view to preserve their icon when
+    /// SwiftUI bridges a Menu into a UIKit context menu. These symbols are
+    /// intentionally generic, product-neutral marks for providers without a
+    /// bundled logo; they keep the row identifiable without fabricating
+    /// vendor artwork.
+    var fallbackSystemImage: String {
+        switch self {
+        case .pi: return "circle.dotted"
+        case .commandCode: return "command"
+        case .qwen: return "q.circle"
+        case .aider: return "a.circle"
+        case .grok: return "x.circle"
+        default: return "terminal"
         }
     }
 
@@ -210,24 +234,30 @@ struct VampProviderMark: View {
     var size: CGFloat = 28
 
     var body: some View {
-        Group {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                .fill(provider.accent.opacity(0.13))
+
             if let assetName = provider.assetName {
                 Image(assetName)
                     .resizable()
-                    .scaledToFill()
+                    // Provider files are square artwork, not terminal
+                    // thumbnails. Fit the complete mark so its border and
+                    // central symbol are never cropped differently per row.
+                    .scaledToFit()
+                    .padding(size * 0.10)
             } else {
-                Text(provider.fallbackGlyph)
-                    .font(.system(size: size * 0.52, weight: .bold, design: .rounded))
+                Image(systemName: provider.fallbackSystemImage)
+                    .font(.system(size: size * 0.43, weight: .semibold))
+                    .minimumScaleFactor(0.58)
                     .foregroundStyle(provider.accent)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(provider.accent.opacity(0.14))
             }
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
-                .stroke(provider.accent.opacity(0.35), lineWidth: 0.75)
+                .stroke(provider.accent.opacity(0.42), lineWidth: 0.8)
         }
         .accessibilityHidden(true)
     }

@@ -9,7 +9,7 @@ final class MacMenuBarController: NSObject, ObservableObject {
     private static let templateImage: NSImage? = {
         let image = NSImage(
             systemSymbolName: "display",
-            accessibilityDescription: "MacPair"
+            accessibilityDescription: "Vamp Remote"
         )
         image?.isTemplate = true
         image?.size = NSSize(width: 18, height: 18)
@@ -17,7 +17,7 @@ final class MacMenuBarController: NSObject, ObservableObject {
     }()
 
     private let logger = Logger(
-        subsystem: "uk.mesut.screenharbor.macclient",
+        subsystem: "com.mesutcy.vamp.remote",
         category: "MenuBar"
     )
     private var statusItem: NSStatusItem?
@@ -115,16 +115,16 @@ final class MacMenuBarController: NSObject, ObservableObject {
     private var tooltip: String {
         switch stateGate.current ?? .disconnected {
         case .disconnected:
-            return "MacPair — Disconnected"
+            return "Vamp Remote — Disconnected"
         case .connecting:
-            return "MacPair — Connecting"
+            return "Vamp Remote — Connecting"
         case .connected:
             if let currentHostName, !currentHostName.isEmpty {
-                return "MacPair — Connected to \(currentHostName)"
+                return "Vamp Remote — Connected to \(currentHostName)"
             }
-            return "MacPair — Connected"
+            return "Vamp Remote — Connected"
         case .warning:
-            return "MacPair — Attention Required"
+            return "Vamp Remote — Attention Required"
         }
     }
 
@@ -136,7 +136,7 @@ final class MacMenuBarController: NSObject, ObservableObject {
         menu.addItem(.separator())
 
         let show = NSMenuItem(
-            title: "Show MacPair",
+            title: "Show Vamp Remote",
             action: #selector(showApplication),
             keyEquivalent: ""
         )

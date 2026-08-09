@@ -356,10 +356,9 @@ final class HostAppEnvironment: ObservableObject {
             // settings. We respond with a TerminalClose so the client UI can
             // show a clear "feature disabled" state instead of hanging on
             // "opening shell…".
-            let enabled = Task { @MainActor in self?.terminalModeEnabled ?? false }
-            Task {
-                let isEnabled = await enabled.value
-                if !isEnabled {
+            Task { @MainActor [weak self, weak terminalService, weak webRTCSessionManager] in
+                guard let self else { return }
+                if !self.terminalModeEnabled {
                     let close = TerminalCloseMessage(
                         sessionID: message.sessionID,
                         terminalID: message.terminalID,
@@ -806,6 +805,21 @@ final class HostAppEnvironment: ObservableObject {
         guard trustPromptContinuation == nil else { return false }
         pendingTrustPrompt = TrustPrompt(id: peerID, displayName: displayName, fingerprint: fingerprint)
         pendingTrustPromptDeadline = Date().addingTimeInterval(RemoteDesktopConstants.trustPromptTimeout)
+#if os(macOS)
+        // Pairing is deliberately host-approved, but a hidden/menu-bar-only
+        // dashboard must not make the client look like it failed silently.
+        // `bringExistingWindowFront` orders the window but does not activate
+        // the application when it returns true, which can leave the sheet
+        // behind the active simulator, Safari, or another Mac app.
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+            _ = HostWindowCloseBehaviorController.shared.bringExistingWindowFront()
+            if let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }) {
+                window.makeKeyAndOrderFront(nil)
+                window.orderFrontRegardless()
+            }
+        }
+#endif
         return await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 trustPromptContinuation = continuation

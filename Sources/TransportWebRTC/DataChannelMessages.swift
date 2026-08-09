@@ -56,7 +56,8 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
         case .inputCommand, .chatMessage, .qualityAdjust, .fileTransfer,
              .displaySwitch, .setActiveDisplays, .requestKeyframe,
              .unlockPassword, .clipboardSync, .clipboardRequest,
-             .terminalOpen, .terminalInput, .terminalResize, .terminalClose:
+             .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
+             .terminalResize, .terminalClose:
             return true
         default:
             return false

@@ -311,6 +311,18 @@ private struct HostMinimalDashboard: View {
                     compact: false
                 )
 
+                HostTerminalAccessCard(
+                    terminalModeEnabled: environment.terminalModeEnabled,
+                    connectedClientName: sessionCoordinator.connectedClientName,
+                    signalingAddresses: connectAddresses.map {
+                        HostTerminalAddressItem(label: $0.label, value: $0.value)
+                    },
+                    safariReady: environment.browserControlStatus.running,
+                    safariAddresses: safariAddresses.map {
+                        HostTerminalAddressItem(label: $0.label, value: $0.value)
+                    }
+                )
+
                 // Connect addresses — show LAN and (when on a tailnet) MagicDNS + TS IP.
                 if !connectAddresses.isEmpty {
                     connectSection
@@ -1073,6 +1085,136 @@ private struct HostMinimalDashboard: View {
 }
 
 
+
+/// The full Vamp Host and the terminal-only host advertise the same terminal
+/// capability. Keep that fact visible in the original host dashboard so a
+/// user never has to guess whether the remote client can open a shell or where
+/// Safari should connect.
+private struct HostTerminalAccessCard: View {
+    let terminalModeEnabled: Bool
+    let connectedClientName: String?
+    let signalingAddresses: [HostTerminalAddressItem]
+    let safariReady: Bool
+    let safariAddresses: [HostTerminalAddressItem]
+
+    @State private var copiedAddress: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            HStack(spacing: 8) {
+                Label("Terminal access", systemImage: "terminal.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Text(terminalModeEnabled ? "ENABLED" : "OFF")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(terminalModeEnabled ? .green : .orange)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        (terminalModeEnabled ? Color.green : Color.orange).opacity(0.13),
+                        in: Capsule(style: .continuous)
+                    )
+            }
+
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: terminalModeEnabled ? "checkmark.shield.fill" : "pause.circle.fill")
+                    .foregroundStyle(terminalModeEnabled ? .green : .orange)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(terminalModeEnabled ? "Up to 8 independent terminal tabs" : "Terminal Mode is disabled")
+                        .font(.subheadline.weight(.semibold))
+                    Text(terminalModeEnabled
+                         ? "Vamp Terminal and the paired remote client can use separate PTYs. Switching tabs does not close a shell."
+                         : "Enable Terminal Mode in Settings before connecting a terminal client. Enabling it keeps this host terminal-capable without changing screen control.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if let connectedClientName {
+                Label("Connected client · \(connectedClientName)", systemImage: "person.crop.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if !signalingAddresses.isEmpty {
+                Divider()
+                Text("Vamp Terminal / remote client")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                ForEach(signalingAddresses) { address in
+                    addressRow(address)
+                }
+            }
+
+            Divider()
+            HStack(spacing: 7) {
+                Label("Safari control", systemImage: "safari")
+                    .font(.caption2.weight(.semibold))
+                Spacer(minLength: 0)
+                Text(safariReady ? "READY" : "OFFLINE")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(safariReady ? .green : .secondary)
+            }
+            if safariReady, !safariAddresses.isEmpty {
+                ForEach(safariAddresses) { address in
+                    addressRow(address)
+                }
+            } else {
+                Text("Start the host runtime and connect Tailscale to show a private Safari link. Do not use 127.0.0.1 from an iPhone or iPad.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hostGlassSurface(
+            in: RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous),
+            tint: terminalModeEnabled ? .green : .orange
+        )
+    }
+
+    private func addressRow(_ address: HostTerminalAddressItem) -> some View {
+        Button {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(address.value, forType: .string)
+            copiedAddress = address.value
+            Task {
+                try? await Task.sleep(for: .seconds(1.4))
+                if copiedAddress == address.value { copiedAddress = nil }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Text(address.label.uppercased())
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .overlay { Capsule().strokeBorder(AppColor.borderSubtle, lineWidth: 0.5) }
+                Text(address.value)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.68)
+                Spacer(minLength: 4)
+                Image(systemName: copiedAddress == address.value ? "checkmark" : "doc.on.doc")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(copiedAddress == address.value ? .green : .secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Copy \(address.value)")
+    }
+}
+
+private struct HostTerminalAddressItem: Identifiable, Hashable {
+    let label: String
+    let value: String
+    var id: String { value }
+}
 
 /// A thin, static accent hairline around the window while a session is active.
 /// No animated glow — flat and native.

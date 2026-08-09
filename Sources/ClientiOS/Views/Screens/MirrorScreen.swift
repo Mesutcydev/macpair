@@ -1581,12 +1581,13 @@ private struct MirrorFullscreenStreamView: View {
             sessionCoordinator.onAudioFrame = { [weak audioRenderer = audioRenderer] msg in audioRenderer?.receive(msg) }
             if let sessionID = sessionCoordinator.activeSessionID {
                 terminalSession.activate(sessionID: sessionID, send: { [weak sessionCoordinator = sessionCoordinator] env in
-                    sessionCoordinator?.sendClipboardEnvelope(env)
+                    try sessionCoordinator?.sendTerminalEnvelope(env)
                 })
                 clipboardSync.activate(sessionID: sessionID, send: { [weak sessionCoordinator = sessionCoordinator] env in
                     sessionCoordinator?.sendClipboardEnvelope(env)
                 })
             }
+            sessionCoordinator.onTerminalReady = { [weak terminalSession = terminalSession] msg in terminalSession?.receiveReady(msg) }
             sessionCoordinator.onTerminalOutput = { [weak terminalSession = terminalSession] msg in terminalSession?.receiveOutput(msg) }
             sessionCoordinator.onTerminalClose = { [weak terminalSession = terminalSession] msg in terminalSession?.receiveClose(msg) }
             sessionCoordinator.onClipboardSync = { [weak clipboardSync = clipboardSync] msg in clipboardSync?.receive(msg) }
@@ -1598,7 +1599,7 @@ private struct MirrorFullscreenStreamView: View {
             interactionVM.sessionID = sessionID
             if let sessionID {
                 terminalSession.activate(sessionID: sessionID, send: { [weak sessionCoordinator = sessionCoordinator] env in
-                    sessionCoordinator?.sendClipboardEnvelope(env)
+                    try sessionCoordinator?.sendTerminalEnvelope(env)
                 })
                 clipboardSync.activate(sessionID: sessionID, send: { [weak sessionCoordinator = sessionCoordinator] env in
                     sessionCoordinator?.sendClipboardEnvelope(env)
@@ -1635,6 +1636,7 @@ private struct MirrorFullscreenStreamView: View {
             terminalSession.deactivate()
             clipboardSync.deactivate()
             sessionCoordinator.onTerminalOutput = nil
+            sessionCoordinator.onTerminalReady = nil
             sessionCoordinator.onTerminalClose = nil
             sessionCoordinator.onClipboardSync = nil
         }

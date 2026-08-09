@@ -542,11 +542,13 @@ final class HostInputCommandRouter: @unchecked Sendable {
     }
 
     private func handleTerminalOpenEnvelope(_ envelope: DataChannelEnvelope) async {
+        logger.notice("Received terminal open envelope")
         guard envelope.hasAcceptableTimestamp else {
             rejectCommand(reason: "Terminal open timestamp out of acceptable window")
             return
         }
         guard validateControlEnvelopeAuth(envelope) else {
+            logger.error("Rejected terminal open envelope: authentication failed")
             rejectCommand(reason: "Terminal open authentication required")
             return
         }
@@ -568,6 +570,7 @@ final class HostInputCommandRouter: @unchecked Sendable {
             rejectCommand(reason: "Terminal open rejected: \(rejection)")
             return
         }
+        logger.notice("Routing terminal open to PTY service")
         onTerminalOpen?(message)
     }
 

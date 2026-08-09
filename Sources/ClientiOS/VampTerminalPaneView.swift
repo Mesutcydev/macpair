@@ -14,6 +14,7 @@ struct VampTerminalPaneView: View {
     var onSendClipboardToHost: () -> Void = {}
     var onRequestClipboardFromHost: () -> Void = {}
     var onTerminalClipboard: (String) -> Void = { _ in }
+    var onTerminalInput: (Data) -> Void = { _ in }
 
     @StateObject private var input = VampTerminalInputController()
 
@@ -24,7 +25,8 @@ struct VampTerminalPaneView: View {
                 session: session,
                 controller: input,
                 provider: provider,
-                onTerminalClipboard: onTerminalClipboard
+                onTerminalClipboard: onTerminalClipboard,
+                onTerminalInput: onTerminalInput
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
@@ -58,62 +60,42 @@ struct VampTerminalPaneView: View {
     }
 
     private var paneStatusBar: some View {
-        ViewThatFits(in: .horizontal) {
-            fullStatusBar
-            compactStatusBar
+        HStack(spacing: VampTerminalDesign.space2) {
+            statusSummary
+            Spacer(minLength: VampTerminalDesign.space1)
+            clipboardMenuButton
+            keyboardButton
         }
         .padding(.horizontal, VampTerminalDesign.space3)
         .padding(.vertical, VampTerminalDesign.space2)
         .background(provider?.terminalBackground ?? Color(red: 0.075, green: 0.08, blue: 0.1))
     }
 
-    private var fullStatusBar: some View {
-        HStack(spacing: VampTerminalDesign.space2) {
-            statusSummary
-            Spacer(minLength: VampTerminalDesign.space1)
-            terminalActionButton(systemImage: "doc.on.doc", label: "Copy selection") {
+    private var clipboardMenuButton: some View {
+        Menu {
+            Button {
                 _ = input.copySelectionToDevice()
-            }
-            terminalActionButton(systemImage: "arrow.up.doc", label: "Send phone clipboard to Mac") {
-                onSendClipboardToHost()
-            }
-            terminalActionButton(systemImage: "arrow.down.doc", label: "Get Mac clipboard") {
-                onRequestClipboardFromHost()
-            }
-            keyboardButton
-        }
-    }
-
-    private var compactStatusBar: some View {
-        HStack(spacing: VampTerminalDesign.space2) {
-            statusSummary
-            Spacer(minLength: VampTerminalDesign.space1)
-            Menu {
-                Button {
-                    _ = input.copySelectionToDevice()
-                } label: {
-                    Label("Copy selection", systemImage: "doc.on.doc")
-                }
-                Button {
-                    onSendClipboardToHost()
-                } label: {
-                    Label("Send phone clipboard to Mac", systemImage: "arrow.up.doc")
-                }
-                Button {
-                    onRequestClipboardFromHost()
-                } label: {
-                    Label("Get Mac clipboard", systemImage: "arrow.down.doc")
-                }
             } label: {
-                Image(systemName: "ellipsis.circle")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(provider?.terminalText.opacity(0.82) ?? .white.opacity(0.82))
-                    .frame(minWidth: VampTerminalDesign.minTapTarget, minHeight: VampTerminalDesign.minTapTarget)
-                    .background((provider?.terminalText ?? .white).opacity(0.08), in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius))
+                Label("Copy terminal selection", systemImage: "doc.on.doc")
             }
-            .accessibilityLabel("Terminal actions")
-            keyboardButton
+            Button {
+                onSendClipboardToHost()
+            } label: {
+                Label("Send iPhone clipboard to Mac", systemImage: "arrow.up.doc")
+            }
+            Button {
+                onRequestClipboardFromHost()
+            } label: {
+                Label("Get Mac clipboard", systemImage: "arrow.down.doc")
+            }
+        } label: {
+            Image(systemName: "doc.on.clipboard")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(provider?.terminalText.opacity(0.82) ?? .white.opacity(0.82))
+                .frame(minWidth: VampTerminalDesign.minTapTarget, minHeight: VampTerminalDesign.minTapTarget)
+                .background((provider?.terminalText ?? .white).opacity(0.08), in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius))
         }
+        .accessibilityLabel("Clipboard actions")
     }
 
     private var statusSummary: some View {
@@ -145,22 +127,6 @@ struct VampTerminalPaneView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(input.isKeyboardVisible ? "Hide keyboard" : "Show keyboard")
-    }
-
-    private func terminalActionButton(
-        systemImage: String,
-        label: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(provider?.terminalText.opacity(0.82) ?? .white.opacity(0.82))
-                .frame(minWidth: VampTerminalDesign.minTapTarget, minHeight: VampTerminalDesign.minTapTarget)
-                .background((provider?.terminalText ?? .white).opacity(0.08), in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
     }
 
     private var statusText: String {
@@ -299,12 +265,16 @@ struct VampTerminalPaneView: View {
     }
 
     private func send(_ bytes: [UInt8]) {
-        session.sendInput(Data(bytes))
+        let data = Data(bytes)
+        onTerminalInput(data)
+        session.sendInput(data)
     }
 
     private func paste() {
         guard let text = UIPasteboard.general.string, !text.isEmpty else { return }
-        session.sendInput(Data(text.utf8))
+        let data = Data(text.utf8)
+        onTerminalInput(data)
+        session.sendInput(data)
     }
 }
 
@@ -380,9 +350,14 @@ private struct VampSwiftTermContainer: UIViewRepresentable {
     let controller: VampTerminalInputController
     let provider: VampAgentProvider?
     let onTerminalClipboard: (String) -> Void
+    let onTerminalInput: (Data) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(session: session, onTerminalClipboard: onTerminalClipboard)
+        Coordinator(
+            session: session,
+            onTerminalClipboard: onTerminalClipboard,
+            onTerminalInput: onTerminalInput
+        )
     }
 
     func makeUIView(context: Context) -> TerminalView {
@@ -394,7 +369,11 @@ private struct VampSwiftTermContainer: UIViewRepresentable {
         view.nativeBackgroundColor = provider?.terminalBackgroundUIColor ?? .black
         view.lineSpacing = 1.08
         view.showsVerticalScrollIndicator = true
-        view.alwaysBounceVertical = true
+        // Keep scrollback, but stop an idle shell from rubber-banding through
+        // the keyboard and safe-area changes. This is the source of the
+        // "pull down to fit" feeling on iPhone.
+        view.alwaysBounceVertical = false
+        view.contentInsetAdjustmentBehavior = .never
         view.keyboardDismissMode = .interactive
         view.delaysContentTouches = false
         view.linkReporting = .implicit
@@ -437,14 +416,20 @@ private struct VampSwiftTermContainer: UIViewRepresentable {
     final class Coordinator: NSObject, TerminalViewDelegate {
         private let session: ClientTerminalSessionManager
         private let onTerminalClipboard: (String) -> Void
+        private let onTerminalInput: (Data) -> Void
         private var lastDeliveredSequence: UInt64 = 0
         private weak var view: TerminalView?
         private var pinchStartFontSize: CGFloat = 14
         private var resizeTask: Task<Void, Never>?
 
-        init(session: ClientTerminalSessionManager, onTerminalClipboard: @escaping (String) -> Void) {
+        init(
+            session: ClientTerminalSessionManager,
+            onTerminalClipboard: @escaping (String) -> Void,
+            onTerminalInput: @escaping (Data) -> Void
+        ) {
             self.session = session
             self.onTerminalClipboard = onTerminalClipboard
+            self.onTerminalInput = onTerminalInput
         }
 
         @MainActor
@@ -477,6 +462,7 @@ private struct VampSwiftTermContainer: UIViewRepresentable {
 
         func send(source: TerminalView, data: ArraySlice<UInt8>) {
             let input = Data(data)
+            onTerminalInput(input)
             Task { @MainActor [session] in session.sendInput(input) }
         }
 

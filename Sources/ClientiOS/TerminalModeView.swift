@@ -6,25 +6,208 @@ import Diagnostics
 import SharedProtocol
 import TransportWebRTC
 
-/// Full-screen Terminal Mode: a SwiftTerm-backed view that streams bytes to
-/// and from the host's PTY shell.
-///
-/// Owned by `ClientTerminalSessionManager` for state + send/receive. This view
-/// wraps SwiftTerm's `TerminalView` (xterm emulator) in a UIViewRepresentable
-/// and stitches together emulator → manager.sendInput and
-/// manager.output → emulator.feed via the coordinator.
+private enum LegacyTerminalPresentation: String, CaseIterable, Identifiable {
+    case stream
+    case raw
+
+    var id: String { rawValue }
+    var title: String { self == .stream ? "Task chat" : "Raw terminal" }
+    var icon: String { self == .stream ? "bubble.left.and.bubble.right" : "terminal" }
+}
+
+/// A bounded, readable transcript for the original Vamp remote client. The
+/// PTY remains mounted underneath it, but the default presentation is a stable
+/// task stream instead of a black rectangle that moves whenever the keyboard
+/// changes the available height.
+@MainActor
+private final class LegacyTerminalChatStore: ObservableObject {
+    enum Role: Equatable { case system, command, output, error }
+    struct Block: Identifiable, Equatable {
+        let id: UUID
+        let role: Role
+        var text: String
+        var isStreaming: Bool
+    }
+
+    @Published private(set) var blocks: [Block] = []
+    private var inputBuffer = Data()
+    private var lastSequence: UInt64 = 0
+    private var activeOutputID: UUID?
+    private let maxBlocks = 160
+    private let maxCharacters = 14_000
+
+    func reset() {
+        blocks = [Block(id: UUID(), role: .system, text: "Opening shell…", isStreaming: true)]
+        inputBuffer.removeAll(keepingCapacity: true)
+        lastSequence = 0
+        activeOutputID = nil
+    }
+
+    func ingest(_ messages: [TerminalOutputMessage]) {
+        for message in messages where message.sequence > lastSequence {
+            lastSequence = message.sequence
+            appendOutput(message.data)
+        }
+    }
+
+    func recordInput(_ data: Data) {
+        let bytes = [UInt8](data)
+        var index = 0
+        while index < bytes.count {
+            let byte = bytes[index]
+            if byte == 0x0D || byte == 0x0A {
+                submitCommand(String(decoding: inputBuffer, as: UTF8.self))
+                inputBuffer.removeAll(keepingCapacity: true)
+            } else if byte == 0x08 || byte == 0x7F {
+                var text = String(decoding: inputBuffer, as: UTF8.self)
+                if !text.isEmpty { text.removeLast() }
+                inputBuffer = Data(text.utf8)
+            } else if byte == 0x1B {
+                index += 1
+                while index < bytes.count, !(0x40...0x7E).contains(bytes[index]) {
+                    index += 1
+                }
+            } else if byte >= 0x20 {
+                inputBuffer.append(byte)
+            }
+            index += 1
+        }
+    }
+
+    func submitCommand(_ command: String) {
+        let value = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return }
+        finishOpening()
+        append(Block(id: UUID(), role: .command, text: "$ \(value)", isStreaming: false))
+        activeOutputID = nil
+    }
+
+    func appendFailure(_ message: String) {
+        finishOpening()
+        append(Block(id: UUID(), role: .error, text: message, isStreaming: false))
+    }
+
+    func update(state: ClientTerminalSessionManager.State) {
+        switch state {
+        case .open:
+            finishOpening()
+            if !blocks.contains(where: { $0.role == .system && $0.text == "Terminal is connected." }) {
+                append(Block(id: UUID(), role: .system, text: "Terminal is connected.", isStreaming: false))
+            }
+        case .closed(_, _, let reason):
+            finishOpening()
+            let message: String
+            if reason == "terminal-disabled" {
+                message = "Terminal Mode is disabled on the Mac. Enable it in Vamp Host settings, then retry."
+            } else if reason == "terminal-capacity" {
+                message = "The Mac has reached its 8-terminal limit. Close a tab before retrying."
+            } else if let reason, !reason.isEmpty {
+                message = "Terminal closed · \(reason)"
+            } else {
+                message = "Terminal closed."
+            }
+            append(Block(id: UUID(), role: .error, text: message, isStreaming: false))
+        case .idle, .opening:
+            break
+        }
+    }
+
+    var latestText: String {
+        blocks.suffix(20).map(\.text).joined(separator: "\n")
+    }
+
+    private func appendOutput(_ data: Data) {
+        let clean = Self.clean(data)
+        guard !clean.isEmpty else { return }
+        let normalized = clean.replacingOccurrences(of: "\r", with: "\n")
+        for line in normalized.split(separator: "\n", omittingEmptySubsequences: false) {
+            let value = String(line).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty else { continue }
+            if let activeOutputID,
+               let index = blocks.firstIndex(where: { $0.id == activeOutputID }),
+               blocks[index].text.count + value.count < maxCharacters {
+                blocks[index].text += "\n\(value)"
+                blocks[index].isStreaming = true
+            } else {
+                let block = Block(id: UUID(), role: .output, text: value, isStreaming: true)
+                activeOutputID = block.id
+                append(block)
+            }
+        }
+    }
+
+    private func finishOpening() {
+        for index in blocks.indices where blocks[index].role == .system && blocks[index].isStreaming {
+            blocks[index].isStreaming = false
+        }
+    }
+
+    private func append(_ block: Block) {
+        blocks.append(block)
+        if blocks.count > maxBlocks { blocks.removeFirst(blocks.count - maxBlocks) }
+    }
+
+    private static func clean(_ data: Data) -> String {
+        let scalars = String(decoding: data, as: UTF8.self).unicodeScalars
+        var result = String.UnicodeScalarView()
+        var index = scalars.startIndex
+        var skippingCSI = false
+        var skippingOSC = false
+
+        while index < scalars.endIndex {
+            let scalar = scalars[index]
+            if skippingOSC {
+                if scalar.value == 7 { skippingOSC = false }
+                index = scalars.index(after: index)
+                continue
+            }
+            if skippingCSI {
+                if (0x40...0x7E).contains(scalar.value) { skippingCSI = false }
+                index = scalars.index(after: index)
+                continue
+            }
+            if scalar.value == 0x1B {
+                let next = scalars.index(after: index)
+                if next < scalars.endIndex {
+                    if scalars[next].value == 0x5B {
+                        skippingCSI = true
+                        index = scalars.index(after: next)
+                        continue
+                    }
+                    if scalars[next].value == 0x5D {
+                        skippingOSC = true
+                        index = scalars.index(after: next)
+                        continue
+                    }
+                }
+                index = next
+                continue
+            }
+            if scalar.value == 0x08 || scalar.value == 0x7F {
+                index = scalars.index(after: index)
+                continue
+            }
+            if scalar.value == 0x09 || scalar.value == 0x0A || scalar.value == 0x0D || scalar.value >= 0x20 {
+                result.append(scalar)
+            }
+            index = scalars.index(after: index)
+        }
+        return String(result)
+    }
+}
+
+/// Full-screen Terminal Mode for the original Vamp remote client. A SwiftTerm
+/// PTY remains mounted for compatibility, while the default task stream keeps
+/// commands and output readable on iPhone and iPad.
 struct TerminalModeView: View {
-
     @ObservedObject var session: ClientTerminalSessionManager
-
-    /// Commands the underlying `TerminalView` (show/hide the software keyboard,
-    /// sticky Ctrl) and mirrors its live keyboard state back into SwiftUI so the
-    /// toggle button always reflects reality — even when the user dismisses the
-    /// keyboard with a swipe or attaches a hardware keyboard.
     @StateObject private var input = TerminalInputController()
-
+    @StateObject private var transcript = LegacyTerminalChatStore()
     @Environment(\.dismiss) private var dismiss
-
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var presentation: LegacyTerminalPresentation = .stream
+    @State private var draft = ""
+    @FocusState private var composerFocused: Bool
     @State private var aiResult: String?
     @State private var aiThinking = false
     @State private var showAI = false
@@ -32,17 +215,31 @@ struct TerminalModeView: View {
     var body: some View {
         VStack(spacing: 0) {
             topBar
-            SwiftTermContainer(session: session, controller: input)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+            presentationBar
+            ZStack {
+                // Keep SwiftTerm mounted while switching presentation modes so
+                // the PTY and its scrollback never close/reopen.
+                SwiftTermContainer(
+                    session: session,
+                    controller: input,
+                    onInput: { data in transcript.recordInput(data) }
+                )
+                .opacity(presentation == .raw ? 1 : 0.001)
+                .allowsHitTesting(presentation == .raw)
                 .background(Color.black)
+
+                if presentation == .stream {
+                    LegacyTerminalStreamView(transcript: transcript)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
         }
-        // The quick-key row is a safe-area inset, not a sibling competing for
-        // the terminal's height. This prevents the native keyboard and the
-        // accessory row from overlapping during interactive dismissal.
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            specialKeysBar
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: 0) {
+                if presentation == .stream { commandComposer }
+                specialKeysBar
+            }
         }
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
@@ -56,10 +253,27 @@ struct TerminalModeView: View {
         .onReceive(NotificationCenter.default.publisher(for: .terminalViewControlModifierReset)) { _ in
             input.ctrlActive = false
         }
+        .onReceive(session.$output) { messages in
+            transcript.ingest(messages)
+        }
+        .onChange(of: session.state) { _, state in
+            transcript.update(state: state)
+        }
         .onAppear {
-            // Initial open uses a conservative 80x24; the SwiftTerm view will
-            // recompute on first layout and call requestResize.
-            session.open(cols: 80, rows: 24)
+            transcript.reset()
+            let canOpen: Bool
+            switch session.state {
+            case .idle, .closed(_, _, _):
+                canOpen = true
+            case .opening, .open:
+                canOpen = false
+            }
+            if canOpen {
+                let didSend = session.open(cols: 80, rows: 24)
+                if !didSend {
+                    transcript.appendFailure("The terminal channel is not ready. Return to the host screen and reconnect.")
+                }
+            }
         }
         .onDisappear {
             session.close(reason: "view-dismissed")
@@ -84,132 +298,146 @@ struct TerminalModeView: View {
         }
     }
 
-    // MARK: Top bar
-
     private var topBar: some View {
-        HStack(spacing: 8) {
-            roundButton(system: "chevron.down", label: "Close terminal") {
-                dismiss()
+        HStack(spacing: 10) {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 36, height: 36)
             }
-            Spacer(minLength: 8)
-            Text(statusText)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.85))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Spacer(minLength: 8)
-            roundButton(
-                system: input.isKeyboardVisible ? "keyboard.chevron.compact.down" : "keyboard",
-                label: input.isKeyboardVisible ? "Hide keyboard" : "Show keyboard"
-            ) {
-                input.toggleKeyboard()
+            .accessibilityLabel("Close terminal")
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Task chat")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 7, height: 7)
+                    Text(statusText)
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.65))
+                        .lineLimit(1)
+                }
             }
-            roundButton(system: "sparkles", label: "Explain output") {
-                terminalExplain()
+            .foregroundStyle(.white)
+
+            Spacer(minLength: 4)
+
+            Menu {
+                Button { presentation = .stream } label: { Label("Task chat", systemImage: "bubble.left.and.bubble.right") }
+                Button { presentation = .raw } label: { Label("Raw terminal", systemImage: "terminal") }
+                Button { copyTranscript() } label: { Label("Copy transcript", systemImage: "doc.on.doc") }
+                Button { terminalExplain() } label: { Label("Explain output", systemImage: "sparkles") }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .bold))
+                    .frame(width: 36, height: 36)
+                    .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
+            .accessibilityLabel("Terminal actions")
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(Color(white: 0.05))
+        .background(Color(white: 0.055))
     }
 
-    private func terminalExplain() {
-        let text = session.output.suffix(80)
-            .compactMap { String(data: $0.data, encoding: .utf8) }
-            .joined()
-        guard !text.isEmpty else {
-            aiResult = "No terminal output yet — run a command first."
-            showAI = true
-            return
-        }
-        aiThinking = true
-        aiResult = nil
-        showAI = true
-        Task {
-            let result = await TerminalAssistant.explain(output: text)
-            await MainActor.run {
-                aiResult = result ?? "On-device AI isn’t available (turn on Apple Intelligence in Settings)."
-                aiThinking = false
+    private var presentationBar: some View {
+        HStack(spacing: 6) {
+            Text("SESSION")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.45))
+            Spacer(minLength: 4)
+            ForEach(LegacyTerminalPresentation.allCases) { mode in
+                Button {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
+                        presentation = mode
+                    }
+                } label: {
+                    Label(mode.title, systemImage: mode.icon)
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(presentation == mode ? .white : .white.opacity(0.55))
+                        .padding(.horizontal, 10)
+                        .frame(minHeight: 32)
+                        .background(
+                            presentation == mode ? Color.white.opacity(0.15) : .clear,
+                            in: Capsule(style: .continuous)
+                        )
+                }
+                .buttonStyle(.plain)
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 5)
+        .background(Color(white: 0.08))
     }
 
-    private func roundButton(system: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: system)
-                .font(.system(size: 16, weight: .semibold))
+    private var commandComposer: some View {
+        HStack(spacing: 8) {
+            Button {
+                composerFocused.toggle()
+            } label: {
+                Image(systemName: composerFocused ? "keyboard.chevron.compact.down" : "keyboard")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 40, height: 40)
+                    .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            }
+            .accessibilityLabel(composerFocused ? "Hide keyboard" : "Show keyboard")
+
+            TextField("Type a command…", text: $draft, axis: .vertical)
+                .focused($composerFocused)
+                .font(.system(size: 14, weight: .regular, design: .monospaced))
                 .foregroundStyle(.white)
-                .frame(width: 34, height: 34)
-                .background(Color.white.opacity(0.1), in: Circle())
-        }
-        .accessibilityLabel(label)
-    }
+                .lineLimit(1...3)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.send)
+                .onSubmit(sendDraft)
 
-    private var statusText: String {
-        switch session.state {
-        case .idle: return "idle"
-        case .opening: return "opening shell…"
-        case .open: return "● connected"
-        case .closed(let exit, let signal, let reason):
-            // The host gates terminal access behind a user toggle and uses
-            // this reason string when it refuses to spawn a shell.
-            if reason == "terminal-disabled" {
-                return "✕ Terminal Mode is off on this Mac"
+            Button { pasteIntoComposer() } label: {
+                Image(systemName: "doc.on.clipboard")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 38, height: 40)
             }
-            if let signal { return "✕ signal \(signal)" }
-            if let exit { return "✕ exit \(exit)" }
-            return "✕ closed\(reason.map { " · \($0)" } ?? "")"
-        }
-    }
+            .accessibilityLabel("Paste from iPhone clipboard")
 
-    // MARK: Special keys
+            Button { sendDraft() } label: {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Color.black)
+                    .frame(width: 40, height: 40)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            }
+            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.state != .open)
+            .opacity(session.state == .open ? 1 : 0.45)
+            .accessibilityLabel("Send command")
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color(white: 0.10))
+        .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.10)).frame(height: 0.5) }
+    }
 
     private var specialKeysBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                // Sticky Ctrl: arms `controlModifier` so the *next* typed key (or
-                // tapped letter) becomes a control sequence — covers every ctrl-x
-                // combo without a dedicated button each.
                 specialKey("ctrl", isOn: input.ctrlActive) { input.toggleCtrl() }
                 specialKey("esc") { send(bytes: [0x1B]) }
                 specialKey("tab") { send(bytes: [0x09]) }
-
-                divider
-
                 specialKey("⌃C") { send(bytes: [0x03]) }
-                specialKey("⌃D") { send(bytes: [0x04]) }
-                specialKey("⌃Z") { send(bytes: [0x1A]) }
-                specialKey("⌃L") { send(bytes: [0x0C]) }
-
-                divider
-
                 specialKey("↑") { send(bytes: [0x1B, 0x5B, 0x41]) }
                 specialKey("↓") { send(bytes: [0x1B, 0x5B, 0x42]) }
                 specialKey("←") { send(bytes: [0x1B, 0x5B, 0x44]) }
                 specialKey("→") { send(bytes: [0x1B, 0x5B, 0x43]) }
-
-                divider
-
-                specialKey("home") { send(bytes: [0x1B, 0x5B, 0x48]) }
-                specialKey("end") { send(bytes: [0x1B, 0x5B, 0x46]) }
-                specialKey("pgup") { send(bytes: [0x1B, 0x5B, 0x35, 0x7E]) }
-                specialKey("pgdn") { send(bytes: [0x1B, 0x5B, 0x36, 0x7E]) }
-
-                divider
-
+                specialKey("⌃D") { send(bytes: [0x04]) }
+                specialKey("⌃Z") { send(bytes: [0x1A]) }
                 specialKey("paste", system: "doc.on.clipboard") { paste() }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
         }
-        .background(Color(white: 0.08))
-    }
-
-    private var divider: some View {
-        Rectangle()
-            .fill(Color.white.opacity(0.12))
-            .frame(width: 1, height: 22)
-            .padding(.horizontal, 2)
+        .background(Color(white: 0.075))
     }
 
     private func specialKey(
@@ -227,24 +455,191 @@ struct TerminalModeView: View {
                 Text(title)
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
             }
-            .foregroundStyle(isOn ? Color.black : Color.white)
-            .padding(.horizontal, 10)
-            .frame(minWidth: 36, minHeight: 32)
-            .background(
-                isOn ? Color.white : Color.white.opacity(0.12),
-                in: RoundedRectangle(cornerRadius: 6)
-            )
+            .foregroundStyle(isOn ? .black : .white.opacity(0.9))
+            .padding(.horizontal, 11)
+            .frame(minWidth: 40, minHeight: 38)
+            .background(isOn ? Color.white : Color.white.opacity(0.11), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
     }
 
+    private var statusText: String {
+        switch session.state {
+        case .idle: return "Waiting to start"
+        case .opening: return "Opening shell…"
+        case .open: return "Connected"
+        case .closed(let exit, let signal, let reason):
+            if reason == "terminal-disabled" { return "Terminal Mode off" }
+            if let signal { return "Signal \(signal)" }
+            if let exit { return "Exited \(exit)" }
+            return "Closed"
+        }
+    }
+
+    private var statusColor: SwiftUI.Color {
+        switch session.state {
+        case .open: return .green
+        case .opening: return .orange
+        case .closed: return .red
+        case .idle: return .white.opacity(0.45)
+        }
+    }
+
     private func send(bytes: [UInt8]) {
-        session.sendInput(Data(bytes))
+        let data = Data(bytes)
+        transcript.recordInput(data)
+        session.sendInput(data)
     }
 
     private func paste() {
         guard let text = UIPasteboard.general.string, !text.isEmpty else { return }
-        session.sendInput(Data(text.utf8))
+        let data = Data(text.utf8)
+        transcript.recordInput(data)
+        session.sendInput(data)
+    }
+
+    private func pasteIntoComposer() {
+        guard let text = UIPasteboard.general.string, !text.isEmpty else { return }
+        draft += text
+        composerFocused = true
+    }
+
+    private func sendDraft() {
+        let command = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !command.isEmpty, session.state == .open else { return }
+        transcript.submitCommand(command)
+        session.sendInput(Data((command + "\n").utf8))
+        draft = ""
+        composerFocused = true
+    }
+
+    private func copyTranscript() {
+        UIPasteboard.general.string = transcript.latestText
+    }
+
+    private func terminalExplain() {
+        let text = transcript.latestText
+        guard !text.isEmpty else {
+            aiResult = "No terminal output yet — run a command first."
+            showAI = true
+            return
+        }
+        aiThinking = true
+        aiResult = nil
+        showAI = true
+        Task {
+            let result = await TerminalAssistant.explain(output: text)
+            await MainActor.run {
+                aiResult = result ?? "On-device AI isn’t available (turn on Apple Intelligence in Settings)."
+                aiThinking = false
+            }
+        }
+    }
+}
+
+private struct LegacyTerminalStreamView: View {
+    @ObservedObject var transcript: LegacyTerminalChatStore
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical) {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    ForEach(transcript.blocks) { block in
+                        LegacyTerminalBlockView(block: block)
+                            .id(block.id)
+                    }
+                    Color.clear.frame(height: 1).id("latest")
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 16)
+                .frame(maxWidth: 760, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+            .onAppear { proxy.scrollTo("latest", anchor: .bottom) }
+            .onChange(of: transcript.blocks) { _, _ in
+                withAnimation(.easeOut(duration: 0.14)) {
+                    proxy.scrollTo("latest", anchor: .bottom)
+                }
+            }
+        }
+        .background(Color.black)
+    }
+}
+
+private struct LegacyTerminalBlockView: View {
+    let block: LegacyTerminalChatStore.Block
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(accent)
+                Text(label)
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.56))
+                if block.isStreaming {
+                    ProgressView().controlSize(.mini).tint(accent)
+                }
+            }
+            Text(block.text)
+                .font(.system(size: 14, weight: block.role == .command ? .medium : .regular, design: .monospaced))
+                .foregroundStyle(block.role == .command ? .white : .white.opacity(0.86))
+                .lineSpacing(3)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(background, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(accent)
+                .frame(width: 3)
+                .padding(.vertical, 10)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(accent.opacity(0.24), lineWidth: 0.7)
+        }
+    }
+
+    private var label: String {
+        switch block.role {
+        case .system: return "SYSTEM"
+        case .command: return "YOU"
+        case .output: return "TERMINAL OUTPUT"
+        case .error: return "ATTENTION"
+        }
+    }
+
+    private var icon: String {
+        switch block.role {
+        case .system: return "circle.fill"
+        case .command: return "arrow.turn.down.right"
+        case .output: return "chevron.right"
+        case .error: return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var accent: SwiftUI.Color {
+        switch block.role {
+        case .system: return .white.opacity(0.5)
+        case .command: return .white
+        case .output: return .cyan
+        case .error: return .orange
+        }
+    }
+
+    private var background: SwiftUI.Color {
+        switch block.role {
+        case .system: return Color.white.opacity(0.045)
+        case .command: return Color.white.opacity(0.10)
+        case .output: return Color(red: 0.025, green: 0.06, blue: 0.07)
+        case .error: return Color.orange.opacity(0.10)
+        }
     }
 }
 
@@ -295,11 +690,12 @@ final class TerminalInputController: ObservableObject {
 private struct SwiftTermContainer {
     @ObservedObject var session: ClientTerminalSessionManager
     let controller: TerminalInputController
+    let onInput: ((Data) -> Void)?
 }
 
 extension SwiftTermContainer: UIViewRepresentable {
     func makeCoordinator() -> Coordinator {
-        Coordinator(session: session)
+        Coordinator(session: session, onInput: onInput)
     }
 
     func makeUIView(context: Context) -> TerminalView {
@@ -320,6 +716,7 @@ extension SwiftTermContainer: UIViewRepresentable {
 
     final class Coordinator: NSObject, TerminalViewDelegate {
         private let session: ClientTerminalSessionManager
+        private let onInput: ((Data) -> Void)?
         /// Track delivery by the host's monotonic per-chunk `sequence`, NOT by array position.
         /// `session.output` is front-trimmed to a backlog cap (256), so an absolute index points at
         /// the wrong (or already-dropped) element after trimming and permanently stalls once the
@@ -328,8 +725,9 @@ extension SwiftTermContainer: UIViewRepresentable {
         private weak var view: TerminalView?
         private var resizeTask: Task<Void, Never>?
 
-        init(session: ClientTerminalSessionManager) {
+        init(session: ClientTerminalSessionManager, onInput: ((Data) -> Void)?) {
             self.session = session
+            self.onInput = onInput
         }
 
         @MainActor
@@ -351,6 +749,7 @@ extension SwiftTermContainer: UIViewRepresentable {
 
         func send(source: TerminalView, data: ArraySlice<UInt8>) {
             let input = Data(data)
+            onInput?(input)
             Task { @MainActor [session] in
                 session.sendInput(input)
             }

@@ -210,7 +210,8 @@ final class DataChannelMessageTests: XCTestCase {
             .inputCommand, .chatMessage, .qualityAdjust, .fileTransfer,
             .displaySwitch, .setActiveDisplays, .requestKeyframe,
             .unlockPassword, .clipboardSync, .clipboardRequest,
-            .terminalOpen, .terminalInput, .terminalResize, .terminalClose
+            .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
+            .terminalResize, .terminalClose
         ]
         let allKinds: [DataChannelMessageKind] = [
             .controlAuth, .inputCommand, .ping, .pong, .hostStatus, .displayLayout,

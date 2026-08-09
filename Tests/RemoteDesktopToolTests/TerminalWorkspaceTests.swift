@@ -4,6 +4,69 @@ import SharedProtocol
 
 @MainActor
 final class TerminalWorkspaceTests: XCTestCase {
+    func testChatTranscriptUsesTabNameAndClassifiesStreamingOutput() {
+        let chat = TerminalChatStore(tabTitle: "Build")
+
+        XCTAssertEqual(chat.blocks.first?.text, "Build is opening a shell…")
+        chat.recordInput(Data("echo café\n".utf8))
+        chat.appendOutput(Data("running build…\n✓ clean\n".utf8))
+        chat.appendOutput(Data("\u{1B}[32m✓ verified\u{1B}[0m\r".utf8))
+
+        XCTAssertTrue(chat.blocks.contains {
+            $0.role == .command && $0.title == "You · Build" && $0.text == "echo café"
+        })
+        XCTAssertTrue(chat.blocks.contains { $0.role == .progress && $0.text.contains("running build") })
+        XCTAssertTrue(chat.blocks.contains { $0.role == .success && $0.text.contains("✓ clean") })
+        XCTAssertTrue(chat.blocks.contains { $0.role == .success && $0.text.contains("✓ verified") })
+    }
+
+    func testChatReadyAndCloseCardsAreIdempotentAndRetryIsVisible() {
+        let chat = TerminalChatStore(tabTitle: "Terminal 1")
+
+        chat.markReady()
+        chat.markReady()
+        XCTAssertEqual(chat.blocks.filter { $0.text == "Terminal 1 is connected." }.count, 1)
+
+        chat.markClosed(reason: "terminal-start-timeout")
+        chat.markClosed(reason: "terminal-start-timeout")
+        XCTAssertEqual(chat.blocks.filter { $0.role == .error }.count, 1)
+
+        chat.prepareForRetry()
+        XCTAssertTrue(chat.blocks.contains { $0.text == "Terminal 1 is trying again…" && $0.isStreaming })
+        chat.markReady()
+        XCTAssertEqual(chat.blocks.filter { $0.text == "Terminal 1 is connected." }.count, 2)
+    }
+
+    func testChatHidesShellPromptNoiseButKeepsCommandResults() {
+        let chat = TerminalChatStore(tabTitle: "Terminal 1")
+        chat.markReady()
+        chat.recordInput(Data("echo ready\n".utf8))
+        chat.appendOutput(Data("%\n~❯\n❯ echo ready\nready\n%\n~❯ ".utf8))
+
+        XCTAssertTrue(chat.blocks.contains { $0.role == .command && $0.text == "echo ready" })
+        XCTAssertTrue(chat.blocks.contains { $0.role == .output && $0.text == "ready" })
+        XCTAssertFalse(chat.blocks.contains { $0.text.contains("~❯") || $0.text == "%" })
+        XCTAssertFalse(chat.blocks.contains { $0.isStreaming && $0.role == .output })
+    }
+
+    func testChatBoundsTUIRepaintOutputAndRemovesTerminalControlArtifacts() {
+        let chat = TerminalChatStore(tabTitle: "OpenCode")
+        chat.markReady()
+        chat.recordInput(Data("opencode\n".utf8))
+
+        let repaint = Array(repeating: "\u{1B}(B\u{1B}[2K\u{1B}(B" + String(repeating: " ", count: 180) + "OpenCode", count: 120)
+            .joined(separator: "\n")
+        chat.appendOutput(Data(repaint.utf8))
+
+        let output = try? XCTUnwrap(chat.blocks.first { $0.role == .output })
+        XCTAssertNotNil(output)
+        XCTAssertLessThanOrEqual(output?.text.count ?? .max, 4_000)
+        XCTAssertLessThanOrEqual(output?.text.split(whereSeparator: \.isNewline).count ?? .max, 71)
+        XCTAssertFalse(output?.text.contains("(B") == true)
+        XCTAssertFalse(output?.text.contains("\u{1B}") == true)
+        XCTAssertTrue(output?.text.contains("Raw Terminal") == true)
+    }
+
     func testTabsKeepStableIdentityAndRenameCloseImmediately() {
         let environment = ClientAppEnvironment.makeDefault(clientName: "Workspace Test")
         let workspace = TerminalWorkspaceViewModel(coordinator: environment.sessionCoordinator)

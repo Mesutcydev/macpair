@@ -124,7 +124,7 @@ final class ClientTerminalSessionManager: ObservableObject {
     @discardableResult
     func retryAfterOpeningFailure(cols: UInt16, rows: UInt16) -> Bool {
         guard case .closed(_, _, let reason) = state,
-              reason == "terminal-start-timeout" else { return false }
+              Self.isRetryableOpeningFailure(reason) else { return false }
         return open(cols: cols, rows: rows, startupCommand: startupCommand)
     }
 
@@ -213,10 +213,23 @@ final class ClientTerminalSessionManager: ObservableObject {
     func receiveClose(_ message: TerminalCloseMessage) -> Bool {
         guard message.sessionID == sessionID,
               message.terminalID == terminalID else { return false }
+        let keepStartupCommand = Self.isRetryableOpeningFailure(message.reason)
         state = .closed(exitCode: message.exitCode, signal: message.signal, reason: message.reason)
         terminalID = nil
-        startupCommand = nil
+        if !keepStartupCommand {
+            startupCommand = nil
+        }
         return true
+    }
+
+    private static func isRetryableOpeningFailure(_ reason: String?) -> Bool {
+        guard let reason else { return false }
+        return reason == "terminal-start-timeout"
+            || reason == "terminal-disabled"
+            || reason == "terminal-capacity"
+            || reason == "shell-exited"
+            || reason.hasPrefix("forkpty failed")
+            || reason.hasPrefix("read-error")
     }
 }
 

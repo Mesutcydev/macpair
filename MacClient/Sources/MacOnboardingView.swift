@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 /// One-time welcome shown on the first launch of the Mac client. Explains the
-/// MacPair Host requirement and the basics of connecting, then never reappears
+/// Vamp Host requirement and the basics of connecting, then never reappears
 /// (gated by `client.onboarding.completed`).
 struct MacOnboardingView: View {
     let onDone: () -> Void
@@ -14,7 +14,7 @@ struct MacOnboardingView: View {
                     .resizable()
                     .frame(width: 72, height: 72)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                Text("Welcome to MacPair")
+                Text("Welcome to Vamp Remote")
                     .font(.title2.weight(.semibold))
                 Text("Control another Mac from this one — full keyboard, mouse, and screen, over your local network or Tailscale.")
                     .font(.callout)
@@ -30,8 +30,8 @@ struct MacOnboardingView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     step(number: 1,
                          icon: "desktopcomputer",
-                         title: "Install MacPair Host on the other Mac",
-                         detail: "Open MacPair Host on the Mac you want to control, and keep it running.")
+                         title: "Install Vamp Host on the other Mac",
+                         detail: "Open Vamp Host on the Mac you want to control, and keep it running.")
                     Divider()
                     step(number: 2,
                          icon: "wifi",
@@ -41,7 +41,7 @@ struct MacOnboardingView: View {
                     step(number: 3,
                          icon: "cursorarrow.rays",
                          title: "Connect and approve",
-                         detail: "Pick the Mac from the list, then approve this device once in the MacPair Host window.")
+                         detail: "Pick the Mac from the list, then approve this device once in the Vamp Host window.")
                 }
                 .padding(6)
             }
