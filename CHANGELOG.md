@@ -1,6 +1,10 @@
 # Changelog
 
+<<<<<<< HEAD
 All notable changes to MacPair are documented here. The format follows
+=======
+All notable changes to Vamp Terminal are documented here. The format follows
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -79,21 +83,21 @@ All notable changes to MacPair are documented here. The format follows
 
 ### Added
 
-- Add the open-source ScreenHarbor iPhone/iPad client for iOS 18 and later.
+- Add the open-source Vamp Terminal iPhone/iPad client for iOS 18 and later.
 - Add reproducible unsigned IPA packaging with SHA-256, source manifest, and
   CycloneDX SBOM output for user-controlled sideload re-signing.
 - Add iOS sideloading and agent-discovery documentation.
 
 ### Changed
 
-- Use the ScreenHarbor bundle identity and `_screenharbor._tcp` discovery
+- Use the Vamp bundle identity and the existing `_screenharbor._tcp` discovery contract
   contract throughout the iOS client.
 - Remove the obsolete App Store paywall and daily streaming cap from the
   direct/open-source iOS build.
 
 ### Fixed
 
-- Make website release staging idempotent when ScreenHarbor is already marked live.
+- Make website release staging idempotent when the Vamp site is already marked live.
 - Keep website checksum, manifest, SBOM, and software-version links synchronized
   with each staged release.
 - Make future-device Ultra-quality policy tests independent of the CI runner's
@@ -135,6 +139,7 @@ All notable changes to MacPair are documented here. The format follows
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
+<<<<<<< HEAD
 [Unreleased]: https://github.com/Mesutcydev/macpair/compare/v1.0.9...HEAD
 [1.0.9]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.9
 [1.0.8]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.8
@@ -144,3 +149,10 @@ All notable changes to MacPair are documented here. The format follows
 [1.0.2]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Mesutcydev/screenharbor/releases/tag/v1.0.0
+=======
+[Unreleased]: https://github.com/Mesutcydev/macpair/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/Mesutcydev/macpair/compare/v1.0.2...v1.0.3
+[1.0.2]: https://github.com/Mesutcydev/macpair/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/Mesutcydev/macpair/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.0
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)

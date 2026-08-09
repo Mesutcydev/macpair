@@ -1,6 +1,10 @@
 # Support
 
+<<<<<<< HEAD
 MacPair is community-supported.
+=======
+Vamp Terminal is community-supported.
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
 - Read the [README](README.md) for installation and Gatekeeper steps.
 - Read [docs/AGENT_INTEGRATION.md](docs/AGENT_INTEGRATION.md) for CLI and automation

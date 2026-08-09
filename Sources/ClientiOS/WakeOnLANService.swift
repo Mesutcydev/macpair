@@ -9,7 +9,7 @@ import OSLog
 /// both WOL ports (9 and 7). Destinations cover global broadcast, subnet broadcast,
 /// and direct host when an IPv4 address is known.
 struct WakeOnLANService {
-    private static let logger = Logger(subsystem: "uk.mesut.screenharbor.ios", category: "WakeOnLAN")
+    private static let logger = Logger(subsystem: "com.mesutcy.remotedesktop.ios", category: "WakeOnLAN")
 
     enum WakeError: Error, LocalizedError {
         case invalidMACAddress(String)

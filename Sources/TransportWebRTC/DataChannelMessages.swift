@@ -37,6 +37,8 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
     case clipboardRequest
     /// Client → host: open a new PTY-backed shell.
     case terminalOpen
+    /// Host → client: the PTY was created and is ready for input.
+    case terminalReady
     /// Client → host: stdin bytes for an open terminal.
     case terminalInput
     /// Host → client: stdout/stderr bytes from an open terminal.
@@ -45,6 +47,21 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
     case terminalResize
     /// Either side: tear-down notice for a terminal (host includes exit code).
     case terminalClose
+
+    /// One source of truth for the control-channel authentication contract.
+    /// Any kind that can inject input, change host state, read/write host data,
+    /// or operate a PTY must be MACed after the session handshake.
+    public var requiresControlChannelAuthentication: Bool {
+        switch self {
+        case .inputCommand, .chatMessage, .qualityAdjust, .fileTransfer,
+             .displaySwitch, .setActiveDisplays, .requestKeyframe,
+             .unlockPassword, .clipboardSync, .clipboardRequest,
+             .terminalOpen, .terminalInput, .terminalResize, .terminalClose:
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 // MARK: - Data Channel Envelope
@@ -246,6 +263,14 @@ extension DataChannelEnvelope {
         )
     }
 
+    public static func terminalReady(_ message: TerminalReadyMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .terminalReady,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
     public static func terminalInput(_ message: TerminalInputMessage) throws -> DataChannelEnvelope {
         DataChannelEnvelope(
             kind: .terminalInput,
@@ -363,6 +388,10 @@ extension DataChannelEnvelope {
 
     public func decodeTerminalOpen() throws -> TerminalOpenMessage {
         try Self.makeDecoder().decode(TerminalOpenMessage.self, from: payload)
+    }
+
+    public func decodeTerminalReady() throws -> TerminalReadyMessage {
+        try Self.makeDecoder().decode(TerminalReadyMessage.self, from: payload)
     }
 
     public func decodeTerminalInput() throws -> TerminalInputMessage {

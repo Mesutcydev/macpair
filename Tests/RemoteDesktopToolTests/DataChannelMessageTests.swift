@@ -48,6 +48,43 @@ final class DataChannelMessageTests: XCTestCase {
         XCTAssertEqual(decodedPong.id, pong.id)
     }
 
+    func testMultiTerminalMessagesRoundTrip() throws {
+        let sessionID = UUID()
+        let terminalID = UUID()
+        let ready = TerminalReadyMessage(sessionID: sessionID, terminalID: terminalID, cols: 120, rows: 40)
+        let output = TerminalOutputMessage(
+            sessionID: sessionID,
+            terminalID: terminalID,
+            data: Data("hello".utf8),
+            sequence: 7
+        )
+        let resize = TerminalResizeMessage(sessionID: sessionID, terminalID: terminalID, cols: 100, rows: 30)
+        let close = TerminalCloseMessage(
+            sessionID: sessionID,
+            terminalID: terminalID,
+            exitCode: 0,
+            reason: "shell-exited"
+        )
+
+        let readyDecoded = try DataChannelEnvelope.wireDecode(
+            try DataChannelEnvelope.terminalReady(ready).wireEncode()
+        ).decodeTerminalReady()
+        let outputDecoded = try DataChannelEnvelope.wireDecode(
+            try DataChannelEnvelope.terminalOutput(output).wireEncode()
+        ).decodeTerminalOutput()
+        let resizeDecoded = try DataChannelEnvelope.wireDecode(
+            try DataChannelEnvelope.terminalResize(resize).wireEncode()
+        ).decodeTerminalResize()
+        let closeDecoded = try DataChannelEnvelope.wireDecode(
+            try DataChannelEnvelope.terminalClose(close).wireEncode()
+        ).decodeTerminalClose()
+
+        XCTAssertEqual(readyDecoded, ready)
+        XCTAssertEqual(outputDecoded, output)
+        XCTAssertEqual(resizeDecoded, resize)
+        XCTAssertEqual(closeDecoded, close)
+    }
+
     func testHostStatusRoundTrip() throws {
         let status = HostStatusMessage(
             hostID: UUID(),
@@ -156,17 +193,49 @@ final class DataChannelMessageTests: XCTestCase {
 
     func testAllMessageKindsHaveRawValues() {
         let allKinds: [DataChannelMessageKind] = [
-            .controlAuth, .inputCommand, .ping, .pong, .hostStatus, .displayLayout, .displayConfigurationChanged, .cursorState, .chatMessage, .error, .qualityAdjust
+            .controlAuth, .inputCommand, .ping, .pong, .hostStatus, .displayLayout,
+            .displayConfigurationChanged, .displaySwitch, .cursorState, .chatMessage,
+            .fileTransfer, .error, .qualityAdjust, .setActiveDisplays, .requestKeyframe,
+            .unlockPassword, .audioFrame, .clipboardSync, .clipboardRequest,
+            .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
+            .terminalResize, .terminalClose
         ]
         for kind in allKinds {
             XCTAssertFalse(kind.rawValue.isEmpty, "\(kind) should have non-empty raw value")
         }
     }
 
+    func testStateChangingControlKindsRequireAuthentication() {
+        let authenticated: Set<DataChannelMessageKind> = [
+            .inputCommand, .chatMessage, .qualityAdjust, .fileTransfer,
+            .displaySwitch, .setActiveDisplays, .requestKeyframe,
+            .unlockPassword, .clipboardSync, .clipboardRequest,
+            .terminalOpen, .terminalInput, .terminalResize, .terminalClose
+        ]
+        let allKinds: [DataChannelMessageKind] = [
+            .controlAuth, .inputCommand, .ping, .pong, .hostStatus, .displayLayout,
+            .displayConfigurationChanged, .displaySwitch, .cursorState, .chatMessage,
+            .fileTransfer, .error, .qualityAdjust, .setActiveDisplays, .requestKeyframe,
+            .unlockPassword, .audioFrame, .clipboardSync, .clipboardRequest,
+            .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
+            .terminalResize, .terminalClose
+        ]
+        for kind in allKinds {
+            XCTAssertEqual(kind.requiresControlChannelAuthentication, authenticated.contains(kind), "Unexpected auth contract for \(kind)")
+        }
+    }
+
     func testMessageKindCodable() throws {
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
-        for kind in [DataChannelMessageKind.controlAuth, .inputCommand, .ping, .pong, .hostStatus, .displayLayout, .displayConfigurationChanged, .cursorState, .chatMessage, .error, .qualityAdjust] {
+        for kind in [
+            DataChannelMessageKind.controlAuth, .inputCommand, .ping, .pong, .hostStatus,
+            .displayLayout, .displayConfigurationChanged, .displaySwitch, .cursorState,
+            .chatMessage, .error, .qualityAdjust, .setActiveDisplays, .requestKeyframe,
+            .unlockPassword, .audioFrame, .clipboardSync, .clipboardRequest,
+            .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
+            .terminalResize, .terminalClose
+        ] {
             let data = try encoder.encode(kind)
             let decoded = try decoder.decode(DataChannelMessageKind.self, from: data)
             XCTAssertEqual(decoded, kind)
@@ -211,5 +280,19 @@ final class DataChannelMessageTests: XCTestCase {
         } else {
             XCTFail("Expected pointer move command")
         }
+    }
+
+    func testTerminalOpenRoundTripPreservesStartupCommand() throws {
+        let message = TerminalOpenMessage(
+            sessionID: UUID(),
+            terminalID: UUID(),
+            cols: 120,
+            rows: 40,
+            startupCommand: "tmux new-session -A -s agent"
+        )
+        let envelope = try DataChannelEnvelope.terminalOpen(message)
+        let decoded = try DataChannelEnvelope.wireDecode(try envelope.wireEncode())
+
+        XCTAssertEqual(try decoded.decodeTerminalOpen(), message)
     }
 }

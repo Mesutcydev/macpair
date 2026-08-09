@@ -21,7 +21,7 @@ let clientLocalExcludes = packagePathExists("Sources/ClientiOS/StreamingPaywallV
     : []
 
 let package = Package(
-    name: "ScreenHarborCore",
+    name: "VampTerminalCore",
     defaultLocalization: "en",
     platforms: [
         .macOS(.v13),
@@ -37,7 +37,9 @@ let package = Package(
         .library(name: "InputControl", targets: ["InputControl"]),
         .library(name: "Permissions", targets: ["Permissions"]),
         .library(name: "Discovery", targets: ["Discovery"]),
-        .library(name: "Diagnostics", targets: ["Diagnostics"])
+        .library(name: "Diagnostics", targets: ["Diagnostics"]),
+        .library(name: "HostWidgetShared", targets: ["HostWidgetShared"]),
+        .library(name: "SharedUI", targets: ["SharedUI"])
     ],
     dependencies: [
         .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.15.0")
@@ -139,6 +141,10 @@ let package = Package(
                 "ScreenAIToolsView.swift",
                 "SessionNotesStore.swift",
                 "TerminalModeView.swift",
+                "VampTerminalGuideView.swift",
+                "VampTerminalHomeView.swift",
+                "VampTerminalPaneView.swift",
+                "VampTerminalWorkspaceView.swift",
                 "Views",
                 "VoiceDictationService.swift"
             ] + clientLocalExcludes,
@@ -154,6 +160,7 @@ let package = Package(
                 "ClientSessionCoordinator.swift",
                 "ClientSettingsSyncService.swift",
                 "ClientTerminalSessionManager.swift",
+                "TerminalWorkspaceViewModel.swift",
                 "ClientTrustedHostsViewModel.swift",
                 "CrashSafeStartupDiagnostics.swift",
                 "DisplayLayoutViewModel.swift",
@@ -173,7 +180,7 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "ScreenHarborCoreTests",
+            name: "VampTerminalCoreTests",
             dependencies: [
                 "SharedModels",
                 "SharedProtocol",

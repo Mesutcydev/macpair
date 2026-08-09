@@ -77,7 +77,11 @@ struct HostsScreen: View {
                         VStack(spacing: 0) {
                             connectSectionHeader(
                                 title: "manual",
+<<<<<<< HEAD
                                 subtitle: "paste the IP, hostname, or Tailscale address from MacPair Host"
+=======
+                                subtitle: "paste the IP, hostname, or Tailscale address from Vamp Host"
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                             )
 
                             VStack(alignment: .leading, spacing: 10) {
@@ -163,7 +167,11 @@ struct HostsScreen: View {
                                     Text("scan qr")
                                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
                                         .foregroundColor(PR.fg)
+<<<<<<< HEAD
                                     Text("scan a code shown by MacPair Host")
+=======
+                                    Text("scan a code shown by Vamp Host")
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                                         .font(.system(size: 10, design: .monospaced))
                                         .foregroundColor(PR.dim)
                                 }
@@ -724,8 +732,13 @@ struct HostsScreen: View {
                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
                         .foregroundColor(PR.fg)
                     Text(isRefreshing
+<<<<<<< HEAD
                          ? "looking for MacPair Host on your network"
                          : "open MacPair Host on your Mac, then scan")
+=======
+                         ? "looking for Vamp Host on your network"
+                         : "open Vamp Host on your Mac, then scan")
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(PR.dim)
                         .fixedSize(horizontal: false, vertical: true)
@@ -880,5 +893,9 @@ struct HostsScreen: View {
 }
 
 #Preview("HostsScreen") {
+<<<<<<< HEAD
     HostsScreen(environment: ClientAppEnvironment.makeDefault(clientName: "MacPair iOS"))
+=======
+    HostsScreen(environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client"))
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 }

@@ -17,8 +17,8 @@ import Discovery
 /// the SYN to an offloaded service port is the second wake trigger (sleep proxies and
 /// NIC offload wake the host on inbound TCP to any port it had registered).
 struct BonjourWakeService {
-    private static let logger = Logger(subsystem: "uk.mesut.screenharbor.ios", category: "BonjourWake")
-    private static let queue = DispatchQueue(label: "uk.mesut.screenharbor.ios.bonjour-wake")
+    private static let logger = Logger(subsystem: "com.mesutcy.remotedesktop.terminal", category: "BonjourWake")
+    private static let queue = DispatchQueue(label: "com.mesutcy.remotedesktop.terminal.bonjour-wake")
 
     func wake(
         serviceName: String,

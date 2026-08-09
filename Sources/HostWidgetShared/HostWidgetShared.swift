@@ -10,10 +10,9 @@ import Foundation
 /// This file is compiled into BOTH the `MacHostApp` and `HostWidget` targets, so
 /// it must not depend on anything outside Foundation.
 public enum HostWidgetConstants {
-    /// Legacy App Group identifier used by signed builds that include the widget.
-    /// The account-independent website build stores its agent status snapshot in
-    /// Application Support and does not require this entitlement.
-    public static let appGroup = "uk.mesut.screenharbor.shared"
+    /// Shared App Group used by signed Vamp Host/widget builds. Unsigned builds
+    /// fall back to the Vamp Host Application Support directory below.
+    public static let appGroup = "PUH4GMFV56.com.mesutcy.remotedesktop"
 
     /// UserDefaults key holding the JSON-encoded `HostWidgetSnapshot`.
     public static let snapshotKey = "host.widget.snapshot"
@@ -23,19 +22,21 @@ public enum HostWidgetConstants {
 
     /// Darwin notification posted by the widget when the user taps a button,
     /// observed by the running host app to apply the action without delay.
-    public static let actionDarwinName = "uk.mesut.screenharbor.widget.action"
+    public static let actionDarwinName = "com.mesutcy.remotedesktop.widget.action"
 
     /// The widget's `kind` identifier (used for reload + install detection).
     public static let widgetKind = "HostStatusWidget"
 
     /// The host app's bundle identifier (used by the widget to launch the app).
-    public static let hostBundleIdentifier = "uk.mesut.screenharbor.host"
+    public static let hostBundleIdentifier = "com.mesutcy.remotedesktop.host"
 
     /// Custom URL scheme the host app registers; the widget's control buttons use
-    /// `screenharbor://action/<start|stop|restart>` links, which the app handles in
+    /// `vamphost://action/<start|stop|restart>` links, which the app handles in
     /// `onOpenURL`. This is far more reliable on macOS desktop widgets than an
     /// in-extension AppIntent.
-    public static let urlScheme = "screenharbor"
+    public static let urlScheme = "vamphost"
+    /// Accepted for existing widgets and older CLI installations.
+    public static let legacyURLScheme = "screenharbor"
     public static let urlActionHost = "action"
 
     /// App-local (standard defaults) cache of whether the widget is installed, so
@@ -112,7 +113,11 @@ public struct HostWidgetSnapshot: Codable, Equatable, Sendable {
         HostWidgetSnapshot(
             phase: .ready,
             statusTitle: "ready",
+<<<<<<< HEAD
             hostName: "MacPair Host",
+=======
+            hostName: "Vamp Host",
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             primaryAddress: "192.168.1.148:9471",
             addressLabel: "lan",
             connectedClient: nil,
@@ -122,7 +127,7 @@ public struct HostWidgetSnapshot: Codable, Equatable, Sendable {
     }
 }
 
-/// Actions the widget and `screenharbor` CLI can request of the host app.
+/// Actions the widget and `vamp` CLI can request of the host app.
 public enum HostWidgetAction: String, Codable, Sendable {
     case start
     case stop
@@ -137,9 +142,9 @@ public enum HostWidgetAction: String, Codable, Sendable {
         URL(string: "\(HostWidgetConstants.urlScheme)://\(HostWidgetConstants.urlActionHost)/\(rawValue)")!
     }
 
-    /// Parse an action from an incoming `screenharbor://action/<x>` URL.
+    /// Parse an action from an incoming Vamp or legacy compatibility URL.
     public static func from(url: URL) -> HostWidgetAction? {
-        guard url.scheme == HostWidgetConstants.urlScheme,
+        guard (url.scheme == HostWidgetConstants.urlScheme || url.scheme == HostWidgetConstants.legacyURLScheme),
               url.host == HostWidgetConstants.urlActionHost else { return nil }
         let raw = url.lastPathComponent
         return HostWidgetAction(rawValue: raw)
@@ -164,7 +169,7 @@ public enum HostWidgetStore {
         }
         return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support", isDirectory: true)
-            .appendingPathComponent("ScreenHarbor", isDirectory: true)
+            .appendingPathComponent("Vamp Host", isDirectory: true)
     }
 
     private static func fileURL(_ name: String) -> URL? {

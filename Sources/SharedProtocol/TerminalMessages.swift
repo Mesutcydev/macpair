@@ -8,8 +8,8 @@ import Foundation
 // resizes the PTY window via `TerminalResize`. `TerminalClose` tears down.
 //
 // Security: all messages travel the same authenticated + anti-replay envelope
-// that gates input commands. The host enforces a single active terminal per
-// session (no fan-out, no remote forwarding) and applies hard byte/rate caps.
+// that gates input commands. The host enforces a bounded number of terminals
+// per session (no fan-out, no remote forwarding) and applies hard byte/rate caps.
 
 /// Sent by the client to open a new PTY shell on the host.
 public struct TerminalOpenMessage: Codable, Hashable, Sendable {
@@ -22,13 +22,59 @@ public struct TerminalOpenMessage: Codable, Hashable, Sendable {
     public let rows: UInt16
     /// Suggested $TERM value; host falls back to `xterm-256color` if absent.
     public let term: String?
+    /// Optional one-line command to run immediately after the login shell is
+    /// created. This is intentionally a shell command rather than a process
+    /// identifier: tmux/screen can reattach an existing long-lived session,
+    /// which is the portable way to hand an in-progress agent or terminal
+    /// workflow from Mac Terminal to Vamp Terminal.
+    public let startupCommand: String?
 
-    public init(sessionID: UUID, terminalID: UUID, cols: UInt16, rows: UInt16, term: String? = "xterm-256color") {
+    /// Bounds the command launcher payload without changing the existing PTY
+    /// input limit. Commands are still subject to the authenticated terminal
+    /// channel and are never persisted by the host.
+    public static let maxStartupCommandLength = 2_048
+
+    public init(
+        sessionID: UUID,
+        terminalID: UUID,
+        cols: UInt16,
+        rows: UInt16,
+        term: String? = "xterm-256color",
+        startupCommand: String? = nil
+    ) {
         self.sessionID = sessionID
         self.terminalID = terminalID
         self.cols = cols
         self.rows = rows
         self.term = term
+        if let startupCommand {
+            let oneLine = startupCommand
+                .replacingOccurrences(of: "\r", with: " ")
+                .replacingOccurrences(of: "\n", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            self.startupCommand = oneLine.isEmpty
+                ? nil
+                : String(oneLine.prefix(Self.maxStartupCommandLength))
+        } else {
+            self.startupCommand = nil
+        }
+    }
+}
+
+/// Sent by the host after a PTY has been created successfully. This explicit
+/// acknowledgement lets a tab become interactive without waiting for shell
+/// startup output (which can be delayed by a user's shell profile).
+public struct TerminalReadyMessage: Codable, Hashable, Sendable {
+    public let sessionID: UUID
+    public let terminalID: UUID
+    public let cols: UInt16
+    public let rows: UInt16
+
+    public init(sessionID: UUID, terminalID: UUID, cols: UInt16, rows: UInt16) {
+        self.sessionID = sessionID
+        self.terminalID = terminalID
+        self.cols = cols
+        self.rows = rows
     }
 }
 

@@ -1,6 +1,10 @@
 # Open-source program readiness
 
+<<<<<<< HEAD
 This checklist keeps MacPair ready for infrastructure, security, tooling,
+=======
+This checklist keeps Vamp Terminal ready for infrastructure, security, tooling,
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 and maintainer-support programs without overstating the project's maturity.
 Program rules change; verify the linked requirements immediately before applying.
 

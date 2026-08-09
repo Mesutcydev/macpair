@@ -2,9 +2,7 @@ import Foundation
 import Combine
 import SwiftUI
 import SharedUtilities
-#if SWIFT_PACKAGE
 import HostWidgetShared
-#endif
 #if canImport(WidgetKit)
 import WidgetKit
 #endif
@@ -145,7 +143,11 @@ final class HostWidgetBridge {
         let snapshot = HostWidgetSnapshot(
             phase: widgetPhase,
             statusTitle: statusTitle,
+<<<<<<< HEAD
             hostName: "macpair host",
+=======
+            hostName: "vamp host",
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             primaryAddress: address,
             addressLabel: address == nil ? nil : "lan",
             connectedClient: environment.sessionCoordinator.connectedClientName,
@@ -160,7 +162,11 @@ final class HostWidgetBridge {
         #if canImport(WidgetKit)
         // Target this widget explicitly. On macOS, reloadAllTimelines() can be
         // coalesced with unrelated widget work and leave the final offline entry
+<<<<<<< HEAD
         // visible after MacPair Host has already relaunched.
+=======
+        // visible after Vamp Host has already relaunched.
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
         WidgetCenter.shared.reloadTimelines(ofKind: HostWidgetConstants.widgetKind)
         #endif
     }
@@ -187,7 +193,7 @@ final class HostWidgetBridge {
     }
 
     /// Apply an action delivered directly via the app's URL handler
-    /// (screenharbor://action/<x>). This is the primary path now that the widget
+    /// (vamphost://action/<x>). This is the primary path now that the widget
     /// uses Links instead of in-extension AppIntents.
     func handle(action: HostWidgetAction) {
         guard let environment else { return }

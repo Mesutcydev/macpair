@@ -10,6 +10,7 @@ final class DiscoveryAdvertiserViewModel: ObservableObject {
 
     private let hostIdentity: HostIdentity
     private let advertiser: any HostDiscoveryAdvertiserProtocol
+    private let productMode: HostProductMode
     private var eventsTask: Task<Void, Never>?
     private var tailscaleHostname: String?
     private var tailscaleIP: String?
@@ -37,9 +38,14 @@ final class DiscoveryAdvertiserViewModel: ObservableObject {
         return !(Self.isAppleSilicon && wiFiOnly)
     }
 
-    init(hostIdentity: HostIdentity, advertiser: any HostDiscoveryAdvertiserProtocol) {
+    init(
+        hostIdentity: HostIdentity,
+        advertiser: any HostDiscoveryAdvertiserProtocol,
+        productMode: HostProductMode = .full
+    ) {
         self.hostIdentity = hostIdentity
         self.advertiser = advertiser
+        self.productMode = productMode
     }
 
     /// Update the Tailscale identity broadcast in the mDNS TXT record. Triggers a re-advertise
@@ -195,8 +201,8 @@ final class DiscoveryAdvertiserViewModel: ObservableObject {
             displayName: hostIdentity.displayName,
             appVersion: hostIdentity.appVersion,
             signalingPort: RemoteDesktopConstants.defaultSignalingPort,
-            capabilities: [.supportsHEVC, .supportsH264, .supportsMultiDisplay, .supportsMacClient],
-            supportedCodecs: ["hevc", "h264"],
+            capabilities: productMode.advertisedCapabilities,
+            supportedCodecs: productMode.supportedCodecs,
             availability: availability,
             publicKeyFingerprint: hostIdentity.publicKeyFingerprint,
             secureTLSPort: isValidFingerprint(hostIdentity.publicKeyFingerprint)

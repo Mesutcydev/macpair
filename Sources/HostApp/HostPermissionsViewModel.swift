@@ -1,4 +1,3 @@
-import CoreGraphics
 import Foundation
 import Diagnostics
 import Permissions
@@ -16,6 +15,7 @@ final class HostPermissionsViewModel: ObservableObject {
     private let permissionService: any PermissionServiceProtocol
     private let eventLogStore: any EventLogStoreProtocol
     private var previousStates: [PermissionKind: PermissionAuthorizationState] = [:]
+    private var refreshPending = false
 
     private static let explainerShownKey = "host.didShowPermissionExplainer"
     /// Code identity the OS permission prompt was last fired for. Stored instead
@@ -90,6 +90,7 @@ final class HostPermissionsViewModel: ObservableObject {
             : "Screen Recording is required for streaming. This build runs in View Only mode — remote keyboard and pointer control are available in the direct-download host."
     }
 
+<<<<<<< HEAD
     /// Re-read TCC state.
     /// - Parameter requestOSPromptIfNeeded: Ignored for OS sheet presentation.
     ///   Kept so call sites stay source-compatible. Automatic refresh must never
@@ -109,6 +110,30 @@ final class HostPermissionsViewModel: ObservableObject {
 
     /// Called by the explainer sheet on dismiss.  Marks the explainer as
     /// shown so the operator can open System Settings from the dashboard.
+=======
+    func refresh() async {
+        if isRefreshing {
+            refreshPending = true
+            return
+        }
+
+        isRefreshing = true
+        lastErrorMessage = nil
+
+        repeat {
+            refreshPending = false
+            let newStatuses = await permissionService.friendlyStatuses()
+            statuses = newStatuses
+            await logPermissionChanges(newStatuses)
+        } while refreshPending
+
+        isRefreshing = false
+    }
+
+    /// Called by the explainer sheet on dismiss. The actual native request is
+    /// made explicitly by the caller so a state refresh never races the TCC
+    /// prompt it is trying to observe.
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     func markExplainerShown() {
         UserDefaults.standard.set(true, forKey: Self.explainerShownKey)
     }

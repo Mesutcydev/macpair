@@ -11,7 +11,11 @@ struct AppLockView: View {
             VStack(spacing: 0) {
                 PRScreenHeader(
                     title: "locked",
+<<<<<<< HEAD
                     host: "macpair · auth required",
+=======
+                    host: "vamp host · auth required",
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                     state: .idle
                 )
 

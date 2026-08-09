@@ -181,5 +181,9 @@ struct KeysScreen: View {
 }
 
 #Preview("KeysScreen") {
+<<<<<<< HEAD
     KeysScreen(environment: ClientAppEnvironment.makeDefault(clientName: "MacPair iOS"))
+=======
+    KeysScreen(environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client"))
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 }

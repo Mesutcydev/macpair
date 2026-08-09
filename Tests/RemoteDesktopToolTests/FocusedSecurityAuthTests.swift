@@ -131,6 +131,43 @@ final class ControlChannelAuthEnforcementTests: XCTestCase {
         router.stopListening()
     }
 
+    func testTerminalOnlyHostRejectsRemoteInputAfterAuthentication() async throws {
+        let sessionManager = ControlAuthTestSessionManager()
+        let inputService = RecordingInputInjectionService()
+        let eventLogStore = RecordingEventLogStore()
+        let modeProvider = HostSessionModeController(mode: .fullControl)
+        let router = HostInputCommandRouter(
+            inputService: inputService,
+            webRTCSessionManager: sessionManager,
+            eventLogStore: eventLogStore,
+            modeProvider: modeProvider
+        )
+
+        let sessionID = UUID()
+        let token = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
+        router.startListening(
+            sessionID: sessionID,
+            expectedSessionTokenHex: token,
+            terminalOnly: true
+        )
+
+        try sessionManager.emit(try DataChannelEnvelope.controlAuth(
+            ControlChannelAuthMessage(sessionID: sessionID, sessionToken: token)
+        ))
+        let input = InputCommandMessage(
+            sessionID: sessionID,
+            command: .text(TextInputCommand(text: "must-not-reach-input-service"))
+        )
+        let envelope = try DataChannelEnvelope.inputCommand(input)
+            .authenticated(using: token, counter: 1)
+        try sessionManager.emit(try XCTUnwrap(envelope))
+        try await Task.sleep(nanoseconds: 120_000_000)
+
+        XCTAssertTrue(inputService.snapshotCommands().isEmpty)
+        XCTAssertGreaterThanOrEqual(router.commandsRejected, 1)
+        router.stopListening()
+    }
+
     func testRejectsCounterReplayAfterSuccessfulAuth() async throws {
         let sessionManager = ControlAuthTestSessionManager()
         let inputService = RecordingInputInjectionService()
@@ -167,6 +204,44 @@ final class ControlChannelAuthEnforcementTests: XCTestCase {
 
         XCTAssertEqual(inputService.snapshotCommands().count, 1)
         XCTAssertGreaterThanOrEqual(router.commandsRejected, 1)
+        router.stopListening()
+    }
+
+    func testRepeatedHandshakeCannotResetAcceptedCounter() async throws {
+        let sessionManager = ControlAuthTestSessionManager()
+        let inputService = RecordingInputInjectionService()
+        let eventLogStore = RecordingEventLogStore()
+        let modeProvider = HostSessionModeController(mode: .fullControl)
+        let router = HostInputCommandRouter(
+            inputService: inputService,
+            webRTCSessionManager: sessionManager,
+            eventLogStore: eventLogStore,
+            modeProvider: modeProvider
+        )
+
+        let sessionID = UUID()
+        let token = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
+        router.startListening(sessionID: sessionID, expectedSessionTokenHex: token)
+
+        let handshake = try DataChannelEnvelope.controlAuth(
+            ControlChannelAuthMessage(sessionID: sessionID, sessionToken: token)
+        )
+        try sessionManager.emit(handshake)
+
+        let accepted = try DataChannelEnvelope.inputCommand(
+            InputCommandMessage(sessionID: sessionID, command: .text(TextInputCommand(text: "counter-two")))
+        ).authenticated(using: token, counter: 2)
+        try sessionManager.emit(accepted!)
+
+        // A captured handshake must not move the receive window backwards.
+        try sessionManager.emit(handshake)
+        let stale = try DataChannelEnvelope.inputCommand(
+            InputCommandMessage(sessionID: sessionID, command: .text(TextInputCommand(text: "stale-counter-one")))
+        ).authenticated(using: token, counter: 1)
+        try sessionManager.emit(stale!)
+        try await Task.sleep(nanoseconds: 120_000_000)
+
+        XCTAssertEqual(inputService.snapshotCommands().count, 1)
         router.stopListening()
     }
 

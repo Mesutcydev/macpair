@@ -1,6 +1,10 @@
 # Xcode Security Settings
 
+<<<<<<< HEAD
 Security build-setting decisions for MacPair.
+=======
+Security build-setting decisions for Vamp Host and Vamp Terminal.
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
 ## Enabled settings
 
@@ -64,3 +68,25 @@ Objective-C code. Changing codec internals without upstream test vectors would b
 higher risk than retaining the reviewed upstream release. New findings outside
 that path are release blockers. CodeQL remains enabled over Swift and C/C++
 sources so future changes are checked independently.
+
+## Active project audit: `RemoteDesktopToolApps.xcodeproj` (August 2026)
+
+The active project now carries the same baseline explicitly at the project level:
+
+- `ENABLE_ENHANCED_SECURITY = YES` in Debug and Release.
+- `GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES`.
+- `CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES`.
+- `CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES`.
+- `CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES`.
+- `ENABLE_POINTER_AUTHENTICATION = NO` on the host, iOS client, live-activity,
+  and Vamp Terminal target configurations until the full Swift/C dependency
+  graph is arm64e-compatible.
+- Hardened-process, version `2`, hardened heap, dyld read-only, and platform
+  restriction entitlements are present on the active MacHost, iOSRemote, and
+  Vamp Terminal app entitlements. Checked allocations and C bounds safety remain
+  deferred for the reasons above.
+
+This is a build-setting hardening pass only; it does not grant a new privacy,
+network, or signing entitlement. The browser terminal is loopback-bound and is
+intended to be exposed through an operator-run Tailscale Serve command, not a
+public listener or hosted relay.

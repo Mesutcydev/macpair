@@ -31,14 +31,14 @@ final class BackgroundKeepaliveService: ObservableObject {
     /// actor. Coalesced — caller is responsible for deduping rapid retries.
     var onWakeRequested: (() -> Void)?
 
-    private let logger = Logger(subsystem: "uk.mesut.screenharbor.ios", category: "Keepalive")
+    private let logger = Logger(subsystem: "com.mesutcy.remotedesktop.ios", category: "Keepalive")
 
     #if canImport(UIKit)
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     #endif
 
     private let pathMonitor = NWPathMonitor()
-    private let pathQueue = DispatchQueue(label: "uk.mesut.screenharbor.ios.keepalive.path")
+    private let pathQueue = DispatchQueue(label: "com.mesutcy.remotedesktop.ios.keepalive.path")
     private var pathMonitorStarted = false
     private var lastPathStatus: NWPath.Status = .requiresConnection
     private var notificationObservers: [NSObjectProtocol] = []

@@ -21,7 +21,11 @@ body:
   - type: input
     id: version
     attributes:
+<<<<<<< HEAD
       label: MacPair version and build
+=======
+      label: Vamp version and build
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       placeholder: 1.0.0 (1)
     validations:
       required: true

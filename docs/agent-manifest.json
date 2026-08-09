@@ -1,31 +1,46 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+<<<<<<< HEAD
   "name": "MacPair",
   "description": "Open-source native Mac remote desktop host with Mac and iPhone/iPad clients",
   "manifestVersion": "1.1.0",
   "license": "Apache-2.0",
   "website": "https://mesut.uk/apps/macpair",
+=======
+  "name": "Vamp Terminal",
+  "description": "Open-source multi-tab terminal client for iPhone and iPad with Vamp Host, Safari control, Tailscale, and Linux browser-host support.",
+  "manifestVersion": "2.0.0",
+  "license": "Apache-2.0",
+  "website": "https://mesutcydev.github.io/macpair/",
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
   "source": "https://github.com/Mesutcydev/macpair",
   "platform": {
-    "os": "macOS",
-    "minimumVersion": "13.0"
+    "os": "iOS/iPadOS",
+    "minimumVersion": "18.0"
   },
   "supportedPlatforms": {
-    "host": {"os": "macOS", "minimumVersion": "13.0"},
-    "macClient": {"os": "macOS", "minimumVersion": "13.0"},
-    "iosClient": {"os": "iOS/iPadOS", "minimumVersion": "18.0"}
+    "fullHost": {"os": "macOS", "minimumVersion": "13.0"},
+    "terminalOnlyHost": {"os": "macOS", "minimumVersion": "13.0"},
+    "iosClient": {"os": "iOS/iPadOS", "minimumVersion": "18.0"},
+    "linuxBrowserHost": {"os": "Linux", "minimumVersion": "Python 3"}
   },
   "downloads": {
+<<<<<<< HEAD
     "host": "https://github.com/Mesutcydev/macpair/releases/download/v1.0.10/MacPair-Host-1.0.10-build-11.dmg",
     "client": "https://github.com/Mesutcydev/macpair/releases/download/v1.0.10/MacPair-1.0.10-build-11.dmg",
     "iosClient": "https://mesut.uk/MacPair-iOS-1.0.5-build-6-unsigned.ipa",
+=======
+    "iosArtifactDirectory": "dist/VampTerminal/",
+    "iosArtifactPattern": "VampTerminal-iOS-*-altstore-unsigned.ipa",
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     "integritySuffixes": [".sha256", ".manifest.json", ".sbom.cdx.json"],
     "appleNotarized": false,
-    "codeSignature": "ad-hoc",
     "iosCodeSignature": "unsigned",
-    "iosRequiresResigning": true
+    "iosRequiresResigning": true,
+    "iosSideloadTool": "AltStore"
   },
   "apps": {
+<<<<<<< HEAD
     "host": {
       "displayName": "MacPair Host",
       "bundleId": "uk.mesut.screenharbor.host",
@@ -38,6 +53,21 @@
     "iosClient": {
       "displayName": "MacPair",
       "bundleId": "uk.mesut.screenharbor.ios",
+=======
+    "fullHost": {
+      "displayName": "Vamp Host",
+      "bundleId": "com.mesutcy.remotedesktop.host",
+      "urlScheme": "vamphost"
+    },
+    "terminalOnlyHost": {
+      "displayName": "Vamp Terminal Host",
+      "bundleId": "com.mesutcy.remotedesktop.terminalhost",
+      "urlScheme": "vampterminalhost"
+    },
+    "iosClient": {
+      "displayName": "Vamp Terminal",
+      "bundleId": "com.mesutcy.remotedesktop.terminal",
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "minimumOSVersion": "18.0"
     }
   },
@@ -45,37 +75,43 @@
     "bonjourService": "_screenharbor._tcp",
     "signalingPort": 9471,
     "dataPort": 9472,
-    "tlsSignalingPort": 9473
+    "tlsSignalingPort": 9473,
+    "browserLoopbackPort": 9475,
+    "remoteAccess": "Tailscale only"
   },
   "cli": {
-    "command": "screenharbor",
+    "command": "vamp",
     "installation": {
+<<<<<<< HEAD
       "appPath": "/Applications/MacPair Host.app",
       "bundledCommand": "/Applications/MacPair Host.app/Contents/Resources/screenharbor",
       "recommendedSymlink": "/usr/local/bin/screenharbor"
+=======
+      "fullHostAppPath": "/Applications/Vamp Host.app",
+      "bundledCommand": "/Applications/Vamp Host.app/Contents/Resources/vamp",
+      "recommendedSymlink": "/usr/local/bin/vamp"
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     },
-    "status": ["status", "--json"],
-    "ensure": ["ensure"],
-    "pending": ["pending", "--json"],
-    "safeApproval": ["approve-pairing", "--fingerprint", "<verified-hex>", "--json"],
-    "statusSnapshot": "~/Library/Application Support/ScreenHarbor/host.widget.snapshot.json",
-    "exitCodes": {
-      "0": "success or ready",
-      "1": "not installed",
-      "2": "installed but not advertising",
-      "3": "human permissions required",
-      "4": "bad command or usage",
-      "5": "no pending trust request",
-      "6": "trust action did not resolve request",
-      "7": "fingerprint mismatch",
-      "8": "wait timed out"
-    }
+    "commands": [
+      ["ensure"],
+      ["status", "--json"],
+      ["pending", "--json"],
+      ["approve-pairing", "--fingerprint", "<verified-hex>"],
+      ["terminal", "list"],
+      ["terminal", "start", "--session", "work"],
+      ["terminal", "attach", "work"],
+      ["terminal", "agent", "codex", "--session", "codex"],
+      ["browser", "serve"]
+    ],
+    "statusSnapshot": "~/Library/Application Support/Vamp Host/host.widget.snapshot.json"
   },
   "safety": {
     "requiresVisibleHostApproval": true,
     "agentMustVerifyFingerprint": true,
     "agentMayBypassMacOSPermissions": false,
     "agentMayDisableGatekeeper": false,
-    "humanConfirmationRequiredForNewPeer": true
+    "humanConfirmationRequiredForNewPeer": true,
+    "terminalOnlyHostRejectsRemoteInput": true,
+    "publicPortForwardingSupported": false
   }
 }

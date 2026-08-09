@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Vamp Terminal · Linux Host</title>
+  <style>
+    :root { color-scheme: dark; --bg:#101112; --panel:rgba(255,255,255,.075); --line:rgba(255,255,255,.14); --text:#f4f4f1; --muted:#a3a5a2; --accent:#e9e9e3; --green:#77e0a2; }
+    * { box-sizing:border-box; } body { margin:0; min-height:100vh; color:var(--text); background:radial-gradient(circle at 15% 0%,#303331 0,#151716 38%,#0e0f10 100%); font:15px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif; }
+    button,input { font:inherit; } button { color:inherit; border:1px solid var(--line); background:rgba(255,255,255,.08); border-radius:12px; padding:9px 12px; cursor:pointer; } button:hover { background:rgba(255,255,255,.15); } button:disabled { opacity:.45; cursor:default; }
+    .wrap { width:min(1040px,100%); margin:auto; padding:clamp(16px,4vw,42px); } .glass { border:1px solid var(--line); background:var(--panel); backdrop-filter:blur(28px); box-shadow:0 24px 80px #0008; border-radius:24px; }
+    header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:18px; } h1 { font-size:clamp(26px,5vw,42px); line-height:1; margin:0 0 8px; letter-spacing:-.04em; } h2 { font-size:18px; margin:0; } p { color:var(--muted); margin:0; } .eyebrow { text-transform:uppercase; font-size:11px; letter-spacing:.18em; color:var(--muted); }
+    .pair { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .pair input { width:150px; color:var(--text); background:#0005; border:1px solid var(--line); padding:10px 12px; border-radius:12px; letter-spacing:.18em; text-align:center; } .pair button { background:var(--accent); color:#171817; }
+    .top { padding:18px; display:grid; gap:14px; } .status { display:flex; justify-content:space-between; gap:12px; align-items:center; } .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--green); margin-right:8px; box-shadow:0 0 16px var(--green); }
+    .tabs { display:flex; gap:8px; overflow:auto; padding:12px 12px 0; scrollbar-width:thin; } .tab { white-space:nowrap; display:flex; gap:8px; align-items:center; } .tab.active { background:var(--accent); color:#171817; } .tab .close { border:0; background:transparent; padding:0 2px; color:inherit; }
+    .terminal { margin:12px; min-height:420px; display:flex; flex-direction:column; overflow:hidden; background:#080909; border:1px solid #ffffff18; border-radius:18px; } .output { flex:1; min-height:320px; overflow:auto; padding:18px; white-space:pre-wrap; word-break:break-word; color:#e8ebe7; font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace; } .input { display:flex; gap:8px; padding:10px; border-top:1px solid #ffffff15; } .input input { flex:1; min-width:0; padding:12px; color:var(--text); background:#151716; border:1px solid #ffffff18; border-radius:12px; outline:none; } .input input:focus { border-color:#fff8; }
+    .controls { display:flex; gap:8px; overflow:auto; padding:0 12px 12px; } .controls button { white-space:nowrap; padding:7px 10px; font-size:13px; } .help { padding:16px 18px; margin-top:18px; } code { color:#fff; background:#0005; padding:2px 5px; border-radius:5px; } @media (max-width:600px) { header { flex-direction:column; } .terminal { min-height:60vh; } .output { min-height:40vh; } }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div><div class="eyebrow">Linux companion</div><h1>Vamp Terminal</h1><p>Multiple authenticated PTYs, readable tabs, and Safari access.</p></div>
+      <div class="glass top" style="min-width:min(100%,330px)"><div class="status"><span><span class="dot"></span><span id="status">Pair this host</span></span><button id="copy-link">Copy link</button></div><div class="pair"><input id="pair-code" inputmode="numeric" maxlength="6" placeholder="6-digit code" aria-label="Pairing code"><button id="pair">Pair host</button></div></div>
+    </header>
+    <section class="glass" id="workspace" hidden>
+      <div class="tabs" id="tabs"></div>
+      <div class="controls"><button data-key="\u0003">Ctrl-C</button><button data-key="\u001b">Esc</button><button data-key="\t">Tab</button><button data-key="\u001b[A">↑</button><button data-key="\u001b[B">↓</button><button data-key="\u001b[D">←</button><button data-key="\u001b[C">→</button><button id="copy-output">Copy output</button><button id="paste">Paste</button><button id="new">+ New terminal</button></div>
+      <div class="terminal"><div class="output" id="output" role="log" aria-live="polite"></div><div class="input"><input id="command" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command…"><button id="send">Send</button></div></div>
+    </section>
+    <section class="glass help"><h2>Safe remote access</h2><p style="margin-top:6px">The host listens on loopback. For a phone or another network, run <code>tailscale serve --bg http://127.0.0.1:9475</code> and open the resulting HTTPS URL inside your tailnet. No public port forwarding is required.</p></section>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id); let token = sessionStorage.getItem('vamp-token'); let socket; let active; const tabs = new Map();
+    function say(text) { if (!active) return; const node = tabs.get(active); if (!node) return; node.output += text; if (active === node.id) { $('output').textContent = node.output; $('output').scrollTop = $('output').scrollHeight; } }
+    function renderTabs() { const root=$('tabs'); root.innerHTML=''; for (const node of tabs.values()) { const button=document.createElement('button'); button.className='tab'+(node.id===active?' active':''); button.textContent=node.title; button.onclick=()=>select(node.id); const close=document.createElement('button'); close.className='close'; close.textContent='×'; close.title='Close terminal'; close.onclick=e=>{e.stopPropagation(); closeTab(node.id)}; button.append(close); root.append(button); } }
+    function select(id) { active=id; const node=tabs.get(id); $('output').textContent=node?.output||''; renderTabs(); $('command').focus(); }
+    function openTab() { if (!socket || socket.readyState!==1) return; const id=crypto.randomUUID().replaceAll('-',''); tabs.set(id,{id,title:'Terminal '+(tabs.size+1),output:''}); socket.send(JSON.stringify({type:'open',terminalID:id,title:tabs.get(id).title})); select(id); }
+    function closeTab(id) { if(socket?.readyState===1) socket.send(JSON.stringify({type:'close',terminalID:id})); tabs.delete(id); if(active===id) active=tabs.keys().next().value; if(!tabs.size) openTab(); else select(active); }
+    function send(data) { if(socket?.readyState===1&&active) socket.send(JSON.stringify({type:'input',terminalID:active,data})); }
+    function connect() { if(!token) return; const url=new URL('/ws',location.href); url.protocol=location.protocol==='https:'?'wss:':'ws:'; url.searchParams.set('token',token); socket=new WebSocket(url); socket.onopen=()=>{ $('status').textContent='Connected'; $('workspace').hidden=false; openTab(); }; socket.onmessage=event=>{ const message=JSON.parse(event.data); if(message.type==='terminalOutput'){ const node=tabs.get(message.terminalID); if(node){ node.output+=message.data; if(active===node.id){$('output').textContent=node.output; $('output').scrollTop=$('output').scrollHeight;} } } if(message.type==='terminalClosed'){ tabs.delete(message.terminalID); if(active===message.terminalID) active=tabs.keys().next().value; renderTabs(); } if(message.type==='error') say('\n[host] '+message.message+'\n'); }; socket.onclose=()=>{ $('status').textContent='Disconnected'; }; }
+    $('pair').onclick=async()=>{ const response=await fetch('/api/pair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:$('pair-code').value})}); const body=await response.json(); if(!response.ok){$('status').textContent='Pairing code rejected';return;} token=body.token; sessionStorage.setItem('vamp-token',token); connect(); };
+    $('send').onclick=()=>{send($('command').value+'\n');$('command').value='';}; $('command').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('send').click();}}; document.querySelectorAll('[data-key]').forEach(button=>button.onclick=()=>send(button.dataset.key)); $('new').onclick=openTab; $('copy-output').onclick=()=>navigator.clipboard?.writeText($('output').textContent); $('paste').onclick=async()=>{try{send(await navigator.clipboard.readText())}catch{say('\n[clipboard] Safari did not grant paste access.\n')}}; $('copy-link').onclick=()=>navigator.clipboard?.writeText(location.href); if(token) connect();
+  </script>
+</body>
+</html>

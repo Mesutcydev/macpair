@@ -1,6 +1,10 @@
 # Source and asset provenance
 
+<<<<<<< HEAD
 MacPair is published from this repository under Apache-2.0. Release artifacts
+=======
+Vamp Terminal is published from this repository under Apache-2.0. Release artifacts
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 must identify the exact source commit, dependency lock, checksum, code-signing mode,
 and notarization state.
 
@@ -45,7 +49,11 @@ contributions require their own DCO sign-off.
 
 ## Project artwork
 
+<<<<<<< HEAD
 The MacPair icon set was generated for this project with OpenAI image tooling
+=======
+The Vamp Terminal icon set was generated for this project with OpenAI image tooling
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 and selected and adapted by the maintainer on 2026-07-29. It was not intentionally
 copied from a third-party logo. To the extent the project holds rights in those
 files, they are distributed under Apache-2.0 with the rest of the repository. This

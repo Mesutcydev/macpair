@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+<<<<<<< HEAD
 # screenharbor — Terminal control for the MacPair Host macOS app.
 #
 # Usage:
@@ -522,3 +523,18 @@ main() {
 }
 
 main "$@"
+=======
+set -euo pipefail
+
+# Compatibility entry point for older installations. The canonical CLI is
+# `vamp`; this name remains only so existing agent scripts do not break.
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -h "$SOURCE" ]]; do
+  SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" = /* ]] || SOURCE="$SCRIPT_DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+export VAMP_CLI_NAME=screenharbor
+exec "$SCRIPT_DIR/vamp" "$@"
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)

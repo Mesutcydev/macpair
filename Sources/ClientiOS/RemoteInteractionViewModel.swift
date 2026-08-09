@@ -80,7 +80,7 @@ final class RemoteInteractionViewModel: ObservableObject {
     private var viewSize: DesktopSize = .zero
     private var viewInsets: DesktopEdgeInsets = .zero
     private var viewPixelScale: Double = 1
-    private let logger = Logger(subsystem: "uk.mesut.screenharbor.ios", category: "DisplayMapping")
+    private let logger = Logger(subsystem: "com.mesutcy.remotedesktop.ios", category: "DisplayMapping")
 
     // MARK: - Pointer feel (relative / trackpad mode)
     /// Multiplier applied to relative cursor movement (set from the sensitivity slider).

@@ -21,11 +21,13 @@ final class HostInputCommandRouter: @unchecked Sendable {
     private let lock = NSLock()
     private var _activeSessionID: UUID?
     private var _isEnabled: Bool = false
+    private var _terminalOnly: Bool = false
     private var _commandsProcessed: UInt64 = 0
     private var _commandsRejected: UInt64 = 0
     private var _lastQualityAdjustAt: Date?
     private var _lastDisplaySwitchAt: Date?
     private var _lastFileTransferOfferAt: Date?
+    private var _lastClipboardRequestAt: Date?
     private var _expectedSessionTokenHex: String?
     private var _controlChannelAuthenticated: Bool = false
     private var _lastAcceptedAuthCounter: UInt64 = 0
@@ -119,6 +121,19 @@ final class HostInputCommandRouter: @unchecked Sendable {
         return true
     }
 
+    /// Clipboard reads are cheap but reveal host data. Keep the explicit
+    /// request path bounded so a compromised client cannot poll the pasteboard
+    /// continuously after pairing.
+    private func shouldAllowClipboardRequest(now: Date = Date()) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if let last = _lastClipboardRequestAt, now.timeIntervalSince(last) < 1 {
+            return false
+        }
+        _lastClipboardRequestAt = now
+        return true
+    }
+
     init(
         inputService: any InputInjectionServiceProtocol,
         webRTCSessionManager: any WebRTCSessionManaging,
@@ -159,15 +174,21 @@ final class HostInputCommandRouter: @unchecked Sendable {
 
     // MARK: - Start / Stop
 
-    func startListening(sessionID: UUID, expectedSessionTokenHex: String?) {
+    func startListening(
+        sessionID: UUID,
+        expectedSessionTokenHex: String?,
+        terminalOnly: Bool = false
+    ) {
         lock.lock()
         _activeSessionID = sessionID
         _isEnabled = true
+        _terminalOnly = terminalOnly
         _commandsProcessed = 0
         _commandsRejected = 0
         _lastQualityAdjustAt = nil
         _lastDisplaySwitchAt = nil
         _lastFileTransferOfferAt = nil
+        _lastClipboardRequestAt = nil
         _expectedSessionTokenHex = expectedSessionTokenHex
         _controlChannelAuthenticated = false
         _lastAcceptedAuthCounter = 0
@@ -200,6 +221,10 @@ final class HostInputCommandRouter: @unchecked Sendable {
             #endif
             for await envelope in webRTCSessionManager.receiveDataMessages() {
                 guard !Task.isCancelled else { break }
+                if self.withLock({ self._terminalOnly }), !self.isAllowedInTerminalOnly(envelope.kind) {
+                    self.rejectCommand(reason: "Command unavailable on terminal-only host")
+                    continue
+                }
                 switch envelope.kind {
                 case .inputCommand:
                     #if DEBUG
@@ -272,9 +297,11 @@ final class HostInputCommandRouter: @unchecked Sendable {
         let rejected = _commandsRejected
         _activeSessionID = nil
         _isEnabled = false
+        _terminalOnly = false
         _expectedSessionTokenHex = nil
         _controlChannelAuthenticated = false
         _lastAcceptedAuthCounter = 0
+        _lastClipboardRequestAt = nil
         _unlockAttempts = 0
         _lastUnlockAttemptAt = nil
         lock.unlock()
@@ -296,6 +323,17 @@ final class HostInputCommandRouter: @unchecked Sendable {
     }
 
     // MARK: - Command Handling
+
+    private func isAllowedInTerminalOnly(_ kind: DataChannelMessageKind) -> Bool {
+        switch kind {
+        case .controlAuth, .ping, .pong,
+             .clipboardSync, .clipboardRequest,
+             .terminalOpen, .terminalInput, .terminalResize, .terminalClose:
+            return true
+        default:
+            return false
+        }
+    }
 
     private func handleInputEnvelope(_ envelope: DataChannelEnvelope) async {
         // Anti-replay: drop stale or future-dated envelopes
@@ -483,6 +521,8 @@ final class HostInputCommandRouter: @unchecked Sendable {
         guard envelope.hasAcceptableTimestamp else { return }
         guard validateControlEnvelopeAuth(envelope) else { return }
         guard let message = try? envelope.decodeClipboardSync(),
+              envelope.sessionID == message.sessionID,
+              message.sessionID == activeSessionID,
               message.source == "client",
               !message.text.isEmpty else { return }
         onClipboardSync?(message.text)
@@ -491,7 +531,13 @@ final class HostInputCommandRouter: @unchecked Sendable {
     private func handleClipboardRequestEnvelope(_ envelope: DataChannelEnvelope) async {
         guard envelope.hasAcceptableTimestamp else { return }
         guard validateControlEnvelopeAuth(envelope) else { return }
-        guard (try? envelope.decodeClipboardRequest()) != nil else { return }
+        guard let message = try? envelope.decodeClipboardRequest(),
+              envelope.sessionID == message.sessionID,
+              message.sessionID == activeSessionID else { return }
+        guard shouldAllowClipboardRequest() else {
+            rejectCommand(reason: "Clipboard request rate-limited")
+            return
+        }
         onClipboardRequest?()
     }
 
@@ -506,6 +552,10 @@ final class HostInputCommandRouter: @unchecked Sendable {
         }
         guard let message = try? envelope.decodeTerminalOpen() else {
             rejectCommand(reason: "Terminal open decode failed")
+            return
+        }
+        guard envelope.sessionID == message.sessionID else {
+            rejectCommand(reason: "Terminal open envelope session mismatch")
             return
         }
         let rejection = InputCommandValidation.validateRouting(
@@ -524,9 +574,19 @@ final class HostInputCommandRouter: @unchecked Sendable {
     private func handleTerminalInputEnvelope(_ envelope: DataChannelEnvelope) async {
         guard envelope.hasAcceptableTimestamp else { return }
         guard validateControlEnvelopeAuth(envelope) else { return }
-        guard let message = try? envelope.decodeTerminalInput(),
-              message.sessionID == activeSessionID,
-              !message.data.isEmpty,
+        guard let message = try? envelope.decodeTerminalInput() else { return }
+        guard envelope.sessionID == message.sessionID else { return }
+        let rejection = InputCommandValidation.validateRouting(
+            commandSessionID: message.sessionID,
+            activeSessionID: activeSessionID,
+            isRouterEnabled: isEnabled,
+            connectionState: webRTCSessionManager.connectionState
+        )
+        if let rejection {
+            rejectCommand(reason: "Terminal input rejected: \(rejection)")
+            return
+        }
+        guard !message.data.isEmpty,
               message.data.count <= TerminalInputMessage.maxChunkBytes else { return }
         onTerminalInput?(message)
     }
@@ -534,16 +594,36 @@ final class HostInputCommandRouter: @unchecked Sendable {
     private func handleTerminalResizeEnvelope(_ envelope: DataChannelEnvelope) async {
         guard envelope.hasAcceptableTimestamp else { return }
         guard validateControlEnvelopeAuth(envelope) else { return }
-        guard let message = try? envelope.decodeTerminalResize(),
-              message.sessionID == activeSessionID else { return }
+        guard let message = try? envelope.decodeTerminalResize() else { return }
+        guard envelope.sessionID == message.sessionID else { return }
+        let rejection = InputCommandValidation.validateRouting(
+            commandSessionID: message.sessionID,
+            activeSessionID: activeSessionID,
+            isRouterEnabled: isEnabled,
+            connectionState: webRTCSessionManager.connectionState
+        )
+        if let rejection {
+            rejectCommand(reason: "Terminal resize rejected: \(rejection)")
+            return
+        }
         onTerminalResize?(message)
     }
 
     private func handleTerminalCloseEnvelope(_ envelope: DataChannelEnvelope) async {
         guard envelope.hasAcceptableTimestamp else { return }
         guard validateControlEnvelopeAuth(envelope) else { return }
-        guard let message = try? envelope.decodeTerminalClose(),
-              message.sessionID == activeSessionID else { return }
+        guard let message = try? envelope.decodeTerminalClose() else { return }
+        guard envelope.sessionID == message.sessionID else { return }
+        let rejection = InputCommandValidation.validateRouting(
+            commandSessionID: message.sessionID,
+            activeSessionID: activeSessionID,
+            isRouterEnabled: isEnabled,
+            connectionState: webRTCSessionManager.connectionState
+        )
+        if let rejection {
+            rejectCommand(reason: "Terminal close rejected: \(rejection)")
+            return
+        }
         onTerminalClose?(message)
     }
 
@@ -654,9 +734,18 @@ final class HostInputCommandRouter: @unchecked Sendable {
             return
         }
 
-        withLock {
+        let established = withLock { () -> Bool in
+            // The handshake is deliberately one-shot. Resetting the inbound
+            // counter on a repeated valid handshake would let a captured old
+            // envelope become valid again after the counter window moved on.
+            guard !_controlChannelAuthenticated else { return false }
             _controlChannelAuthenticated = true
             _lastAcceptedAuthCounter = 0
+            return true
+        }
+        guard established else {
+            logger.debug("Ignoring repeated control-channel auth handshake")
+            return
         }
 
         await eventLogStore.append(EventLogItem(

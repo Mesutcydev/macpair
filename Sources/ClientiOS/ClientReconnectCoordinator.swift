@@ -25,7 +25,7 @@ final class ClientReconnectCoordinator: ObservableObject {
     private let _webRTCSessionManager: any WebRTCSessionManaging
     private let _signalingService: any SessionCoordinatorSignaling
     private let displayLayoutViewModel: DisplayLayoutViewModel
-    fileprivate let logger = Logger(subsystem: "uk.mesut.screenharbor.ios", category: "Reconnect")
+    fileprivate let logger = Logger(subsystem: "com.mesutcy.remotedesktop.terminal", category: "Reconnect")
     private var connectionObserverTask: Task<Void, Never>?
     private var dataChannelObserverTask: Task<Void, Never>?
     private var hasSeenConnectedState = false

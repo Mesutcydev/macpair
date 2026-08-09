@@ -1,6 +1,10 @@
 # Governance
 
+<<<<<<< HEAD
 MacPair is a maintainer-led open-source project.
+=======
+Vamp Terminal is a maintainer-led open-source project.
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
 ## Roles
 

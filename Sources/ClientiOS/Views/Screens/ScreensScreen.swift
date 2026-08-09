@@ -256,5 +256,9 @@ private struct DottedGrid: View {
 }
 
 #Preview("ScreensScreen") {
+<<<<<<< HEAD
     ScreensScreen(environment: ClientAppEnvironment.makeDefault(clientName: "MacPair iOS"))
+=======
+    ScreensScreen(environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client"))
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 }

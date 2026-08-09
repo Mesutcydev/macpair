@@ -18,9 +18,9 @@ private func c_forkpty(
     _ winp: UnsafePointer<winsize>?
 ) -> pid_t
 
-/// Hosts an interactive shell over a PTY for the connected iOS client. One
-/// service instance manages at most one active terminal per session — a fresh
-/// `TerminalOpen` from the same session replaces the previous shell.
+/// Hosts interactive shells over PTYs for the connected iOS client. One
+/// service instance manages a bounded collection of independent terminals per
+/// authenticated session, keyed by the client-selected terminal ID.
 ///
 /// Threading: all public mutators hop to an internal serial queue so the PTY
 /// fd, child PID, and pump tasks are touched from a single context. Output
@@ -30,18 +30,23 @@ final class HostTerminalService: @unchecked Sendable {
     private let logger = Logger(subsystem: "com.remotedesktop.host", category: "Terminal")
     private let queue = DispatchQueue(label: "host.terminal.service")
 
-    /// Maximum byte rate written to the data channel from a single terminal
-    /// (defensive — runaway `yes` or `cat /dev/urandom`). Excess bytes are
-    /// dropped on the floor with a single log line; we never block the PTY.
-    private let outputByteBudgetPerSecond = 4 * 1024 * 1024
-    private var budgetWindowStart = Date()
-    private var budgetSpent = 0
+    /// Hard cap per authenticated connection. This keeps a client from
+    /// turning one host session into an unbounded process/fd farm.
+    static let maxActiveTerminals = 8
+
+    /// Defensive output limits for runaway commands such as `yes` or
+    /// `cat /dev/urandom`. Each terminal gets a fair cap and the connection
+    /// has an aggregate cap so eight terminals cannot multiply the limit.
+    private let outputByteBudgetPerTerminalPerSecond = 4 * 1024 * 1024
+    private let outputByteBudgetPerConnectionPerSecond = 8 * 1024 * 1024
+    private var connectionBudgetWindowStart = Date()
+    private var connectionBudgetSpent = 0
 
     /// Pump read buffer — 16 KB is a good balance between throughput on
     /// `cat large.txt` and latency for keystroke echo.
     private let readBufferSize = 16 * 1024
 
-    private var activeSession: ActiveSession?
+    private var activeTerminals: [UUID: ActiveSession] = [:]
 
     /// Set by the environment; called whenever the service produces an
     /// outgoing envelope (output chunk or close notice).
@@ -49,8 +54,8 @@ final class HostTerminalService: @unchecked Sendable {
 
     // MARK: - API
 
-    /// Open or replace the terminal for `sessionID`. Idempotent: if a
-    /// terminal is already running for this session, it's torn down first.
+    /// Open a new terminal for `sessionID`. Re-opening the same terminal ID is
+    /// idempotent, which makes client retries safe without resetting shell state.
     func handleOpen(_ message: TerminalOpenMessage) {
         queue.async { [weak self] in
             self?._handleOpen(message)
@@ -71,24 +76,48 @@ final class HostTerminalService: @unchecked Sendable {
 
     func handleClose(_ message: TerminalCloseMessage) {
         queue.async { [weak self] in
-            self?._teardown(reason: message.reason ?? "client-requested", notifyClient: false)
+            self?._handleClose(message)
         }
     }
 
     /// Called by the coordinator when the session ends, the data channel
     /// drops, or the host pipeline resets. Kills the shell and cleans up.
-    func sessionDidEnd() {
+    ///
+    /// A transport/session teardown normally has no live client to notify. A
+    /// feature toggle is different: the authenticated data channel is still
+    /// alive, so the client should receive a close for every tab instead of
+    /// leaving mounted panes looking connected to a dead PTY.
+    func sessionDidEnd(notifyClient: Bool = false, reason: String = "session-ended") {
         queue.async { [weak self] in
-            self?._teardown(reason: "session-ended", notifyClient: false)
+            self?._teardownAll(reason: reason, notifyClient: notifyClient)
         }
     }
 
     // MARK: - Internal (queue-isolated)
 
     private func _handleOpen(_ message: TerminalOpenMessage) {
-        if let existing = activeSession {
-            logger.info("Replacing existing terminal \(existing.terminalID.uuidString) on open")
-            _teardown(reason: "replaced", notifyClient: true)
+        if let existing = activeTerminals[message.terminalID] {
+            // A terminal ID belongs to one session. Do not let a stale or
+            // mismatched packet replace another session's PTY.
+            guard existing.sessionID == message.sessionID else {
+                logger.warning("Rejecting terminal open with mismatched session for \(message.terminalID.uuidString)")
+                return
+            }
+            logger.info("Re-acknowledging terminal \(existing.terminalID.uuidString) on retry")
+            sendReady(for: existing)
+            return
+        }
+
+        guard activeTerminals.count < Self.maxActiveTerminals else {
+            logger.warning("Rejecting terminal open: capacity limit \(Self.maxActiveTerminals) reached")
+            sendCloseNotice(
+                sessionID: message.sessionID,
+                terminalID: message.terminalID,
+                exitCode: nil,
+                signal: nil,
+                reason: "terminal-capacity"
+            )
+            return
         }
 
         let cols = clampDimension(message.cols, fallback: 80)
@@ -124,17 +153,38 @@ final class HostTerminalService: @unchecked Sendable {
             terminalID: message.terminalID,
             masterFD: master,
             childPID: pid,
+            cols: cols,
+            rows: rows,
             outputSequence: 0
         )
-        activeSession = session
+        activeTerminals[session.terminalID] = session
         logger.info("Spawned PTY shell pid=\(pid) for terminal \(message.terminalID.uuidString)")
+
+        sendReady(for: session)
+
+        // Feed an optional one-line launcher after the shell is created. PTY
+        // input is buffered until the login shell is ready, so this also lets
+        // tmux/screen reattach an already-running session without requiring a
+        // second round trip or a fragile prompt detector on the client.
+        if let startupCommand = message.startupCommand {
+            writeStartupCommand(startupCommand, to: session)
+        }
 
         startReadPump(for: session)
         startReaperTask(for: session)
     }
 
+    private func _handleClose(_ message: TerminalCloseMessage) {
+        guard let session = activeTerminals[message.terminalID],
+              session.sessionID == message.sessionID else {
+            logger.debug("Ignoring close for unknown or mismatched terminal \(message.terminalID.uuidString)")
+            return
+        }
+        _teardown(session, reason: message.reason ?? "client-requested", notifyClient: false)
+    }
+
     private func _handleInput(_ message: TerminalInputMessage) {
-        guard let session = activeSession,
+        guard let session = activeTerminals[message.terminalID],
               session.sessionID == message.sessionID,
               session.terminalID == message.terminalID else {
             return
@@ -144,11 +194,21 @@ final class HostTerminalService: @unchecked Sendable {
             return
         }
 
-        var remaining = message.data
+        write(message.data, to: session)
+    }
+
+    private func writeStartupCommand(_ command: String, to session: ActiveSession) {
+        let data = Data((command + "\n").utf8)
+        guard data.count <= TerminalInputMessage.maxChunkBytes else { return }
+        write(data, to: session)
+    }
+
+    private func write(_ data: Data, to session: ActiveSession) {
+        var remaining = data
         while !remaining.isEmpty {
             let written = remaining.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Int in
                 guard let base = raw.baseAddress else { return -1 }
-                return write(session.masterFD, base, raw.count)
+                return Darwin.write(session.masterFD, base, raw.count)
             }
             if written <= 0 {
                 if errno == EINTR { continue }
@@ -163,7 +223,7 @@ final class HostTerminalService: @unchecked Sendable {
     }
 
     private func _handleResize(_ message: TerminalResizeMessage) {
-        guard let session = activeSession,
+        guard let session = activeTerminals[message.terminalID],
               session.sessionID == message.sessionID,
               session.terminalID == message.terminalID else {
             return
@@ -177,16 +237,29 @@ final class HostTerminalService: @unchecked Sendable {
         if ioctl(session.masterFD, TIOCSWINSZ, &ws) != 0 {
             let err = String(cString: strerror(errno))
             logger.warning("TIOCSWINSZ failed: \(err)")
+        } else {
+            session.cols = ws.ws_col
+            session.rows = ws.ws_row
         }
     }
 
-    private func _teardown(reason: String, notifyClient: Bool) {
-        guard let session = activeSession else { return }
-        activeSession = nil
+    private func _teardownAll(reason: String, notifyClient: Bool) {
+        let sessions = Array(activeTerminals.values)
+        for session in sessions {
+            _teardown(session, reason: reason, notifyClient: notifyClient)
+        }
+    }
+
+    private func _teardown(_ session: ActiveSession, reason: String, notifyClient: Bool) {
+        guard activeTerminals[session.terminalID] === session else { return }
+        activeTerminals.removeValue(forKey: session.terminalID)
 
         session.readSource?.cancel()
         session.readSource = nil
-        session.reaperTask?.cancel()
+        // Keep the reaper alive after teardown so the SIGHUP'd child is still
+        // collected by waitpid instead of becoming a zombie. Its completion
+        // observes that the terminal was removed and does not send a second
+        // close notice.
 
         // Try a clean shutdown first; escalate if it doesn't take.
         kill(session.childPID, SIGHUP)
@@ -212,7 +285,9 @@ final class HostTerminalService: @unchecked Sendable {
         let bufferSize = readBufferSize
 
         source.setEventHandler { [weak self, weak session] in
-            guard let self, let session, session === self.activeSession else { return }
+            guard let self,
+                  let session,
+                  self.activeTerminals[session.terminalID] === session else { return }
             var buffer = [UInt8](repeating: 0, count: bufferSize)
             let n = buffer.withUnsafeMutableBufferPointer { ptr -> Int in
                 read(session.masterFD, ptr.baseAddress, ptr.count)
@@ -221,12 +296,12 @@ final class HostTerminalService: @unchecked Sendable {
                 self.dispatchOutput(Data(buffer.prefix(n)), session: session)
             } else if n == 0 {
                 self.logger.info("PTY master EOF for terminal \(session.terminalID.uuidString)")
-                self._teardown(reason: "eof", notifyClient: true)
+                self._teardown(session, reason: "eof", notifyClient: true)
             } else {
                 if errno == EAGAIN || errno == EINTR { return }
                 let err = String(cString: strerror(errno))
                 self.logger.warning("PTY read failed: \(err)")
-                self._teardown(reason: "read-error: \(err)", notifyClient: true)
+                self._teardown(session, reason: "read-error: \(err)", notifyClient: true)
             }
         }
         source.setCancelHandler { /* fd closed by _teardown */ }
@@ -234,22 +309,31 @@ final class HostTerminalService: @unchecked Sendable {
     }
 
     private func dispatchOutput(_ data: Data, session: ActiveSession) {
-        // Refill rate budget every 1 s.
+        // Refill the connection-wide rate budget every second.
         let now = Date()
-        if now.timeIntervalSince(budgetWindowStart) >= 1.0 {
-            budgetWindowStart = now
-            budgetSpent = 0
+        if now.timeIntervalSince(connectionBudgetWindowStart) >= 1.0 {
+            connectionBudgetWindowStart = now
+            connectionBudgetSpent = 0
         }
-        guard budgetSpent < outputByteBudgetPerSecond else {
+        if now.timeIntervalSince(session.budgetWindowStart) >= 1.0 {
+            session.budgetWindowStart = now
+            session.budgetSpent = 0
+        }
+        guard connectionBudgetSpent < outputByteBudgetPerConnectionPerSecond,
+              session.budgetSpent < outputByteBudgetPerTerminalPerSecond else {
             // Already saturated this second — drop to protect the link.
             return
         }
         var chunk = data
-        let headroom = outputByteBudgetPerSecond - budgetSpent
+        let headroom = min(
+            outputByteBudgetPerConnectionPerSecond - connectionBudgetSpent,
+            outputByteBudgetPerTerminalPerSecond - session.budgetSpent
+        )
         if chunk.count > headroom {
             chunk = chunk.prefix(headroom)
         }
-        budgetSpent += chunk.count
+        connectionBudgetSpent += chunk.count
+        session.budgetSpent += chunk.count
 
         // Split into envelope-sized pieces; the envelope cap is 1 MB but
         // staying well under that keeps RTC fragmentation predictable.
@@ -306,11 +390,11 @@ final class HostTerminalService: @unchecked Sendable {
     private func handleChildExit(sessionID: UUID, terminalID: UUID, exitCode: Int32?, signal: Int32?) {
         queue.async { [weak self] in
             guard let self else { return }
-            guard let session = self.activeSession,
+            guard let session = self.activeTerminals[terminalID],
                   session.sessionID == sessionID,
                   session.terminalID == terminalID else { return }
             self.logger.info("Child pid=\(session.childPID) exited (code=\(exitCode ?? -1), signal=\(signal ?? -1))")
-            self.activeSession = nil
+            self.activeTerminals.removeValue(forKey: terminalID)
             session.readSource?.cancel()
             close(session.masterFD)
             self.sendCloseNotice(
@@ -337,6 +421,18 @@ final class HostTerminalService: @unchecked Sendable {
     }
 
     // MARK: - Child exec
+
+    private func sendReady(for session: ActiveSession) {
+        let ready = TerminalReadyMessage(
+            sessionID: session.sessionID,
+            terminalID: session.terminalID,
+            cols: session.cols,
+            rows: session.rows
+        )
+        if let envelope = try? DataChannelEnvelope.terminalReady(ready) {
+            sendEnvelope?(envelope)
+        }
+    }
 
     private func execShellAndExit(term: String) {
         let env = ProcessInfo.processInfo.environment
@@ -404,15 +500,21 @@ final class HostTerminalService: @unchecked Sendable {
         let terminalID: UUID
         let masterFD: Int32
         let childPID: pid_t
+        var cols: UInt16
+        var rows: UInt16
         var outputSequence: UInt64
+        var budgetWindowStart = Date()
+        var budgetSpent = 0
         var readSource: DispatchSourceRead?
         var reaperTask: Task<Void, Never>?
 
-        init(sessionID: UUID, terminalID: UUID, masterFD: Int32, childPID: pid_t, outputSequence: UInt64) {
+        init(sessionID: UUID, terminalID: UUID, masterFD: Int32, childPID: pid_t, cols: UInt16, rows: UInt16, outputSequence: UInt64) {
             self.sessionID = sessionID
             self.terminalID = terminalID
             self.masterFD = masterFD
             self.childPID = childPID
+            self.cols = cols
+            self.rows = rows
             self.outputSequence = outputSequence
         }
     }

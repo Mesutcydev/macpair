@@ -28,4 +28,22 @@ final class CapabilityNegotiationTests: XCTestCase {
 
         XCTAssertNil(CapabilityNegotiator.negotiate(host: host, client: client))
     }
+
+    func testNegotiationIncludesTerminalCapabilities() {
+        let host: HostCapabilityFlags = [
+            .supportsH264,
+            .supportsTerminal,
+            .supportsMultipleTerminals
+        ]
+        let client: HostCapabilityFlags = [
+            .supportsH264,
+            .supportsTerminal,
+            .supportsMultipleTerminals
+        ]
+
+        let result = CapabilityNegotiator.negotiate(host: host, client: client)
+
+        XCTAssertEqual(result?.supportsTerminal, true)
+        XCTAssertEqual(result?.supportsMultipleTerminals, true)
+    }
 }

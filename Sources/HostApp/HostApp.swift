@@ -1,13 +1,12 @@
 import SwiftUI
 import SharedUtilities
-#if SWIFT_PACKAGE
 import HostWidgetShared
 import SharedUI
-#endif
 #if os(macOS)
 import AppKit
 #endif
 
+#if !VAMP_TERMINAL_HOST
 @main
 struct HostApp: App {
     @StateObject private var environment = HostAppEnvironment.placeholder()
@@ -31,13 +30,13 @@ struct HostApp: App {
                 )
                 // The widget bridge is started by HostAppDelegate so it runs
                 // regardless of window/scene state; URL actions
-                // (screenharbor://action/...) are handled there too.
+                // (vamphost://action/...) are handled there too.
             #endif
                 // Skip the launch splash when the app is coming up headless into the menu bar
                 // (desktop widget installed → the window is order-out'd right after it appears,
                 // which made the splash flash for a frame and vanish). Same signal the window
                 // controller uses to decide whether to hide the window at launch.
-                .screenHarborSplashWindow(
+                .vampSplashWindow(
                     .host(version: Self.versionString, statusText: "Ready for connections"),
                     enabled: !UserDefaults.standard.bool(forKey: HostWidgetConstants.installedCacheKey)
                 )
@@ -63,6 +62,7 @@ struct HostApp: App {
     }
 
 }
+#endif
 
 #if os(macOS)
 private struct HostMenuBarContent: View {
@@ -77,7 +77,11 @@ private struct HostMenuBarContent: View {
             HStack(spacing: 10) {
                 HostAppLogo(size: 26, cornerRadius: 6)
                 VStack(alignment: .leading, spacing: 1) {
+<<<<<<< HEAD
                     Text("MacPair Host")
+=======
+                    Text("Vamp Host")
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                         .font(.headline)
                     Text(headerCaption)
                         .font(.caption)
@@ -562,6 +566,16 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
            UserDefaults.standard.bool(forKey: HostWidgetConstants.installedCacheKey) {
             HostWindowCloseBehaviorController.shared.suppressWindowForWidget()
         }
+
+        // TCC commits Screen Recording and Accessibility changes while the user
+        // is in System Settings. Re-read after returning to the host instead of
+        // leaving the dashboard stuck on the pre-settings state.
+        guard let environment = HostAppEnvironment.shared else { return }
+        Task { @MainActor in
+            // Give tccd a moment to commit the checkbox change before probing it.
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            await environment.permissionsViewModel.refresh()
+        }
     }
 
     private func startWidgetBridgeWhenReady(attempt: Int) {
@@ -587,7 +601,7 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
         HostAppEnvironment.shared?.publishWidgetOffline()
     }
 
-    /// Handle the widget's control links (screenharbor://action/<start|stop|restart|approve-pairing|...>).
+    /// Handle the widget's control links (vamphost://action/<start|stop|restart|approve-pairing|...>).
     /// With an app delegate present, AppKit routes URL opens here rather than to
     /// SwiftUI's onOpenURL. We hand off via the shared action file + Darwin ping,
     /// which the running app's widget bridge consumes (and also polls), so this

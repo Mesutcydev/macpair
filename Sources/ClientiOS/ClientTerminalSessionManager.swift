@@ -29,7 +29,8 @@ final class ClientTerminalSessionManager: ObservableObject {
     @Published private(set) var output: [TerminalOutputMessage] = []
 
     private var sessionID: UUID?
-    private var terminalID: UUID?
+    private(set) var terminalID: UUID?
+    private var startupCommand: String?
     private var sendEnvelope: ((DataChannelEnvelope) throws -> Void)?
     /// Drops chunks older than this once `outputBacklogCap` is reached so a
     /// long-lived session doesn't grow memory unboundedly.
@@ -45,6 +46,7 @@ final class ClientTerminalSessionManager: ObservableObject {
         self.output.removeAll()
         self.lastObservedSequence = 0
         self.terminalID = nil
+        self.startupCommand = nil
     }
 
     func deactivate() {
@@ -61,22 +63,71 @@ final class ClientTerminalSessionManager: ObservableObject {
         state = .idle
         output.removeAll()
         lastObservedSequence = 0
+        startupCommand = nil
     }
 
     // MARK: - Outgoing
 
-    func open(cols: UInt16, rows: UInt16) {
-        guard let sessionID, let sendEnvelope else { return }
-        let id = UUID()
-        terminalID = id
+    @discardableResult
+    func open(cols: UInt16, rows: UInt16, startupCommand: String? = nil) -> Bool {
+        guard state == .idle || state.isClosed,
+              let sessionID, let sendEnvelope else { return false }
+        terminalID = UUID()
+        self.startupCommand = startupCommand
         state = .opening
         output.removeAll()
         lastObservedSequence = 0
-        let message = TerminalOpenMessage(sessionID: sessionID, terminalID: id, cols: cols, rows: rows)
-        if let envelope = try? DataChannelEnvelope.terminalOpen(message) {
-            try? sendEnvelope(envelope)
-            // Optimistic: the host has no "ack" today; we'll mark open on
-            // the first output chunk. Until then the view shows a spinner.
+        return sendOpen(
+            cols: cols,
+            rows: rows,
+            sessionID: sessionID,
+            startupCommand: self.startupCommand,
+            sendEnvelope: sendEnvelope
+        )
+    }
+
+    /// Retries an opening request when the WebRTC data channel finished coming
+    /// up after the workspace was first mounted. It keeps the same terminal ID.
+    @discardableResult
+    func retryOpen(cols: UInt16, rows: UInt16) -> Bool {
+        guard state == .opening,
+              let sessionID,
+              let terminalID,
+              let sendEnvelope else { return false }
+        return sendOpen(
+            cols: cols,
+            rows: rows,
+            sessionID: sessionID,
+            terminalID: terminalID,
+            startupCommand: startupCommand,
+            sendEnvelope: sendEnvelope
+        )
+    }
+
+    @discardableResult
+    private func sendOpen(
+        cols: UInt16,
+        rows: UInt16,
+        sessionID: UUID,
+        terminalID: UUID? = nil,
+        startupCommand: String? = nil,
+        sendEnvelope: (DataChannelEnvelope) throws -> Void
+    ) -> Bool {
+        let id = terminalID ?? self.terminalID ?? UUID()
+        self.terminalID = id
+        let message = TerminalOpenMessage(
+            sessionID: sessionID,
+            terminalID: id,
+            cols: cols,
+            rows: rows,
+            startupCommand: startupCommand
+        )
+        guard let envelope = try? DataChannelEnvelope.terminalOpen(message) else { return false }
+        do {
+            try sendEnvelope(envelope)
+            return true
+        } catch {
+            return false
         }
     }
 
@@ -106,26 +157,48 @@ final class ClientTerminalSessionManager: ObservableObject {
         }
         state = .closed(exitCode: nil, signal: nil, reason: reason)
         self.terminalID = nil
+        startupCommand = nil
     }
 
     // MARK: - Incoming (called by ClientSessionCoordinator)
 
-    func receiveOutput(_ message: TerminalOutputMessage) {
+    @discardableResult
+    func receiveOutput(_ message: TerminalOutputMessage) -> Bool {
         guard message.sessionID == sessionID,
-              message.terminalID == terminalID else { return }
-        if message.sequence <= lastObservedSequence { return }
+              message.terminalID == terminalID else { return false }
+        if message.sequence <= lastObservedSequence { return false }
         lastObservedSequence = message.sequence
         if state == .opening { state = .open }
         output.append(message)
         if output.count > outputBacklogCap {
             output.removeFirst(output.count - outputBacklogCap)
         }
+        return true
     }
 
-    func receiveClose(_ message: TerminalCloseMessage) {
+    @discardableResult
+    func receiveReady(_ message: TerminalReadyMessage) -> Bool {
         guard message.sessionID == sessionID,
-              message.terminalID == terminalID else { return }
+              message.terminalID == terminalID,
+              state == .opening else { return false }
+        state = .open
+        return true
+    }
+
+    @discardableResult
+    func receiveClose(_ message: TerminalCloseMessage) -> Bool {
+        guard message.sessionID == sessionID,
+              message.terminalID == terminalID else { return false }
         state = .closed(exitCode: message.exitCode, signal: message.signal, reason: message.reason)
         terminalID = nil
+        startupCommand = nil
+        return true
+    }
+}
+
+private extension ClientTerminalSessionManager.State {
+    var isClosed: Bool {
+        if case .closed = self { return true }
+        return false
     }
 }

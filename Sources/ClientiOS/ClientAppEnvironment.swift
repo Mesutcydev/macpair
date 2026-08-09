@@ -93,7 +93,7 @@ final class ClientAppEnvironment: ObservableObject {
 
         if let bonjourSignaling = self.signalingService as? BonjourSignalingService,
            bonjourSignaling.identityService == nil {
-            bonjourSignaling.identityService = CryptoIdentityService(tag: "uk.mesut.screenharbor.ios.p256")
+            bonjourSignaling.identityService = CryptoIdentityService(tag: "com.mesutcy.remotedesktop.terminal.p256")
             CrashSafeStartupDiagnostics.mark("environment.identity.injected")
         }
 
@@ -134,7 +134,7 @@ final class ClientAppEnvironment: ObservableObject {
         #else
         let currentDeviceModel = "Apple Device"
         #endif
-        let cryptoIdentity = CryptoIdentityService(tag: "uk.mesut.screenharbor.ios.p256")
+        let cryptoIdentity = CryptoIdentityService(tag: "com.mesutcy.remotedesktop.terminal.p256")
         let client = ClientIdentity(
             // Derive a STABLE id from the (persistent Keychain) fingerprint instead of a fresh
             // random UUID per launch — otherwise the host's id-keyed trust lookup misses every
@@ -152,7 +152,7 @@ final class ClientAppEnvironment: ObservableObject {
         let trustedPeerStore = PersistentTrustedPeerStore()
         let browser = BonjourHostDiscoveryBrowser()
         let signalingService = BonjourSignalingService()
-        signalingService.identityService = CryptoIdentityService(tag: "uk.mesut.screenharbor.ios.p256")
+        signalingService.identityService = CryptoIdentityService(tag: "com.mesutcy.remotedesktop.terminal.p256")
         let peerConnectionProvider = LANPeerConnectionProvider()
         let webRTCSessionManager = WebRTCSessionManager(peerConnectionProvider: peerConnectionProvider)
         let displayLayoutViewModel = DisplayLayoutViewModel()

@@ -27,6 +27,10 @@ public struct HostCapabilityFlags: OptionSet, Codable, Hashable, Sendable {
     /// AAC) when the client advertises this AND the stream rate/channels are Opus-
     /// compatible; otherwise it stays on AAC-LC, so older clients are unaffected.
     public static let supportsOpusAudio = HostCapabilityFlags(rawValue: 1 << 8)
+    /// The peer can open and use the authenticated PTY terminal feature.
+    public static let supportsTerminal = HostCapabilityFlags(rawValue: 1 << 9)
+    /// The peer supports multiple concurrent PTYs within one authenticated session.
+    public static let supportsMultipleTerminals = HostCapabilityFlags(rawValue: 1 << 10)
 
     public init(rawValue: Int) {
         self.rawValue = rawValue
@@ -44,7 +48,9 @@ public struct HostCapabilityFlags: OptionSet, Codable, Hashable, Sendable {
             .supportsAudioLater,
             .supportsVideoFragmentation,
             .supportsVideoFEC,
-            .supportsOpusAudio
+            .supportsOpusAudio,
+            .supportsTerminal,
+            .supportsMultipleTerminals
         ]
         #if canImport(VideoToolbox)
         if VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC) {
@@ -73,6 +79,8 @@ public extension HostCapabilityFlags {
         if contains(.supportsHDR10) { names.append("supportsHDR10") }
         if contains(.supportsVideoFEC) { names.append("supportsVideoFEC") }
         if contains(.supportsOpusAudio) { names.append("supportsOpusAudio") }
+        if contains(.supportsTerminal) { names.append("supportsTerminal") }
+        if contains(.supportsMultipleTerminals) { names.append("supportsMultipleTerminals") }
         return names
     }
 
@@ -98,6 +106,10 @@ public extension HostCapabilityFlags {
                 flags.insert(.supportsVideoFEC)
             case "supportsOpusAudio":
                 flags.insert(.supportsOpusAudio)
+            case "supportsTerminal":
+                flags.insert(.supportsTerminal)
+            case "supportsMultipleTerminals":
+                flags.insert(.supportsMultipleTerminals)
             default:
                 continue
             }

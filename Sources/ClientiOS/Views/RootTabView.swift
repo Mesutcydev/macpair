@@ -5,7 +5,11 @@ import SharedModels
 /// The app now ships a single front-end: the friendly Simple Mode home (laptop grid →
 /// tap to connect → fullscreen stream, with everything else behind the gear). The old
 /// tabbed "developer" UI and its first-run mode chooser were retired. First launch shows
+<<<<<<< HEAD
 /// a one-screen welcome that explains how MacPair works and points to MacPair Host, then drops
+=======
+/// a one-screen welcome that explains how Vamp Remote Control works and points to Vamp Host, then drops
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 /// straight into the home — no mode question, no fake terminal pairing.
 @available(iOS 16.1, *)
 struct RootTabView: View {
@@ -55,7 +59,11 @@ extension Notification.Name {
 #Preview("RootTabView") {
     if #available(iOS 16.1, *) {
         RootTabView(
+<<<<<<< HEAD
             environment: ClientAppEnvironment.makeDefault(clientName: "MacPair iOS"),
+=======
+            environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client"),
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             appLock: AppLockService()
         )
     }

@@ -1,5 +1,6 @@
 import Combine
 import SwiftUI
+import SharedUI
 
 private struct OnChangeCompatModifier<Value: Equatable>: ViewModifier {
     let value: Value
@@ -45,7 +46,11 @@ private struct AppLockPrivacyCover: View {
 @main
 struct ClientiOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
+<<<<<<< HEAD
     @StateObject private var environment = ClientAppEnvironment.makeDefault(clientName: "MacPair iOS")
+=======
+    @StateObject private var environment = ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client")
+>>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     @StateObject private var keepaliveService = BackgroundKeepaliveService()
     @StateObject private var appLock = AppLockService()
     @State private var observersInstalled = false
@@ -112,7 +117,7 @@ struct ClientiOSApp: App {
             }
             // Slightly longer than the Mac default so the front-loaded gleam/wink/twinkle
             // beats in iosClient() finish before the cross-fade.
-            .screenHarborSplash(.iosClient(), minimumDuration: 2.2)
+            .vampSplash(.iosClient(), minimumDuration: 2.2)
         }
     }
 

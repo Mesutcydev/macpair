@@ -67,7 +67,7 @@ final class ClientFileTransferManager: ObservableObject {
     }
 
     private enum DefaultsKeys {
-        static let isEnabled = "uk.mesut.screenharbor.ios.filetransfer.enabled"
+        static let isEnabled = "com.mesutcy.remotedesktop.terminal.filetransfer.enabled"
     }
 
     @Published var isImporterPresented = false
@@ -222,7 +222,7 @@ final class ClientFileTransferManager: ObservableObject {
         }
 
         let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ScreenHarbor Incoming Transfers", isDirectory: true)
+            .appendingPathComponent("Vamp Terminal Incoming Transfers", isDirectory: true)
         let tempURL = directory.appendingPathComponent("\(UUID().uuidString)-\(offer.sanitizedFileName)", isDirectory: false)
 
         do {
