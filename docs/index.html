@@ -417,7 +417,7 @@
       <div class="feature-grid">
         <article class="feature-card glass"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4m-4 3h7m-7 3h3"/></svg></div><h3>Live tabs, real shells</h3><p>Each tab owns an independent PTY. Switching visibility never closes and reopens the process underneath.</p></article>
         <article class="feature-card glass"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></div><h3>Made for thumbs</h3><p>Readable SwiftTerm output, scrollback, resize handling, paste, arrows, Ctrl, Esc, Tab, and a quick-key row.</p></article>
-        <article class="feature-card glass"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 12h8m-4-4v8"/><path d="M5 5h14v14H5z"/></svg></div><h3>Handoff, don’t restart</h3><p>Attach tmux or screen from the app, or launch Claude Code, Codex CLI, Aider, and OpenCode in their own tabs.</p></article>
+        <article class="feature-card glass"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 12h8m-4-4v8"/><path d="M5 5h14v14H5z"/></svg></div><h3>Handoff, don’t restart</h3><p>Attach tmux or screen from the app, or launch ten supported CLI agents in their own tabs: OpenCode, Pi, CommandCode, ChatGPT, Claude, Kimi, Qwen, Codex, Aider, and Grok.</p></article>
       </div>
     </section>
 
@@ -459,8 +459,8 @@ No output yet.</pre>
         <p>Use the original Vamp Host when you want remote desktop plus terminal access, or install the smaller terminal-only host when that is all the Mac should expose.</p>
       </div>
       <div class="host-grid">
-        <article class="host-card glass"><span class="host-label">macOS · full host</span><h3>Vamp Host</h3><p>Remote display, input, and Terminal Mode in one host. Terminal Mode is explicit and supports up to eight tabs for the Vamp Terminal client.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampHost-macOS-3.2.0-build-3-adhoc.zip" target="_blank" rel="noreferrer">Download full host ↗</a></article>
-        <article class="host-card glass"><span class="host-label">macOS · light host</span><h3>Vamp Terminal Host</h3><p>A focused companion with terminal sessions, Safari control, pairing, Tailscale discovery, and no screen-capture or remote-input surface.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampTerminalHost-macOS-1.0.0-build-2-adhoc.zip" target="_blank" rel="noreferrer">Download light host ↗</a></article>
+        <article class="host-card glass"><span class="host-label">macOS · full host</span><h3>Vamp Host</h3><p>Remote display, input, and Terminal Mode in one host. Terminal Mode is explicit and supports up to eight tabs for the Vamp Terminal client.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-5/VampHost-macOS-3.2.0-build-4-adhoc.zip" target="_blank" rel="noreferrer">Download full host ↗</a></article>
+        <article class="host-card glass"><span class="host-label">macOS · light host</span><h3>Vamp Terminal Host</h3><p>A focused companion with terminal sessions, Safari control, pairing, Tailscale discovery, and no screen-capture or remote-input surface.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-5/VampTerminalHost-macOS-1.0.0-build-3-adhoc.zip" target="_blank" rel="noreferrer">Download light host ↗</a></article>
         <article class="host-card glass"><span class="host-label">Linux · browser host</span><h3>Vamp Terminal Linux Host</h3><p>Dependency-free Python host with eight PTYs per browser connection. Keep it on loopback and expose it with Tailscale Serve for Safari access.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/blob/main/linux-host/README.md" target="_blank" rel="noreferrer">Run on Linux ↗</a></article>
       </div>
     </section>
@@ -493,7 +493,7 @@ No output yet.</pre>
       <div class="compat-card glass">
         <div class="eyebrow">Agent compatibility</div>
         <h2>Keep the process alive while you move.</h2>
-        <p>Vamp does not own your agent account or prompt. It gives Claude Code, Codex CLI, Aider, and OpenCode a stable PTY inside tmux so the client can reconnect to the same work.</p>
+        <p>Vamp does not own your agent account or prompt. It gives each supported CLI a stable named PTY inside tmux so the client can reconnect to the same work.</p>
         <div class="agent-list" aria-label="Supported agent launchers"><div class="agent"><b>◈</b> OpenCode</div><div class="agent"><b>π</b> Pi</div><div class="agent"><b>⌘</b> CommandCode</div><div class="agent"><b>◌</b> ChatGPT CLI</div><div class="agent"><b>✦</b> Claude Code</div><div class="agent"><b>K</b> Kimi</div><div class="agent"><b>Q</b> Qwen Code</div><div class="agent"><b>⌘</b> Codex CLI</div><div class="agent"><b>A</b> Aider</div><div class="agent"><b>G</b> Grok CLI</div></div>
         <div class="code-panel"><code>vamp terminal agent claude --session claude</code><button class="copy-button" data-copy="vamp terminal agent claude --session claude">Copy</button></div>
       </div>
@@ -570,7 +570,7 @@ No output yet.</pre>
         <article class="step glass"><h3>Sideload</h3><p>In AltStore, choose + → Sideload IPA and let it sign the app.</p><code>AltStore → + → Sideload IPA</code></article>
         <article class="step glass"><h3>Pair</h3><p>Enable Terminal Mode on Vamp Host, approve the pairing request, and connect.</p><code>LAN or Tailscale</code></article>
       </div>
-      <div class="hero-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampTerminal-iOS-1.0.0-build-4-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download build 4 IPA ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/releases" target="_blank" rel="noreferrer">Open all release assets ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_SIDELOAD.md" target="_blank" rel="noreferrer">Read the full guide ↗</a></div>
+      <div class="hero-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-5/VampTerminal-iOS-1.0.0-build-5-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download build 5 IPA ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/releases" target="_blank" rel="noreferrer">Open all release assets ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_SIDELOAD.md" target="_blank" rel="noreferrer">Read the full guide ↗</a></div>
     </section>
 
     <section class="compat wrap" id="security">

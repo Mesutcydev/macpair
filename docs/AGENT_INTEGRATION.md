@@ -67,10 +67,12 @@ command, so the existing process continues at its current point. The same
 workflow is available for GNU screen with `vamp terminal attach` and
 the `Attach screen` tab action.
 
-Supported agent launchers are `claude`, `codex`, `aider`, and `opencode` when
-the corresponding CLI is installed on the Mac. The app does not proxy agent
-APIs or credentials; it only transports the authenticated PTY and preserves
-the normal CLI's input/output behavior.
+Supported agent launchers are `opencode`, `pi`, `commandcode`, `chatgpt`,
+`claude`, `kimi`, `qwen`, `codex`, `aider`, and `grok` when the corresponding
+CLI is installed on the Mac. Vamp starts each launcher inside its own named
+tmux session; an unavailable executable produces the normal shell error in
+that tab. The app does not proxy agent APIs or credentials; it only transports
+the authenticated PTY and preserves the normal CLI's input/output behavior.
 
 ## Permissions
 
@@ -78,4 +80,4 @@ Screen Recording and Accessibility apply only to Vamp Host and require a human d
 
 ## Network
 
-The host advertises `_screenharbor._tcp` through Bonjour for compatibility with the existing signed pairing contract. It listens on `9471` for plain signaling, `9473` for TLS signaling, and normally uses `9472` for data. Do not expose these ports directly to the public internet; use a trusted LAN or private VPN.
+The host advertises `_screenharbor._tcp` through Bonjour for compatibility with the existing signed pairing contract. It listens on `9471` for plain signaling, `9473` for TLS signaling, and normally uses `9472` for data. Safari control uses `9475`; on a Mac, `127.0.0.1:9475` is local only, while another tailnet device should use the displayed Tailscale Serve HTTPS URL or the direct `http://100.x.y.z:9475/` fallback. Do not expose these ports directly to the public internet; use a trusted LAN or private VPN.

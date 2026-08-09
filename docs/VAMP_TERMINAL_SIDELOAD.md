@@ -6,10 +6,10 @@ Apple ID/team used on the installing device.
 
 ## Latest published build
 
-- [Vamp Terminal IPA build 4](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampTerminal-iOS-1.0.0-build-4-altstore-unsigned.ipa)
-- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampHost-macOS-3.2.0-build-3-adhoc.zip)
-- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampTerminalHost-macOS-1.0.0-build-2-adhoc.zip)
-- [All checksums and manifests](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-4)
+- [Vamp Terminal IPA build 5](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-5/VampTerminal-iOS-1.0.0-build-5-altstore-unsigned.ipa)
+- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-5/VampHost-macOS-3.2.0-build-4-adhoc.zip)
+- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-5/VampTerminalHost-macOS-1.0.0-build-3-adhoc.zip)
+- [All checksums and manifests](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-5)
 
 ## Build
 
@@ -52,9 +52,10 @@ vamp terminal start --session work
 ```
 
 In the app, choose `+` → `Attach / create tmux`, enter `work`, and the process
-continues from its current state. The launcher menu also has Claude Code,
-Codex CLI, Aider, and OpenCode presets; each uses a tmux-backed command so an
-agent can keep running while the mobile tab changes or reconnects.
+continues from its current state. The launcher menu also has OpenCode, Pi,
+CommandCode, ChatGPT CLI, Claude Code, Kimi, Qwen Code, Codex CLI, Aider, and
+Grok CLI presets; each uses a named tmux-backed command so an agent can keep
+running while the mobile tab changes or reconnects.
 
 ## Control from Safari without the iOS app
 

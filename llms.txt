@@ -25,6 +25,8 @@ vamp approve-pairing --fingerprint <verified-hex>
 vamp terminal list
 vamp terminal start --session work
 vamp terminal attach work
+vamp terminal agent opencode --session opencode
+vamp terminal agent claude --session claude
 vamp terminal agent codex --session codex
 vamp browser serve
 

@@ -83,6 +83,7 @@ The active project now carries the same baseline explicitly at the project level
   deferred for the reasons above.
 
 This is a build-setting hardening pass only; it does not grant a new privacy,
-network, or signing entitlement. The browser terminal is loopback-bound and is
-intended to be exposed through an operator-run Tailscale Serve command, not a
-public listener or hosted relay.
+network, or signing entitlement. The browser terminal remains private to the
+Mac and its Tailscale interface and can be reached through an operator-run
+Tailscale Serve command or the direct private Tailscale address, never through
+a public listener or hosted relay.

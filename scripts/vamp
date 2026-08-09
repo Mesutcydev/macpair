@@ -478,11 +478,13 @@ Commands:
   list                                  List tmux and GNU screen sessions
   start [--session <name>]              Create or attach a persistent tmux shell
   attach <name>                         Attach an existing tmux session
-  agent <name> [--session <name>]       Start/resume claude, codex, aider, or opencode
+  agent <name> [--session <name>]       Start/resume one of the supported CLI agents
 
 Examples:
   ${CLI_NAME} terminal start --session work
   ${CLI_NAME} terminal agent claude --session claude
+  ${CLI_NAME} terminal agent opencode --session opencode
+  ${CLI_NAME} terminal agent qwen --session qwen
   ${CLI_NAME} terminal attach work
 
 Start a session once on the Mac, then use Vamp Terminal → + → Attach / create
@@ -540,9 +542,9 @@ cmd_terminal() {
       shift || true
       local session="$agent"
       case "$agent" in
-        claude|codex|aider|opencode) ;;
+        opencode|pi|commandcode|chatgpt|claude|kimi|qwen|codex|aider|grok) ;;
         -h|--help|"") terminal_usage; return 0 ;;
-        *) err "Unsupported agent: $agent (use claude, codex, aider, or opencode)"; exit 4 ;;
+        *) err "Unsupported agent: $agent (use opencode, pi, commandcode, chatgpt, claude, kimi, qwen, codex, aider, or grok)"; exit 4 ;;
       esac
       while [[ $# -gt 0 ]]; do
         case "$1" in

@@ -382,7 +382,16 @@ private struct VampTerminalHostCommands: Identifiable, Equatable {
         Self(id: "list", command: "vamp terminal list", detail: "List tmux and screen sessions."),
         Self(id: "start", command: "vamp terminal start --session work", detail: "Create or resume a persistent shell."),
         Self(id: "attach", command: "vamp terminal attach work", detail: "Hand an existing shell to a new tab."),
-        Self(id: "agent", command: "vamp terminal agent codex --session codex", detail: "Start a tmux-backed coding agent."),
+        Self(id: "agent-opencode", command: "vamp terminal agent opencode --session opencode", detail: "Start OpenCode in a tmux-backed tab."),
+        Self(id: "agent-pi", command: "vamp terminal agent pi --session pi", detail: "Start Pi in a tmux-backed tab."),
+        Self(id: "agent-commandcode", command: "vamp terminal agent commandcode --session commandcode", detail: "Start CommandCode in a tmux-backed tab."),
+        Self(id: "agent-chatgpt", command: "vamp terminal agent chatgpt --session chatgpt", detail: "Start ChatGPT CLI in a tmux-backed tab."),
+        Self(id: "agent-claude", command: "vamp terminal agent claude --session claude", detail: "Start Claude Code in a tmux-backed tab."),
+        Self(id: "agent-kimi", command: "vamp terminal agent kimi --session kimi", detail: "Start Kimi in a tmux-backed tab."),
+        Self(id: "agent-qwen", command: "vamp terminal agent qwen --session qwen", detail: "Start Qwen Code in a tmux-backed tab."),
+        Self(id: "agent-codex", command: "vamp terminal agent codex --session codex", detail: "Start Codex CLI in a tmux-backed tab."),
+        Self(id: "agent-aider", command: "vamp terminal agent aider --session aider", detail: "Start Aider in a tmux-backed tab."),
+        Self(id: "agent-grok", command: "vamp terminal agent grok --session grok", detail: "Start Grok CLI in a tmux-backed tab."),
         Self(id: "browser", command: "vamp browser serve", detail: "Expose Safari control through Tailscale Serve.")
     ]
 }
