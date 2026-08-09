@@ -1474,7 +1474,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminal.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_POINTER_AUTHENTICATION = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Configuration/VampTerminal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1500,7 +1500,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminal.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_POINTER_AUTHENTICATION = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Configuration/VampTerminal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;

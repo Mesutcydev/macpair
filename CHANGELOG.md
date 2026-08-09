@@ -9,7 +9,7 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 ### Changed
 
 - Refresh the Vamp Terminal, Vamp Host, and website icon with the supplied glass terminal mark.
-- Bump the Vamp Terminal sideload build to build 2.
+- Bump the Vamp Terminal sideload build to build 3 after the release rebase and host hardening audit.
 
 ## [1.0.10] - 2026-08-04
 

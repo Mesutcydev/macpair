@@ -157,6 +157,7 @@ Sources/HostApp/Assets.xcassets/.DS_Store
 !Sources/VampTerminal/Assets.xcassets/
 !Sources/VampTerminal/Assets.xcassets/**
 !scripts/package-vamp-terminal-ios.sh
+!scripts/package-vamp-hosts.sh
 !scripts/install-vamp-cli.command
 !scripts/vamp
 !scripts/vamp-linux-host

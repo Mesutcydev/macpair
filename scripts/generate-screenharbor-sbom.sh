@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 [[ $# -eq 6 ]] || {
-  printf 'Usage: %s <artifact> <host|client|ios-client|vamp-terminal> <version> <build> <commit> <output>\n' "$0" >&2
+  printf 'Usage: %s <artifact> <host|client|ios-client|vamp-terminal|vamp-host|vamp-terminal-host> <version> <build> <commit> <output>\n' "$0" >&2
   exit 64
 }
 
@@ -19,8 +19,8 @@ commit="$5"
 output="$6"
 
 [[ -f "$artifact" ]] || { printf 'Artifact not found: %s\n' "$artifact" >&2; exit 1; }
-[[ "$component" == host || "$component" == client || "$component" == ios-client || "$component" == vamp-terminal ]] || {
-  printf 'Component must be host, client, ios-client, or vamp-terminal\n' >&2
+[[ "$component" == host || "$component" == client || "$component" == ios-client || "$component" == vamp-terminal || "$component" == vamp-host || "$component" == vamp-terminal-host ]] || {
+  printf 'Component must be host, client, ios-client, vamp-terminal, vamp-host, or vamp-terminal-host\n' >&2
   exit 64
 }
 
@@ -49,12 +49,16 @@ app_name = {
     "client": "Vamp Remote Client",
     "ios-client": "Vamp Remote Client for iOS",
     "vamp-terminal": "Vamp Terminal",
+    "vamp-host": "Vamp Host",
+    "vamp-terminal-host": "Vamp Terminal Host",
 }.get(component, "Vamp")
 bundle_id = {
     "host": "uk.mesut.screenharbor.host",
     "client": "uk.mesut.screenharbor.client",
     "ios-client": "uk.mesut.screenharbor.ios",
     "vamp-terminal": "com.mesutcy.remotedesktop.terminal",
+    "vamp-host": "com.mesutcy.remotedesktop.host",
+    "vamp-terminal-host": "com.mesutcy.remotedesktop.terminalhost",
 }[component]
 
 application = {
@@ -111,18 +115,18 @@ payload = {
             "components": [
                 {
                     "type": "application",
-                    "name": "generate-vamp-sbom.sh" if component == "vamp-terminal" else "generate-screenharbor-sbom.sh",
+                    "name": "generate-vamp-sbom.sh" if component.startswith("vamp-") else "generate-screenharbor-sbom.sh",
                 }
             ]
         },
         "component": application,
         "properties": [
-            {"name": "vamp:sourceCommit" if component == "vamp-terminal" else "screenharbor:sourceCommit", "value": commit},
+            {"name": "vamp:sourceCommit" if component.startswith("vamp-") else "screenharbor:sourceCommit", "value": commit},
             {
-                "name": "vamp:codeSignature" if component == "vamp-terminal" else "screenharbor:codeSignature",
+                "name": "vamp:codeSignature" if component.startswith("vamp-") else "screenharbor:codeSignature",
                 "value": "unsigned" if component in {"ios-client", "vamp-terminal"} else "ad-hoc",
             },
-            {"name": "vamp:appleNotarized" if component == "vamp-terminal" else "screenharbor:appleNotarized", "value": "false"},
+            {"name": "vamp:appleNotarized" if component.startswith("vamp-") else "screenharbor:appleNotarized", "value": "false"},
         ],
     },
     "components": dependencies,
