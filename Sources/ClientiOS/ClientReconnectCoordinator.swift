@@ -21,6 +21,7 @@ final class ClientReconnectCoordinator: ObservableObject {
     var onPerformReconnect: (() async throws -> Void)?
 
     let reconnectManager: ReconnectManager
+    let clientProductRole: ClientProductRole
 
     private let _webRTCSessionManager: any WebRTCSessionManaging
     private let _signalingService: any SessionCoordinatorSignaling
@@ -48,11 +49,13 @@ final class ClientReconnectCoordinator: ObservableObject {
         webRTCSessionManager: any WebRTCSessionManaging,
         signalingService: any SessionCoordinatorSignaling,
         displayLayoutViewModel: DisplayLayoutViewModel,
+        clientProductRole: ClientProductRole = .remoteControl,
         backoffConfiguration: ReconnectBackoff.Configuration = ReconnectBackoff.Configuration()
     ) {
         self._webRTCSessionManager = webRTCSessionManager
         self._signalingService = signalingService
         self.displayLayoutViewModel = displayLayoutViewModel
+        self.clientProductRole = clientProductRole
         self.reconnectManager = ReconnectManager(configuration: backoffConfiguration)
         self.reconnectStatus = ReconnectStatus(maxAttempts: backoffConfiguration.maxAttempts)
 
@@ -234,6 +237,7 @@ private final class ClientReconnectDelegate: ReconnectDelegate, @unchecked Senda
         let hostAddress = await MainActor.run { coord.lastHostAddress }
         let signalingPort = await MainActor.run { coord.lastSignalingPort }
         let hostFingerprint = await MainActor.run { coord.lastHostFingerprint }
+        let clientProductRole = await MainActor.run { coord.clientProductRole }
 
         // Rebuild signaling first so reconnect does not depend on a stale TCP socket.
         guard let hostAddress, !hostAddress.isEmpty, let signalingPort, signalingPort > 0 else {
@@ -261,6 +265,7 @@ private final class ClientReconnectDelegate: ReconnectDelegate, @unchecked Senda
         let effectiveToken = sessionTokenHex ?? ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
         offer.sessionToken = effectiveToken
         offer.clientCapabilities = .currentClient(isMacClient: false)
+        offer.clientProductRole = clientProductRole
         if qualityPreset == .ultra,
            offer.clientCapabilities?.contains(.supportsHDR10) == true {
             offer.preferredDynamicRange = .hdr10

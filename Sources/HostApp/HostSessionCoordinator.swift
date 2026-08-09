@@ -460,18 +460,32 @@ final class HostSessionCoordinator: ObservableObject {
         let clientID = sender.id
         let clientName = sender.displayName ?? "Unknown Client"
 
-        if productMode.isTerminalOnly,
-           offer.clientCapabilities?.contains(.supportsTerminal) != true {
-            logger.warning("Rejected non-terminal client '\(clientName)' from terminal-only host")
-            signalingService.dropCurrentConnection()
-            phase = .awaitingClient
-            errorMessage = "This host accepts Vamp Terminal clients only."
-            await eventLogStore.append(EventLogItem(
-                severity: .warning,
-                category: "Session",
-                message: "Rejected non-terminal client '\(clientName)' from Vamp Terminal Host"
-            ))
-            return
+        if productMode.isTerminalOnly {
+            let isTerminalClient = offer.clientProductRole == .terminal
+                && offer.clientCapabilities?.contains(.supportsTerminal) == true
+            guard isTerminalClient else {
+                try? await sendSignalingEvent(
+                    .permissionBlocked(
+                        PermissionBlockedMessage(
+                            sessionID: offer.sessionID,
+                            blockedPermissions: [],
+                            reason: .terminalOnlyHost
+                        )
+                    ),
+                    sessionID: offer.sessionID,
+                    recipient: sender
+                )
+                logger.warning("Rejected non-terminal client '\(clientName)' from terminal-only host")
+                signalingService.dropCurrentConnection()
+                phase = .awaitingClient
+                errorMessage = "This host accepts Vamp Terminal clients only."
+                await eventLogStore.append(EventLogItem(
+                    severity: .warning,
+                    category: "Session",
+                    message: "Rejected non-terminal client '\(clientName)' from Vamp Terminal Host"
+                ))
+                return
+            }
         }
 
         // Require a real cryptographic fingerprint. A missing or empty fingerprint

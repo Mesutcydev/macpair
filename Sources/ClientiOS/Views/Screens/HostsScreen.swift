@@ -17,6 +17,7 @@ struct HostsScreen: View {
     @State private var editingSavedHost: DiscoveredHostRow?
     @State private var editedSavedHostName = ""
     @State private var pendingTailscaleHost: DiscoveredHostRow?
+    @State private var pendingTerminalOnlyHost: DiscoveredHostRow?
 
     init(environment: ClientAppEnvironment) {
         self.environment = environment
@@ -245,12 +246,21 @@ struct HostsScreen: View {
         } message: {
             Text("This looks like a Tailscale address. Make sure the Tailscale VPN is connected on this iPhone, then try again — otherwise the host can’t be reached.")
         }
+        .alert("Terminal-only host", isPresented: Binding(
+            get: { pendingTerminalOnlyHost != nil },
+            set: { if !$0 { pendingTerminalOnlyHost = nil } }
+        )) {
+            Button("OK", role: .cancel) { pendingTerminalOnlyHost = nil }
+        } message: {
+            Text("\(pendingTerminalOnlyHost?.title ?? "This host") only provides terminal tabs. Use the separate Vamp Terminal client for this host. Vamp Remote Control Client connects to Vamp Host for screen and remote-control sessions.")
+        }
     }
 
     private func hostRow(_ host: DiscoveredHostRow) -> some View {
         let isActive = hostsVM.selectedHostID == host.id
         let signalColor = signalTint(for: host)
         let actionState = rowActionState(host)
+        let isTerminalOnly = host.endpoint.metadata.capabilities.isTerminalOnlyHost
         let canWake = !host.isAvailable
             && (host.endpoint.metadata.macAddress != nil || host.endpoint.bonjourServiceName != nil)
         let isWaking = wakingHostID == host.id
@@ -277,10 +287,26 @@ struct HostsScreen: View {
                                         .font(.system(size: 9, weight: .semibold))
                                         .foregroundColor(PR.accent)
                                 }
+                                if isTerminalOnly {
+                                    Text("TERMINAL ONLY")
+                                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                        .foregroundColor(PR.warn)
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 2)
+                                        .background(PR.warn.opacity(0.10))
+                                        .overlay(Capsule().strokeBorder(PR.warn.opacity(0.35), lineWidth: 1))
+                                        .clipShape(Capsule())
+                                }
                             }
                             Text("\(host.endpoint.hostname) · \(host.endpoint.metadata.appVersion)")
                                 .font(.system(size: 10, design: .monospaced))
                                 .foregroundColor(PR.dim)
+                            if isTerminalOnly && !environment.supportsTerminalOnlyHosts {
+                                Text("use Vamp Terminal for terminal tabs")
+                                    .font(.system(size: 9, design: .monospaced))
+                                    .foregroundColor(PR.warn)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
 
                         Spacer()
@@ -764,6 +790,10 @@ struct HostsScreen: View {
             return ("offline", PR.err, false)
         }
 
+        if host.endpoint.metadata.capabilities.isTerminalOnlyHost && !environment.supportsTerminalOnlyHosts {
+            return ("terminal only", PR.warn, false)
+        }
+
         guard hostsVM.selectedHostID == host.id else {
             return ("connect", PR.accent, false)
         }
@@ -781,6 +811,10 @@ struct HostsScreen: View {
     }
 
     private func connect(_ host: DiscoveredHostRow) {
+        if host.endpoint.metadata.capabilities.isTerminalOnlyHost && !environment.supportsTerminalOnlyHosts {
+            pendingTerminalOnlyHost = host
+            return
+        }
         // Remind the user to enable the VPN before a Tailscale/relay address —
         // it can't resolve without Tailscale connected.
         if isRelayHost(host) && sessionCoordinator.tailscaleVPNStatus == .inactive {

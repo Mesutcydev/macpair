@@ -209,6 +209,7 @@ private struct HostMinimalDashboard: View {
     @ObservedObject private var sessionCoordinator: HostSessionCoordinator
     @Environment(\.scenePhase) private var scenePhase
     @State private var tailscaleInfo: TailscaleConnectionInfo?
+    @State private var tailscaleInstalled = false
     @State private var copiedAddress: String?
     @State private var showPermissions = false
     @State private var showLightNotification = false
@@ -246,9 +247,15 @@ private struct HostMinimalDashboard: View {
                 await permissionsViewModel.refresh()
             }
             environment.refreshStartAtLoginState()
-            let info = await Task.detached(priority: .utility) { getTailscaleConnectionInfo() }.value
-            tailscaleInfo = info
-            await discoveryViewModel.updateTailscaleIdentity(hostname: info?.dnsName, ip: info?.ipAddress)
+            let snapshot = await Task.detached(priority: .utility) {
+                getTailscaleDetectionSnapshot()
+            }.value
+            tailscaleInfo = snapshot.info
+            tailscaleInstalled = snapshot.installed
+            await discoveryViewModel.updateTailscaleIdentity(
+                hostname: snapshot.info?.dnsName,
+                ip: snapshot.info?.ipAddress
+            )
         }
         .sheet(isPresented: $showPermissionExplainer) {
             HostPermissionExplainerSheet(
@@ -264,10 +271,16 @@ private struct HostMinimalDashboard: View {
         .onChange(of: scenePhase) { phase in
             guard phase == .active else { return }
             Task.detached(priority: .utility) {
-                let info = getTailscaleConnectionInfo()
+                let snapshot = getTailscaleDetectionSnapshot()
                 await MainActor.run {
-                    tailscaleInfo = info
-                    Task { await discoveryViewModel.updateTailscaleIdentity(hostname: info?.dnsName, ip: info?.ipAddress) }
+                    tailscaleInfo = snapshot.info
+                    tailscaleInstalled = snapshot.installed
+                    Task {
+                        await discoveryViewModel.updateTailscaleIdentity(
+                            hostname: snapshot.info?.dnsName,
+                            ip: snapshot.info?.ipAddress
+                        )
+                    }
                 }
             }
         }
@@ -292,9 +305,19 @@ private struct HostMinimalDashboard: View {
 
                 statusHeroCard
 
+                HostTailscaleStatusView(
+                    info: $tailscaleInfo,
+                    installed: $tailscaleInstalled,
+                    compact: false
+                )
+
                 // Connect addresses — show LAN and (when on a tailnet) MagicDNS + TS IP.
                 if !connectAddresses.isEmpty {
                     connectSection
+                }
+
+                if environment.browserControlStatus.running {
+                    safariConnectSection
                 }
 
                 // Live metrics — only relevant once a session is up.
@@ -452,6 +475,53 @@ private struct HostMinimalDashboard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .hostGlassSurface(
             in: RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous)
+        )
+    }
+
+    /// Safari's browser-control URLs are intentionally separate from the
+    /// WebRTC signaling addresses above. The HTTPS link is the remote path;
+    /// 127.0.0.1 is shown only as a Mac-local diagnostic and is never framed
+    /// as a phone/tablet address.
+    private var safariConnectSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 7) {
+                Label("Safari control", systemImage: "safari")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Text("PRIVATE")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.green)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.green.opacity(0.12), in: Capsule())
+            }
+
+            ForEach(safariAddresses, id: \.value) { entry in
+                connectAddressRow(
+                    entry,
+                    valueColor: AppColor.textPrimary,
+                    accent: entry.label.contains("https") ? .green : AppColor.primaryAccent
+                )
+            }
+
+            if safariAddresses.isEmpty {
+                Text("Tailscale is not connected yet. Activate it above to receive the Safari link.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("Open the HTTPS address in Safari while Tailscale is connected on both devices. Do not use 127.0.0.1 on the phone.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hostGlassSurface(
+            in: RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous),
+            tint: .green
         )
     }
 
@@ -918,6 +988,20 @@ private struct HostMinimalDashboard: View {
         return entries.filter { seen.insert($0.value).inserted }
     }
 
+    private var safariAddresses: [ConnectAddressEntry] {
+        guard let port = environment.browserControlStatus.port else { return [] }
+        var entries: [ConnectAddressEntry] = []
+        if let info = tailscaleInfo {
+            if let dnsName = info.dnsName, !dnsName.isEmpty {
+                entries.append(.init(label: "safari https", value: "https://\(dnsName)"))
+            }
+            entries.append(.init(label: "safari direct", value: "http://\(info.ipAddress):\(port)"))
+        }
+        entries.append(.init(label: "mac only", value: "http://127.0.0.1:\(port)"))
+        var seen = Set<String>()
+        return entries.filter { seen.insert($0.value).inserted }
+    }
+
     private func connectAddressRow(_ entry: ConnectAddressEntry, valueColor: Color = AppColor.textPrimary, accent: Color = AppColor.primaryAccent) -> some View {
         let isCopied = copiedAddress == entry.value
         return Button {
@@ -1132,6 +1216,22 @@ private struct HostSettingsView: View {
                     get: { environment.startAtLoginEnabled },
                     set: { environment.setStartAtLogin($0) }
                 ))
+
+                if let loginMessage = environment.startAtLoginErrorMessage {
+                    HStack(alignment: .top, spacing: 10) {
+                        Text(loginMessage)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                        #if os(macOS)
+                        Button("Open Login Items") {
+                            environment.openStartAtLoginSettings()
+                        }
+                        .controlSize(.small)
+                        #endif
+                    }
+                }
 
                 Toggle("Low Power Mode", isOn: Binding(
                     get: { environment.manualLowPowerModeEnabled },

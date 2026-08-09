@@ -142,11 +142,23 @@ public struct SessionReadyMessage: Codable, Hashable, Sendable {
 public struct PermissionBlockedMessage: Codable, Hashable, Sendable {
     public var sessionID: UUID
     public var blockedPermissions: [PermissionState]
+    /// Optional reason for a policy rejection. Older hosts omit it and clients
+    /// retain the existing permission guidance.
+    public var reason: PermissionBlockedReason?
 
-    public init(sessionID: UUID, blockedPermissions: [PermissionState]) {
+    public init(
+        sessionID: UUID,
+        blockedPermissions: [PermissionState],
+        reason: PermissionBlockedReason? = nil
+    ) {
         self.sessionID = sessionID
         self.blockedPermissions = blockedPermissions
+        self.reason = reason
     }
+}
+
+public enum PermissionBlockedReason: String, Codable, Hashable, Sendable {
+    case terminalOnlyHost
 }
 
 public struct HostBusyMessage: Codable, Hashable, Sendable {

@@ -8,8 +8,14 @@ struct ClientHostBlockedState: Equatable {
     var blockedPermissions: [PermissionState]
 
     init(message: PermissionBlockedMessage) {
-        self.title = "Host Permissions Needed"
         self.blockedPermissions = message.blockedPermissions
+        if message.reason == .terminalOnlyHost {
+            self.title = "Vamp Terminal Required"
+            self.message = "This is Vamp Terminal Host, which does not provide screen sharing or remote control. Open it with the Vamp Terminal app for terminal tabs, or connect this client to the full Vamp Host."
+            return
+        }
+
+        self.title = "Host Permissions Needed"
         let names = message.blockedPermissions
             .map { $0.kind.clientTitle }
             .joined(separator: ", ")

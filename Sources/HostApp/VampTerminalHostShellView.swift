@@ -2,6 +2,132 @@
 import AppKit
 import SwiftUI
 
+/// Shared host-side Tailscale status surface used by both Vamp Host products.
+/// The activation action opens the official Tailscale app, then refreshes the
+/// daemon state so the address list updates without requiring a host restart.
+struct HostTailscaleStatusView: View {
+    @Binding var info: TailscaleConnectionInfo?
+    @Binding var installed: Bool
+    let compact: Bool
+
+    @State private var isActivating = false
+    @State private var activationMessage: String?
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(statusColor.opacity(0.16))
+                        .frame(width: 30, height: 30)
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 9, height: 9)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Tailscale")
+                        .font(.headline)
+                    Text(statusTitle)
+                        .font(.caption)
+                        .foregroundStyle(statusColor)
+                    if let info {
+                        Text(info.dnsName ?? info.ipAddress)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    } else if let activationMessage {
+                        Text(activationMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    } else {
+                        Text("Required for Safari access away from this Mac")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            Button {
+                activateTailscale()
+            } label: {
+                if isActivating {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(minWidth: compact ? 22 : 102)
+                } else {
+                    Label(buttonTitle, systemImage: info == nil ? "power" : "arrow.up.forward.app")
+                        .lineLimit(1)
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(compact ? .small : .regular)
+            .disabled(isActivating)
+            .help(info == nil ? "Open Tailscale and wait for a tailnet connection" : "Open Tailscale")
+        }
+        .padding(compact ? 11 : 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hostGlassSurface(
+            in: RoundedRectangle(cornerRadius: compact ? AppRadius.medium : AppRadius.large, style: .continuous),
+            tint: statusColor
+        )
+        .task {
+            await refreshTailscale()
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var statusTitle: String {
+        if info != nil { return "Connected to tailnet" }
+        if installed { return "Not connected" }
+        return "Not installed"
+    }
+
+    private var statusColor: Color {
+        if info != nil { return .green }
+        if installed { return .orange }
+        return .secondary
+    }
+
+    private var buttonTitle: String {
+        if info != nil { return "Open Tailscale" }
+        if installed { return "Activate Tailscale" }
+        return "Open Tailscale"
+    }
+
+    private func refreshTailscale() async {
+        let snapshot = await Task.detached(priority: .utility) {
+            getTailscaleDetectionSnapshot()
+        }.value
+        guard !Task.isCancelled else { return }
+        info = snapshot.info
+        installed = snapshot.installed
+    }
+
+    private func activateTailscale() {
+        isActivating = true
+        let didOpen = openTailscaleApplication()
+        activationMessage = didOpen
+            ? "Tailscale opened. Waiting for the VPN…"
+            : "Tailscale could not be opened. Install it, then try again."
+
+        Task {
+            for _ in 0..<12 {
+                await refreshTailscale()
+                if info != nil { break }
+                try? await Task.sleep(for: .seconds(1))
+            }
+            isActivating = false
+        }
+    }
+}
+
 /// Focused dashboard for the separate Vamp Terminal Host product.
 ///
 /// This deliberately does not expose screen capture, remote input, file
@@ -12,6 +138,7 @@ struct VampTerminalHostShellView: View {
     @ObservedObject var environment: HostAppEnvironment
 
     @State private var tailscaleInfo: TailscaleConnectionInfo?
+    @State private var tailscaleInstalled = false
     @State private var copiedValue: String?
     @State private var showingGuide = false
 
@@ -19,6 +146,11 @@ struct VampTerminalHostShellView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
+                HostTailscaleStatusView(
+                    info: $tailscaleInfo,
+                    installed: $tailscaleInstalled,
+                    compact: false
+                )
                 statusCard
                 browserCard
                 commandCard
@@ -30,13 +162,14 @@ struct VampTerminalHostShellView: View {
         .background(VampTerminalHostBackdrop())
         .task {
             await environment.startRuntimeIfNeeded()
-            let info = await Task.detached(priority: .utility) {
-                getTailscaleConnectionInfo()
+            let snapshot = await Task.detached(priority: .utility) {
+                getTailscaleDetectionSnapshot()
             }.value
-            tailscaleInfo = info
+            tailscaleInfo = snapshot.info
+            tailscaleInstalled = snapshot.installed
             await environment.discoveryAdvertiserViewModel.updateTailscaleIdentity(
-                hostname: info?.dnsName,
-                ip: info?.ipAddress
+                hostname: snapshot.info?.dnsName,
+                ip: snapshot.info?.ipAddress
             )
         }
         .toolbar {
@@ -167,6 +300,34 @@ struct VampTerminalHostShellView: View {
                     Label("Restart host", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
+            }
+
+            Divider()
+
+            HStack(alignment: .top, spacing: 10) {
+                Label("Start at Login", systemImage: "power.circle")
+                    .font(.subheadline.weight(.semibold))
+                Spacer(minLength: 10)
+                Toggle("", isOn: Binding(
+                    get: { environment.startAtLoginEnabled },
+                    set: { environment.setStartAtLogin($0) }
+                ))
+                .labelsHidden()
+            }
+
+            if let loginMessage = environment.startAtLoginErrorMessage {
+                HStack(alignment: .top, spacing: 10) {
+                    Text(loginMessage)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    Button("Open Login Items") {
+                        environment.openStartAtLoginSettings()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
             }
         }
     }

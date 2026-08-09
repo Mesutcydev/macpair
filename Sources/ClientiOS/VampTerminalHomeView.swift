@@ -87,58 +87,75 @@ struct VampTerminalHomeView: View {
     private var homeContent: some View {
         NavigationStack {
             ZStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: VampTerminalDesign.space6) {
-                        hero
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: VampTerminalDesign.space6) {
+                            hero
+                                .id("vamp-terminal-home-top")
 
-                        guideEntry
+                            guideEntry
 
-                        if !hostPromoDismissed {
-                            VampHostPromoCard {
-                                hostPromoDismissed = true
+                            if !hostPromoDismissed {
+                                VampHostPromoCard {
+                                    hostPromoDismissed = true
+                                }
+                            } else {
+                                hostSetupRecovery
                             }
-                        } else {
-                            hostSetupRecovery
+
+                            if isConnecting {
+                                connectionProgressCard
+                            }
+
+                            if let blocked = environment.sessionCoordinator.blockedState {
+                                messageCard(
+                                    title: blocked.title,
+                                    message: blocked.message,
+                                    icon: "lock.shield",
+                                    tint: VampGlassPalette.warning
+                                )
+                            } else if let error = environment.sessionCoordinator.errorMessage,
+                                      environment.sessionCoordinator.phase == .error {
+                                messageCard(
+                                    title: "Connection needs attention",
+                                    message: error,
+                                    icon: "exclamationmark.triangle",
+                                    tint: VampGlassPalette.warning
+                                )
+                            } else if let unavailable = terminalUnavailableMessage {
+                                terminalUnavailableCard(
+                                    title: unavailable.title,
+                                    message: unavailable.message,
+                                    icon: unavailable.icon
+                                )
+                            }
+
+                            hostSection
+
+                            pairingNote
                         }
-
-                        if isConnecting {
-                            connectionProgressCard
-                        }
-
-                        if let blocked = environment.sessionCoordinator.blockedState {
-                            messageCard(
-                                title: blocked.title,
-                                message: blocked.message,
-                                icon: "lock.shield",
-                                tint: VampGlassPalette.warning
-                            )
-                        } else if let error = environment.sessionCoordinator.errorMessage,
-                                  environment.sessionCoordinator.phase == .error {
-                            messageCard(
-                                title: "Connection needs attention",
-                                message: error,
-                                icon: "exclamationmark.triangle",
-                                tint: VampGlassPalette.warning
-                            )
-                        } else if let unavailable = terminalUnavailableMessage {
-                            terminalUnavailableCard(
-                                title: unavailable.title,
-                                message: unavailable.message,
-                                icon: unavailable.icon
-                            )
-                        }
-
-                        hostSection
-
-                        pairingNote
+                        .padding(.horizontal, VampTerminalDesign.space4)
+                        .padding(.top, VampTerminalDesign.space3)
+                        .padding(.bottom, VampTerminalDesign.space7)
+                        .frame(maxWidth: 760, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
-                    .padding(.horizontal, VampTerminalDesign.space4)
-                    .padding(.top, VampTerminalDesign.space3)
-                    .padding(.bottom, VampTerminalDesign.space7)
-                    .frame(maxWidth: 760, alignment: .leading)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .scrollDismissesKeyboard(.interactively)
+                    .onChange(of: manualAddressFocused) { _, isFocused in
+                        guard !isFocused else { return }
+                        // SwiftUI may leave the scroll view parked at the
+                        // address field after the keyboard is dismissed.
+                        // Return to the stable dashboard top so the hero and
+                        // host cards are not left half-clipped.
+                        DispatchQueue.main.async {
+                            var transaction = Transaction()
+                            transaction.animation = nil
+                            withTransaction(transaction) {
+                                proxy.scrollTo("vamp-terminal-home-top", anchor: .top)
+                            }
+                        }
+                    }
                 }
-                .scrollDismissesKeyboard(.interactively)
             }
             .background(VampTerminalBackdrop())
             .navigationTitle("Vamp Terminal")

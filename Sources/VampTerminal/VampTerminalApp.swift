@@ -6,7 +6,11 @@ struct VampTerminalApp: App {
 
     init() {
         _environment = StateObject(
-            wrappedValue: ClientAppEnvironment.makeDefault(clientName: "Vamp Terminal")
+            wrappedValue: ClientAppEnvironment.makeDefault(
+                clientName: "Vamp Terminal",
+                supportsTerminalOnlyHosts: true,
+                clientProductRole: .terminal
+            )
         )
     }
 

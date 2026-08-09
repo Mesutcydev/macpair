@@ -1,11 +1,12 @@
 import Foundation
 import SharedUtilities
 #if os(macOS)
+import AppKit
 import Darwin
 #endif
 
 /// Tailscale identity for this host, when the device is signed in to a tailnet.
-struct TailscaleConnectionInfo: Equatable {
+struct TailscaleConnectionInfo: Equatable, Sendable {
     let ipAddress: String
     let dnsName: String?
 
@@ -24,6 +25,26 @@ struct TailscaleConnectionInfo: Equatable {
         guard let dnsName, !dnsName.isEmpty else { return nil }
         return "https://\(dnsName)"
     }
+}
+
+/// The small amount of Tailscale state the host dashboard needs to explain
+/// whether a Safari connection can work. `info == nil` means the daemon is
+/// either signed out, stopped, or not installed; `installed` lets the UI tell
+/// those cases apart without guessing from an empty address list.
+struct TailscaleDetectionSnapshot: Equatable, Sendable {
+    let info: TailscaleConnectionInfo?
+    let installed: Bool
+
+    static let empty = Self(info: nil, installed: false)
+
+    var isConnected: Bool { info != nil }
+}
+
+func getTailscaleDetectionSnapshot() -> TailscaleDetectionSnapshot {
+    TailscaleDetectionSnapshot(
+        info: getTailscaleConnectionInfo(),
+        installed: isTailscaleInstalled()
+    )
 }
 
 /// Detects whether this Mac is on a Tailscale tailnet and returns its addressable identity.
@@ -54,6 +75,45 @@ func getTailscaleConnectionInfo() -> TailscaleConnectionInfo? {
 
     return nil
 }
+
+private func isTailscaleInstalled() -> Bool {
+    if findTailscaleBinary() != nil { return true }
+
+    let fileManager = FileManager.default
+    let applicationPaths = [
+        "/Applications/Tailscale.app",
+        fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent("Applications/Tailscale.app").path
+    ]
+    return applicationPaths.contains { fileManager.fileExists(atPath: $0) }
+}
+
+#if os(macOS)
+/// Opens the installed Tailscale client. The daemon still owns the VPN
+/// permission flow, so the host intentionally hands activation to the
+/// official app instead of trying to run `tailscale up` behind the user's
+/// back. The caller can poll `getTailscaleDetectionSnapshot()` afterwards.
+@discardableResult
+func openTailscaleApplication() -> Bool {
+    let fileManager = FileManager.default
+    let applicationPaths = [
+        "/Applications/Tailscale.app",
+        fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent("Applications/Tailscale.app").path
+    ]
+
+    for path in applicationPaths where fileManager.fileExists(atPath: path) {
+        if NSWorkspace.shared.open(URL(fileURLWithPath: path)) {
+            return true
+        }
+    }
+
+    if let url = URL(string: "tailscale://") {
+        return NSWorkspace.shared.open(url)
+    }
+    return false
+}
+#endif
 
 // MARK: - Internals
 

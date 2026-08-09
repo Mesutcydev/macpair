@@ -905,10 +905,18 @@ private enum BrowserControlWebAssets {
 .tab{min-height:40px}.newtab{min-width:44px;min-height:44px}.quick button{min-height:40px}.composer{z-index:4}.composer input{min-height:44px}.clipboard-wrap{position:relative;flex:0 0 auto}.clipboard-trigger{width:auto!important;min-width:44px;padding:0 12px;display:flex;align-items:center;justify-content:center;gap:6px}.clipboard-label{font-size:13px;font-weight:600}.clipboard-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:6;min-width:230px;padding:8px;background:rgba(43,43,43,.96);border:1px solid rgba(255,255,255,.18);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.42);backdrop-filter:blur(18px)}.clipboard-menu.hidden{display:none}.clipboard-menu button{width:100%!important;height:auto!important;min-height:40px;padding:10px 12px;text-align:left;background:transparent;border-radius:9px;font-size:14px}.clipboard-menu button:hover,.clipboard-menu button:focus-visible{background:rgba(255,255,255,.12)}.approval-actions{flex-wrap:wrap}.tab-dot{color:var(--muted);font-size:11px}.tab-dot.open{color:var(--good)}.tab-dot.opening{color:var(--warn)}.modal-card input,.modal-card button{min-height:44px}@media(max-width:520px){.clipboard-label{display:none}.clipboard-trigger{padding:0 10px}}
 </style></head>
 <body><div class="shell">
-<header class="top"><button class="back" aria-label="Back" onclick="history.back()">‹</button><div class="title">Task chat</div><div class="state"><span class="dot"></span><span id="state">Pairing</span></div></header>
+<header class="top"><button class="back" id="back" aria-label="Open sessions dashboard" title="Open sessions dashboard" onclick="vampToggleDashboard()">‹</button><div class="title" id="page-title">Task chat</div><div class="state"><span class="dot"></span><span id="state">Pairing</span></div></header>
 <nav class="tabs" id="tabs" aria-label="Terminal tabs"><button class="newtab" id="newtab" aria-label="New terminal">＋</button></nav>
-<main class="content"><section class="chat" id="chat"><div class="empty" id="empty">Pair this browser to start a terminal task.</div></section></main>
-<div class="composer"><div class="clipboard-wrap"><button id="clipboard" class="clipboard-trigger" type="button" title="Clipboard actions" aria-label="Clipboard actions" aria-expanded="false">▣ <span class="clipboard-label">Clipboard</span></button><div id="clipboard-menu" class="clipboard-menu hidden" role="menu" aria-label="Clipboard actions"><button id="paste" type="button" role="menuitem">Paste into terminal</button><button id="copyhost" type="button" role="menuitem">Copy Mac clipboard to Safari</button><button id="sethost" type="button" role="menuitem">Send Safari clipboard to Mac</button></div></div><input id="input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command…"><button id="more" type="button" title="More controls" aria-label="More controls">•••</button><button class="send" id="send" type="button" title="Review command" aria-label="Review command">↑</button></div>
+<main class="content">
+<section class="dashboard hidden" id="dashboard" aria-labelledby="dashboard-title">
+  <div class="dashboard-heading"><div><div class="dashboard-kicker">VAMP TERMINAL</div><h1 id="dashboard-title">Sessions</h1><p>Choose a live shell or return to the task stream. Tabs stay independent while you switch.</p></div><button class="dashboard-open" id="dashboard-open" type="button">Open task chat</button></div>
+  <article class="host-card"><div><div class="dashboard-kicker">HOST CONNECTION</div><h2 id="dashboard-host-title">This Mac</h2><p id="dashboard-host-detail">Checking Vamp Host…</p></div><span class="host-state" id="dashboard-host-state">●</span></article>
+  <div class="session-heading"><h2>Active sessions</h2><span id="dashboard-count">0 / 8</span></div>
+  <div class="session-grid" id="session-grid"></div>
+</section>
+<section class="chat" id="chat"><div class="empty" id="empty">Pair this browser to start a terminal task.</div></section>
+</main>
+<div class="composer" id="composer"><div class="clipboard-wrap"><button id="clipboard" class="clipboard-trigger" type="button" title="Clipboard actions" aria-label="Clipboard actions" aria-expanded="false">▣ <span class="clipboard-label">Clipboard</span></button><div id="clipboard-menu" class="clipboard-menu hidden" role="menu" aria-label="Clipboard actions"><button id="paste" type="button" role="menuitem">Paste into terminal</button><button id="copyhost" type="button" role="menuitem">Copy Mac clipboard to Safari</button><button id="sethost" type="button" role="menuitem">Send Safari clipboard to Mac</button></div></div><input id="input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command…"><button id="more" type="button" title="More controls" aria-label="More controls">•••</button><button class="send" id="send" type="button" title="Review command" aria-label="Review command">↑</button></div>
 </div>
 <div class="modal" id="pair"><div class="modal-card"><h2>Open this workspace</h2><p>Enter the six-digit code shown in Vamp Host → Settings → Browser control. The code expires after ten minutes.</p><input id="code" inputmode="numeric" maxlength="6" placeholder="000000" aria-label="Pairing code"><div class="error" id="pair-error"></div><button id="pair-button">Pair browser</button></div></div>
 <div class="modal hidden" id="more-modal"><div class="modal-card more-card"><div class="more-kicker">Terminal actions</div><h2>Open a session</h2><p>Start a fresh shell, attach a persistent tmux or screen session, or open a coding agent in a new tab.</p><div class="more-actions"><button id="more-shell" type="button"><span class="provider-mark" style="--provider:#e8e8e8">›_</span><span><b>New shell</b><br><small>Open an independent terminal tab</small></span></button><button id="more-tmux" type="button" class="secondary"><span class="provider-mark" style="--provider:#9dd6ff">▣</span><span><b>Attach / create tmux</b><br><small>Resume a named workspace</small></span></button><button id="more-screen" type="button" class="secondary"><span class="provider-mark" style="--provider:#b8a6ff">▤</span><span><b>Attach screen</b><br><small>Resume a GNU screen session</small></span></button></div><div class="provider-title">Agent launchers</div><div class="provider-grid"><button type="button" data-provider="opencode" style="--provider:#00c8ce"><span class="provider-mark">◈</span><span>OpenCode</span></button><button type="button" data-provider="pi" style="--provider:#f57a48"><span class="provider-mark">π</span><span>Pi</span></button><button type="button" data-provider="commandcode" style="--provider:#b883ff"><span class="provider-mark">⌘</span><span>CommandCode</span></button><button type="button" data-provider="chatgpt" style="--provider:#10a37f"><span class="provider-mark">◌</span><span>ChatGPT CLI</span></button><button type="button" data-provider="claude" style="--provider:#dc6a42"><span class="provider-mark">✦</span><span>Claude Code</span></button><button type="button" data-provider="kimi" style="--provider:#4c8dff"><span class="provider-mark">K</span><span>Kimi</span></button><button type="button" data-provider="qwen" style="--provider:#4678f2"><span class="provider-mark">Q</span><span>Qwen Code</span></button><button type="button" data-provider="codex" style="--provider:#10a37f"><span class="provider-mark">⌘</span><span>Codex CLI</span></button><button type="button" data-provider="aider" style="--provider:#66c28c"><span class="provider-mark">A</span><span>Aider</span></button><button type="button" data-provider="grok" style="--provider:#e6a94f"><span class="provider-mark">G</span><span>Grok CLI</span></button></div><label class="more-command">Custom command or session<input id="more-command" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tmux attach -t work"></label><div class="more-footer"><button id="more-cancel" class="secondary" type="button">Cancel</button><button id="more-open" type="button">Open tab</button></div></div></div>
@@ -937,10 +945,39 @@ $('newtab').onclick=()=>createTab();$('send').onclick=reviewCommand;$('input').a
 // keep approvals and input tied to the tab that created them, preserve UTF-8
 // across output chunks, expose both clipboard directions, and make reconnect
 // and resize paths explicit.
-const vampTerminalSize = () => ({
-  cols: Math.max(40, Math.floor(innerWidth / 8)),
-  rows: Math.max(12, Math.floor((innerHeight - 250) / 21))
-});
+let vampStatus = null;
+let vampResizeFrame = 0;
+const vampUpdateViewportInset = () => {
+  const viewport = window.visualViewport;
+  const layoutHeight = document.documentElement.clientHeight || window.innerHeight;
+  const visibleBottom = viewport ? viewport.height + viewport.offsetTop : layoutHeight;
+  const inset = Math.max(0, Math.round(layoutHeight - visibleBottom));
+  document.documentElement.style.setProperty('--vamp-bottom-inset', inset + 'px');
+  const visibleHeight = viewport ? Math.max(240, Math.round(viewport.height)) : layoutHeight;
+  document.documentElement.style.setProperty('--vamp-visual-height', visibleHeight + 'px');
+  const terminalHeight = Math.min(460, Math.max(160, Math.round(visibleHeight * 0.42)));
+  document.documentElement.style.setProperty('--vamp-terminal-height', terminalHeight + 'px');
+};
+const vampRestoreShellPosition = () => {
+  document.activeElement?.blur();
+  const content = document.querySelector('.content');
+  if (content) content.scrollTop = 0;
+  window.scrollTo(0, 0);
+  requestAnimationFrame(() => {
+    if (content) content.scrollTop = 0;
+    window.scrollTo(0, 0);
+  });
+};
+const vampTerminalSize = (id = active) => {
+  const stream = id ? document.querySelector('.stream[data-id="' + id + '"]') : null;
+  const terminal = stream?.querySelector('.terminal');
+  const width = terminal?.clientWidth || Math.max(320, innerWidth - 28);
+  const height = terminal?.clientHeight || Math.min(460, Math.max(180, Math.round(innerHeight * 0.42)));
+  return {
+    cols: Math.max(40, Math.min(240, Math.floor((width - 28) / 8.4))),
+    rows: Math.max(12, Math.min(100, Math.floor((height - 28) / 20)))
+  };
+};
 
 const vampMoreStyle = document.createElement('style');
 vampMoreStyle.textContent = `
@@ -964,11 +1001,57 @@ vampMoreStyle.textContent = `
   .more-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
   .more-footer button { margin: 0; }
   .more-footer .secondary { background: rgba(255,255,255,.10); color: #eee; }
+  [hidden], .hidden { display: none !important; }
+  html, body { height: 100%; overflow: hidden; }
+  body { overscroll-behavior-y: none; }
+  .shell { position: fixed; inset: 0; width: 100%; height: var(--vamp-visual-height, 100svh); min-height: 0; padding-bottom: 0; overflow: hidden; }
+  .content { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+  .chat { min-height: 100%; padding-bottom: 24px; }
+  .stream { min-height: 0; }
+  .terminal { height: var(--vamp-terminal-height, clamp(180px, 42svh, 460px)); max-height: none; white-space: pre; word-break: normal; overflow-wrap: normal; line-height: 1.45; }
+  .quick { min-height: 60px; padding: 10px 0 12px; flex-shrink: 0; }
+  .quick button { flex: 0 0 auto; }
+  .composer { position: relative; left: auto; right: auto; bottom: auto; width: min(calc(100% - 28px), 952px); margin: 0 auto max(12px, env(safe-area-inset-bottom)); flex: 0 0 auto; }
+  .modal { z-index: 20; height: var(--vamp-visual-height, 100svh); bottom: auto; }
+  .modal-card { max-height: calc(var(--vamp-visual-height, 100svh) - 32px); overflow: auto; }
+  .dashboard { min-height: 100%; padding: 24px 0 40px; }
+  .dashboard-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+  .dashboard-kicker { color: #999; font-size: 11px; font-weight: 700; letter-spacing: .12em; }
+  .dashboard h1, .dashboard h2, .dashboard p { margin: 0; }
+  .dashboard h1 { margin-top: 6px; font-size: clamp(26px, 7vw, 36px); letter-spacing: -.03em; }
+  .dashboard-heading p { max-width: 560px; margin-top: 8px; color: #aaa; line-height: 1.5; }
+  .dashboard-open { min-height: 44px; padding: 0 14px; border: 1px solid rgba(255,255,255,.18); border-radius: 12px; background: rgba(255,255,255,.9); color: #111; font-weight: 700; white-space: nowrap; }
+  .host-card, .session-card { border: 1px solid rgba(255,255,255,.16); border-radius: 18px; background: linear-gradient(145deg, rgba(61,61,61,.72), rgba(28,28,28,.72)); box-shadow: 0 18px 46px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.08); backdrop-filter: blur(18px); }
+  .host-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px; }
+  .host-card h2 { margin-top: 5px; font-size: 19px; }
+  .host-card p { margin-top: 7px; color: #aaa; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  .host-state { color: var(--good); font-size: 18px; }
+  .session-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 26px 0 10px; }
+  .session-heading h2 { font-size: 15px; }
+  .session-heading span { color: #999; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .session-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .session-card { min-height: 138px; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; }
+  .session-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .session-card-title { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 700; }
+  .session-card-title span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .session-card-dot { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: #999; }
+  .session-card-dot.open { background: var(--good); }
+  .session-card-dot.opening { background: var(--warn); }
+  .session-card-dot.closed, .session-card-dot.error, .session-card-dot.offline { background: var(--danger); }
+  .session-card-meta { margin-top: 10px; color: #aaa; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.45; }
+  .session-card-action { align-self: flex-start; min-height: 36px; margin-top: 14px; padding: 0 11px; border: 1px solid rgba(255,255,255,.16); border-radius: 10px; background: rgba(255,255,255,.09); color: #eee; font-size: 13px; font-weight: 650; }
+  .dashboard-empty { grid-column: 1 / -1; padding: 34px 18px; border: 1px dashed rgba(255,255,255,.18); border-radius: 16px; color: #999; text-align: center; }
   @media (min-width: 720px) { .composer { width: min(calc(100% - 56px), 952px); } }
   @media (max-width: 520px) {
-    .composer { left: 16px; right: 16px; width: auto; min-height: 60px; height: 60px; padding: 8px; border-radius: 14px; }
+    .shell { padding-top: max(44px, env(safe-area-inset-top)); }
+    .composer { width: 100%; min-height: 60px; height: 60px; padding: 8px; border-radius: 14px; }
     .composer > button { flex-basis: 44px; width: 44px; }
+    .quick { position: static; min-height: 44px; padding: 10px 0 12px; border: 0; border-radius: 0; background: transparent; }
+    .quick button { min-height: 42px; }
     .provider-grid { grid-template-columns: 1fr; }
+    .dashboard-heading { display: block; }
+    .dashboard-open { width: 100%; margin-top: 16px; }
+    .session-grid { grid-template-columns: 1fr; }
   }
 `;
 document.head.appendChild(vampMoreStyle);
@@ -993,6 +1076,153 @@ const vampNewUUID = () => {
 };
 const vampTerminalKey = (value) => String(value || '').toLowerCase();
 
+// A small, dependency-free terminal emulator for Safari. Rendering PTY bytes
+// with `textContent` is not enough: carriage returns, cursor movement, erase
+// commands, and alternate-screen TUIs are what make agents such as Grok and
+// Claude look like joined text with replacement boxes. This keeps a bounded
+// screen + scrollback buffer and handles the control sequences used by common
+// shells and coding agents while preserving UTF-8 text.
+class VampBrowserTerminal {
+  constructor(cols = 80, rows = 24) {
+    this.cols = Math.max(1, cols); this.rows = Math.max(1, rows);
+    this.reset();
+  }
+  blank() { return Array(this.cols).fill(' '); }
+  reset() {
+    this.scrollback = []; this.screen = Array.from({length: this.rows}, () => this.blank());
+    this.row = 0; this.col = 0; this.saved = {row: 0, col: 0}; this.alt = null; this.pending = '';
+  }
+  resize(cols, rows) {
+    cols = Math.max(1, cols); rows = Math.max(1, rows);
+    if (cols === this.cols && rows === this.rows) return;
+    const old = this.screen.map((line) => line.join(''));
+    this.cols = cols; this.rows = rows;
+    this.screen = Array.from({length: rows}, () => this.blank());
+    old.slice(-rows).forEach((line, index) => {
+      [...line.slice(0, cols)].forEach((character, column) => { this.screen[index][column] = character; });
+    });
+    this.row = Math.min(this.row, rows - 1); this.col = Math.min(this.col, cols - 1);
+  }
+  scroll() {
+    this.scrollback.push(this.screen.shift().join('').replace(/\s+$/, ''));
+    if (this.scrollback.length > 2000) this.scrollback.splice(0, this.scrollback.length - 2000);
+    this.screen.push(this.blank()); this.row = this.rows - 1;
+  }
+  lineFeed() { if (this.row >= this.rows - 1) this.scroll(); else this.row += 1; }
+  carriageReturn() { this.col = 0; }
+  put(character) {
+    if (this.col >= this.cols) { this.col = 0; this.lineFeed(); }
+    this.screen[this.row][this.col] = character; this.col += 1;
+  }
+  eraseLine(mode = 0) {
+    const start = mode === 1 ? 0 : this.col;
+    const end = mode === 1 ? this.col : this.cols - 1;
+    if (mode === 2) { for (let index = 0; index < this.cols; index += 1) this.screen[this.row][index] = ' '; return; }
+    for (let index = start; index <= end; index += 1) this.screen[this.row][index] = ' ';
+  }
+  eraseDisplay(mode = 0) {
+    if (mode === 2 || mode === 3) {
+      this.screen = Array.from({length: this.rows}, () => this.blank()); this.row = 0; this.col = 0;
+      if (mode === 3) this.scrollback = [];
+      return;
+    }
+    if (mode === 0) { this.eraseLine(0); for (let index = this.row + 1; index < this.rows; index += 1) this.screen[index] = this.blank(); }
+    if (mode === 1) { this.eraseLine(1); for (let index = 0; index < this.row; index += 1) this.screen[index] = this.blank(); }
+  }
+  params(raw) {
+    const privateMode = raw.startsWith('?');
+    const value = privateMode ? raw.slice(1) : raw;
+    const values = value === '' ? [] : value.split(';').map((entry) => parseInt(entry, 10) || 0);
+    return { privateMode, values };
+  }
+  csi(raw, final) {
+    const parsed = this.params(raw); const values = parsed.values; const first = values[0] || 1;
+    if (parsed.privateMode && (final === 'h' || final === 'l')) {
+      if (values.includes(1049) || values.includes(47)) {
+        if (final === 'h' && !this.alt) {
+          this.alt = {screen: this.screen, scrollback: this.scrollback, row: this.row, col: this.col};
+          this.scrollback = []; this.screen = Array.from({length: this.rows}, () => this.blank()); this.row = 0; this.col = 0;
+        } else if (final === 'l' && this.alt) {
+          const saved = this.alt; this.screen = saved.screen; this.scrollback = saved.scrollback; this.row = saved.row; this.col = saved.col; this.alt = null;
+        }
+      }
+      return;
+    }
+    switch (final) {
+      case 'A': this.row = Math.max(0, this.row - first); break;
+      case 'B': case 'e': this.row = Math.min(this.rows - 1, this.row + first); break;
+      case 'C': case 'a': this.col = Math.min(this.cols - 1, this.col + first); break;
+      case 'D': this.col = Math.max(0, this.col - first); break;
+      case 'E': this.row = Math.min(this.rows - 1, this.row + first); this.col = 0; break;
+      case 'F': this.row = Math.max(0, this.row - first); this.col = 0; break;
+      case 'G': case '`': this.col = Math.max(0, Math.min(this.cols - 1, first - 1)); break;
+      case 'd': this.row = Math.max(0, Math.min(this.rows - 1, first - 1)); break;
+      case 'H': case 'f': {
+        const row = Math.max(1, values[0] || 1); const col = Math.max(1, values[1] || 1);
+        this.row = Math.min(this.rows - 1, row - 1); this.col = Math.min(this.cols - 1, col - 1); break;
+      }
+      case 'J': this.eraseDisplay(values[0] || 0); break;
+      case 'K': this.eraseLine(values[0] || 0); break;
+      case 'P': {
+        const count = Math.min(first, this.cols - this.col);
+        this.screen[this.row].splice(this.col, count); this.screen[this.row].push(...Array(count).fill(' ')); break;
+      }
+      case '@': {
+        const count = Math.min(first, this.cols - this.col);
+        this.screen[this.row].splice(this.col, 0, ...Array(count).fill(' ')); this.screen[this.row].splice(this.cols); break;
+      }
+      case 's': this.saved = {row: this.row, col: this.col}; break;
+      case 'u': this.row = Math.min(this.rows - 1, this.saved.row); this.col = Math.min(this.cols - 1, this.saved.col); break;
+      case 'L': {
+        const count = Math.min(first, this.rows - this.row);
+        for (let index = 0; index < count; index += 1) { this.screen.splice(this.row, 0, this.blank()); this.screen.pop(); } break;
+      }
+      case 'M': {
+        const count = Math.min(first, this.rows - this.row);
+        for (let index = 0; index < count; index += 1) { this.screen.splice(this.row, 1); this.screen.push(this.blank()); } break;
+      }
+      case 'h': case 'l': case 'm': case 'n': case 'r': case 't': case 'c': break;
+      default: break;
+    }
+  }
+  feed(text) {
+    const input = (this.pending || '') + text; this.pending = '';
+    for (let index = 0; index < input.length; index += 1) {
+      const code = input.charCodeAt(index); const character = input[index];
+      if (character === '\u001b' || character === '\u009b') {
+        if (index + 1 >= input.length) { this.pending = input.slice(index); break; }
+        const next = character === '\u009b' ? null : input[index + 1];
+        if (character === '\u009b' || next === '[') {
+          const start = character === '\u009b' ? index + 1 : index + 2;
+          let end = start; while (end < input.length && !(/[\x40-\x7e]/.test(input[end]))) end += 1;
+          if (end < input.length) { this.csi(input.slice(start, end), input[end]); index = end; continue; }
+          this.pending = input.slice(index); break;
+        }
+        if (next === ']') {
+          let end = index + 2; while (end < input.length && input.charCodeAt(end) !== 7 && !(input[end] === '\u001b' && input[end + 1] === '\\')) end += 1;
+          if (end >= input.length) { this.pending = input.slice(index); break; }
+          index = input[end] === '\u001b' ? end + 1 : end; continue;
+        }
+        if (next === '7') this.saved = {row: this.row, col: this.col};
+        else if (next === '8') { this.row = this.saved.row; this.col = this.saved.col; }
+        else if (next === 'D') this.lineFeed();
+        else if (next === 'M') { if (this.row > 0) this.row -= 1; }
+        else if (next === 'E') { this.carriageReturn(); this.lineFeed(); }
+        else if (next === 'c') this.reset();
+        index += 1; continue;
+      }
+      if (character === '\r') { this.carriageReturn(); continue; }
+      if (character === '\n') { this.lineFeed(); continue; }
+      if (character === '\b') { this.col = Math.max(0, this.col - 1); continue; }
+      if (character === '\t') { this.col = Math.min(this.cols - 1, this.col + (8 - (this.col % 8))); continue; }
+      if (code < 0x20 || code === 0x7f) continue;
+      this.put(character);
+    }
+  }
+  clearScreen() { this.screen = Array.from({length: this.rows}, () => this.blank()); this.row = 0; this.col = 0; }
+  render() { return this.scrollback.concat(this.screen.map((line) => line.join('').replace(/\s+$/, ''))).join('\n'); }
+}
+
 const vampNextTerminalTitle = () => {
   const titles = new Set([...tabs.values()].map((tab) => tab.title));
   let number = 1;
@@ -1005,7 +1235,11 @@ const vampOpenTerminal = (id) => {
   if (!tab || !ws || ws.readyState !== WebSocket.OPEN) return false;
   tab.state = 'opening';
   renderTabs();
-  const size = vampTerminalSize();
+  ensureStream(id);
+  const size = vampTerminalSize(id);
+  tab.lastSize = size;
+  tab.terminal ||= new VampBrowserTerminal(size.cols, size.rows);
+  tab.terminal.resize(size.cols, size.rows);
   send({
     type: 'open',
     terminalID: id,
@@ -1018,8 +1252,14 @@ const vampOpenTerminal = (id) => {
 
 const vampResizeTerminal = (id) => {
   const tab = tabs.get(id);
-  if (!tab || !tab.opened || !ws || ws.readyState !== WebSocket.OPEN) return;
-  const size = vampTerminalSize();
+  if (!tab || !tab.opened || !ws || ws.readyState !== WebSocket.OPEN || id !== active) return;
+  const size = vampTerminalSize(id);
+  if (tab.lastSize && tab.lastSize.cols === size.cols && tab.lastSize.rows === size.rows) return;
+  tab.lastSize = size;
+  tab.terminal?.resize(size.cols, size.rows);
+  const element = ensureStream(id);
+  const terminal = element?.querySelector('.terminal');
+  if (terminal && tab.terminal) terminal.textContent = tab.terminal.render();
   send({ type: 'resize', terminalID: id, cols: size.cols, rows: size.rows });
 };
 
@@ -1053,7 +1293,60 @@ renderTabs = () => {
     };
     navigation.insertBefore(button, $('newtab'));
   });
+  renderDashboard();
 };
+
+function renderDashboard() {
+  const grid = $('session-grid');
+  const count = $('dashboard-count');
+  if (!grid || !count) return;
+  count.textContent = order.length + ' / 8';
+  const status = vampStatus;
+  const hostDetail = status?.tailscaleHost
+    ? 'Tailscale · ' + status.tailscaleHost + ':' + (status.port || 9475)
+    : status?.running ? 'This device · localhost:' + (status.port || 9475) : 'Host control is offline';
+  $('dashboard-host-detail').textContent = hostDetail;
+  const state = $('dashboard-host-state');
+  state.textContent = status?.running ? '●' : '○';
+  state.style.color = status?.running ? 'var(--good)' : 'var(--danger)';
+  grid.innerHTML = '';
+  if (order.length === 0) {
+    grid.innerHTML = '<div class="dashboard-empty">No shell tabs yet. Open task chat to start a session.</div>';
+    return;
+  }
+  order.forEach((id) => {
+    const tab = tabs.get(id); if (!tab) return;
+    const card = document.createElement('article'); card.className = 'session-card';
+    const stateClass = tab.opened ? 'open' : (tab.state || 'opening');
+    const stateText = tab.opened ? 'Connected' : (tab.state === 'opening' ? 'Opening' : (tab.state || 'Closed'));
+    card.innerHTML = '<div class="session-card-top"><div class="session-card-title"><span class="session-card-dot ' + stateClass + '"></span><span>' + esc(tab.title) + '</span></div>' +
+      (tab.unread ? '<span class="tab-dot open" aria-label="Unread output">●</span>' : '') +
+      '</div><div class="session-card-meta">' + esc(stateText) + '<br>Independent PTY session</div>';
+    const action = document.createElement('button'); action.type = 'button'; action.className = 'session-card-action'; action.textContent = id === active ? 'In task chat' : 'Open session';
+    action.onclick = () => { selectTab(id); vampToggleDashboard(false); };
+    card.append(action); grid.append(card);
+  });
+}
+
+function vampToggleDashboard(force) {
+  const dashboard = $('dashboard');
+  const show = typeof force === 'boolean' ? force : dashboard.classList.contains('hidden');
+  dashboard.classList.toggle('hidden', !show);
+  $('chat').classList.toggle('hidden', show);
+  $('tabs').classList.toggle('hidden', show);
+  $('composer').classList.toggle('hidden', show);
+  $('page-title').textContent = show ? 'Sessions' : 'Task chat';
+  $('back').textContent = show ? '×' : '‹';
+  $('back').setAttribute('aria-label', show ? 'Close sessions dashboard' : 'Open sessions dashboard');
+  $('back').setAttribute('title', show ? 'Close sessions dashboard' : 'Open sessions dashboard');
+  if (show) renderDashboard();
+  else {
+    vampRestoreShellPosition();
+    if (active) { selectTab(active); requestAnimationFrame(() => vampResizeTerminal(active)); }
+  }
+}
+
+$('dashboard-open').onclick = () => vampToggleDashboard(false);
 
 createTab = (startup = null, title = null) => {
   if (order.length >= 8) {
@@ -1070,18 +1363,19 @@ createTab = (startup = null, title = null) => {
     opened: false,
     state: 'opening',
     decoder: new TextDecoder(),
-    approvals: new Set()
+    approvals: new Set(),
+    terminal: new VampBrowserTerminal()
   };
   tabs.set(id, tab);
   order.push(id);
   active = id;
   renderTabs();
+  ensureStream(id);
   document.querySelectorAll('.stream').forEach((element) => {
     element.classList.toggle('active', element.dataset.id === id);
   });
   if (ws && ws.readyState === WebSocket.OPEN) vampOpenTerminal(id);
   else showPair();
-  $('input').focus();
   return id;
 };
 
@@ -1095,7 +1389,7 @@ selectTab = (id) => {
     element.classList.toggle('active', element.dataset.id === id);
   });
   renderTabs();
-  $('input').focus();
+  requestAnimationFrame(() => vampResizeTerminal(id));
 };
 
 closeTab = (id) => {
@@ -1122,7 +1416,7 @@ ensureStream = (id) => {
     element = document.createElement('div');
     element.className = 'stream ' + (active === id ? 'active' : '');
     element.dataset.id = id;
-    element.innerHTML =
+  element.innerHTML =
       '<div class="terminal" tabindex="0" aria-label="Terminal output"></div>' +
       '<div class="quick">' +
       '<button data-k="ctrlc">Ctrl-C</button><button data-k="esc">Esc</button>' +
@@ -1139,13 +1433,18 @@ ensureStream = (id) => {
       button.onclick = () => {
         if (button.dataset.k === 'clear') {
           const terminal = element.querySelector('.terminal');
-          if (terminal) terminal.textContent = '';
+          tab.terminal ||= new VampBrowserTerminal();
+          tab.terminal.clearScreen();
+          tab.out = tab.terminal.render();
+          if (terminal) { terminal.textContent = tab.out; terminal.scrollTop = terminal.scrollHeight; }
         }
         sendInput(id, keys[button.dataset.k] || '');
       };
     });
     $('chat').appendChild(element);
   }
+  const terminal = element.querySelector('.terminal');
+  if (terminal) terminal.textContent = tab.terminal?.render() || tab.out || '';
   return element;
 };
 
@@ -1154,13 +1453,15 @@ appendOutput = (id, text) => {
   if (!tab) return;
   tab.decoder ||= new TextDecoder();
   tab.approvals ||= new Set();
-  tab.out += strip(text);
-  if (tab.out.length > 200000) tab.out = tab.out.slice(-200000);
+  tab.terminal ||= new VampBrowserTerminal();
   const element = ensureStream(id);
   const terminal = element?.querySelector('.terminal');
+  const wasAtBottom = !terminal || terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight < 32;
+  tab.terminal.feed(text);
+  tab.out = tab.terminal.render();
   if (terminal) {
     terminal.textContent = tab.out;
-    terminal.scrollTop = terminal.scrollHeight;
+    if (id === active && wasAtBottom) terminal.scrollTop = terminal.scrollHeight;
   }
   if (active !== id) {
     tab.unread = true;
@@ -1245,6 +1546,7 @@ reviewCommand = () => {
 
 showPair = () => {
   $('pair').classList.remove('hidden');
+  $('composer').classList.add('hidden');
   $('pair-error').textContent = '';
   if (!$('pair-button').disabled) $('code').focus();
 };
@@ -1253,6 +1555,7 @@ const vampRefreshStatus = async () => {
   try {
     const response = await fetch('/api/status', { cache: 'no-store' });
     const status = await response.json();
+    vampStatus = status;
     if (!status.terminalModeEnabled) {
       setState('Disabled');
       $('empty').textContent = 'Turn on Terminal Mode in Vamp Host before pairing this browser.';
@@ -1263,9 +1566,12 @@ const vampRefreshStatus = async () => {
       if (!ws || ws.readyState !== WebSocket.OPEN) setState('Pairing');
       $('empty').textContent = 'Pair this browser to start a terminal task.';
     }
+    renderDashboard();
   } catch (_) {
+    vampStatus = { running: false };
     setState('Offline');
     $('pair-error').textContent = 'Vamp Host is not reachable.';
+    renderDashboard();
   }
 };
 
@@ -1296,6 +1602,8 @@ pair = async () => {
     const result = await response.json();
     token = result.token;
     $('pair').classList.add('hidden');
+    $('composer').classList.remove('hidden');
+    vampRestoreShellPosition();
     connect();
   } catch (_) {
     $('pair-error').textContent = 'Could not reach Vamp Host.';
@@ -1334,6 +1642,8 @@ connect = () => {
       tab.out = '';
       tab.unread = false;
       tab.decoder = new TextDecoder();
+      tab.terminal = new VampBrowserTerminal();
+      tab.lastSize = null;
     });
     document.querySelectorAll('.stream').forEach((element) => element.remove());
     addMessage('<div class="badge">Browser session ended. Pair again to reconnect.</div>');
@@ -1353,6 +1663,8 @@ connect = () => {
       if (tab) {
         tab.opened = true;
         tab.state = 'open';
+        tab.terminal ||= new VampBrowserTerminal(value.cols, value.rows);
+        tab.terminal.resize(value.cols, value.rows);
         ensureStream(terminalID);
         vampResizeTerminal(terminalID);
         renderTabs();
@@ -1503,8 +1815,22 @@ document.querySelectorAll('[data-provider]').forEach((button) => {
 moreModal.addEventListener('click', (event) => { if (event.target === moreModal) closeMoreModal(); });
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMoreModal(); });
 moreCommand.addEventListener('keydown', (event) => { if (event.key === 'Enter') openMoreTab(moreCommand.value.trim(), null); });
-window.addEventListener('resize', () => order.forEach(vampResizeTerminal));
-window.visualViewport?.addEventListener('resize', () => order.forEach(vampResizeTerminal));
+document.addEventListener('visibilitychange', vampUpdateViewportInset);
+window.addEventListener('resize', () => {
+  vampUpdateViewportInset();
+  cancelAnimationFrame(vampResizeFrame);
+  vampResizeFrame = requestAnimationFrame(() => { if (active) vampResizeTerminal(active); });
+});
+window.visualViewport?.addEventListener('resize', () => {
+  vampUpdateViewportInset();
+  cancelAnimationFrame(vampResizeFrame);
+  vampResizeFrame = requestAnimationFrame(() => { if (active) vampResizeTerminal(active); });
+});
+window.visualViewport?.addEventListener('scroll', vampUpdateViewportInset);
+window.addEventListener('orientationchange', vampUpdateViewportInset);
+vampUpdateViewportInset();
+if (!$('pair').classList.contains('hidden')) $('composer').classList.add('hidden');
+renderDashboard();
 window.addEventListener('beforeunload', () => ws?.close());
 vampRefreshStatus();
 </script></body></html>

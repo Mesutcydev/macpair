@@ -33,6 +33,38 @@ final class SignalingMessageCodingTests: XCTestCase {
         XCTAssertEqual(decoded.envelope.kind, .offer)
     }
 
+    func testTerminalClientRoleAndHostRestrictionReasonRoundTrip() throws {
+        let sessionID = UUID(uuidString: "66666666-6666-6666-6666-666666666666")!
+        let offer = SessionOfferMessage(
+            sessionID: sessionID,
+            sdp: "v=0",
+            qualityPreset: .balanced,
+            clientCapabilities: [.supportsH264, .supportsTerminal, .supportsMultipleTerminals],
+            clientProductRole: .terminal
+        )
+        let blocked = PermissionBlockedMessage(
+            sessionID: sessionID,
+            blockedPermissions: [],
+            reason: .terminalOnlyHost
+        )
+
+        let offerData = try JSONEncoder().encode(offer)
+        let blockedData = try JSONEncoder().encode(blocked)
+        let decodedOffer = try JSONDecoder().decode(SessionOfferMessage.self, from: offerData)
+        let decodedBlocked = try JSONDecoder().decode(PermissionBlockedMessage.self, from: blockedData)
+
+        XCTAssertEqual(decodedOffer.clientProductRole, .terminal)
+        XCTAssertEqual(decodedBlocked.reason, .terminalOnlyHost)
+    }
+
+    func testLegacyOfferWithoutClientProductRoleStillDecodes() throws {
+        let data = Data("{\"sessionID\":\"66666666-6666-6666-6666-666666666666\",\"sdp\":\"v=0\",\"requestedDisplayID\":null,\"qualityPreset\":\"balanced\",\"sessionToken\":null,\"clientCapabilities\":null,\"preferredDynamicRange\":null}".utf8)
+
+        let decoded = try JSONDecoder().decode(SessionOfferMessage.self, from: data)
+
+        XCTAssertNil(decoded.clientProductRole)
+    }
+
     func testSessionReadyEnvelopeEncodesNegotiatedCapabilities() throws {
         let sessionID = UUID(uuidString: "44444444-4444-4444-4444-444444444444")!
         let senderID = UUID(uuidString: "55555555-5555-5555-5555-555555555555")!

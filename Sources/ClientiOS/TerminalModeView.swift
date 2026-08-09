@@ -30,19 +30,21 @@ struct TerminalModeView: View {
     @State private var showAI = false
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                topBar
-                SwiftTermContainer(session: session, controller: input)
-                    .background(Color.black)
-                // The accessory bar lives at the bottom of the VStack so SwiftUI's
-                // keyboard avoidance floats it directly above the software keyboard
-                // when one is present, and it sits on the safe-area inset otherwise.
-                specialKeysBar
-            }
+        VStack(spacing: 0) {
+            topBar
+            SwiftTermContainer(session: session, controller: input)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+                .background(Color.black)
         }
+        // The quick-key row is a safe-area inset, not a sibling competing for
+        // the terminal's height. This prevents the native keyboard and the
+        // accessory row from overlapping during interactive dismissal.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            specialKeysBar
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .navigationBarHidden(true)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
@@ -324,6 +326,7 @@ extension SwiftTermContainer: UIViewRepresentable {
         /// cap is hit — which froze terminal output after 256 chunks.
         private var lastDeliveredSequence: UInt64 = 0
         private weak var view: TerminalView?
+        private var resizeTask: Task<Void, Never>?
 
         init(session: ClientTerminalSessionManager) {
             self.session = session
@@ -360,7 +363,14 @@ extension SwiftTermContainer: UIViewRepresentable {
         func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
             let cols = UInt16(clamping: newCols)
             let rows = UInt16(clamping: newRows)
-            Task { @MainActor [session] in
+            resizeTask?.cancel()
+            resizeTask = Task { @MainActor [session] in
+                do {
+                    try await Task.sleep(for: .milliseconds(120))
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
                 session.requestResize(cols: cols, rows: rows)
             }
         }

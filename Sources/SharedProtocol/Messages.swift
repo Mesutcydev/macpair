@@ -1,6 +1,15 @@
 import Foundation
 import SharedModels
 
+/// Identifies the client product requesting a session. The role is optional on
+/// the wire so older clients can still negotiate with a full Vamp Host, while
+/// terminal-only hosts can reject an original remote-control client before
+/// starting a WebRTC session.
+public enum ClientProductRole: String, Codable, Hashable, Sendable {
+    case remoteControl
+    case terminal
+}
+
 public struct HelloMessage: Codable, Hashable, Sendable {
     public var protocolVersion: Int
     public var host: HostIdentity?
@@ -26,6 +35,9 @@ public struct SessionOfferMessage: Codable, Hashable, Sendable {
     /// hardware-decode support). `nil` from older clients that predate capability
     /// advertisement; the host then falls back to its assumed-client baseline.
     public var clientCapabilities: HostCapabilityFlags?
+    /// Product surface of the client. Nil is preserved for older clients and is
+    /// treated as remote-control when connecting to a terminal-only host.
+    public var clientProductRole: ClientProductRole?
     /// HDR is opt-in. Nil and SDR preserve the legacy 8-bit color path.
     public var preferredDynamicRange: StreamDynamicRange?
 
@@ -36,6 +48,7 @@ public struct SessionOfferMessage: Codable, Hashable, Sendable {
         qualityPreset: StreamQualityPreset,
         sessionToken: String? = nil,
         clientCapabilities: HostCapabilityFlags? = nil,
+        clientProductRole: ClientProductRole? = nil,
         preferredDynamicRange: StreamDynamicRange? = nil
     ) {
         self.sessionID = sessionID
@@ -44,6 +57,7 @@ public struct SessionOfferMessage: Codable, Hashable, Sendable {
         self.qualityPreset = qualityPreset
         self.sessionToken = sessionToken
         self.clientCapabilities = clientCapabilities
+        self.clientProductRole = clientProductRole
         self.preferredDynamicRange = preferredDynamicRange
     }
 }

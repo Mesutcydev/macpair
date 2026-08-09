@@ -26,8 +26,17 @@ struct VampTerminalPaneView: View {
                 provider: provider,
                 onTerminalClipboard: onTerminalClipboard
             )
-                .background(provider?.terminalBackground ?? Color.black)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+            .background(provider?.terminalBackground ?? Color.black)
+        }
+        // Keep the accessory outside the terminal's measured frame. SwiftUI
+        // then gives the PTY one stable viewport and moves only this inset
+        // above the software keyboard instead of repeatedly squeezing the
+        // whole pane during keyboard/browser-safe-area changes.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             specialKeysBar
+                .fixedSize(horizontal: false, vertical: true)
         }
         .background(provider?.terminalBackground ?? Color.black)
         .opacity(isActive ? 1 : 0.001)
@@ -431,6 +440,7 @@ private struct VampSwiftTermContainer: UIViewRepresentable {
         private var lastDeliveredSequence: UInt64 = 0
         private weak var view: TerminalView?
         private var pinchStartFontSize: CGFloat = 14
+        private var resizeTask: Task<Void, Never>?
 
         init(session: ClientTerminalSessionManager, onTerminalClipboard: @escaping (String) -> Void) {
             self.session = session
@@ -476,7 +486,20 @@ private struct VampSwiftTermContainer: UIViewRepresentable {
         func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
             let cols = UInt16(clamping: newCols)
             let rows = UInt16(clamping: newRows)
-            Task { @MainActor [session] in session.requestResize(cols: cols, rows: rows) }
+            // SwiftTerm can report several intermediate sizes while the iOS
+            // keyboard animates. Sending every intermediate size makes full
+            // screen TUIs redraw and appear to jump. Only publish the settled
+            // geometry after the animation has quiesced.
+            resizeTask?.cancel()
+            resizeTask = Task { @MainActor [session] in
+                do {
+                    try await Task.sleep(for: .milliseconds(120))
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                session.requestResize(cols: cols, rows: rows)
+            }
         }
 
         func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}

@@ -68,6 +68,13 @@ public struct HostCapabilityFlags: OptionSet, Codable, Hashable, Sendable {
 public extension HostCapabilityFlags {
     static let baseline: HostCapabilityFlags = [.supportsH264]
 
+    /// A host that only offers terminal tabs and has no display stream.
+    var isTerminalOnlyHost: Bool {
+        contains(.supportsTerminal)
+            && contains(.supportsMultipleTerminals)
+            && !contains(.supportsMultiDisplay)
+    }
+
     var stableNames: [String] {
         var names: [String] = []
         if contains(.supportsHEVC) { names.append("supportsHEVC") }

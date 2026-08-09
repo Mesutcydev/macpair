@@ -131,6 +131,7 @@ final class ClientSessionCoordinator: ObservableObject {
 
     // Dependencies
     private let clientIdentity: ClientIdentity
+    let clientProductRole: ClientProductRole
     private let webRTCSessionManager: any WebRTCSessionManaging
     private let peerConnectionProvider: LANPeerConnectionProvider
     private let eventLogStore: any EventLogStoreProtocol
@@ -219,6 +220,7 @@ final class ClientSessionCoordinator: ObservableObject {
 
     init(
         clientIdentity: ClientIdentity,
+        clientProductRole: ClientProductRole = .remoteControl,
         webRTCSessionManager: any WebRTCSessionManaging,
         peerConnectionProvider: LANPeerConnectionProvider,
         eventLogStore: any EventLogStoreProtocol,
@@ -226,6 +228,7 @@ final class ClientSessionCoordinator: ObservableObject {
         displayLayoutViewModel: DisplayLayoutViewModel
     ) {
         self.clientIdentity = clientIdentity
+        self.clientProductRole = clientProductRole
         self.webRTCSessionManager = webRTCSessionManager
         self.peerConnectionProvider = peerConnectionProvider
         self.eventLogStore = eventLogStore
@@ -430,6 +433,7 @@ final class ClientSessionCoordinator: ObservableObject {
             let sessionTokenHex = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
             offer.sessionToken = sessionTokenHex
             offer.clientCapabilities = .currentClient(isMacClient: false)
+            offer.clientProductRole = clientProductRole
             if effectiveQualityPreset == .ultra,
                offer.clientCapabilities?.contains(.supportsHDR10) == true {
                 offer.preferredDynamicRange = .hdr10

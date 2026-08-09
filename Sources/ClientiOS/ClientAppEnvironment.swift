@@ -18,6 +18,11 @@ import VideoToolbox
 @MainActor
 final class ClientAppEnvironment: ObservableObject {
     let clientIdentity: ClientIdentity
+    let clientProductRole: ClientProductRole
+    /// The terminal client may connect to the terminal-only host product. The
+    /// remote-control client uses this to explain why that host cannot provide
+    /// a screen session instead of showing a blank connection.
+    let supportsTerminalOnlyHosts: Bool
     let discoveryService: any DiscoveryServiceProtocol
     let signalingService: any SessionCoordinatorSignaling
     let webRTCSessionManager: any WebRTCSessionManaging
@@ -47,6 +52,8 @@ final class ClientAppEnvironment: ObservableObject {
 
     init(
         clientIdentity: ClientIdentity,
+        supportsTerminalOnlyHosts: Bool = false,
+        clientProductRole: ClientProductRole = .remoteControl,
         discoveryService: any DiscoveryServiceProtocol,
         signalingService: any SessionCoordinatorSignaling,
         webRTCSessionManager: any WebRTCSessionManaging,
@@ -75,6 +82,8 @@ final class ClientAppEnvironment: ObservableObject {
         CrashSafeStartupDiagnostics.mark("environment.settings.loaded")
 
         self.clientIdentity = clientIdentity
+        self.clientProductRole = clientProductRole
+        self.supportsTerminalOnlyHosts = supportsTerminalOnlyHosts
         self.discoveryService = discoveryService
         self.signalingService = signalingService
         self.webRTCSessionManager = webRTCSessionManager
@@ -127,7 +136,11 @@ final class ClientAppEnvironment: ObservableObject {
         #endif
     }
 
-    static func makeDefault(clientName: String) -> ClientAppEnvironment {
+    static func makeDefault(
+        clientName: String,
+        supportsTerminalOnlyHosts: Bool = false,
+        clientProductRole: ClientProductRole = .remoteControl
+    ) -> ClientAppEnvironment {
         CrashSafeStartupDiagnostics.mark("environment.default.begin", details: clientName)
         #if canImport(UIKit)
         let currentDeviceModel = currentDeviceModelIdentifier() ?? "Apple Device"
@@ -159,6 +172,7 @@ final class ClientAppEnvironment: ObservableObject {
         let eventLogStore = InMemoryEventLogStore()
         let sessionCoordinator = ClientSessionCoordinator(
             clientIdentity: client,
+            clientProductRole: clientProductRole,
             webRTCSessionManager: webRTCSessionManager,
             peerConnectionProvider: peerConnectionProvider,
             eventLogStore: eventLogStore,
@@ -168,6 +182,8 @@ final class ClientAppEnvironment: ObservableObject {
         CrashSafeStartupDiagnostics.mark("environment.default.dependencies.ready")
         return ClientAppEnvironment(
             clientIdentity: client,
+            supportsTerminalOnlyHosts: supportsTerminalOnlyHosts,
+            clientProductRole: clientProductRole,
             discoveryService: browser,
             signalingService: signalingService,
             webRTCSessionManager: webRTCSessionManager,

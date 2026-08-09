@@ -18,6 +18,7 @@ import SharedUtilities
 import TransportWebRTC
 import HostWidgetShared
 #if os(macOS)
+import AppKit
 import ServiceManagement
 import IOKit.pwr_mgt
 import ApplicationServices
@@ -703,6 +704,21 @@ final class HostAppEnvironment: ObservableObject {
         } catch {
             startAtLoginEnabled = launchAtLoginManager.isEnabled
             startAtLoginErrorMessage = "Failed to update Start at Login: \(error.localizedDescription)"
+        }
+        #endif
+    }
+
+    /// Opens the macOS Login Items pane when ServiceManagement needs the user
+    /// to approve a launch-at-login request.
+    func openStartAtLoginSettings() {
+        #if os(macOS)
+        let settingsURLs = [
+            "x-apple.systempreferences:com.apple.LoginItems-Settings.extension",
+            "x-apple.systempreferences:com.apple.LoginItems-Settings"
+        ]
+        for rawValue in settingsURLs {
+            guard let url = URL(string: rawValue) else { continue }
+            if NSWorkspace.shared.open(url) { return }
         }
         #endif
     }
