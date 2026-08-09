@@ -184,7 +184,7 @@ payload = {
         .isoformat()
         .replace("+00:00", "Z"),
 }
-  with open(os.environ["MANIFEST"], "w", encoding="utf-8") as handle:
+with open(os.environ["MANIFEST"], "w", encoding="utf-8") as handle:
     json.dump(payload, handle, indent=2)
     handle.write("\n")
 PY
