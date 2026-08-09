@@ -135,6 +135,7 @@ RemoteDesktopToolApps.xcodeproj/xcshareddata/*
 RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/*
 !RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/VampTerminalApp.xcscheme
 !RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/VampTerminalHost.xcscheme
+!RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/MacHost.xcscheme
 
 !Configuration/
 Configuration/*
