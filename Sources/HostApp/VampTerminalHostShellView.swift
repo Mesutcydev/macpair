@@ -141,24 +141,23 @@ struct VampTerminalHostShellView: View {
     @State private var tailscaleInstalled = false
     @State private var copiedValue: String?
     @State private var showingGuide = false
+    @State private var isActivatingTailscale = false
+    @State private var tailscaleMessage: String?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                HostTailscaleStatusView(
-                    info: $tailscaleInfo,
-                    installed: $tailscaleInstalled,
-                    compact: false
-                )
                 statusCard
                 browserCard
                 commandCard
                 safetyCard
             }
-            .padding(22)
-            .frame(minWidth: 620, maxWidth: 760, alignment: .topLeading)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 18)
+            .frame(minWidth: 560, idealWidth: 720, maxWidth: 760, alignment: .topLeading)
         }
+        .frame(minWidth: 560, idealWidth: 720, minHeight: 460, idealHeight: 700)
         .background(VampTerminalHostBackdrop())
         .task {
             await environment.startRuntimeIfNeeded()
@@ -214,33 +213,11 @@ struct VampTerminalHostShellView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: "terminal.fill")
-                .font(.system(size: 25, weight: .medium))
-                .frame(width: 56, height: 56)
-                .vampTerminalHostGlass(.icon, cornerRadius: 16)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Vamp Terminal Host")
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
-                Text("A focused Mac host for terminal tabs, Safari control, and signed pairing.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("TERMINAL ONLY  ·  TAILSCALE READY")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .tracking(0.8)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: 0)
-            VampTerminalHostStatusPill(
-                text: statusTitle,
-                color: statusColor,
-                systemImage: statusIcon
-            )
-        }
-        .accessibilityElement(children: .combine)
+        VampTerminalHostHeader(
+            statusTitle: statusTitle,
+            statusColor: statusColor,
+            statusIcon: statusIcon
+        )
     }
 
     private var statusCard: some View {
@@ -284,9 +261,37 @@ struct VampTerminalHostShellView: View {
                         onCopy: { copy(tailscaleInfo.connectAddress) }
                     )
                 } else {
-                    Label("Tailscale not detected", systemImage: "network.slash")
+                    HStack(spacing: 8) {
+                        Label(
+                            tailscaleInstalled ? "Tailscale is installed but offline" : "Tailscale required for Safari",
+                            systemImage: tailscaleInstalled ? "network.slash" : "network"
+                        )
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(tailscaleInstalled ? .orange : .secondary)
+                        if let tailscaleMessage {
+                            Text(tailscaleMessage)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    Button {
+                        activateTailscale()
+                    } label: {
+                        if isActivatingTailscale {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Label(
+                                tailscaleInstalled ? "Activate" : "Open Tailscale",
+                                systemImage: tailscaleInstalled ? "power" : "arrow.up.forward.app"
+                            )
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(isActivatingTailscale)
                 }
 
                 Spacer(minLength: 0)
@@ -498,6 +503,10 @@ struct VampTerminalHostShellView: View {
     }
 
     private var statusTitle: String {
+        if environment.browserControlStatus.running,
+           environment.sessionCoordinator.phase == .error {
+            return "READY"
+        }
         switch environment.sessionCoordinator.phase {
         case .streaming: return "CONNECTED"
         case .advertising, .awaitingClient: return "READY"
@@ -509,7 +518,7 @@ struct VampTerminalHostShellView: View {
 
     private var statusIcon: String {
         switch statusTitle {
-        case "CONNECTED": return "checkmark.circle.fill"
+        case "CONNECTED", "READY": return "checkmark.circle.fill"
         case "ERROR": return "exclamationmark.triangle.fill"
         case "STOPPED": return "pause.circle.fill"
         default: return "circle.fill"
@@ -517,6 +526,10 @@ struct VampTerminalHostShellView: View {
     }
 
     private var statusColor: Color {
+        if environment.browserControlStatus.running,
+           environment.sessionCoordinator.phase == .error {
+            return .green
+        }
         switch statusTitle {
         case "CONNECTED", "READY": return .green
         case "ERROR": return .orange
@@ -531,6 +544,99 @@ struct VampTerminalHostShellView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
             if copiedValue == value { copiedValue = nil }
         }
+    }
+
+    private func activateTailscale() {
+        isActivatingTailscale = true
+        let didOpen = openTailscaleApplication()
+        tailscaleMessage = didOpen
+            ? "Waiting for the tailnet…"
+            : "Install Tailscale, then try again."
+
+        Task {
+            for _ in 0..<12 {
+                let snapshot = await Task.detached(priority: .utility) {
+                    getTailscaleDetectionSnapshot()
+                }.value
+                tailscaleInfo = snapshot.info
+                tailscaleInstalled = snapshot.installed
+                if tailscaleInfo != nil { break }
+                try? await Task.sleep(for: .seconds(1))
+            }
+            isActivatingTailscale = false
+        }
+    }
+}
+
+private struct VampTerminalHostHeader: View {
+    let statusTitle: String
+    let statusColor: Color
+    let statusIcon: String
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            regularHeader
+            compactHeader
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var regularHeader: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VampTerminalHostMark(size: 56)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Vamp Terminal Host")
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                Text("A focused Mac host for terminal tabs, Safari control, and signed pairing.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                productLabel
+            }
+
+            Spacer(minLength: 0)
+            statusPill
+        }
+    }
+
+    private var compactHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                VampTerminalHostMark(size: 46)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Vamp Terminal Host")
+                        .font(.title3.weight(.semibold))
+                    Text("Terminal tabs and Safari control")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 8) {
+                productLabel
+                Spacer(minLength: 0)
+                statusPill
+            }
+        }
+    }
+
+    private var productLabel: some View {
+        Text("TERMINAL ONLY  ·  TAILSCALE READY")
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .tracking(0.8)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+    }
+
+    private var statusPill: some View {
+        VampTerminalHostStatusPill(
+            text: statusTitle,
+            color: statusColor,
+            systemImage: statusIcon
+        )
     }
 }
 
