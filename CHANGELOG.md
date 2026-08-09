@@ -1,14 +1,15 @@
 # Changelog
 
-<<<<<<< HEAD
-All notable changes to MacPair are documented here. The format follows
-=======
-All notable changes to Vamp Terminal are documented here. The format follows
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
+All notable changes to MacPair and Vamp Terminal are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Changed
+
+- Refresh the Vamp Terminal, Vamp Host, and website icon with the supplied glass terminal mark.
+- Bump the Vamp Terminal sideload build to build 2.
 
 ## [1.0.10] - 2026-08-04
 
@@ -139,7 +140,6 @@ All notable changes to Vamp Terminal are documented here. The format follows
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
-<<<<<<< HEAD
 [Unreleased]: https://github.com/Mesutcydev/macpair/compare/v1.0.9...HEAD
 [1.0.9]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.9
 [1.0.8]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.8
@@ -149,10 +149,3 @@ All notable changes to Vamp Terminal are documented here. The format follows
 [1.0.2]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Mesutcydev/screenharbor/releases/tag/v1.0.0
-=======
-[Unreleased]: https://github.com/Mesutcydev/macpair/compare/v1.0.3...HEAD
-[1.0.3]: https://github.com/Mesutcydev/macpair/compare/v1.0.2...v1.0.3
-[1.0.2]: https://github.com/Mesutcydev/macpair/compare/v1.0.1...v1.0.2
-[1.0.1]: https://github.com/Mesutcydev/macpair/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.0
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
