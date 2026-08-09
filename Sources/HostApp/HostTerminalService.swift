@@ -261,8 +261,14 @@ final class HostTerminalService: @unchecked Sendable {
         // observes that the terminal was removed and does not send a second
         // close notice.
 
-        // Try a clean shutdown first; escalate if it doesn't take.
-        kill(session.childPID, SIGHUP)
+        // forkpty makes the shell a session/process-group leader. Signal the
+        // whole group so tmux, screen, and agent children do not survive a
+        // tab close or connection teardown as orphaned processes. Keep the
+        // direct-child fallback for shells started without that guarantee.
+        if session.childPID > 0 {
+            _ = kill(-session.childPID, SIGHUP)
+            _ = kill(session.childPID, SIGHUP)
+        }
         close(session.masterFD)
 
         if notifyClient {
@@ -430,7 +436,10 @@ final class HostTerminalService: @unchecked Sendable {
             rows: session.rows
         )
         if let envelope = try? DataChannelEnvelope.terminalReady(ready) {
+            logger.info("Dispatching terminal-ready envelope")
             sendEnvelope?(envelope)
+        } else {
+            logger.error("Could not encode terminal-ready envelope")
         }
     }
 

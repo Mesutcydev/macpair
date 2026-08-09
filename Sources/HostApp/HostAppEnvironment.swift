@@ -94,12 +94,14 @@ final class HostAppEnvironment: ObservableObject {
     /// Terminal Mode is opt-in: even an authenticated client can't spawn a
     /// shell unless the user explicitly turns it on in host settings.
     @Published var terminalModeEnabled: Bool
-    /// Loopback browser-control status. Safari access is deliberately separate
-    /// from the WebRTC media session and is exposed through Tailscale Serve.
+    /// Private browser-control status. Safari access is deliberately separate
+    /// from the WebRTC media session and is exposed through Tailscale Serve or
+    /// the Mac's direct 100.x tailnet address.
     #if os(macOS)
     @Published private(set) var browserControlStatus = HostBrowserControlStatus(
         running: false,
         port: nil,
+        tailscaleHost: nil,
         pairingCode: "",
         pairingCodeExpiresAt: .distantPast,
         lastError: nil
@@ -619,11 +621,13 @@ final class HostAppEnvironment: ObservableObject {
         await permissionsViewModel.refresh()
         await discoveryAdvertiserViewModel.startIfNeeded()
         #if os(macOS)
-        // Safari access is loopback-only; the operator explicitly exposes it
-        // through Tailscale Serve when they want browser control away from the
-        // Mac. Starting the local service with the host keeps the QR/code flow
-        // predictable without opening a LAN listener.
-        browserControlService.start()
+        // Keep the loopback path for Tailscale Serve and, when available,
+        // allow the browser service to accept the Mac's 100.x Tailscale
+        // address. The service performs the binding and path restriction.
+        let tailscaleInfo = await Task.detached(priority: .utility) {
+            getTailscaleConnectionInfo()
+        }.value
+        browserControlService.start(tailscaleHost: tailscaleInfo?.ipAddress)
         #endif
         await sessionCoordinator.startSession()
     }

@@ -80,6 +80,9 @@ if [[ "$CLEAN" -eq 1 ]]; then
   [[ "$WORK" == "$ROOT/.packaging-vamp-hosts" ]] || fail "Refusing to clean an unexpected path"
   log "Cleaning prior Vamp Host packaging workspace"
   rm -rf "$WORK"
+  # Remove only generated Vamp host files so stale downloads cannot be
+  # mistaken for the build just produced.
+  find "$OUTPUT_DIR" -maxdepth 1 -type f \( -name 'VampHost-macOS-*' -o -name 'VampTerminalHost-macOS-*' \) -delete 2>/dev/null || true
 fi
 
 mkdir -p "$WORK" "$OUTPUT_DIR"

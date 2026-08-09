@@ -16,6 +16,14 @@ struct TailscaleConnectionInfo: Equatable {
     var connectAddress: String {
         "\(connectHost):\(RemoteDesktopConstants.defaultSignalingPort)"
     }
+
+    /// Tailscale Serve terminates HTTPS on the tailnet hostname and proxies to
+    /// the loopback browser service. `127.0.0.1` must never be shown as the
+    /// remote Safari address because it points back to the phone or tablet.
+    var browserControlURL: String? {
+        guard let dnsName, !dnsName.isEmpty else { return nil }
+        return "https://\(dnsName)"
+    }
 }
 
 /// Detects whether this Mac is on a Tailscale tailnet and returns its addressable identity.

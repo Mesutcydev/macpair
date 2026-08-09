@@ -104,6 +104,30 @@ final class ClientTerminalSessionManager: ObservableObject {
         )
     }
 
+    /// Stops an opening attempt that never received a host acknowledgement.
+    /// The terminal ID is cleared so a later retry cannot accidentally reuse a
+    /// stale request, while the startup command is retained for handoff tabs.
+    func failOpening(reason: String = "terminal-start-timeout") {
+        guard state == .opening else { return }
+        if let sessionID, let terminalID, let sendEnvelope,
+           let envelope = try? DataChannelEnvelope.terminalClose(
+            TerminalCloseMessage(sessionID: sessionID, terminalID: terminalID, reason: reason)
+           ) {
+            try? sendEnvelope(envelope)
+        }
+        state = .closed(exitCode: nil, signal: nil, reason: reason)
+        self.terminalID = nil
+    }
+
+    /// Starts a fresh request after a timeout without losing the command that
+    /// was selected from the tmux/screen or agent launcher menu.
+    @discardableResult
+    func retryAfterOpeningFailure(cols: UInt16, rows: UInt16) -> Bool {
+        guard case .closed(_, _, let reason) = state,
+              reason == "terminal-start-timeout" else { return false }
+        return open(cols: cols, rows: rows, startupCommand: startupCommand)
+    }
+
     @discardableResult
     private func sendOpen(
         cols: UInt16,

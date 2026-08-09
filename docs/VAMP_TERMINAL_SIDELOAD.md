@@ -6,10 +6,10 @@ Apple ID/team used on the installing device.
 
 ## Latest published build
 
-- [Vamp Terminal IPA build 3](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-3/VampTerminal-iOS-1.0.0-build-3-altstore-unsigned.ipa)
-- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-3/VampHost-macOS-3.2.0-build-2-adhoc.zip)
-- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-3/VampTerminalHost-macOS-1.0.0-build-1-adhoc.zip)
-- [All checksums and manifests](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-3)
+- [Vamp Terminal IPA build 4](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampTerminal-iOS-1.0.0-build-4-altstore-unsigned.ipa)
+- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampHost-macOS-3.2.0-build-3-adhoc.zip)
+- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampTerminalHost-macOS-1.0.0-build-2-adhoc.zip)
+- [All checksums and manifests](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-4)
 
 ## Build
 
@@ -59,8 +59,10 @@ agent can keep running while the mobile tab changes or reconnects.
 ## Control from Safari without the iOS app
 
 Vamp Host includes a terminal-only browser workspace styled as a task chat. It
-serves a self-contained HTML/JavaScript client on `127.0.0.1` only. The host
-does not open a LAN/public HTTP port and does not provide a hosted relay.
+serves a self-contained HTML/JavaScript client on Mac loopback and, when
+Tailscale is available, on the private Tailscale interface. The host rejects
+ordinary LAN paths, does not open a public HTTP port, and does not provide a
+hosted relay.
 
 1. Open Vamp Host → Settings → Terminal Mode and enable it.
 2. In Settings → Safari control, copy the displayed Tailscale Serve command.
@@ -70,6 +72,11 @@ does not open a LAN/public HTTP port and does not provide a hosted relay.
 4. Open the resulting tailnet URL in Safari and enter the six-digit pairing
    code shown by Vamp Host. The code expires after ten minutes; browser access
    tokens expire after thirty minutes.
+
+`127.0.0.1:9475` only works in a browser on the Mac itself. From an iPhone or
+iPad, use the HTTPS Serve URL or the direct `http://100.x.y.z:9475/` fallback
+shown in the host dashboard. The Mac and mobile device must be on the same
+Tailscale tailnet; MagicDNS/Tailscale DNS is required for the `.ts.net` name.
 
 The browser workspace supports up to eight concurrent CLI tabs, background
 output/unread tab indicators, explicit command approval cards, clipboard

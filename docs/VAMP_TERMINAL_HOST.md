@@ -1,7 +1,7 @@
 # Vamp host products
 
-[Download the latest Vamp Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-3/VampHost-macOS-3.2.0-build-2-adhoc.zip) ·
-[Download Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-3/VampTerminalHost-macOS-1.0.0-build-1-adhoc.zip)
+[Download the latest Vamp Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampHost-macOS-3.2.0-build-3-adhoc.zip) ·
+[Download Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampTerminalHost-macOS-1.0.0-build-2-adhoc.zip)
 
 Vamp Terminal is the iPhone/iPad client. It can connect to either of these
 macOS host products:
@@ -44,3 +44,16 @@ tailscale serve --bg http://127.0.0.1:9475
 The printed six-digit code pairs the browser. Each authenticated connection
 can open eight tabs, resize each PTY, send/receive clipboard text, and close
 terminals independently.
+
+## Safari and Tailscale
+
+On the Mac, `127.0.0.1:9475` is the local browser service. On an iPhone or
+iPad, `127.0.0.1` points back to the phone/tablet, so it will not open the
+Mac. Use one of the addresses shown in the host dashboard instead:
+
+- Recommended: the `https://<mac>.ts.net/` Tailscale Serve URL.
+- Fallback: `http://100.x.y.z:9475/`, using `tailscale ip -4` on the Mac.
+
+Both devices must be signed in to the same tailnet and have Tailscale enabled.
+If the HTTPS hostname does not resolve, enable Tailscale DNS/MagicDNS or use
+the direct 100.x fallback. Do not use public port forwarding.

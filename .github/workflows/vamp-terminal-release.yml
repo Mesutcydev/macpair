@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing Vamp Terminal release tag (e.g. vamp-terminal-1.0.0-build-3)'
+        description: 'Existing Vamp Terminal release tag (e.g. vamp-terminal-1.0.0-build-4)'
         required: true
         type: string
 

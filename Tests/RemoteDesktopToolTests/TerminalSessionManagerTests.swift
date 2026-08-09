@@ -84,4 +84,30 @@ final class TerminalSessionManagerTests: XCTestCase {
         XCTAssertEqual(retry.startupCommand, first.startupCommand)
         XCTAssertEqual(retry.terminalID, first.terminalID)
     }
+
+    func testOpeningTimeoutCanBeRetriedWithTheOriginalStartupCommand() throws {
+        let sessionID = UUID()
+        let manager = ClientTerminalSessionManager()
+        var sent: [DataChannelEnvelope] = []
+        manager.activate(sessionID: sessionID) { sent.append($0) }
+
+        XCTAssertTrue(manager.open(
+            cols: 80,
+            rows: 24,
+            startupCommand: "tmux attach -t work"
+        ))
+        let firstID = try sent[0].decodeTerminalOpen().terminalID
+
+        manager.failOpening()
+        XCTAssertEqual(manager.state, .closed(exitCode: nil, signal: nil, reason: "terminal-start-timeout"))
+        XCTAssertNil(manager.terminalID)
+        XCTAssertTrue(manager.retryAfterOpeningFailure(cols: 100, rows: 30))
+
+        let retry = try sent.last?.decodeTerminalOpen()
+        XCTAssertNotNil(retry)
+        XCTAssertNotEqual(retry?.terminalID, firstID)
+        XCTAssertEqual(retry?.startupCommand, "tmux attach -t work")
+        XCTAssertEqual(retry?.cols, 100)
+        XCTAssertEqual(retry?.rows, 30)
+    }
 }

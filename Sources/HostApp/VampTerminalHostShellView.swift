@@ -180,7 +180,7 @@ struct VampTerminalHostShellView: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Use Safari without the iOS app")
                         .font(.headline)
-                    Text("The browser workspace is loopback-only until you expose it through Tailscale Serve.")
+                    Text("The Mac keeps the service private to loopback and Tailscale. Use the HTTPS link through Tailscale Serve, or the direct 100.x address as a fallback.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -209,10 +209,59 @@ struct VampTerminalHostShellView: View {
                     }
                     .buttonStyle(.bordered)
                     if let port = environment.browserControlStatus.port {
-                        Text("127.0.0.1:\(port)")
+                        Text("Mac local · 127.0.0.1:\(port)")
                             .font(.caption.monospaced())
                             .foregroundStyle(.secondary)
                     }
+                }
+
+                if let tailscaleInfo {
+                    if let browserURL = tailscaleInfo.browserControlURL {
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Serve HTTPS · recommended")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(browserURL)
+                                    .font(.caption.monospaced())
+                                    .textSelection(.enabled)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            Spacer(minLength: 0)
+                            Button(copiedValue == browserURL ? "Copied" : "Copy link") {
+                                copy(browserURL)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+                    if let port = environment.browserControlStatus.port {
+                        let directURL = "http://\(tailscaleInfo.ipAddress):\(port)"
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Direct Tailscale fallback")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(directURL)
+                                    .font(.caption.monospaced())
+                                    .textSelection(.enabled)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            Spacer(minLength: 0)
+                            Button(copiedValue == directURL ? "Copied" : "Copy link") {
+                                copy(directURL)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+                } else {
+                    Text("On a phone or tablet, do not open 127.0.0.1 — that address points to the phone itself. Enable Tailscale to receive a private HTTPS link or direct 100.x fallback.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if let serveCommand = environment.browserControlStatus.serveCommand {
@@ -282,7 +331,7 @@ struct VampTerminalHostShellView: View {
             Label("Only authenticated Vamp Terminal clients are accepted.", systemImage: "checkmark.shield")
             Label("The host never starts ScreenCaptureKit or remote input.", systemImage: "rectangle.slash")
             Label("Terminal Mode is always enabled; disabling the runtime closes every PTY.", systemImage: "power")
-            Label("The Safari endpoint stays on loopback and is meant for Tailscale Serve.", systemImage: "lock")
+            Label("Safari access stays private to loopback and Tailscale; no public port forwarding is used.", systemImage: "lock")
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

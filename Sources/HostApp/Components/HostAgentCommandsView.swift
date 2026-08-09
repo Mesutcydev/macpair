@@ -25,7 +25,16 @@ struct HostAgentCommandsView: View {
         .init(id: "approve-connection", command: "vamp approve-connection", hint: "Approve a pending client connection request"),
         .init(id: "terminal-list", command: "vamp terminal list", hint: "List persistent tmux/screen sessions that Vamp Terminal can resume"),
         .init(id: "terminal-start", command: "vamp terminal start --session work", hint: "Create a persistent shell for mobile handoff"),
-        .init(id: "terminal-agent", command: "vamp terminal agent claude --session claude", hint: "Run an agent inside tmux so Vamp Terminal can reattach"),
+        .init(id: "terminal-agent-opencode", command: "vamp terminal agent opencode --session opencode", hint: "Run OpenCode inside tmux so Vamp Terminal can reattach"),
+        .init(id: "terminal-agent-pi", command: "vamp terminal agent pi --session pi", hint: "Run Pi inside tmux so Vamp Terminal can reattach"),
+        .init(id: "terminal-agent-commandcode", command: "vamp terminal agent commandcode --session commandcode", hint: "Run CommandCode inside tmux so Vamp Terminal can reattach"),
+        .init(id: "terminal-agent-chatgpt", command: "vamp terminal agent chatgpt --session chatgpt", hint: "Run ChatGPT CLI inside tmux so Vamp Terminal can reattach"),
+        .init(id: "terminal-agent-claude", command: "vamp terminal agent claude --session claude", hint: "Run Claude Code inside tmux so Vamp Terminal can reattach"),
+        .init(id: "terminal-agent-kimi", command: "vamp terminal agent kimi --session kimi", hint: "Run Kimi inside tmux so Vamp Terminal can reattach"),
+        .init(id: "terminal-agent-qwen", command: "vamp terminal agent qwen --session qwen", hint: "Run Qwen Code inside tmux so Vamp Terminal can reattach"),
+        .init(id: "terminal-agent-codex", command: "vamp terminal agent codex --session codex", hint: "Run Codex CLI inside tmux so Vamp Terminal can reattach"),
+        .init(id: "terminal-agent-aider", command: "vamp terminal agent aider --session aider", hint: "Run Aider inside tmux so Vamp Terminal can reattach"),
+        .init(id: "terminal-agent-grok", command: "vamp terminal agent grok --session grok", hint: "Run Grok CLI inside tmux so Vamp Terminal can reattach"),
         .init(id: "open", command: "open -b com.mesutcy.remotedesktop.host", hint: "Launch Vamp Host"),
     ]
 

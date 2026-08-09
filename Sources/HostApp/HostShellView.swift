@@ -1111,6 +1111,8 @@ private struct HostSettingsView: View {
     @State private var showPairedDevices = false
     @State private var showDiagnostics = false
     @State private var browserCommandCopied = false
+    @State private var browserLinkCopied = false
+    @State private var tailscaleInfo: TailscaleConnectionInfo?
 
     var body: some View {
         Form {
@@ -1239,14 +1241,62 @@ private struct HostSettingsView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     Label("Task-chat terminal in Safari", systemImage: "safari")
                         .font(.headline)
-                    Text("The host serves a terminal-only browser workspace on loopback. Expose it privately with Tailscale Serve; no public port or iOS app is required.")
+                    Text("The host keeps the browser workspace private to this Mac and Tailscale. Use the HTTPS Serve link or direct 100.x address; no public port or iOS app is required.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if let port = environment.browserControlStatus.port {
-                    LabeledContent("Local service", value: "127.0.0.1:\(port)")
+                    LabeledContent("Mac local service", value: "127.0.0.1:\(port)")
+                    if let tailscaleInfo {
+                        if let browserURL = tailscaleInfo.browserControlURL {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Serve HTTPS · recommended")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(browserURL)
+                                    .font(.caption.monospaced())
+                                    .textSelection(.enabled)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            Spacer()
+                            Button(browserLinkCopied ? "Copied" : "Copy link") {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(browserURL, forType: .string)
+                                browserLinkCopied = true
+                            }
+                            .controlSize(.small)
+                        }
+                        }
+                        let directURL = "http://\(tailscaleInfo.ipAddress):\(port)"
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Direct Tailscale fallback")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(directURL)
+                                    .font(.caption.monospaced())
+                                    .textSelection(.enabled)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            Spacer()
+                            Button(browserLinkCopied ? "Copied" : "Copy link") {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(directURL, forType: .string)
+                                browserLinkCopied = true
+                            }
+                            .controlSize(.small)
+                        }
+                    } else {
+                        Text("On a phone or tablet, 127.0.0.1 points back to that device. Use the tailnet HTTPS or direct 100.x URL shown above.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Pairing code")
                             .font(.caption)
@@ -1341,6 +1391,9 @@ private struct HostSettingsView: View {
             environment.thermalMonitor.refresh()
             environment.lowPowerModeService.refresh()
             pendingMaxFileSize = "\(environment.fileTransferSettings.maxFileSizeMB)"
+            tailscaleInfo = await Task.detached(priority: .utility) {
+                getTailscaleConnectionInfo()
+            }.value
         }
     }
 }

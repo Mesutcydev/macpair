@@ -10,6 +10,7 @@ import SharedProtocol
 struct VampTerminalPaneView: View {
     @ObservedObject var session: ClientTerminalSessionManager
     let isActive: Bool
+    var provider: VampAgentProvider?
     var onSendClipboardToHost: () -> Void = {}
     var onRequestClipboardFromHost: () -> Void = {}
     var onTerminalClipboard: (String) -> Void = { _ in }
@@ -22,12 +23,13 @@ struct VampTerminalPaneView: View {
             VampSwiftTermContainer(
                 session: session,
                 controller: input,
+                provider: provider,
                 onTerminalClipboard: onTerminalClipboard
             )
-                .background(Color.black)
+                .background(provider?.terminalBackground ?? Color.black)
             specialKeysBar
         }
-        .background(Color.black)
+        .background(provider?.terminalBackground ?? Color.black)
         .opacity(isActive ? 1 : 0.001)
         .allowsHitTesting(isActive)
         .accessibilityHidden(!isActive)
@@ -41,6 +43,9 @@ struct VampTerminalPaneView: View {
                 input.blur()
             }
         }
+        .onDisappear {
+            input.resetModifiers()
+        }
     }
 
     private var paneStatusBar: some View {
@@ -48,15 +53,15 @@ struct VampTerminalPaneView: View {
             fullStatusBar
             compactStatusBar
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .background(Color(red: 0.075, green: 0.08, blue: 0.1))
+        .padding(.horizontal, VampTerminalDesign.space3)
+        .padding(.vertical, VampTerminalDesign.space2)
+        .background(provider?.terminalBackground ?? Color(red: 0.075, green: 0.08, blue: 0.1))
     }
 
     private var fullStatusBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: VampTerminalDesign.space2) {
             statusSummary
-            Spacer(minLength: 4)
+            Spacer(minLength: VampTerminalDesign.space1)
             terminalActionButton(systemImage: "doc.on.doc", label: "Copy selection") {
                 _ = input.copySelectionToDevice()
             }
@@ -71,9 +76,9 @@ struct VampTerminalPaneView: View {
     }
 
     private var compactStatusBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: VampTerminalDesign.space2) {
             statusSummary
-            Spacer(minLength: 3)
+            Spacer(minLength: VampTerminalDesign.space1)
             Menu {
                 Button {
                     _ = input.copySelectionToDevice()
@@ -93,9 +98,9 @@ struct VampTerminalPaneView: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.82))
-                    .frame(minWidth: 44, minHeight: 40)
-                    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    .foregroundStyle(provider?.terminalText.opacity(0.82) ?? .white.opacity(0.82))
+                    .frame(minWidth: VampTerminalDesign.minTapTarget, minHeight: VampTerminalDesign.minTapTarget)
+                    .background((provider?.terminalText ?? .white).opacity(0.08), in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius))
             }
             .accessibilityLabel("Terminal actions")
             keyboardButton
@@ -103,14 +108,14 @@ struct VampTerminalPaneView: View {
     }
 
     private var statusSummary: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: VampTerminalDesign.space2) {
             Circle()
                 .fill(statusColor)
                 .frame(width: 7, height: 7)
                 .accessibilityHidden(true)
             Text(statusText)
                 .font(.footnote.weight(.medium))
-                .foregroundStyle(.white.opacity(0.72))
+                .foregroundStyle(provider?.terminalText.opacity(0.72) ?? .white.opacity(0.72))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
                 .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
@@ -125,9 +130,9 @@ struct VampTerminalPaneView: View {
         } label: {
             Image(systemName: input.isKeyboardVisible ? "keyboard.chevron.compact.down" : "keyboard")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.82))
-                .frame(minWidth: 44, minHeight: 40)
-                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                .foregroundStyle(provider?.terminalText.opacity(0.82) ?? .white.opacity(0.82))
+                .frame(minWidth: VampTerminalDesign.minTapTarget, minHeight: VampTerminalDesign.minTapTarget)
+                .background((provider?.terminalText ?? .white).opacity(0.08), in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(input.isKeyboardVisible ? "Hide keyboard" : "Show keyboard")
@@ -141,9 +146,9 @@ struct VampTerminalPaneView: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.82))
-                .frame(minWidth: 40, minHeight: 40)
-                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                .foregroundStyle(provider?.terminalText.opacity(0.82) ?? .white.opacity(0.82))
+                .frame(minWidth: VampTerminalDesign.minTapTarget, minHeight: VampTerminalDesign.minTapTarget)
+                .background((provider?.terminalText ?? .white).opacity(0.08), in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -165,7 +170,7 @@ struct VampTerminalPaneView: View {
 
     private var statusColor: SwiftUI.Color {
         switch session.state {
-        case .open: return Color.green
+        case .open: return provider?.accent ?? Color.green
         case .opening: return Color.orange
         case .idle: return Color.white.opacity(0.35)
         case .closed: return Color.red.opacity(0.9)
@@ -173,46 +178,86 @@ struct VampTerminalPaneView: View {
     }
 
     private var specialKeysBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                specialKey("ctrl", isOn: input.ctrlActive) { input.toggleCtrl() }
-                specialKey("alt", isOn: input.metaActive) { input.toggleMeta() }
-                specialKey("esc") { send([0x1B]) }
-                specialKey("tab") { send([0x09]) }
-                specialKey("⌫") { send([0x7F]) }
-                divider
-                specialKey("⌃C") { send([0x03]) }
-                specialKey("⌃D") { send([0x04]) }
-                specialKey("⌃Z") { send([0x1A]) }
-                specialKey("⌃L") { send([0x0C]) }
-                specialKey("⌃W") { send([0x17]) }
-                divider
-                specialKey("↑") { send([0x1B, 0x5B, 0x41]) }
-                specialKey("↓") { send([0x1B, 0x5B, 0x42]) }
-                specialKey("←") { send([0x1B, 0x5B, 0x44]) }
-                specialKey("→") { send([0x1B, 0x5B, 0x43]) }
-                divider
-                specialKey("home") { send([0x1B, 0x5B, 0x48]) }
-                specialKey("end") { send([0x1B, 0x5B, 0x46]) }
-                specialKey("pgup") { send([0x1B, 0x5B, 0x35, 0x7E]) }
-                specialKey("pgdn") { send([0x1B, 0x5B, 0x36, 0x7E]) }
-                divider
-                specialKey("~") { send(Array("~".utf8)) }
-                specialKey("|") { send(Array("|".utf8)) }
-                specialKey("/") { send(Array("/".utf8)) }
-                specialKey("paste", system: "doc.on.clipboard") { paste() }
+        HStack(spacing: VampTerminalDesign.space2) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: VampTerminalDesign.space2) {
+                    // Keep the everyday row intentionally small. SwiftTerm's
+                    // stock alternate keyboard is replaced below, so this
+                    // row remains the only persistent accessory above the
+                    // native iOS keyboard.
+                    specialKey("ctrl", isOn: input.ctrlActive) { input.toggleCtrl() }
+                    specialKey("esc") { send([0x1B]) }
+                    specialKey("tab") { send([0x09]) }
+                    specialKey("⌃C") { send([0x03]) }
+                    specialKey("↑") { send([0x1B, 0x5B, 0x41]) }
+                    specialKey("↓") { send([0x1B, 0x5B, 0x42]) }
+                    specialKey("paste", system: "doc.on.clipboard") { paste() }
+                }
+                .padding(.leading, VampTerminalDesign.space2)
+                .padding(.trailing, VampTerminalDesign.space1)
             }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 8)
-        }
-        .background(Color(red: 0.09, green: 0.095, blue: 0.11))
-    }
 
-    private var divider: some View {
-        Rectangle()
-            .fill(Color.white.opacity(0.12))
-            .frame(width: 1, height: 22)
-            .padding(.horizontal, 2)
+            Menu {
+                Section("Modifiers") {
+                    Button {
+                        input.toggleMeta()
+                    } label: {
+                        Label(input.metaActive ? "Alt (on)" : "Alt", systemImage: "option")
+                    }
+                    Button {
+                        input.toggleCtrl()
+                    } label: {
+                        Label(input.ctrlActive ? "Ctrl (on)" : "Ctrl", systemImage: "control")
+                    }
+                }
+
+                Section("Control") {
+                    Button("Delete") { send([0x7F]) }
+                    Button("Ctrl-D") { send([0x04]) }
+                    Button("Ctrl-Z") { send([0x1A]) }
+                    Button("Ctrl-L") { send([0x0C]) }
+                    Button("Ctrl-W") { send([0x17]) }
+                }
+
+                Section("Navigation") {
+                    Button { send([0x1B, 0x5B, 0x44]) } label: {
+                        Label("Left", systemImage: "arrow.left")
+                    }
+                    Button { send([0x1B, 0x5B, 0x43]) } label: {
+                        Label("Right", systemImage: "arrow.right")
+                    }
+                    Button { send([0x1B, 0x5B, 0x48]) } label: {
+                        Label("Home", systemImage: "arrow.left.to.line")
+                    }
+                    Button { send([0x1B, 0x5B, 0x46]) } label: {
+                        Label("End", systemImage: "arrow.right.to.line")
+                    }
+                    Button { send([0x1B, 0x5B, 0x35, 0x7E]) } label: {
+                        Label("Page up", systemImage: "arrow.up")
+                    }
+                    Button { send([0x1B, 0x5B, 0x36, 0x7E]) } label: {
+                        Label("Page down", systemImage: "arrow.down")
+                    }
+                }
+
+                Section("Characters") {
+                    Button("~") { send(Array("~".utf8)) }
+                    Button("|") { send(Array("|".utf8)) }
+                    Button("/") { send(Array("/".utf8)) }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.footnote.weight(.bold))
+                .foregroundStyle(provider?.terminalText.opacity(0.88) ?? .white.opacity(0.88))
+                    .frame(width: VampTerminalDesign.minTapTarget, height: VampTerminalDesign.minTapTarget)
+                    .background((provider?.terminalText ?? .white).opacity(0.11), in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("More terminal keys")
+            .padding(.trailing, VampTerminalDesign.space2)
+        }
+        .frame(minHeight: VampTerminalDesign.controlHeight + VampTerminalDesign.space2)
+        .background(provider?.terminalBackground ?? Color(red: 0.09, green: 0.095, blue: 0.11))
     }
 
     private func specialKey(
@@ -225,7 +270,7 @@ struct VampTerminalPaneView: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             action()
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: VampTerminalDesign.space1) {
                 if let system {
                     Image(systemName: system)
                         .font(.caption2.weight(.semibold))
@@ -233,12 +278,12 @@ struct VampTerminalPaneView: View {
                 Text(title)
                     .font(.caption.weight(.semibold).monospaced())
             }
-            .foregroundStyle(isOn ? Color.black : Color.white.opacity(0.9))
-            .padding(.horizontal, 9)
-            .frame(minWidth: 44, minHeight: 40)
+            .foregroundStyle(isOn ? (provider?.terminalBackground ?? .black) : (provider?.terminalText.opacity(0.9) ?? .white.opacity(0.9)))
+            .padding(.horizontal, VampTerminalDesign.space2)
+            .frame(minWidth: VampTerminalDesign.minTapTarget, minHeight: VampTerminalDesign.controlHeight)
             .background(
-                isOn ? Color.white : Color.white.opacity(0.11),
-                in: RoundedRectangle(cornerRadius: 7)
+                isOn ? (provider?.accent ?? .white) : (provider?.terminalText.opacity(0.11) ?? .white.opacity(0.11)),
+                in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous)
             )
         }
         .buttonStyle(.plain)
@@ -281,9 +326,17 @@ private final class VampTerminalInputController: ObservableObject {
     }
 
     func blur() {
+        resetModifiers()
         guard let terminalView else { return }
         _ = terminalView.resignFirstResponder()
         isKeyboardVisible = false
+    }
+
+    func resetModifiers() {
+        ctrlActive = false
+        metaActive = false
+        terminalView?.controlModifier = false
+        terminalView?.metaModifier = false
     }
 
     func toggleCtrl() {
@@ -316,6 +369,7 @@ private final class VampTerminalInputController: ObservableObject {
 private struct VampSwiftTermContainer: UIViewRepresentable {
     @ObservedObject var session: ClientTerminalSessionManager
     let controller: VampTerminalInputController
+    let provider: VampAgentProvider?
     let onTerminalClipboard: (String) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -326,14 +380,21 @@ private struct VampSwiftTermContainer: UIViewRepresentable {
         let view = TerminalView(frame: .zero, font: Self.readableFont())
         view.terminalDelegate = context.coordinator
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = .black
-        view.nativeForegroundColor = .white
-        view.nativeBackgroundColor = .black
+        view.backgroundColor = provider?.terminalBackgroundUIColor ?? .black
+        view.nativeForegroundColor = provider?.terminalTextUIColor ?? .white
+        view.nativeBackgroundColor = provider?.terminalBackgroundUIColor ?? .black
         view.lineSpacing = 1.08
         view.showsVerticalScrollIndicator = true
         view.alwaysBounceVertical = true
+        view.keyboardDismissMode = .interactive
         view.delaysContentTouches = false
         view.linkReporting = .implicit
+        // SwiftTerm's default alternate keyboard is a large three-row grid
+        // that consumes most of an iPhone screen. Vamp Terminal owns the
+        // compact accessory row above and keeps the native keyboard for text
+        // entry, so there is no accidental full-screen keyboard mode.
+        view.inputAccessoryView = nil
+        view.inputView = nil
         try? view.setUseMetal(true)
         view.addGestureRecognizer(
             UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
@@ -348,6 +409,9 @@ private struct VampSwiftTermContainer: UIViewRepresentable {
         if abs(uiView.font.pointSize - font.pointSize) > 0.1 {
             uiView.font = font
         }
+        uiView.backgroundColor = provider?.terminalBackgroundUIColor ?? .black
+        uiView.nativeForegroundColor = provider?.terminalTextUIColor ?? .white
+        uiView.nativeBackgroundColor = provider?.terminalBackgroundUIColor ?? .black
         context.coordinator.deliverPendingOutput(to: uiView)
     }
 
@@ -356,8 +420,8 @@ private struct VampSwiftTermContainer: UIViewRepresentable {
         // respecting the user's Dynamic Type preference. The clamp prevents
         // an accessibility size from making every mobile shell unusably wide.
         let preferredBody = UIFont.preferredFont(forTextStyle: .body).pointSize
-        let scaled = preferredBody * (14.0 / 17.0)
-        let pointSize = min(max(scaled, 12), 21)
+        let scaled = preferredBody * (15.0 / 17.0)
+        let pointSize = min(max(scaled, 13), 22)
         return UIFont.monospacedSystemFont(ofSize: pointSize, weight: .regular)
     }
 

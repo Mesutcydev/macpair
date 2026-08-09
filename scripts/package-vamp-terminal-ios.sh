@@ -76,6 +76,9 @@ if [[ "$CLEAN" -eq 1 ]]; then
   [[ "$WORK" == "$ROOT/.packaging-vamp-terminal-ios" ]] || fail "Refusing to clean an unexpected path"
   log "Cleaning prior Vamp Terminal packaging output"
   rm -rf "$WORK"
+  # Keep the artifact directory unambiguous when several builds were made
+  # locally. Only this product's generated release files are removed.
+  find "$OUTPUT_DIR" -maxdepth 1 -type f -name 'VampTerminal-iOS-*' -delete 2>/dev/null || true
 fi
 
 mkdir -p "$WORK" "$OUTPUT_DIR"

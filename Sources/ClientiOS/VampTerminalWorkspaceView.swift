@@ -12,6 +12,7 @@ struct VampTerminalWorkspaceView: View {
     @State private var startupCommandPrefix = ""
     @State private var startupCommandInput = ""
     @State private var startupCommandTitle = "Attach terminal session"
+    @State private var showingDisconnectConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,10 +21,14 @@ struct VampTerminalWorkspaceView: View {
 
             ZStack {
                 Color.black
+                if workspace.tabs.isEmpty {
+                    emptyWorkspaceState
+                }
                 ForEach(workspace.tabs) { tab in
                     VampTerminalPaneView(
                         session: tab.session,
                         isActive: workspace.selectedTabID == tab.id,
+                        provider: tab.provider,
                         onSendClipboardToHost: { _ = workspace.sendClipboardToHost() },
                         onRequestClipboardFromHost: { _ = workspace.requestClipboardFromHost() },
                         onTerminalClipboard: { text in
@@ -36,22 +41,35 @@ struct VampTerminalWorkspaceView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if let message = workspace.lastTerminalError {
-                HStack(spacing: 9) {
+                HStack(spacing: VampTerminalDesign.space2) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(VampGlassPalette.warning)
                     Text(message)
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                         .foregroundStyle(VampGlassPalette.inkSecondary)
-                        .lineLimit(2)
+                        .lineLimit(3)
+                    if workspace.hasStalledTab {
+                        Spacer(minLength: 6)
+                        Button("Retry") {
+                            workspace.retryStalledTabs()
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(VampGlassPalette.ink)
+                        .padding(.horizontal, VampTerminalDesign.space3)
+                        .frame(minHeight: VampTerminalDesign.minTapTarget)
+                        .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                        .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius)
+                        .buttonStyle(VampGlassPressStyle())
+                    }
                 }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, VampTerminalDesign.space4)
+                    .padding(.vertical, VampTerminalDesign.space3)
                     .vampGlassSurface(.card, cornerRadius: 0)
                     .vampGlassOutline(cornerRadius: 0, color: VampGlassPalette.warning.opacity(0.30))
             }
             if let message = workspace.clipboardStatusMessage {
-                HStack(spacing: 9) {
+                HStack(spacing: VampTerminalDesign.space2) {
                     Image(systemName: "doc.on.clipboard")
                         .foregroundStyle(VampGlassPalette.inkSecondary)
                     Text(message)
@@ -61,8 +79,8 @@ struct VampTerminalWorkspaceView: View {
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
+                .padding(.horizontal, VampTerminalDesign.space4)
+                .padding(.vertical, VampTerminalDesign.space2)
                 .vampGlassSurface(.card, cornerRadius: 0)
                 .vampGlassOutline(cornerRadius: 0)
             }
@@ -83,6 +101,14 @@ struct VampTerminalWorkspaceView: View {
         }
         .onDisappear {
             workspace.stop()
+        }
+        .alert("Disconnect from Mac?", isPresented: $showingDisconnectConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Disconnect", role: .destructive) {
+                Task { await coordinator.endSession() }
+            }
+        } message: {
+            Text("All active terminal tabs on this connection will close. Use tmux or screen if you need to reconnect later.")
         }
         .alert("Rename terminal", isPresented: $showingRename) {
             TextField("Terminal name", text: $renameText)
@@ -112,10 +138,10 @@ struct VampTerminalWorkspaceView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: VampTerminalDesign.space3) {
             VampGlassIconTile(systemImage: "terminal.fill", size: 38)
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
                 Text(coordinator.connectedHostName ?? "Vamp Terminal")
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(VampGlassPalette.ink)
@@ -131,23 +157,24 @@ struct VampTerminalWorkspaceView: View {
                 }
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: VampTerminalDesign.space2)
 
             Button {
-                Task { await coordinator.endSession() }
+                showingDisconnectConfirmation = true
             } label: {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(VampGlassPalette.ink)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .vampGlassSurface(.button, cornerRadius: 11)
-                    .vampGlassOutline(cornerRadius: 11, color: VampGlassPalette.ruleStrong)
+                    .frame(minWidth: VampTerminalDesign.minTapTarget, minHeight: VampTerminalDesign.minTapTarget)
+                    .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                    .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
             }
             .buttonStyle(VampGlassPressStyle())
             .accessibilityLabel("Disconnect from Mac")
+            .accessibilityHint("Asks for confirmation before ending every terminal")
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
+        .padding(.horizontal, VampTerminalDesign.space4)
+        .padding(.vertical, VampTerminalDesign.space2)
         .vampGlassSurface(.toolbar, cornerRadius: 0)
         .overlay(alignment: .bottom) {
             Rectangle()
@@ -156,16 +183,50 @@ struct VampTerminalWorkspaceView: View {
         }
     }
 
+    private var emptyWorkspaceState: some View {
+        VStack(spacing: VampTerminalDesign.space3) {
+            Image(systemName: "terminal")
+                .font(.title2)
+                .foregroundStyle(VampGlassPalette.inkSecondary)
+            Text("No terminal tabs")
+                .font(.headline)
+                .foregroundStyle(VampGlassPalette.ink)
+            Text("Open a new shell to continue. Existing tabs stay alive when you switch between them.")
+                .font(.footnote)
+                .foregroundStyle(VampGlassPalette.inkSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                _ = workspace.createTab()
+            } label: {
+                Label("New terminal", systemImage: "plus")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(VampGlassPalette.ink)
+                    .padding(.horizontal, VampTerminalDesign.space4)
+                    .frame(minHeight: VampTerminalDesign.minTapTarget)
+                    .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                    .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
+            }
+            .buttonStyle(VampGlassPressStyle())
+            .disabled(!workspace.canCreateTab)
+        }
+        .padding(VampTerminalDesign.space6)
+        .frame(maxWidth: 360)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.largeCardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.largeCardRadius, color: VampGlassPalette.ruleStrong)
+        .accessibilityElement(children: .contain)
+    }
+
     private var tabBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: VampTerminalDesign.space2) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 7) {
+                HStack(spacing: VampTerminalDesign.space2) {
                     ForEach(workspace.tabs) { tab in
                         tabChip(tab)
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .padding(.horizontal, VampTerminalDesign.space3)
+                .padding(.vertical, VampTerminalDesign.space2)
             }
 
             Menu {
@@ -195,25 +256,24 @@ struct VampTerminalWorkspaceView: View {
                 }
 
                 Section("Agent launchers") {
-                    agentCommandButton("Claude Code", command: "claude", session: "claude")
-                    agentCommandButton("Codex CLI", command: "codex", session: "codex")
-                    agentCommandButton("Aider", command: "aider", session: "aider")
-                    agentCommandButton("OpenCode", command: "opencode", session: "opencode")
+                    ForEach(VampAgentProvider.allCases) { provider in
+                        agentCommandButton(provider)
+                    }
                 }
             } label: {
                 Image(systemName: "plus")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(workspace.canCreateTab ? VampGlassPalette.ink : VampGlassPalette.inkSubtle)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .vampGlassSurface(.button, cornerRadius: 11)
-                    .vampGlassOutline(cornerRadius: 11, color: VampGlassPalette.ruleStrong)
+                    .frame(minWidth: VampTerminalDesign.minTapTarget, minHeight: VampTerminalDesign.minTapTarget)
+                    .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                    .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
             }
             .buttonStyle(VampGlassPressStyle())
             .disabled(!workspace.canCreateTab)
             .accessibilityLabel("New terminal tab")
             .accessibilityValue(workspace.tabCountLabel)
             .accessibilityHint(workspace.canCreateTab ? "Opens another independent shell" : "Terminal capacity reached")
-            .padding(.trailing, 10)
+            .padding(.trailing, VampTerminalDesign.space3)
         }
         .vampGlassSurface(.toolbar, cornerRadius: 0)
         .overlay(alignment: .bottom) {
@@ -227,7 +287,7 @@ struct VampTerminalWorkspaceView: View {
             Button {
                 workspace.select(tabID: tab.id)
             } label: {
-                HStack(spacing: 7) {
+                HStack(spacing: VampTerminalDesign.space2) {
                     Circle()
                         .fill(dotColor(for: tab.state))
                         .frame(width: 7, height: 7)
@@ -242,9 +302,9 @@ struct VampTerminalWorkspaceView: View {
                             .accessibilityLabel("Unread output")
                     }
                 }
-                .padding(.leading, 11)
-                .padding(.trailing, workspace.tabs.count > 1 ? 6 : 11)
-                .frame(minHeight: 34)
+                .padding(.leading, VampTerminalDesign.space3)
+                .padding(.trailing, workspace.tabs.count > 1 ? VampTerminalDesign.space2 : VampTerminalDesign.space3)
+                .frame(minHeight: VampTerminalDesign.controlHeight)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(tab.title)
@@ -258,19 +318,19 @@ struct VampTerminalWorkspaceView: View {
                     Image(systemName: "xmark")
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(VampGlassPalette.inkTertiary)
-                        .frame(width: 32, height: 34)
+                        .frame(minWidth: VampTerminalDesign.minTapTarget, minHeight: VampTerminalDesign.controlHeight)
                 }
                 .buttonStyle(VampGlassPressStyle())
                 .accessibilityLabel("Close \(tab.title)")
             }
         }
-        .vampGlassSurface(.tab, cornerRadius: 9)
+        .vampGlassSurface(.tab, cornerRadius: VampTerminalDesign.tabRadius)
         .background {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
+            RoundedRectangle(cornerRadius: VampTerminalDesign.tabRadius, style: .continuous)
                 .fill(selected ? Color.primary.opacity(0.12) : Color.primary.opacity(0.035))
         }
         .vampGlassOutline(
-            cornerRadius: 9,
+            cornerRadius: VampTerminalDesign.tabRadius,
             color: selected ? VampGlassPalette.ruleStrong : VampGlassPalette.rule
         )
         .overlay(alignment: .bottom) {
@@ -334,11 +394,23 @@ struct VampTerminalWorkspaceView: View {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
-    private func agentCommandButton(_ title: String, command: String, session: String) -> some View {
+    private func agentCommandButton(_ provider: VampAgentProvider) -> some View {
         Button {
-            _ = workspace.createTab(startupCommand: "tmux new-session -A -s \(session) -- \(command)")
+            _ = workspace.createTab(
+                startupCommand: provider.startupCommand,
+                title: provider.displayName,
+                provider: provider
+            )
         } label: {
-            Label(title, systemImage: "sparkles")
+            HStack(spacing: VampTerminalDesign.space2) {
+                VampProviderMark(provider: provider, size: 24)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(provider.displayName)
+                    Text(provider.executable)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 }

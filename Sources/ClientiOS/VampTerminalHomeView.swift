@@ -9,8 +9,10 @@ struct VampTerminalHomeView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var manualAddress = ""
+    @State private var manualAddressError: String?
     @State private var showingManualAddress = false
     @State private var showingGuide = false
+    @FocusState private var manualAddressFocused: Bool
     @AppStorage("vampTerminal.hostPromo.dismissed") private var hostPromoDismissed = false
 
     init(environment: ClientAppEnvironment) {
@@ -86,7 +88,7 @@ struct VampTerminalHomeView: View {
         NavigationStack {
             ZStack {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: VampTerminalDesign.space6) {
                         hero
 
                         guideEntry
@@ -95,6 +97,8 @@ struct VampTerminalHomeView: View {
                             VampHostPromoCard {
                                 hostPromoDismissed = true
                             }
+                        } else {
+                            hostSetupRecovery
                         }
 
                         if isConnecting {
@@ -128,12 +132,13 @@ struct VampTerminalHomeView: View {
 
                         pairingNote
                     }
-                    .padding(.horizontal, 18)
-                    .padding(.top, 14)
-                    .padding(.bottom, 28)
+                    .padding(.horizontal, VampTerminalDesign.space4)
+                    .padding(.top, VampTerminalDesign.space3)
+                    .padding(.bottom, VampTerminalDesign.space7)
                     .frame(maxWidth: 760, alignment: .leading)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
             .background(VampTerminalBackdrop())
             .navigationTitle("Vamp Terminal")
@@ -157,12 +162,12 @@ struct VampTerminalHomeView: View {
     }
 
     private var hero: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: VampTerminalDesign.space3) {
             VampGlassIconTile(systemImage: "terminal.fill", size: 62)
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
                 Text("Your Mac, in tabs.")
-                    .font(.title2.weight(.semibold))
+                    .font(.system(size: VampTerminalDesign.heroTitleSize, weight: .semibold, design: .rounded))
                     .foregroundStyle(VampGlassPalette.ink)
                 Text("Secure terminal access from anywhere on your tailnet.")
                     .font(.subheadline.weight(.medium))
@@ -181,9 +186,9 @@ struct VampTerminalHomeView: View {
         Button {
             showingGuide = true
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: VampTerminalDesign.space3) {
                 VampGlassIconTile(systemImage: "book.closed", size: 42)
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
                     Text("How to use Vamp Terminal")
                         .font(.headline)
                         .foregroundStyle(VampGlassPalette.ink)
@@ -197,17 +202,49 @@ struct VampTerminalHomeView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(VampGlassPalette.inkTertiary)
             }
-            .padding(12)
-            .vampGlassSurface(.card, cornerRadius: 16)
-            .vampGlassOutline(cornerRadius: 16)
+            .padding(VampTerminalDesign.space3)
+            .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
+            .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius)
         }
         .buttonStyle(VampGlassPressStyle())
         .accessibilityLabel("How to use Vamp Terminal")
         .accessibilityHint("Opens the visual setup and terminal controls guide")
     }
 
+    private var hostSetupRecovery: some View {
+        Button {
+            showingGuide = true
+        } label: {
+            HStack(spacing: VampTerminalDesign.space3) {
+                Image(systemName: "questionmark.circle")
+                    .font(.headline)
+                    .foregroundStyle(VampGlassPalette.inkSecondary)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
+                    Text("Have you installed a host?")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(VampGlassPalette.ink)
+                    Text("Open the setup guide for Vamp Host or the terminal-only host.")
+                        .font(.footnote)
+                        .foregroundStyle(VampGlassPalette.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: VampTerminalDesign.space1)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(VampGlassPalette.inkTertiary)
+            }
+            .padding(VampTerminalDesign.space3)
+            .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
+            .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius)
+        }
+        .buttonStyle(VampGlassPressStyle())
+        .accessibilityLabel("Have you installed a host?")
+        .accessibilityHint("Opens host installation and pairing instructions")
+    }
+
     private var hostSection: some View {
-        VStack(alignment: .leading, spacing: 11) {
+        VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
             VampTerminalSectionLabel(
                 title: "Hosts",
                 detail: hosts.displayHosts.isEmpty ? nil : "\(hosts.displayHosts.count)"
@@ -216,7 +253,7 @@ struct VampTerminalHomeView: View {
             if hosts.displayHosts.isEmpty {
                 emptyHostsCard
             } else {
-                VStack(spacing: 9) {
+                VStack(spacing: VampTerminalDesign.space2) {
                     ForEach(hosts.displayHosts) { row in
                         hostRow(row)
                     }
@@ -255,9 +292,9 @@ struct VampTerminalHomeView: View {
                 stacked: true
             )
         }
-        .padding(14)
-        .vampGlassSurface(.card, cornerRadius: 16)
-        .vampGlassOutline(cornerRadius: 16)
+        .padding(VampTerminalDesign.space4)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius)
     }
 
     @ViewBuilder
@@ -271,8 +308,8 @@ struct VampTerminalHomeView: View {
         stacked: Bool
     ) -> some View {
         if stacked {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
+                HStack(spacing: VampTerminalDesign.space3) {
                     hostStatusDot(row: row, isBusy: isBusy)
                     hostRowDetails(
                         row: row,
@@ -289,7 +326,7 @@ struct VampTerminalHomeView: View {
                 }
             }
         } else {
-            HStack(spacing: 12) {
+            HStack(spacing: VampTerminalDesign.space3) {
                 hostStatusDot(row: row, isBusy: isBusy)
                 hostRowDetails(
                     row: row,
@@ -299,7 +336,7 @@ struct VampTerminalHomeView: View {
                     supportsMultipleTerminals: supportsMultipleTerminals,
                     isBusy: isBusy
                 )
-                Spacer(minLength: 5)
+                Spacer(minLength: VampTerminalDesign.space1)
                 hostRowAction(row: row, isManual: isManual, isSupported: isSupported, isBusy: isBusy)
             }
         }
@@ -326,8 +363,8 @@ struct VampTerminalHomeView: View {
         isBusy: Bool
     ) -> some View {
         let metadata = row.endpoint.metadata
-        return VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 7) {
+        return VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
+            HStack(spacing: VampTerminalDesign.space2) {
                 Text(metadata.displayName)
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(VampGlassPalette.ink)
@@ -371,10 +408,10 @@ struct VampTerminalHomeView: View {
                 Label("Connect", systemImage: "arrow.up.right")
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundStyle(VampGlassPalette.ink)
-                    .padding(.horizontal, 10)
-                    .frame(minHeight: 40)
-                    .vampGlassSurface(.button, cornerRadius: 11)
-                    .vampGlassOutline(cornerRadius: 11, color: VampGlassPalette.ruleStrong)
+                    .padding(.horizontal, VampTerminalDesign.space3)
+                    .frame(minHeight: VampTerminalDesign.minTapTarget)
+                    .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                    .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
             }
             .buttonStyle(VampGlassPressStyle())
             .accessibilityLabel("Connect to \(metadata.displayName)")
@@ -420,7 +457,7 @@ struct VampTerminalHomeView: View {
     }
 
     private var emptyHostsCard: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: VampTerminalDesign.space2) {
             Image(systemName: "dot.radiowaves.left.and.right")
                 .font(.title3)
                 .foregroundStyle(VampGlassPalette.inkSecondary)
@@ -433,13 +470,13 @@ struct VampTerminalHomeView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .vampGlassSurface(.card, cornerRadius: 16)
-        .vampGlassOutline(cornerRadius: 16)
+        .padding(VampTerminalDesign.space4)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius)
     }
 
     private var manualAddressEntry: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
             Button {
                 showingManualAddress.toggle()
             } label: {
@@ -452,12 +489,12 @@ struct VampTerminalHomeView: View {
 
             if showingManualAddress {
                 ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: VampTerminalDesign.space2) {
                         addressField
                         addAddressButton
                     }
 
-                    VStack(spacing: 8) {
+                    VStack(spacing: VampTerminalDesign.space2) {
                         addressField
                         addAddressButton
                             .frame(maxWidth: .infinity)
@@ -467,26 +504,50 @@ struct VampTerminalHomeView: View {
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(VampGlassPalette.inkTertiary)
                     .fixedSize(horizontal: false, vertical: true)
+                if let manualAddressError {
+                    Label(manualAddressError, systemImage: "exclamationmark.triangle")
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(VampGlassPalette.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
-        .padding(.top, 3)
+        .padding(.top, VampTerminalDesign.space1)
+        .onChange(of: showingManualAddress) { _, isShowing in
+            if !isShowing {
+                manualAddressFocused = false
+                manualAddressError = nil
+            }
+        }
+        .onChange(of: manualAddress) { _, _ in
+            manualAddressError = nil
+        }
     }
 
     private var addressField: some View {
         TextField("mac.tailnet.ts.net or 100.x.y.z", text: $manualAddress)
+            .focused($manualAddressFocused)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .keyboardType(.URL)
             .textFieldStyle(.plain)
             .font(.system(size: 12, weight: .medium, design: .monospaced))
             .foregroundStyle(VampGlassPalette.ink)
-            .padding(.horizontal, 11)
-            .frame(minHeight: 44)
-            .vampGlassSurface(.field, cornerRadius: 11)
-            .vampGlassOutline(cornerRadius: 11)
-            .submitLabel(.go)
+            .padding(.horizontal, VampTerminalDesign.space3)
+            .frame(minHeight: VampTerminalDesign.minTapTarget)
+            .vampGlassSurface(.field, cornerRadius: VampTerminalDesign.controlRadius)
+            .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius)
+            .submitLabel(.done)
             .onSubmit {
                 addManualHost()
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        manualAddressFocused = false
+                    }
+                }
             }
     }
 
@@ -497,17 +558,17 @@ struct VampTerminalHomeView: View {
             Text("Add")
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
                 .foregroundStyle(VampGlassPalette.ink)
-                .padding(.horizontal, 13)
-                .frame(minHeight: 44)
-                .vampGlassSurface(.button, cornerRadius: 11)
-                .vampGlassOutline(cornerRadius: 11, color: VampGlassPalette.ruleStrong)
+                .padding(.horizontal, VampTerminalDesign.space3)
+                .frame(minHeight: VampTerminalDesign.minTapTarget)
+                .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
         }
         .buttonStyle(VampGlassPressStyle())
         .disabled(manualAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
     private var pairingNote: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: VampTerminalDesign.space3) {
             Image(systemName: "checkmark.shield")
                 .foregroundStyle(VampGlassPalette.good)
             Text("Connections stay on your LAN or Tailscale. On first use, approve the pairing request in Vamp Host; the signed host identity is then remembered on this device.")
@@ -515,16 +576,16 @@ struct VampTerminalHomeView: View {
                 .foregroundStyle(VampGlassPalette.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(14)
-        .vampGlassSurface(.card, cornerRadius: 14)
-        .vampGlassOutline(cornerRadius: 14, color: VampGlassPalette.good.opacity(0.28))
+        .padding(VampTerminalDesign.space4)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: VampGlassPalette.good.opacity(0.28))
     }
 
     private var connectionProgressCard: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: VampTerminalDesign.space3) {
             ProgressView()
                 .tint(VampGlassPalette.ink)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
                 Text(connectionPhaseTitle)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(VampGlassPalette.ink)
@@ -540,24 +601,24 @@ struct VampTerminalHomeView: View {
                 Text("Cancel")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(VampGlassPalette.ink)
-                    .padding(.horizontal, 10)
-                    .frame(minHeight: 40)
-                    .vampGlassSurface(.button, cornerRadius: 10)
-                    .vampGlassOutline(cornerRadius: 10)
+                    .padding(.horizontal, VampTerminalDesign.space3)
+                    .frame(minHeight: VampTerminalDesign.minTapTarget)
+                    .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                    .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius)
             }
             .buttonStyle(VampGlassPressStyle())
         }
-        .padding(14)
-        .vampGlassSurface(.card, cornerRadius: 16)
-        .vampGlassOutline(cornerRadius: 16, color: VampGlassPalette.ruleStrong)
+        .padding(VampTerminalDesign.space4)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: VampGlassPalette.ruleStrong)
     }
 
     private func messageCard(title: String, message: String, icon: String, tint: Color) -> some View {
-        HStack(alignment: .top, spacing: 11) {
+        HStack(alignment: .top, spacing: VampTerminalDesign.space3) {
             Image(systemName: icon)
                 .foregroundStyle(tint)
-                .frame(width: 22)
-            VStack(alignment: .leading, spacing: 4) {
+                .frame(width: VampTerminalDesign.space6)
+            VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
                 Text(title)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(VampGlassPalette.ink)
@@ -567,18 +628,18 @@ struct VampTerminalHomeView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(14)
-        .vampGlassSurface(.card, cornerRadius: 16)
-        .vampGlassOutline(cornerRadius: 16, color: tint.opacity(0.30))
+        .padding(VampTerminalDesign.space4)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: tint.opacity(0.30))
     }
 
     private func terminalUnavailableCard(title: String, message: String, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 11) {
+        VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
+            HStack(alignment: .top, spacing: VampTerminalDesign.space3) {
                 Image(systemName: icon)
                     .foregroundStyle(VampGlassPalette.warning)
-                    .frame(width: 22)
-                VStack(alignment: .leading, spacing: 4) {
+                    .frame(width: VampTerminalDesign.space6)
+                VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
                     Text(title)
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundStyle(VampGlassPalette.ink)
@@ -595,16 +656,16 @@ struct VampTerminalHomeView: View {
                 Text("Disconnect")
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundStyle(VampGlassPalette.ink)
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: 40)
-                    .vampGlassSurface(.button, cornerRadius: 10)
-                    .vampGlassOutline(cornerRadius: 10, color: VampGlassPalette.ruleStrong)
+                    .padding(.horizontal, VampTerminalDesign.space3)
+                    .frame(minHeight: VampTerminalDesign.minTapTarget)
+                    .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                    .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
             }
             .buttonStyle(VampGlassPressStyle())
         }
-        .padding(14)
-        .vampGlassSurface(.card, cornerRadius: 16)
-        .vampGlassOutline(cornerRadius: 16, color: VampGlassPalette.warning.opacity(0.30))
+        .padding(VampTerminalDesign.space4)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: VampGlassPalette.warning.opacity(0.30))
     }
 
     private var isConnecting: Bool {
@@ -639,8 +700,20 @@ struct VampTerminalHomeView: View {
     }
 
     private func addManualHost() {
-        guard let row = hosts.addManualHost(address: manualAddress) else { return }
+        let address = manualAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !address.isEmpty else {
+            manualAddressError = "Enter a MagicDNS name or a 100.x.y.z Tailscale address."
+            manualAddressFocused = true
+            return
+        }
+        guard let row = hosts.addManualHost(address: address) else {
+            manualAddressError = "That address could not be added. Check the hostname or Tailscale IP and try again."
+            manualAddressFocused = true
+            return
+        }
         manualAddress = ""
+        manualAddressError = nil
+        manualAddressFocused = false
         showingManualAddress = false
         connect(to: row)
     }

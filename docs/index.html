@@ -425,7 +425,7 @@
       <div class="split-copy">
         <div class="eyebrow">No iOS app nearby?</div>
         <h2>Use Safari as your terminal workspace.</h2>
-        <p>Vamp Host includes a terminal-only browser surface styled like a task chat. It runs on loopback and is exposed through Tailscale Serve, so the Mac never opens a public HTTP listener.</p>
+        <p>Vamp Host includes a terminal-only browser surface styled like a task chat. It stays private to Mac loopback and Tailscale, so the Mac never opens a public HTTP listener.</p>
         <ul class="check-list">
           <li>Pair with the six-digit code shown in Vamp Host.</li>
           <li>Open up to eight concurrent browser CLI tabs.</li>
@@ -459,8 +459,8 @@ No output yet.</pre>
         <p>Use the original Vamp Host when you want remote desktop plus terminal access, or install the smaller terminal-only host when that is all the Mac should expose.</p>
       </div>
       <div class="host-grid">
-        <article class="host-card glass"><span class="host-label">macOS · full host</span><h3>Vamp Host</h3><p>Remote display, input, and Terminal Mode in one host. Terminal Mode is explicit and supports up to eight tabs for the Vamp Terminal client.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-3/VampHost-macOS-3.2.0-build-2-adhoc.zip" target="_blank" rel="noreferrer">Download full host ↗</a></article>
-        <article class="host-card glass"><span class="host-label">macOS · light host</span><h3>Vamp Terminal Host</h3><p>A focused companion with terminal sessions, Safari control, pairing, Tailscale discovery, and no screen-capture or remote-input surface.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-3/VampTerminalHost-macOS-1.0.0-build-1-adhoc.zip" target="_blank" rel="noreferrer">Download light host ↗</a></article>
+        <article class="host-card glass"><span class="host-label">macOS · full host</span><h3>Vamp Host</h3><p>Remote display, input, and Terminal Mode in one host. Terminal Mode is explicit and supports up to eight tabs for the Vamp Terminal client.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampHost-macOS-3.2.0-build-3-adhoc.zip" target="_blank" rel="noreferrer">Download full host ↗</a></article>
+        <article class="host-card glass"><span class="host-label">macOS · light host</span><h3>Vamp Terminal Host</h3><p>A focused companion with terminal sessions, Safari control, pairing, Tailscale discovery, and no screen-capture or remote-input surface.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampTerminalHost-macOS-1.0.0-build-2-adhoc.zip" target="_blank" rel="noreferrer">Download light host ↗</a></article>
         <article class="host-card glass"><span class="host-label">Linux · browser host</span><h3>Vamp Terminal Linux Host</h3><p>Dependency-free Python host with eight PTYs per browser connection. Keep it on loopback and expose it with Tailscale Serve for Safari access.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/blob/main/linux-host/README.md" target="_blank" rel="noreferrer">Run on Linux ↗</a></article>
       </div>
     </section>
@@ -476,7 +476,16 @@ No output yet.</pre>
           <div class="cli-row"><code>vamp terminal list</code><span>List tmux and screen sessions.</span></div>
           <div class="cli-row"><code>vamp terminal start --session work</code><span>Create or resume a persistent shell.</span></div>
           <div class="cli-row"><code>vamp terminal attach work</code><span>Attach the named session from a tab.</span></div>
-          <div class="cli-row"><code>vamp terminal agent codex --session codex</code><span>Launch an agent-backed session.</span></div>
+          <div class="cli-row"><code>vamp terminal agent opencode --session opencode</code><span>Launch OpenCode in a persistent tmux tab.</span></div>
+          <div class="cli-row"><code>vamp terminal agent pi --session pi</code><span>Launch Pi in a persistent tmux tab.</span></div>
+          <div class="cli-row"><code>vamp terminal agent commandcode --session commandcode</code><span>Launch CommandCode in a persistent tmux tab.</span></div>
+          <div class="cli-row"><code>vamp terminal agent chatgpt --session chatgpt</code><span>Launch ChatGPT CLI in a persistent tmux tab.</span></div>
+          <div class="cli-row"><code>vamp terminal agent claude --session claude</code><span>Launch Claude Code in a persistent tmux tab.</span></div>
+          <div class="cli-row"><code>vamp terminal agent kimi --session kimi</code><span>Launch Kimi in a persistent tmux tab.</span></div>
+          <div class="cli-row"><code>vamp terminal agent qwen --session qwen</code><span>Launch Qwen Code in a persistent tmux tab.</span></div>
+          <div class="cli-row"><code>vamp terminal agent codex --session codex</code><span>Launch Codex CLI in a persistent tmux tab.</span></div>
+          <div class="cli-row"><code>vamp terminal agent aider --session aider</code><span>Launch Aider in a persistent tmux tab.</span></div>
+          <div class="cli-row"><code>vamp terminal agent grok --session grok</code><span>Launch Grok CLI in a persistent tmux tab.</span></div>
           <div class="cli-row"><code>vamp browser serve</code><span>Expose the loopback Safari workspace through Tailscale.</span></div>
           <div class="cli-row"><code>vamp-terminal-host status</code><span>Check the terminal-only macOS host.</span></div>
         </div>
@@ -485,7 +494,7 @@ No output yet.</pre>
         <div class="eyebrow">Agent compatibility</div>
         <h2>Keep the process alive while you move.</h2>
         <p>Vamp does not own your agent account or prompt. It gives Claude Code, Codex CLI, Aider, and OpenCode a stable PTY inside tmux so the client can reconnect to the same work.</p>
-        <div class="agent-list" aria-label="Supported agent launchers"><div class="agent"><b>⌁</b> Claude Code</div><div class="agent"><b>⌘</b> Codex CLI</div><div class="agent"><b>✦</b> Aider</div><div class="agent"><b>↗</b> OpenCode</div></div>
+        <div class="agent-list" aria-label="Supported agent launchers"><div class="agent"><b>◈</b> OpenCode</div><div class="agent"><b>π</b> Pi</div><div class="agent"><b>⌘</b> CommandCode</div><div class="agent"><b>◌</b> ChatGPT CLI</div><div class="agent"><b>✦</b> Claude Code</div><div class="agent"><b>K</b> Kimi</div><div class="agent"><b>Q</b> Qwen Code</div><div class="agent"><b>⌘</b> Codex CLI</div><div class="agent"><b>A</b> Aider</div><div class="agent"><b>G</b> Grok CLI</div></div>
         <div class="code-panel"><code>vamp terminal agent claude --session claude</code><button class="copy-button" data-copy="vamp terminal agent claude --session claude">Copy</button></div>
       </div>
     </section>
@@ -561,7 +570,7 @@ No output yet.</pre>
         <article class="step glass"><h3>Sideload</h3><p>In AltStore, choose + → Sideload IPA and let it sign the app.</p><code>AltStore → + → Sideload IPA</code></article>
         <article class="step glass"><h3>Pair</h3><p>Enable Terminal Mode on Vamp Host, approve the pairing request, and connect.</p><code>LAN or Tailscale</code></article>
       </div>
-      <div class="hero-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-3/VampTerminal-iOS-1.0.0-build-3-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download build 3 IPA ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/releases" target="_blank" rel="noreferrer">Open all release assets ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_SIDELOAD.md" target="_blank" rel="noreferrer">Read the full guide ↗</a></div>
+      <div class="hero-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-4/VampTerminal-iOS-1.0.0-build-4-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download build 4 IPA ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/releases" target="_blank" rel="noreferrer">Open all release assets ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_SIDELOAD.md" target="_blank" rel="noreferrer">Read the full guide ↗</a></div>
     </section>
 
     <section class="compat wrap" id="security">
@@ -570,7 +579,7 @@ No output yet.</pre>
         <h2>Start it here. Continue it anywhere.</h2>
         <p>Shells are intentionally fresh per connection. For long-running work, use tmux or screen and reattach from a new mobile or Safari tab when you come back.</p>
         <div class="code-panel"><code>tmux new-session -A -s work</code><button class="copy-button" data-copy="tmux new-session -A -s work">Copy</button></div>
-        <div class="agent-list" aria-label="Supported agent launchers"><div class="agent"><b>⌁</b> Claude Code</div><div class="agent"><b>⌘</b> Codex CLI</div><div class="agent"><b>✦</b> Aider</div><div class="agent"><b>↗</b> OpenCode</div></div>
+        <div class="agent-list" aria-label="Supported agent launchers"><div class="agent"><b>◈</b> OpenCode</div><div class="agent"><b>π</b> Pi</div><div class="agent"><b>⌘</b> CommandCode</div><div class="agent"><b>◌</b> ChatGPT CLI</div><div class="agent"><b>✦</b> Claude Code</div><div class="agent"><b>K</b> Kimi</div><div class="agent"><b>Q</b> Qwen Code</div><div class="agent"><b>⌘</b> Codex CLI</div><div class="agent"><b>A</b> Aider</div><div class="agent"><b>G</b> Grok CLI</div></div>
       </div>
       <div class="compat-card glass">
         <div class="eyebrow">Private by default</div>
@@ -578,7 +587,7 @@ No output yet.</pre>
         <ul class="security-list">
           <li>Terminal Mode is opt-in on the Mac and disabling it closes every active PTY.</li>
           <li>Pairing is signed and requires visible host approval for a new device.</li>
-          <li>Remote Safari control binds to loopback and relies on your private Tailscale network.</li>
+          <li>Remote Safari control accepts loopback for Tailscale Serve and direct private Tailscale traffic, never ordinary LAN/public traffic.</li>
           <li>Session IDs and terminal IDs route every tab independently.</li>
           <li>No account backend, public port forwarding, or hosted relay is required.</li>
         </ul>

@@ -3,6 +3,24 @@ import Foundation
 import SharedProtocol
 import TransportWebRTC
 
+/// Provider launch profiles are shared with the package-level workspace model
+/// so tests can validate stable tab identity without importing the app target's
+/// SwiftUI-only visual layer.
+enum VampAgentProvider: String, CaseIterable, Identifiable {
+    case openCode
+    case pi
+    case commandCode
+    case chatGPT
+    case claude
+    case kimi
+    case qwen
+    case codex
+    case aider
+    case grok
+
+    var id: String { rawValue }
+}
+
 /// Coordinates the terminal tabs that share one authenticated WebRTC session.
 /// Each tab owns one ClientTerminalSessionManager, so shell state and output
 /// stay independent while the SwiftUI panes remain mounted.
@@ -14,6 +32,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         let id: UUID
         var title: String
         let session: ClientTerminalSessionManager
+        var provider: VampAgentProvider?
         var hasUnreadOutput = false
 
         @MainActor var state: ClientTerminalSessionManager.State { session.state }
@@ -80,6 +99,15 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         "\(tabs.count)/\(Self.maxTabs)"
     }
 
+    var hasStalledTab: Bool {
+        tabs.contains { tab in
+            if case .closed(_, _, let reason) = tab.state {
+                return reason == "terminal-start-timeout"
+            }
+            return false
+        }
+    }
+
     func activate(sessionID: UUID) {
         guard activeSessionID != sessionID else {
             retryOpeningTabs(for: coordinator.phase)
@@ -114,7 +142,11 @@ final class TerminalWorkspaceViewModel: ObservableObject {
     }
 
     @discardableResult
-    func createTab(startupCommand: String? = nil) -> Bool {
+    func createTab(
+        startupCommand: String? = nil,
+        title: String? = nil,
+        provider: VampAgentProvider? = nil
+    ) -> Bool {
         guard canCreateTab, let sessionID = activeSessionID else { return false }
 
         let tabID = UUID()
@@ -128,8 +160,9 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         }
         let tab = Tab(
             id: tabID,
-            title: nextDefaultTabTitle(),
-            session: session
+            title: title ?? nextDefaultTabTitle(),
+            session: session,
+            provider: provider
         )
         // Mount and observe the tab before sending TerminalOpen. This keeps a
         // very fast host-ready response from arriving before the tab is
@@ -180,6 +213,13 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         guard !trimmed.isEmpty,
               let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
         tabs[index].title = trimmed
+    }
+
+    func retryStalledTabs() {
+        lastTerminalError = nil
+        for tab in tabs where tab.session.retryAfterOpeningFailure(cols: 80, rows: 24) {
+            scheduleOpeningRetry(for: tab.id)
+        }
     }
 
     // MARK: - Clipboard bridge
@@ -282,6 +322,13 @@ final class TerminalWorkspaceViewModel: ObservableObject {
                 }
                 _ = tab.session.retryOpen(cols: 80, rows: 24)
             }
+
+            guard !Task.isCancelled,
+                  let self,
+                  let tab = self.tabs.first(where: { $0.id == tabID }),
+                  tab.state == .opening else { return }
+            tab.session.failOpening()
+            self.lastTerminalError = "\(tab.title) did not start. Check that Terminal Mode is enabled on the host, then retry."
         }
     }
 
