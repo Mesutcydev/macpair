@@ -39,22 +39,13 @@ jobs:
         run: >-
           xcodebuild
           -resolvePackageDependencies
-<<<<<<< HEAD
-          -project MacPair.xcodeproj
-=======
           -project RemoteDesktopToolApps.xcodeproj
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
       - name: Build host
         run: >-
           xcodebuild
-<<<<<<< HEAD
-          -project MacPair.xcodeproj
-          -scheme ScreenHarborHost
-=======
           -project RemoteDesktopToolApps.xcodeproj
           -scheme MacHost
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           -configuration Debug
           -destination 'platform=macOS'
           CODE_SIGNING_ALLOWED=NO
@@ -63,13 +54,8 @@ jobs:
       - name: Build terminal-only macOS host
         run: >-
           xcodebuild
-<<<<<<< HEAD
-          -project MacPair.xcodeproj
-          -scheme ScreenHarborClient
-=======
           -project RemoteDesktopToolApps.xcodeproj
           -scheme VampTerminalHost
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           -configuration Debug
           -destination 'platform=macOS'
           CODE_SIGNING_ALLOWED=NO

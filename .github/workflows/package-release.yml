@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+      - '!vamp-terminal-*'
   workflow_dispatch:
     inputs:
       tag:
@@ -47,7 +48,12 @@ jobs:
           fetch-depth: 0
 
       - name: Install XcodeGen
-        run: brew install xcodegen
+        run: |
+          # GitHub's macOS runner can have an unrelated, untrusted AWS tap
+          # preinstalled. It is not needed for XcodeGen and otherwise blocks
+          # the legacy MacPair packaging job before the build starts.
+          brew untap aws/tap 2>/dev/null || true
+          brew install xcodegen
 
       - name: Package Host and Client
         run: scripts/package-screenharbor.sh all --format both --clean --release
