@@ -4,6 +4,13 @@ Vamp Terminal is distributed as an open-source, device-only unsigned IPA. The
 IPA is intentionally not signed by the project. AltStore re-signs it with the
 Apple ID/team used on the installing device.
 
+## Latest published build
+
+- [Vamp Terminal IPA build 3](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-3/VampTerminal-iOS-1.0.0-build-3-altstore-unsigned.ipa)
+- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-3/VampHost-macOS-3.2.0-build-2-adhoc.zip)
+- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-3/VampTerminalHost-macOS-1.0.0-build-1-adhoc.zip)
+- [All checksums and manifests](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-3)
+
 ## Build
 
 From the repository root:
