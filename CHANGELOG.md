@@ -6,6 +6,11 @@ All notable changes to Vamp Terminal are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Refresh the Vamp Terminal, Vamp Host, and website icon with the supplied glass terminal mark.
+- Bump the Vamp Terminal sideload build to build 2.
+
 ## [1.0.3] - 2026-07-29
 
 ### Added
