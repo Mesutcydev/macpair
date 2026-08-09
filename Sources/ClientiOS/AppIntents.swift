@@ -3,7 +3,7 @@ import AppIntents
 import Foundation
 
 /// "Wake my Mac" from Siri or the Shortcuts app — sends a Wake-on-LAN magic packet to a saved
-/// host so it's awake by the time you open ScreenHarbor. Self-contained: it reads the saved hosts and
+/// host so it's awake by the time you open Vamp Remote Control. Self-contained: it reads the saved hosts and
 /// fires the packet without launching the app.
 struct WakeMacIntent: AppIntent {
     // Apple rejects App Intent metadata containing reserved platform terms ("Mac") with
@@ -53,7 +53,7 @@ struct WakeMacIntent: AppIntent {
 }
 
 /// Exposes the app's intents to Siri / Spotlight / Shortcuts with spoken phrases.
-struct ScreenHarborAppShortcuts: AppShortcutsProvider {
+struct VampAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: WakeMacIntent(),

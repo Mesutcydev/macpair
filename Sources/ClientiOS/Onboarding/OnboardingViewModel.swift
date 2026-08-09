@@ -52,8 +52,8 @@ final class OnboardingViewModel: ObservableObject {
         knownHosts = known
 
         let script: [LogLine] = [
-            .init(kind: .cmd, text: "$ screenharbor ensure", host: nil),
-            .init(kind: .info, text: "· checking ScreenHarbor Host status", host: nil),
+            .init(kind: .cmd, text: "$ vamp ensure", host: nil),
+            .init(kind: .info, text: "· checking Vamp Host status", host: nil),
             .init(kind: .info, text: "· reading signed peer identity", host: nil),
             .init(kind: .ok, text: "✓ key fingerprint: SHA256:7f3c…b201", host: nil),
             .init(kind: .cmd, text: "$ scan --lan", host: nil),

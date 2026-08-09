@@ -97,6 +97,10 @@ final class ClientSessionCoordinator: ObservableObject {
     @Published private(set) var tailscaleVPNStatus: VPNStatus = .inactive
     @Published private(set) var sessionStartedAt: Date?
     @Published private(set) var chatMessages: [SessionChatMessage] = []
+    /// Capabilities returned by the host for the active authenticated session.
+    /// This is especially important for manually entered Tailscale endpoints,
+    /// whose Bonjour metadata is intentionally unknown before pairing.
+    @Published private(set) var negotiatedCapabilities: NegotiatedCapabilities?
     /// True while the coordinator is tearing down and rebuilding a previous session.
     /// The Mac client uses this to keep its session view mounted during the brief
     /// `.idle` phase produced by `disconnect()` inside a reconnect attempt.
@@ -110,6 +114,8 @@ final class ClientSessionCoordinator: ObservableObject {
     var onTerminalOutput: ((TerminalOutputMessage) -> Void)?
     /// Called on MainActor when the host signals the terminal closed (shell exited).
     var onTerminalClose: ((TerminalCloseMessage) -> Void)?
+    /// Called on MainActor when the host has created a requested PTY.
+    var onTerminalReady: ((TerminalReadyMessage) -> Void)?
     var refreshEndpoint: ((ResolvedHostEndpoint) -> ResolvedHostEndpoint?)?
     /// Returns every distinct address we know for the physical host behind an endpoint
     /// (LAN + Tailscale relay sibling), ordered best-first. Used so reconnect can sweep
@@ -136,6 +142,10 @@ final class ClientSessionCoordinator: ObservableObject {
     private var connectionObserverTask: Task<Void, Never>?
     private var videoObserverTask: Task<Void, Never>?
     private var dataObserverTask: Task<Void, Never>?
+    /// Terminal-only hosts intentionally do not publish a video track. Keep
+    /// their authenticated data-channel session alive without waiting for a
+    /// frame or surfacing the normal "no video" timeout.
+    private var terminalOnlySession = false
     private var latencyProbeTask: Task<Void, Never>?
     private var disconnectTask: Task<Void, Never>?
     private let qualityService = NetworkQualityIndicatorService()
@@ -157,8 +167,12 @@ final class ClientSessionCoordinator: ObservableObject {
     private var reconnectOperationCount = 0
 
     private let pathMonitor = NWPathMonitor()
-    private let pathMonitorQueue = DispatchQueue(label: "uk.mesut.screenharbor.ios.vpnmonitor")
+    private let pathMonitorQueue = DispatchQueue(label: "com.mesutcy.remotedesktop.terminal.vpnmonitor")
     private var expectedSessionTokenHex: String?
+    /// Monotonic counter for authenticated host → client control messages.
+    /// Host terminal and clipboard events must not be accepted merely because
+    /// their payload/session IDs decode correctly.
+    private var lastAcceptedInboundAuthCounter: UInt64 = 0
     private var expectedHostFingerprint: String?
     /// Last NWPath satisfaction state — used to detect heal transitions.
     private var lastPathWasSatisfied = true
@@ -169,7 +183,7 @@ final class ClientSessionCoordinator: ObservableObject {
     /// Preset most recently sent as a downgrade request (avoids re-sending the same request).
     private var lastDowngradeRequestPreset: StreamQualityPreset?
 
-    private let logger = Logger(subsystem: "uk.mesut.screenharbor.ios", category: "SessionCoordinator")
+    private let logger = Logger(subsystem: "com.mesutcy.remotedesktop.terminal", category: "SessionCoordinator")
     /// Records connection-signal timeline; dumps a report on connection loss.
     private let connectionDebugger: ConnectionDebugger
     private var debugChannelObserverTask: Task<Void, Never>?
@@ -288,6 +302,8 @@ final class ClientSessionCoordinator: ObservableObject {
         phase = .connecting
         errorMessage = nil
         blockedState = nil
+        negotiatedCapabilities = nil
+        terminalOnlySession = false
         connectedHostName = endpoint.metadata.displayName
         let target = normalizedHostAndPort(host: endpoint.hostname, fallbackPort: endpoint.metadata.signalingPort)
         connectionDebugger.mark("connect → \(target.host):\(target.port)", metadata: [
@@ -373,7 +389,7 @@ final class ClientSessionCoordinator: ObservableObject {
                     bonjourSig.requireTLS = false
                     bonjourSig.connectionPIN = nil
                     sigSvc.disconnect()
-                    throw RemoteDesktopError.connectionFailed("Secure connection to the Mac failed. Update ScreenHarbor Host on the Mac, then try again.")
+                    throw RemoteDesktopError.connectionFailed("Secure connection to the Mac failed. Update Vamp Host on the Mac, then try again.")
                 }
             }
 
@@ -394,6 +410,7 @@ final class ClientSessionCoordinator: ObservableObject {
             // so we don't miss the host's answer due to a race.
             let sessionID = UUID()
             activeSessionID = sessionID
+            lastAcceptedInboundAuthCounter = 0
             listenForSignalingMessages(sessionID: sessionID, qualityPreset: qualityPreset)
             observeConnectionState(sessionID: sessionID)
             observeChannelStatesForDebugger(sessionID: sessionID)
@@ -445,11 +462,11 @@ final class ClientSessionCoordinator: ObservableObject {
                     // firewalled).  Phase tells us where we got stuck.
                     if phase == .signalingConnected {
                         throw RemoteDesktopError.timeout(
-                            "Host didn't approve the connection. Open ScreenHarbor Host on your Mac and tap “Allow”."
+                            "Host didn't approve the connection. Open Vamp Host on your Mac and tap “Allow”."
                         )
                     }
                     throw RemoteDesktopError.timeout(
-                        "No answer from the Mac. Make sure ScreenHarbor Host is running and that your firewall isn't blocking it."
+                        "No answer from the Mac. Make sure Vamp Host is running and that your firewall isn't blocking it."
                     )
                 }
                 try await Task.sleep(nanoseconds: 500_000_000)
@@ -504,10 +521,10 @@ final class ClientSessionCoordinator: ObservableObject {
         let isTLS = lower.contains("tls") || lower.contains("handshake") || lower.contains("certificate")
 
         if isTLS {
-            return "Secure handshake with the Mac failed. The host may be running an older version — update ScreenHarbor Host on the Mac and try again."
+            return "Secure handshake with the Mac failed. The host may be running an older version — update Vamp Host on the Mac and try again."
         }
         if isRefused {
-            return "The Mac refused the connection. Open ScreenHarbor Host on the Mac, then try again."
+            return "The Mac refused the connection. Open Vamp Host on the Mac, then try again."
         }
         if isUnreachable {
             return "Can't reach the Mac. Check that you're on the same Wi-Fi (or that Tailscale is up if connecting remotely)."
@@ -797,9 +814,12 @@ final class ClientSessionCoordinator: ObservableObject {
         self.lastUpgradeRequestPreset = nil
         self.lastDowngradeRequestPreset = nil
         self.expectedSessionTokenHex = nil
+        self.lastAcceptedInboundAuthCounter = 0
         self.expectedHostFingerprint = nil
         self.webRTCSessionManager.configureControlChannelAuth(sessionTokenHex: nil)
         self.chatMessages = []
+        self.negotiatedCapabilities = nil
+        self.terminalOnlySession = false
         self.phase = .idle
 
         await self.eventLogStore.append(EventLogItem(
@@ -871,7 +891,7 @@ final class ClientSessionCoordinator: ObservableObject {
                 guard claimed == expected else {
                     logger.warning("Rejected answer due to host fingerprint mismatch expected=\(expected, privacy: .public) claimed=\(claimed, privacy: .public)")
                     phase = .error
-                    errorMessage = "This Mac's identity changed since you last connected. If you reinstalled ScreenHarbor Host, remove this saved Mac and reconnect; otherwise don't proceed."
+                    errorMessage = "This Mac's identity changed since you last connected. If you reinstalled Vamp Host, remove this saved Mac and reconnect; otherwise don't proceed."
                     await eventLogStore.append(EventLogItem(
                         severity: .warning,
                         category: "Trust",
@@ -913,6 +933,14 @@ final class ClientSessionCoordinator: ObservableObject {
             }
             logger.info("Session ready: \(ready.sessionID.uuidString)")
             activeSessionID = ready.sessionID
+            negotiatedCapabilities = ready.negotiatedCapabilities
+            terminalOnlySession = ready.negotiatedCapabilities.supportsTerminal
+                && ready.negotiatedCapabilities.supportsMultipleTerminals
+                && !ready.negotiatedCapabilities.supportsMultiDisplay
+            if terminalOnlySession {
+                videoObserverTask?.cancel()
+                videoObserverTask = nil
+            }
             displayLayoutViewModel.markHostSelectedDisplay(id: ready.selectedDisplayID)
             phase = .waitingForMedia
 
@@ -930,6 +958,7 @@ final class ClientSessionCoordinator: ObservableObject {
             autoReconnectSuppressed = true
             activeSessionID = nil
             expectedSessionTokenHex = nil
+            lastAcceptedInboundAuthCounter = 0
             webRTCSessionManager.configureControlChannelAuth(sessionTokenHex: nil)
             await webRTCSessionManager.closeSession()
             signalingService.disconnect()
@@ -966,7 +995,9 @@ final class ClientSessionCoordinator: ObservableObject {
             ))
 
             // Wait for first frame via stream diagnostics (without consuming the video stream).
-            observeVideoFrames(sessionID: sessionID)
+            if !terminalOnlySession {
+                observeVideoFrames(sessionID: sessionID)
+            }
 
             await eventLogStore.append(EventLogItem(
                 severity: .info,
@@ -996,7 +1027,9 @@ final class ClientSessionCoordinator: ObservableObject {
                 ])
                 switch state {
                 case .connected:
-                    if self.webRTCSessionManager.streamDiagnostics.firstFrameReceivedAt != nil {
+                    if self.terminalOnlySession {
+                        self.phase = .receiving
+                    } else if self.webRTCSessionManager.streamDiagnostics.firstFrameReceivedAt != nil {
                         self.phase = .receiving
                     } else if self.phase == .negotiating || self.phase == .waitingForMedia || self.phase == .error {
                         // .error included so a transient drop that recovers on its
@@ -1081,6 +1114,7 @@ final class ClientSessionCoordinator: ObservableObject {
     }
 
     private func observeVideoFrames(sessionID: UUID) {
+        guard !terminalOnlySession else { return }
         videoObserverTask = Task { [weak self] in
             guard let self else { return }
             let startedWaiting = Date()
@@ -1143,7 +1177,7 @@ final class ClientSessionCoordinator: ObservableObject {
                    self.phase == .waitingForMedia {
                     self.logger.error("No video after \(String(format: "%.0f", elapsed))s in waitingForMedia — surfacing error")
                     self.phase = .error
-                    self.errorMessage = "Connected to the Mac, but no video arrived. On the Mac, make sure a display is selected and that Screen Recording is allowed for ScreenHarbor Host."
+                    self.errorMessage = "Connected to the Mac, but no video arrived. On the Mac, make sure a display is selected and that Screen Recording is allowed for Vamp Host."
                     await self.eventLogStore.append(EventLogItem(
                         severity: .error,
                         category: "Session",
@@ -1251,15 +1285,32 @@ final class ClientSessionCoordinator: ObservableObject {
                         self.onAudioFrame?(message)
                     }
                 case .clipboardSync:
+                    guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
                     if let message = try? envelope.decodeClipboardSync() {
+                        guard envelope.sessionID == message.sessionID,
+                              message.sessionID == self.activeSessionID,
+                              message.source == "host" else { break }
                         self.onClipboardSync?(message)
                     }
                 case .terminalOutput:
+                    guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
                     if let message = try? envelope.decodeTerminalOutput() {
+                        guard envelope.sessionID == message.sessionID,
+                              message.sessionID == self.activeSessionID else { break }
                         self.onTerminalOutput?(message)
                     }
+                case .terminalReady:
+                    guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
+                    if let message = try? envelope.decodeTerminalReady() {
+                        guard envelope.sessionID == message.sessionID,
+                              message.sessionID == self.activeSessionID else { break }
+                        self.onTerminalReady?(message)
+                    }
                 case .terminalClose:
+                    guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
                     if let message = try? envelope.decodeTerminalClose() {
+                        guard envelope.sessionID == message.sessionID,
+                              message.sessionID == self.activeSessionID else { break }
                         self.onTerminalClose?(message)
                     }
                 default:
@@ -1267,6 +1318,24 @@ final class ClientSessionCoordinator: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Validates the same timestamp, session, HMAC, and monotonic counter
+    /// invariants the host applies to client control messages. The counter gap
+    /// is intentionally allowed because other authenticated host messages may
+    /// arrive between two terminal output chunks.
+    private func acceptAuthenticatedInboundControl(_ envelope: DataChannelEnvelope, sessionID: UUID) -> Bool {
+        guard envelope.hasAcceptableTimestamp,
+              envelope.sessionID == sessionID,
+              let expectedToken = expectedSessionTokenHex,
+              envelope.hasValidAuthentication(sessionTokenHex: expectedToken),
+              let counter = envelope.authCounter,
+              counter > lastAcceptedInboundAuthCounter,
+              counter - lastAcceptedInboundAuthCounter <= DataChannelEnvelope.maxCounterGap else {
+            return false
+        }
+        lastAcceptedInboundAuthCounter = counter
+        return true
     }
 
     func dismissError() {
@@ -1298,6 +1367,26 @@ final class ClientSessionCoordinator: ObservableObject {
     func sendClipboardEnvelope(_ envelope: DataChannelEnvelope) {
         guard webRTCSessionManager.connectionState == .connected else { return }
         try? webRTCSessionManager.sendDataMessage(envelope)
+    }
+
+    /// Terminal opens are created as soon as the workspace mounts, which can
+    /// be a few frames before the ordered control channel reaches `.open`.
+    /// Keep this path throwing so the tab manager can retry instead of silently
+    /// losing the first open request.
+    func sendTerminalEnvelope(_ envelope: DataChannelEnvelope) throws {
+        guard activeSessionID != nil,
+              webRTCSessionManager.connectionState == .connected,
+              webRTCSessionManager.dataChannelState == .open else {
+            throw WebRTCSessionError.dataChannelUnavailable
+        }
+        try webRTCSessionManager.sendDataMessage(envelope)
+    }
+
+    /// A small feature-specific view of transport readiness for terminal-tab
+    /// lifecycle retries. The general session observer remains private to the
+    /// coordinator; this stream only exposes the state needed by the workspace.
+    func terminalDataChannelStateUpdates() -> AsyncStream<DataChannelState> {
+        webRTCSessionManager.dataChannelStateUpdates()
     }
 
     func requestKeyframeRefresh(reason: String) {

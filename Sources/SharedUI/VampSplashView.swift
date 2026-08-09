@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Shared ScreenHarbor splash for the Mac client and host.
+// Shared Vamp splash for the Mac client and host.
 
 // Self-contained color helper because this module is shared by both Mac apps.
 private func vsHex(_ hex: UInt32, _ a: Double = 1) -> Color {
@@ -11,13 +11,13 @@ private func vsHex(_ hex: UInt32, _ a: Double = 1) -> Color {
           opacity: a)
 }
 
-public struct ScreenHarborSplashConfig {
+public struct VampSplashConfig {
     enum Layout { case iosFullScreen, macPanel }
 
     var layout: Layout
     var iconSize: CGFloat
-    var wordmarkLead: String            // "Screen"
-    var wordmarkAccent: String          // " Harbor" / " Harbor Host"
+    var wordmarkLead: String            // "Vamp"
+    var wordmarkAccent: String          // " Remote Control" / " Host"
     var accentColor: Color
     var wordmarkSize: CGFloat
     var taglineSize: CGFloat
@@ -40,13 +40,13 @@ public struct ScreenHarborSplashConfig {
     var twinklePeriod: Double
     var taglinePeriod: Double
 
-    public static func iosClient() -> ScreenHarborSplashConfig {
+    public static func iosClient() -> VampSplashConfig {
         // Periods are front-loaded so gleam / wink / twinkle land inside the ~2s
         // launch window. Wall-clock looping periods (3.6–6s) miss those beats entirely
-        // before screenHarborSplash dismisses the overlay.
-        ScreenHarborSplashConfig(
+        // before the Vamp splash dismisses the overlay.
+        VampSplashConfig(
             layout: .iosFullScreen, iconSize: 116,
-            wordmarkLead: "Screen", wordmarkAccent: " Harbor", accentColor: vsHex(0x35C6D3),
+            wordmarkLead: "Vamp", wordmarkAccent: " Remote Control", accentColor: vsHex(0x35C6D3),
             wordmarkSize: 29, taglineSize: 14,
             taglines: ["Your Mac, anywhere.", "Private by design.", "Ready when you are."],
             statusText: nil, version: nil, progressWidth: 132,
@@ -56,10 +56,10 @@ public struct ScreenHarborSplashConfig {
             floatPeriod: 2.8, winkPeriod: 2.0, gleamPeriod: 1.8, twinklePeriod: 1.6, taglinePeriod: 2.4)
     }
 
-    public static func macClient(version: String) -> ScreenHarborSplashConfig {
-        ScreenHarborSplashConfig(
+    public static func macClient(version: String) -> VampSplashConfig {
+        VampSplashConfig(
             layout: .macPanel, iconSize: 92,
-            wordmarkLead: "Screen", wordmarkAccent: " Harbor", accentColor: vsHex(0x35C6D3),
+            wordmarkLead: "Vamp", wordmarkAccent: " Remote Control", accentColor: vsHex(0x35C6D3),
             wordmarkSize: 26, taglineSize: 13.5,
             taglines: ["Your Mac, anywhere.", "Private by design."],
             statusText: nil, version: version, progressWidth: 150,
@@ -69,10 +69,10 @@ public struct ScreenHarborSplashConfig {
             floatPeriod: 4.6, winkPeriod: 6.0, gleamPeriod: 3.6, twinklePeriod: 3.6, taglinePeriod: 8.0)
     }
 
-    public static func host(version: String, statusText: String) -> ScreenHarborSplashConfig {
-        ScreenHarborSplashConfig(
+    public static func host(version: String, statusText: String) -> VampSplashConfig {
+        VampSplashConfig(
             layout: .macPanel, iconSize: 92,
-            wordmarkLead: "Screen", wordmarkAccent: " Harbor Host", accentColor: vsHex(0x35C6D3),
+            wordmarkLead: "Vamp", wordmarkAccent: " Host", accentColor: vsHex(0x35C6D3),
             wordmarkSize: 26, taglineSize: 13.5,
             taglines: ["Sharing this Mac."],
             statusText: statusText, version: version, progressWidth: 150,
@@ -110,8 +110,8 @@ private func phase(_ t: Double, _ period: Double) -> Double {
 
 // MARK: - View
 
-struct ScreenHarborSplashView: View {
-    let config: ScreenHarborSplashConfig
+struct VampSplashView: View {
+    let config: VampSplashConfig
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Elapsed-time origin so gleam/wink/twinkle always start at phase 0 when the
     /// splash appears. Wall-clock `timeIntervalSinceReferenceDate` lands at a random
@@ -139,7 +139,7 @@ struct ScreenHarborSplashView: View {
                 .background(background)
                 .ignoresSafeArea()
         case .macPanel:
-            // Full-bleed: the splash fills its whole window (see screenHarborSplashWindow, which sizes
+            // Full-bleed: the splash fills its whole window (see the splash window, which sizes
             // that window to cover the app window). A small fixed card floating in the large app
             // window read as tiny and let the shell's focus rings/toolbar bleed around it.
             panelContent(t: t, motion: motion)
@@ -348,17 +348,17 @@ struct ScreenHarborSplashView: View {
 // MARK: - Presentation
 
 public extension View {
-    /// Overlays the ScreenHarbor splash on launch, then cross-fades it out after `minimumDuration`.
+    /// Overlays the Vamp splash on launch, then cross-fades it out after `minimumDuration`.
     /// Pass `enabled: false` when the window won't actually be shown to the user — e.g. the
     /// host launches straight into the menu bar when its desktop widget is installed, which
     /// order-outs the window and would otherwise make the splash flash for a frame and vanish.
-    func screenHarborSplash(_ config: ScreenHarborSplashConfig, minimumDuration: Double = 1.9, enabled: Bool = true) -> some View {
-        modifier(ScreenHarborSplashPresenter(config: config, minimumDuration: minimumDuration, enabled: enabled))
+    func vampSplash(_ config: VampSplashConfig, minimumDuration: Double = 1.9, enabled: Bool = true) -> some View {
+        modifier(VampSplashPresenter(config: config, minimumDuration: minimumDuration, enabled: enabled))
     }
 }
 
-private struct ScreenHarborSplashPresenter: ViewModifier {
-    let config: ScreenHarborSplashConfig
+private struct VampSplashPresenter: ViewModifier {
+    let config: VampSplashConfig
     let minimumDuration: Double
     let enabled: Bool
     @State private var visible = true
@@ -366,7 +366,7 @@ private struct ScreenHarborSplashPresenter: ViewModifier {
     func body(content: Content) -> some View {
         content.overlay {
             if enabled && visible {
-                ScreenHarborSplashView(config: config)
+                VampSplashView(config: config)
                     // Opaque hit target so the home UI can't flash through or steal taps
                     // while the splash is up (especially during the first-run welcome).
                     .allowsHitTesting(true)
@@ -390,13 +390,13 @@ public extension View {
     /// in-window overlay) is what makes it look right: it fills the frame so it never reads as a
     /// tiny card, and nothing from the app window — toolbar items, a focused field's blue ring —
     /// can render over or around it. `enabled: false` = no-op (e.g. host launching into the tray).
-    func screenHarborSplashWindow(_ config: ScreenHarborSplashConfig, minimumDuration: Double = 1.9, enabled: Bool = true) -> some View {
-        background(ScreenHarborSplashLauncher(config: config, minimumDuration: minimumDuration, enabled: enabled))
+    func vampSplashWindow(_ config: VampSplashConfig, minimumDuration: Double = 1.9, enabled: Bool = true) -> some View {
+        background(VampSplashLauncher(config: config, minimumDuration: minimumDuration, enabled: enabled))
     }
 }
 
-private struct ScreenHarborSplashLauncher: NSViewRepresentable {
-    let config: ScreenHarborSplashConfig
+private struct VampSplashLauncher: NSViewRepresentable {
+    let config: VampSplashConfig
     let minimumDuration: Double
     let enabled: Bool
 
@@ -431,7 +431,7 @@ private struct ScreenHarborSplashLauncher: NSViewRepresentable {
         var presented = false
         private var splash: NSWindow?
 
-        func present(config: ScreenHarborSplashConfig, minimumDuration: Double, over parent: NSWindow) {
+        func present(config: VampSplashConfig, minimumDuration: Double, over parent: NSWindow) {
             let window = NSWindow(contentRect: parent.frame, styleMask: [.borderless],
                                   backing: .buffered, defer: false)
             window.isOpaque = false
@@ -441,7 +441,7 @@ private struct ScreenHarborSplashLauncher: NSViewRepresentable {
             window.isReleasedWhenClosed = false
             // Clip to the window's own corner radius so the covering splash lines up with the
             // app window's rounded corners instead of overhanging them with square corners.
-            let root = ScreenHarborSplashView(config: config)
+            let root = VampSplashView(config: config)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             window.contentView = NSHostingView(rootView: root)
             window.setFrame(parent.frame, display: true)

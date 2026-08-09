@@ -7263,7 +7263,7 @@
         }
       }
     },
-    "ScreenHarbor Host Guide": {
+    "Vamp Host Guide": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
@@ -7275,55 +7275,55 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host-Anleitung"
+            "value": "Vamp Host-Anleitung"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guía de ScreenHarbor Host"
+            "value": "Guía de Vamp Host"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guide ScreenHarbor Host"
+            "value": "Guide Vamp Host"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Hostガイド"
+            "value": "Vamp Hostガイド"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host Kılavuzu"
+            "value": "Vamp Host Kılavuzu"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host 指南"
+            "value": "Vamp Host 指南"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "ScreenHarbor Host Guide"
+            "value": "Vamp Host Guide"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guía de ScreenHarbor Host"
+            "value": "Guía de Vamp Host"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host 指南"
+            "value": "Vamp Host 指南"
           }
         }
       }
@@ -7372,120 +7372,120 @@
         }
       }
     },
-    "mesut.uk/apps/screenharbor": {
+    "mesutcydev.github.io/macpair": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "mesut.uk/apps/screenharbor"
+            "value": "mesutcydev.github.io/macpair"
           }
         }
       }
@@ -13770,24 +13770,24 @@
         }
       }
     },
-    "screenharbor.runtime": {
+    "vamp.runtime": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "screenharbor.runtime"
+            "value": "vamp.runtime"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "screenharbor.runtime"
+            "value": "vamp.runtime"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "screenharbor.runtime"
+            "value": "vamp.runtime"
           }
         }
       }

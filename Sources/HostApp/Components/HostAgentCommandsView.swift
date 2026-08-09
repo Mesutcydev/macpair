@@ -17,13 +17,16 @@ struct HostAgentCommandsView: View {
     }
 
     private let commands: [AgentCommand] = [
-        .init(id: "ensure", command: "screenharbor ensure", hint: "Start if needed; exit 0 when ready"),
-        .init(id: "status", command: "screenharbor status --json", hint: "Machine-readable status"),
-        .init(id: "version", command: "screenharbor version", hint: "Installed app version and build"),
-        .init(id: "pending", command: "screenharbor pending", hint: "Inspect pending trust request before approving"),
-        .init(id: "approve-pairing", command: "screenharbor approve-pairing --fingerprint <hex>", hint: "Approve only when fingerprint matches"),
-        .init(id: "approve-connection", command: "screenharbor approve-connection", hint: "Approve a pending client connection request"),
-        .init(id: "open", command: "open -b uk.mesut.screenharbor.host", hint: "Launch the app"),
+        .init(id: "ensure", command: "vamp ensure", hint: "Start Vamp Host if needed; exit 0 when ready"),
+        .init(id: "status", command: "vamp status --json", hint: "Machine-readable Vamp Host status"),
+        .init(id: "version", command: "vamp version", hint: "Installed Vamp Host version and build"),
+        .init(id: "pending", command: "vamp pending", hint: "Inspect pending trust request before approving"),
+        .init(id: "approve-pairing", command: "vamp approve-pairing --fingerprint <hex>", hint: "Approve only when fingerprint matches"),
+        .init(id: "approve-connection", command: "vamp approve-connection", hint: "Approve a pending client connection request"),
+        .init(id: "terminal-list", command: "vamp terminal list", hint: "List persistent tmux/screen sessions that Vamp Terminal can resume"),
+        .init(id: "terminal-start", command: "vamp terminal start --session work", hint: "Create a persistent shell for mobile handoff"),
+        .init(id: "terminal-agent", command: "vamp terminal agent claude --session claude", hint: "Run an agent inside tmux so Vamp Terminal can reattach"),
+        .init(id: "open", command: "open -b com.mesutcy.remotedesktop.host", hint: "Launch Vamp Host"),
     ]
 
     var body: some View {
@@ -34,7 +37,7 @@ struct HostAgentCommandsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text("Use the `screenharbor` CLI from Terminal to start or verify this host. Install its optional `/usr/local/bin/screenharbor` symlink from the website DMG.")
+                Text("Use the `vamp` CLI from Terminal to start or verify Vamp Host. Install its optional `/usr/local/bin/vamp` symlink from the release package.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

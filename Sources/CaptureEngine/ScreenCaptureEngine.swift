@@ -352,7 +352,7 @@ public final class ScreenCaptureEngine: NSObject, CaptureEngineProtocol, @unchec
     /// isn't retained (it's a one-shot nudge, not a held assertion).
     private func wakeDisplay() {
         var id: IOPMAssertionID = 0
-        IOPMAssertionDeclareUserActivity("ScreenHarbor capture starting" as CFString, kIOPMUserActiveLocal, &id)
+        IOPMAssertionDeclareUserActivity("Vamp capture starting" as CFString, kIOPMUserActiveLocal, &id)
     }
 
     private func withLock<T>(_ body: () -> T) -> T {

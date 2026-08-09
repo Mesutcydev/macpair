@@ -1,0 +1,326 @@
+import SwiftUI
+
+#if canImport(UIKit)
+import UIKit
+#endif
+
+/// Neutral visual language for Vamp Terminal.
+///
+/// This deliberately keeps color out of structural chrome. The backdrop gives
+/// clear material something to refract, while the surfaces themselves remain
+/// system-owned glass with a hairline optical rim. Green, amber, and red are
+/// reserved for connection state and errors.
+enum VampGlassPalette {
+    static let ink = Color.primary
+    static let inkSecondary = Color.secondary
+    static let inkTertiary = Color.secondary.opacity(0.78)
+    static let inkSubtle = Color.secondary.opacity(0.56)
+    static let rule = Color.primary.opacity(0.12)
+    static let ruleStrong = Color.primary.opacity(0.22)
+
+    static let good = Color.green
+    static let warning = Color.orange
+    static let bad = Color.red
+}
+
+enum VampGlassRole {
+    case card
+    case button
+    case field
+    case icon
+    case toolbar
+    case tab
+    case capsule
+
+    var cornerRadius: CGFloat {
+        switch self {
+        case .card: return 18
+        case .button: return 14
+        case .field: return 12
+        case .icon: return 16
+        case .toolbar: return 0
+        case .tab: return 10
+        case .capsule: return 999
+        }
+    }
+
+    var isInteractive: Bool {
+        switch self {
+        case .button, .field, .icon, .tab, .capsule: return true
+        case .card, .toolbar: return false
+        }
+    }
+
+    /// A compact control needs a slightly stronger rim than a broad card.
+    var materialOpacity: Double {
+        switch self {
+        case .card: return 0.28
+        case .button: return 0.42
+        case .field: return 0.48
+        case .icon: return 0.46
+        case .toolbar: return 0.34
+        case .tab: return 0.42
+        case .capsule: return 0.48
+        }
+    }
+}
+
+struct VampTerminalBackdrop: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        ZStack {
+            groupedBackground
+
+            if !reduceTransparency {
+                LinearGradient(
+                    colors: [
+                        groupedBackground,
+                        Color.primary.opacity(colorScheme == .dark ? 0.06 : 0.025),
+                        groupedBackground
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.white.opacity(colorScheme == .dark ? 0.08 : 0.34),
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 230
+                        )
+                    )
+                    .frame(width: 500, height: 420)
+                    .blur(radius: 40)
+                    .offset(x: 160, y: -250)
+
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.black.opacity(colorScheme == .dark ? 0.18 : 0.05),
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 250
+                        )
+                    )
+                    .frame(width: 520, height: 430)
+                    .blur(radius: 44)
+                    .offset(x: -180, y: 260)
+
+                VampTerminalBackdropGrid()
+
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(colorScheme == .dark ? 0.025 : 0.07),
+                        .clear,
+                        Color.black.opacity(colorScheme == .dark ? 0.07 : 0.02)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private var groupedBackground: Color {
+#if canImport(UIKit)
+        Color(uiColor: .systemGroupedBackground)
+#else
+        Color.black
+#endif
+    }
+}
+
+private struct VampTerminalBackdropGrid: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let spacing: CGFloat = 28
+
+    var body: some View {
+        Canvas { context, size in
+            var path = Path()
+            var x: CGFloat = 0
+            while x <= size.width + spacing {
+                path.move(to: CGPoint(x: x, y: 0))
+                path.addLine(to: CGPoint(x: x, y: size.height))
+                x += spacing
+            }
+
+            var y: CGFloat = 0
+            while y <= size.height + spacing {
+                path.move(to: CGPoint(x: 0, y: y))
+                path.addLine(to: CGPoint(x: size.width, y: y))
+                y += spacing
+            }
+
+            context.stroke(
+                path,
+                with: .color(Color.primary.opacity(colorScheme == .dark ? 0.075 : 0.055)),
+                lineWidth: 0.5
+            )
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+#if os(iOS) && compiler(>=6.2)
+@available(iOS 26.0, *)
+private func vampNativeGlass(for role: VampGlassRole) -> Glass {
+    role.isInteractive ? Glass.clear.interactive() : Glass.clear
+}
+#endif
+
+private struct VampGlassSurfaceModifier: ViewModifier {
+    let role: VampGlassRole
+    let cornerRadius: CGFloat?
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        let radius = cornerRadius ?? role.cornerRadius
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+
+#if os(iOS) && compiler(>=6.2)
+        if #available(iOS 26.0, *), !reduceTransparency {
+            content.background {
+                shape.fill(Color.clear)
+                    .glassEffect(
+                        vampNativeGlass(for: role),
+                        in: .rect(cornerRadius: radius)
+                    )
+                    .opacity(role.materialOpacity)
+            }
+        } else {
+            content.background(.ultraThinMaterial, in: shape)
+        }
+#else
+        content.background(.ultraThinMaterial, in: shape)
+#endif
+    }
+}
+
+extension View {
+    func vampGlassSurface(
+        _ role: VampGlassRole = .card,
+        cornerRadius: CGFloat? = nil
+    ) -> some View {
+        modifier(VampGlassSurfaceModifier(role: role, cornerRadius: cornerRadius))
+    }
+
+    func vampGlassOutline(
+        cornerRadius: CGFloat,
+        color: Color = VampGlassPalette.rule,
+        lineWidth: CGFloat = 0.5
+    ) -> some View {
+        overlay {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(color, lineWidth: lineWidth)
+        }
+    }
+}
+
+struct VampGlassPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
+            .brightness(configuration.isPressed ? 0.035 : 0)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.20, dampingFraction: 0.84),
+                value: configuration.isPressed
+            )
+    }
+}
+
+struct VampTerminalSectionLabel: View {
+    let title: String
+    var detail: String?
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .tracking(0.9)
+                .foregroundStyle(VampGlassPalette.inkSecondary)
+
+            Rectangle()
+                .fill(VampGlassPalette.ruleStrong)
+                .frame(height: 1)
+
+            if let detail {
+                Text(detail)
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .monospacedDigit()
+                    .foregroundStyle(VampGlassPalette.inkTertiary)
+            }
+        }
+    }
+}
+
+struct VampGlassStatusPill: View {
+    let text: String
+    let color: Color
+    var systemImage: String?
+
+    var body: some View {
+        HStack(spacing: 5) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(size: 9, weight: .bold))
+            }
+            Text(text.uppercased())
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .tracking(0.35)
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(color.opacity(0.12), in: Capsule())
+        .overlay { Capsule().stroke(color.opacity(0.28), lineWidth: 0.5) }
+    }
+}
+
+struct VampGlassIconTile: View {
+    let systemImage: String
+    var size: CGFloat = 58
+    var tint: Color = VampGlassPalette.ink
+
+    var body: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: size * 0.38, weight: .medium))
+            .foregroundStyle(tint)
+            .frame(width: size, height: size)
+            .vampGlassSurface(.icon, cornerRadius: size * 0.28)
+            .vampGlassOutline(cornerRadius: size * 0.28, color: VampGlassPalette.ruleStrong)
+    }
+}
+
+struct VampGlassCard<Content: View>: View {
+    let cornerRadius: CGFloat
+    @ViewBuilder let content: () -> Content
+
+    init(cornerRadius: CGFloat = 18, @ViewBuilder content: @escaping () -> Content) {
+        self.cornerRadius = cornerRadius
+        self.content = content
+    }
+
+    var body: some View {
+        content()
+            .vampGlassSurface(.card, cornerRadius: cornerRadius)
+            .vampGlassOutline(cornerRadius: cornerRadius)
+    }
+}

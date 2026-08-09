@@ -11,7 +11,14 @@ final class DiscoveryMetadataTests: XCTestCase {
             displayName: "Studio Mac",
             appVersion: "0.1",
             signalingPort: 9471,
-            capabilities: [.supportsHEVC, .supportsH264, .supportsMultiDisplay, .supportsMacClient]
+            capabilities: [
+                .supportsHEVC,
+                .supportsH264,
+                .supportsMultiDisplay,
+                .supportsMacClient,
+                .supportsTerminal,
+                .supportsMultipleTerminals
+            ]
         )
 
         let parsed = try HostAdvertisementMetadata(txtRecord: metadata.txtRecord)
@@ -21,6 +28,8 @@ final class DiscoveryMetadataTests: XCTestCase {
         XCTAssertTrue(parsed.capabilities.contains(.supportsH264))
         XCTAssertTrue(parsed.capabilities.contains(.supportsMultiDisplay))
         XCTAssertTrue(parsed.capabilities.contains(.supportsMacClient))
+        XCTAssertTrue(parsed.capabilities.contains(.supportsTerminal))
+        XCTAssertTrue(parsed.capabilities.contains(.supportsMultipleTerminals))
     }
 
     func testHostAdvertisementMetadataRejectsMissingProtocolVersion() {

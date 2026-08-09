@@ -1,0 +1,1249 @@
+#if os(macOS)
+import AppKit
+import CryptoKit
+import Foundation
+import Network
+import SharedProtocol
+import TransportWebRTC
+import os
+
+/// The local web control plane is deliberately a loopback service. The host
+/// operator can put it behind `tailscale serve`, which gives Safari an HTTPS
+/// URL on the tailnet without opening a public port or introducing a relay.
+struct HostBrowserControlStatus: Equatable, Sendable {
+    let running: Bool
+    let port: UInt16?
+    let pairingCode: String
+    let pairingCodeExpiresAt: Date
+    let lastError: String?
+
+    var serveCommand: String? {
+        guard let port else { return nil }
+        return "tailscale serve --bg http://127.0.0.1:\(port)"
+    }
+}
+
+/// A small, dependency-free browser gateway for terminal-only control.
+///
+/// The browser protocol is intentionally separate from the WebRTC media
+/// session: Safari gets a focused task-chat terminal, not screen capture or
+/// remote input. Each browser connection owns one bounded HostTerminalService
+/// and therefore keeps up to eight shell tabs independent from one another.
+final class HostBrowserControlService: @unchecked Sendable {
+    static let defaultPort: UInt16 = 9475
+    static let maxBrowserClients = 1
+    static let pairingCodeLifetime: TimeInterval = 10 * 60
+    static let browserTokenLifetime: TimeInterval = 30 * 60
+    static let maxHTTPBodyBytes = 4 * 1024
+    static let maxWebSocketFrameBytes = 64 * 1024
+
+    private let logger = Logger(subsystem: "com.remotedesktop.host", category: "BrowserControl")
+    private let queue = DispatchQueue(label: "com.remotedesktop.host.browser-control", qos: .userInitiated)
+    private var listener: NWListener?
+    private var clients: [UUID: BrowserClient] = [:]
+    private var pairingCode = HostBrowserControlService.makePairingCode()
+    private var pairingCodeIssuedAt = Date()
+    private var browserToken: String?
+    private var browserTokenExpiresAt: Date?
+    private var failedPairAttempts = 0
+    private var firstFailedPairAttemptAt: Date?
+
+    /// These providers are installed by HostAppEnvironment after all of its
+    /// dependencies have been initialized.
+    var terminalModeProvider: () -> Bool = { false }
+    var readClipboard: () -> String? = { nil }
+    var writeClipboard: (String) -> Void = { _ in }
+    var onStatusChange: (@Sendable (HostBrowserControlStatus) -> Void)?
+
+    deinit {
+        stop()
+    }
+
+    func start(port: UInt16 = HostBrowserControlService.defaultPort) {
+        queue.async { [weak self] in
+            self?._start(port: port)
+        }
+    }
+
+    func stop() {
+        queue.async { [weak self] in
+            self?._stop()
+        }
+    }
+
+    func rotatePairingCode() {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.pairingCode = Self.makePairingCode()
+            self.pairingCodeIssuedAt = Date()
+            self.browserToken = nil
+            self.browserTokenExpiresAt = nil
+            self.publishStatus()
+        }
+    }
+
+    func currentStatus() -> HostBrowserControlStatus {
+        queue.sync {
+            HostBrowserControlStatus(
+                running: listener != nil,
+                port: listener?.port?.rawValue,
+                pairingCode: pairingCode,
+                pairingCodeExpiresAt: pairingCodeIssuedAt.addingTimeInterval(Self.pairingCodeLifetime),
+                lastError: nil
+            )
+        }
+    }
+
+    // MARK: Listener lifecycle
+
+    private func _start(port: UInt16) {
+        guard listener == nil else { return }
+
+        do {
+            let parameters = NWParameters.tcp
+            parameters.requiredLocalEndpoint = .hostPort(
+                host: .ipv4(.loopback),
+                port: NWEndpoint.Port(rawValue: port) ?? .any
+            )
+            let newListener = try NWListener(using: parameters)
+            newListener.stateUpdateHandler = { [weak self, weak newListener] state in
+                guard let self else { return }
+                switch state {
+                case .ready:
+                    self.logger.info("Browser control loopback listener ready on port \(newListener?.port?.rawValue ?? 0)")
+                    self.publishStatus()
+                case .failed(let error):
+                    self.logger.error("Browser control listener failed: \(error.localizedDescription, privacy: .public)")
+                    self.listener = nil
+                    self.publishStatus(error: error.localizedDescription)
+                case .cancelled:
+                    self.listener = nil
+                    self.publishStatus()
+                default:
+                    break
+                }
+            }
+            newListener.newConnectionHandler = { [weak self] connection in
+                self?.accept(connection)
+            }
+            listener = newListener
+            newListener.start(queue: queue)
+            publishStatus()
+        } catch {
+            logger.error("Could not create browser control listener: \(error.localizedDescription, privacy: .public)")
+            publishStatus(error: error.localizedDescription)
+        }
+    }
+
+    private func _stop() {
+        listener?.cancel()
+        listener = nil
+        let currentClients = Array(clients.values)
+        clients.removeAll()
+        for client in currentClients {
+            client.terminalService?.sessionDidEnd(reason: "browser-server-stopped")
+            client.connection.cancel()
+        }
+        browserToken = nil
+        browserTokenExpiresAt = nil
+        publishStatus()
+    }
+
+    private func accept(_ connection: NWConnection) {
+        let id = UUID()
+        let client = BrowserClient(id: id, connection: connection)
+        clients[id] = client
+        connection.stateUpdateHandler = { [weak self, weak connection] state in
+            guard let self else { return }
+            switch state {
+            case .ready:
+                self.receive(on: client)
+            case .failed, .cancelled:
+                self.remove(clientID: id, connection: connection)
+            default:
+                break
+            }
+        }
+        connection.start(queue: queue)
+    }
+
+    private func remove(clientID: UUID, connection: NWConnection?) {
+        guard let client = clients.removeValue(forKey: clientID) else { return }
+        client.terminalService?.sessionDidEnd(reason: "browser-disconnected")
+        if connection == nil || connection === client.connection {
+            client.connection.cancel()
+        }
+    }
+
+    // MARK: HTTP
+
+    private func receive(on client: BrowserClient) {
+        client.connection.receive(minimumIncompleteLength: 1, maximumLength: Self.maxWebSocketFrameBytes) { [weak self, weak client] data, _, isComplete, error in
+            guard let self, let client else { return }
+            if let error {
+                self.logger.debug("Browser connection read ended: \(error.localizedDescription, privacy: .public)")
+                self.remove(clientID: client.id, connection: client.connection)
+                return
+            }
+            if let data, !data.isEmpty {
+                client.receiveBuffer.append(data)
+                if client.mode == .http {
+                    self.handleHTTPBuffer(for: client)
+                } else {
+                    self.handleWebSocketBuffer(for: client)
+                }
+            }
+            if isComplete {
+                self.remove(clientID: client.id, connection: client.connection)
+            } else if self.clients[client.id] != nil {
+                self.receive(on: client)
+            }
+        }
+    }
+
+    private func handleHTTPBuffer(for client: BrowserClient) {
+        guard let headerEnd = client.receiveBuffer.range(of: Data("\r\n\r\n".utf8)) else {
+            if client.receiveBuffer.count > 16 * 1024 {
+                remove(clientID: client.id, connection: client.connection)
+            }
+            return
+        }
+
+        let headerData = client.receiveBuffer.subdata(in: 0..<headerEnd.lowerBound)
+        let headerText = String(decoding: headerData, as: UTF8.self)
+        let headerLines = headerText.components(separatedBy: "\r\n")
+        guard let requestLine = headerLines.first,
+              let request = Self.parseRequestLine(requestLine) else {
+            sendHTTP(.badRequest, body: "Bad request", to: client)
+            return
+        }
+
+        var headers: [String: String] = [:]
+        for line in headerLines.dropFirst() {
+            guard let separator = line.firstIndex(of: ":") else { continue }
+            let name = line[..<separator].trimmingCharacters(in: .whitespaces).lowercased()
+            let value = line[line.index(after: separator)...].trimmingCharacters(in: .whitespaces)
+            headers[name] = value
+        }
+
+        let contentLength: Int
+        if let rawContentLength = headers["content-length"] {
+            guard let parsedContentLength = Int(rawContentLength),
+                  parsedContentLength >= 0,
+                  parsedContentLength <= Self.maxHTTPBodyBytes else {
+                sendHTTP(.badRequest, body: "Invalid request body", to: client)
+                return
+            }
+            contentLength = parsedContentLength
+        } else {
+            contentLength = 0
+        }
+        let bodyStart = headerEnd.upperBound
+        guard client.receiveBuffer.count >= bodyStart + contentLength else { return }
+        let body = client.receiveBuffer.subdata(in: bodyStart..<(bodyStart + contentLength))
+        client.receiveBuffer.removeSubrange(0..<(bodyStart + contentLength))
+
+        if request.path == "/socket",
+           request.method == "GET",
+           headers["upgrade"]?.lowercased() == "websocket",
+           let websocketKey = headers["sec-websocket-key"] {
+            upgradeToWebSocket(client, request: request, key: websocketKey)
+            return
+        }
+
+        switch (request.method, request.path) {
+        case ("GET", "/"), ("GET", "/index.html"):
+            sendHTTP(.ok, contentType: "text/html; charset=utf-8", body: BrowserControlWebAssets.indexHTML, to: client)
+        case ("GET", "/api/status"):
+            sendHTTP(.ok, contentType: "application/json", body: statusJSON(), to: client)
+        case ("POST", "/api/pair"):
+            handlePair(body: body, client: client)
+        default:
+            sendHTTP(.notFound, body: "Not found", to: client)
+        }
+    }
+
+    private func handlePair(body: Data, client: BrowserClient) {
+        guard terminalModeProvider() else {
+            sendHTTP(.forbidden, contentType: "application/json", body: "{\"error\":\"terminal-disabled\"}", to: client)
+            return
+        }
+        guard canAttemptPairing() else {
+            sendHTTP(.tooManyRequests, body: "Too many pairing attempts", to: client)
+            return
+        }
+        guard let payload = try? JSONDecoder().decode(BrowserPairRequest.self, from: body),
+              let code = payload.code?.trimmingCharacters(in: .whitespacesAndNewlines),
+              code.count == 6,
+              Self.constantTimeEqual(code, pairingCode),
+              Date().timeIntervalSince(pairingCodeIssuedAt) < Self.pairingCodeLifetime else {
+            recordPairFailure()
+            sendHTTP(.unauthorized, contentType: "application/json", body: "{\"error\":\"invalid-code\"}", to: client)
+            return
+        }
+
+        failedPairAttempts = 0
+        firstFailedPairAttemptAt = nil
+        let token = Self.makeToken()
+        browserToken = token
+        browserTokenExpiresAt = Date().addingTimeInterval(Self.browserTokenLifetime)
+        let response = BrowserPairResponse(token: token, expiresAt: browserTokenExpiresAt ?? Date())
+        sendHTTP(.ok, contentType: "application/json", body: Self.jsonString(response), to: client)
+    }
+
+    private func canAttemptPairing() -> Bool {
+        if let first = firstFailedPairAttemptAt,
+           Date().timeIntervalSince(first) >= 60 {
+            failedPairAttempts = 0
+            firstFailedPairAttemptAt = nil
+        }
+        return failedPairAttempts < 8
+    }
+
+    private func recordPairFailure() {
+        firstFailedPairAttemptAt = firstFailedPairAttemptAt ?? Date()
+        failedPairAttempts += 1
+    }
+
+    private func statusJSON() -> String {
+        let status = currentStatusOnQueue()
+        let response = BrowserStatusResponse(
+            terminalModeEnabled: terminalModeProvider(),
+            maxTerminals: HostTerminalService.maxActiveTerminals,
+            running: status.running,
+            pairingCodeExpiresAt: status.pairingCodeExpiresAt
+        )
+        return Self.jsonString(response)
+    }
+
+    private func upgradeToWebSocket(_ client: BrowserClient, request: BrowserHTTPRequest, key: String) {
+        guard let token = request.query["token"],
+              let storedToken = browserToken,
+              let expiresAt = browserTokenExpiresAt,
+              Date() < expiresAt,
+              Self.constantTimeEqual(token, storedToken) else {
+            sendHTTP(.unauthorized, body: "Pair this browser first", to: client)
+            return
+        }
+        guard terminalModeProvider() else {
+            sendHTTP(.forbidden, contentType: "application/json", body: "{\"error\":\"terminal-disabled\"}", to: client)
+            return
+        }
+        guard clients.values.filter({ $0.mode == .webSocket }).count < Self.maxBrowserClients else {
+            sendHTTP(.conflict, contentType: "application/json", body: "{\"error\":\"browser-capacity\"}", to: client)
+            return
+        }
+
+        let accept = Self.websocketAcceptValue(key: key)
+        let response = "HTTP/1.1 101 Switching Protocols\r\n"
+            + "Upgrade: websocket\r\n"
+            + "Connection: Upgrade\r\n"
+            + "Sec-WebSocket-Accept: \(accept)\r\n\r\n"
+        sendRaw(Data(response.utf8), to: client) { [weak self, weak client] in
+            guard let self, let client else { return }
+            client.mode = .webSocket
+            client.sessionID = UUID()
+            let terminalService = HostTerminalService()
+            terminalService.sendEnvelope = { [weak self, weak client] envelope in
+                guard let self, let client else { return }
+                self.queue.async {
+                    self.sendTerminalEnvelope(envelope, to: client)
+                }
+            }
+            client.terminalService = terminalService
+            self.sendJSON(
+                BrowserHelloEvent(
+                    sessionID: client.sessionID ?? UUID(),
+                    maxTerminals: HostTerminalService.maxActiveTerminals,
+                    capabilities: ["terminal", "multiple-terminals", "clipboard", "approval-cards", "tmux", "screen"]
+                ),
+                to: client
+            )
+        }
+    }
+
+    // MARK: WebSocket terminal protocol
+
+    private func handleWebSocketBuffer(for client: BrowserClient) {
+        while let frame = Self.decodeFrame(from: &client.receiveBuffer) {
+            switch frame.opcode {
+            case 0x8: // close
+                sendWebSocketFrame(Data(), opcode: 0x8, to: client)
+                remove(clientID: client.id, connection: client.connection)
+                return
+            case 0x9: // ping
+                sendWebSocketFrame(frame.payload, opcode: 0xA, to: client)
+            case 0x1: // text
+                handleWebSocketCommand(frame.payload, client: client)
+            default:
+                sendError("unsupported-frame", to: client)
+            }
+        }
+    }
+
+    private func handleWebSocketCommand(_ data: Data, client: BrowserClient) {
+        guard data.count <= Self.maxWebSocketFrameBytes,
+              let command = try? JSONDecoder().decode(BrowserTerminalCommand.self, from: data),
+              let type = command.type?.lowercased(),
+              let sessionID = client.sessionID,
+              let terminalService = client.terminalService else {
+            sendError("invalid-command", to: client)
+            return
+        }
+
+        guard terminalModeProvider() else {
+            sendError("terminal-disabled", to: client)
+            return
+        }
+
+        switch type {
+        case "open":
+            guard let terminalID = command.terminalID,
+                  let cols = command.cols, let rows = command.rows,
+                  cols > 0, rows > 0, cols <= 1000, rows <= 1000 else {
+                sendError("invalid-terminal-size", to: client)
+                return
+            }
+            if let startupCommand = command.startupCommand, startupCommand.utf8.count > TerminalOpenMessage.maxStartupCommandLength {
+                sendError("startup-command-too-large", to: client)
+                return
+            }
+            terminalService.handleOpen(TerminalOpenMessage(
+                sessionID: sessionID,
+                terminalID: terminalID,
+                cols: cols,
+                rows: rows,
+                term: command.term ?? "xterm-256color",
+                startupCommand: command.startupCommand
+            ))
+        case "input":
+            guard let terminalID = command.terminalID,
+                  let encoded = command.data,
+                  let input = Data(base64Encoded: encoded),
+                  !input.isEmpty,
+                  input.count <= TerminalInputMessage.maxChunkBytes else {
+                sendError("invalid-input", to: client)
+                return
+            }
+            terminalService.handleInput(TerminalInputMessage(sessionID: sessionID, terminalID: terminalID, data: input))
+        case "resize":
+            guard let terminalID = command.terminalID,
+                  let cols = command.cols, let rows = command.rows,
+                  cols > 0, rows > 0, cols <= 1000, rows <= 1000 else {
+                sendError("invalid-terminal-size", to: client)
+                return
+            }
+            terminalService.handleResize(TerminalResizeMessage(sessionID: sessionID, terminalID: terminalID, cols: cols, rows: rows))
+        case "close":
+            guard let terminalID = command.terminalID else { sendError("invalid-terminal", to: client); return }
+            terminalService.handleClose(TerminalCloseMessage(sessionID: sessionID, terminalID: terminalID, reason: "browser-requested"))
+        case "clipboardget":
+            let text = String((readClipboard() ?? "").prefix(ClipboardSyncMessage.maxContentLength))
+            sendJSON(BrowserClipboardEvent(text: text), to: client)
+        case "clipboardset":
+            guard let text = command.text, text.utf8.count <= ClipboardSyncMessage.maxContentLength else {
+                sendError("clipboard-too-large", to: client)
+                return
+            }
+            writeClipboard(text)
+            sendJSON(BrowserClipboardEvent(text: text), to: client)
+        case "ping":
+            sendJSON(BrowserPongEvent(), to: client)
+        default:
+            sendError("unknown-command", to: client)
+        }
+    }
+
+    private func sendTerminalEnvelope(_ envelope: DataChannelEnvelope, to client: BrowserClient) {
+        guard client.mode == .webSocket else { return }
+        switch envelope.kind {
+        case .terminalReady:
+            guard let message = try? envelope.decodeTerminalReady() else { return }
+            sendJSON(BrowserReadyEvent(terminalID: message.terminalID, cols: message.cols, rows: message.rows), to: client)
+        case .terminalOutput:
+            guard let message = try? envelope.decodeTerminalOutput() else { return }
+            sendJSON(BrowserOutputEvent(terminalID: message.terminalID, data: message.data.base64EncodedString(), sequence: message.sequence), to: client)
+        case .terminalClose:
+            guard let message = try? envelope.decodeTerminalClose() else { return }
+            sendJSON(BrowserCloseEvent(terminalID: message.terminalID, reason: message.reason ?? "closed"), to: client)
+        default:
+            break
+        }
+    }
+
+    private func sendError(_ code: String, to client: BrowserClient) {
+        sendJSON(BrowserErrorEvent(code: code), to: client)
+    }
+
+    // MARK: Wire helpers
+
+    private func sendHTTP(
+        _ status: HTTPStatus,
+        contentType: String = "text/plain; charset=utf-8",
+        body: String,
+        to client: BrowserClient
+    ) {
+        let data = Data(body.utf8)
+        let response = "HTTP/1.1 \(status.code) \(status.reason)\r\n"
+            + "Content-Type: \(contentType)\r\n"
+            + "Content-Length: \(data.count)\r\n"
+            + "Cache-Control: no-store\r\n"
+            + "X-Content-Type-Options: nosniff\r\n"
+            + "Content-Security-Policy: default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'\r\n"
+            + "Connection: close\r\n\r\n"
+        sendRaw(Data(response.utf8) + data, to: client) { [weak self] in
+            self?.remove(clientID: client.id, connection: client.connection)
+        }
+    }
+
+    private func sendJSON<T: Encodable>(_ value: T, to client: BrowserClient) {
+        guard let data = try? JSONEncoder().encode(value) else { return }
+        sendWebSocketFrame(data, opcode: 0x1, to: client)
+    }
+
+    private func sendRaw(_ data: Data, to client: BrowserClient, completion: (() -> Void)? = nil) {
+        client.connection.send(content: data, completion: .contentProcessed { [weak self] _ in
+            self?.queue.async { completion?() }
+        })
+    }
+
+    private func sendWebSocketFrame(_ payload: Data, opcode: UInt8, to client: BrowserClient) {
+        guard payload.count <= Self.maxWebSocketFrameBytes else {
+            sendError("response-too-large", to: client)
+            return
+        }
+        var frame = Data([0x80 | opcode])
+        if payload.count < 126 {
+            frame.append(UInt8(payload.count))
+        } else if payload.count <= UInt16.max {
+            frame.append(126)
+            frame.append(contentsOf: UInt16(payload.count).bigEndianBytes)
+        } else {
+            frame.append(127)
+            frame.append(contentsOf: UInt64(payload.count).bigEndianBytes)
+        }
+        frame.append(payload)
+        sendRaw(frame, to: client)
+    }
+
+    private func publishStatus(error: String? = nil) {
+        let status = HostBrowserControlStatus(
+            running: listener != nil,
+            port: listener?.port?.rawValue,
+            pairingCode: pairingCode,
+            pairingCodeExpiresAt: pairingCodeIssuedAt.addingTimeInterval(Self.pairingCodeLifetime),
+            lastError: error
+        )
+        onStatusChange?(status)
+    }
+
+    private func currentStatusOnQueue() -> HostBrowserControlStatus {
+        HostBrowserControlStatus(
+            running: listener != nil,
+            port: listener?.port?.rawValue,
+            pairingCode: pairingCode,
+            pairingCodeExpiresAt: pairingCodeIssuedAt.addingTimeInterval(Self.pairingCodeLifetime),
+            lastError: nil
+        )
+    }
+
+    private static func parseRequestLine(_ line: String) -> BrowserHTTPRequest? {
+        let parts = line.split(separator: " ", maxSplits: 2).map(String.init)
+        guard parts.count == 3, let url = URLComponents(string: parts[1]) else { return nil }
+        var query: [String: String] = [:]
+        for item in url.queryItems ?? [] {
+            query[item.name] = item.value ?? ""
+        }
+        return BrowserHTTPRequest(method: parts[0].uppercased(), path: url.path.isEmpty ? "/" : url.path, query: query)
+    }
+
+    private static func websocketAcceptValue(key: String) -> String {
+        let source = Data((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").utf8)
+        return Data(Insecure.SHA1.hash(data: source)).base64EncodedString()
+    }
+
+    private static func decodeFrame(from buffer: inout Data) -> BrowserWebSocketFrame? {
+        guard buffer.count >= 2 else { return nil }
+        let first = buffer[buffer.startIndex]
+        let second = buffer[buffer.startIndex + 1]
+        // Browser-to-server frames must be final, unfragmented, masked frames.
+        // Rejecting anything else keeps this intentionally small parser from
+        // accepting protocol variants it cannot safely reassemble.
+        guard first & 0x80 != 0,
+              first & 0x70 == 0,
+              second & 0x80 != 0 else {
+            buffer.removeAll()
+            return BrowserWebSocketFrame(opcode: 0x8, payload: Data())
+        }
+        let opcode = first & 0x0F
+        let masked = true
+        var length = Int(second & 0x7F)
+        var offset = 2
+        if length == 126 {
+            guard buffer.count >= offset + 2 else { return nil }
+            length = Int(UInt16(bigEndian: buffer.readUInt16(at: offset)))
+            offset += 2
+        } else if length == 127 {
+            guard buffer.count >= offset + 8 else { return nil }
+            let longLength = UInt64(bigEndian: buffer.readUInt64(at: offset))
+            guard longLength <= UInt64(Self.maxWebSocketFrameBytes) else {
+                buffer.removeAll()
+                return BrowserWebSocketFrame(opcode: 0x8, payload: Data())
+            }
+            length = Int(longLength)
+            offset += 8
+        }
+        guard length <= Self.maxWebSocketFrameBytes,
+              opcode != 0,
+              opcode < 0x8 || length <= 125 else {
+            buffer.removeAll()
+            return BrowserWebSocketFrame(opcode: 0x8, payload: Data())
+        }
+        var mask: [UInt8] = []
+        guard buffer.count >= offset + 4 else { return nil }
+        mask = Array(buffer[offset..<(offset + 4)])
+        offset += 4
+        guard buffer.count >= offset + length else { return nil }
+        var payload = Data(buffer[offset..<(offset + length)])
+        buffer.removeSubrange(0..<(offset + length))
+        if masked {
+            for index in 0..<payload.count {
+                payload[index] ^= mask[index % 4]
+            }
+        }
+        return BrowserWebSocketFrame(opcode: opcode, payload: payload)
+    }
+
+    private static func makePairingCode() -> String {
+        String(format: "%06d", Int.random(in: 0...999_999))
+    }
+
+    private static func makeToken() -> String {
+        Data((0..<32).map { _ in UInt8.random(in: 0...255) }).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func constantTimeEqual(_ lhs: String, _ rhs: String) -> Bool {
+        let left = Data(lhs.utf8)
+        let right = Data(rhs.utf8)
+        guard left.count == right.count else { return false }
+        var difference: UInt8 = 0
+        for (a, b) in zip(left, right) { difference |= a ^ b }
+        return difference == 0
+    }
+
+    private static func jsonString<T: Encodable>(_ value: T) -> String {
+        guard let data = try? JSONEncoder().encode(value) else { return "{}" }
+        return String(decoding: data, as: UTF8.self)
+    }
+}
+
+private final class BrowserClient: @unchecked Sendable {
+    enum Mode { case http, webSocket }
+
+    let id: UUID
+    let connection: NWConnection
+    var mode: Mode = .http
+    var receiveBuffer = Data()
+    var sessionID: UUID?
+    var terminalService: HostTerminalService?
+
+    init(id: UUID, connection: NWConnection) {
+        self.id = id
+        self.connection = connection
+    }
+}
+
+private struct BrowserHTTPRequest {
+    let method: String
+    let path: String
+    let query: [String: String]
+}
+
+private struct BrowserWebSocketFrame {
+    let opcode: UInt8
+    let payload: Data
+}
+
+private enum HTTPStatus {
+    case ok, badRequest, unauthorized, forbidden, notFound, conflict, tooManyRequests
+
+    var code: Int {
+        switch self {
+        case .ok: return 200
+        case .badRequest: return 400
+        case .unauthorized: return 401
+        case .forbidden: return 403
+        case .notFound: return 404
+        case .conflict: return 409
+        case .tooManyRequests: return 429
+        }
+    }
+
+    var reason: String {
+        switch self {
+        case .ok: return "OK"
+        case .badRequest: return "Bad Request"
+        case .unauthorized: return "Unauthorized"
+        case .forbidden: return "Forbidden"
+        case .notFound: return "Not Found"
+        case .conflict: return "Conflict"
+        case .tooManyRequests: return "Too Many Requests"
+        }
+    }
+}
+
+private struct BrowserPairRequest: Decodable {
+    let code: String?
+}
+
+private struct BrowserPairResponse: Encodable {
+    let token: String
+    let expiresAt: Date
+}
+
+private struct BrowserStatusResponse: Encodable {
+    let terminalModeEnabled: Bool
+    let maxTerminals: Int
+    let running: Bool
+    let pairingCodeExpiresAt: Date
+}
+
+private struct BrowserTerminalCommand: Decodable {
+    let type: String?
+    let terminalID: UUID?
+    let cols: UInt16?
+    let rows: UInt16?
+    let term: String?
+    let startupCommand: String?
+    let data: String?
+    let text: String?
+}
+
+private struct BrowserHelloEvent: Encodable {
+    let type = "hello"
+    let sessionID: UUID
+    let maxTerminals: Int
+    let capabilities: [String]
+}
+
+private struct BrowserReadyEvent: Encodable {
+    let type = "ready"
+    let terminalID: UUID
+    let cols: UInt16
+    let rows: UInt16
+}
+
+private struct BrowserOutputEvent: Encodable {
+    let type = "output"
+    let terminalID: UUID
+    let data: String
+    let sequence: UInt64
+}
+
+private struct BrowserCloseEvent: Encodable {
+    let type = "close"
+    let terminalID: UUID
+    let reason: String
+}
+
+private struct BrowserErrorEvent: Encodable {
+    let type = "error"
+    let code: String
+}
+
+private struct BrowserClipboardEvent: Encodable {
+    let type = "clipboard"
+    let text: String
+}
+
+private struct BrowserPongEvent: Encodable {
+    let type = "pong"
+}
+
+private extension UInt16 {
+    var bigEndianBytes: [UInt8] { [UInt8(self >> 8), UInt8(self & 0xFF)] }
+}
+
+private extension UInt64 {
+    var bigEndianBytes: [UInt8] {
+        [
+            UInt8((self >> 56) & 0xFF), UInt8((self >> 48) & 0xFF),
+            UInt8((self >> 40) & 0xFF), UInt8((self >> 32) & 0xFF),
+            UInt8((self >> 24) & 0xFF), UInt8((self >> 16) & 0xFF),
+            UInt8((self >> 8) & 0xFF), UInt8(self & 0xFF)
+        ]
+    }
+}
+
+private extension Data {
+    func readUInt16(at offset: Int) -> UInt16 {
+        let a = UInt16(self[self.startIndex + offset])
+        let b = UInt16(self[self.startIndex + offset + 1])
+        return (a << 8) | b
+    }
+
+    func readUInt64(at offset: Int) -> UInt64 {
+        var value: UInt64 = 0
+        for index in 0..<8 {
+            value = (value << 8) | UInt64(self[self.startIndex + offset + index])
+        }
+        return value
+    }
+}
+
+private enum BrowserControlWebAssets {
+    static let indexHTML = #"""
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#151515"><title>Vamp Terminal · Task chat</title>
+<style>
+:root{color-scheme:dark;--bg:#151515;--panel:rgba(44,44,44,.76);--panel2:rgba(30,30,30,.88);--line:rgba(255,255,255,.12);--muted:#a3a3a3;--text:#f1f1f1;--accent:#f5f5f5;--good:#42d392;--warn:#ffc857;--danger:#ff756b}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% -10%,#383838 0,transparent 40%),linear-gradient(145deg,#111,#191919 55%,#101010);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;min-height:100vh}button,input{font:inherit}button{color:inherit;border:0;cursor:pointer}.shell{max-width:980px;margin:auto;min-height:100vh;padding:env(safe-area-inset-top) 14px env(safe-area-inset-bottom);display:flex;flex-direction:column}.top{height:54px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--line)}.back{background:none;color:#bbb;font-size:22px;width:32px}.title{font-weight:650;font-size:17px}.top .state{margin-left:auto;color:var(--muted);font-size:12px}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good);margin-right:6px}.tabs{display:flex;align-items:center;gap:8px;padding:12px 0 9px;overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tab{display:flex;align-items:center;gap:7px;white-space:nowrap;background:rgba(255,255,255,.08);border:1px solid transparent;border-radius:17px;padding:8px 12px;color:#bbb}.tab.active{border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.14);color:#fff}.tab .close{color:#888;background:none;padding:0 0 0 3px}.newtab{background:rgba(255,255,255,.1);border-radius:16px;padding:8px 11px;font-size:18px}.content{display:flex;flex:1;min-height:0}.chat{flex:1;min-width:0;padding:12px 0 120px}.stream{display:none}.stream.active{display:block}.message{margin:0 0 18px;line-height:1.55}.message .meta{color:#777;font-size:12px;margin-bottom:6px}.message .body{white-space:pre-wrap;word-break:break-word}.explore{color:#bbb;font-size:13px;margin:12px 0 18px}.explore span{color:#666;margin:0 6px}.command-card{background:rgba(45,45,45,.8);border:1px solid var(--line);border-radius:17px;padding:12px;margin:13px 0 20px;box-shadow:0 10px 34px rgba(0,0,0,.16)}.command-card .eyebrow{color:#aaa;font-size:13px;margin-bottom:10px}.command-card .approval{color:#aaa;margin:7px 0 11px}.command{background:rgba(15,15,15,.7);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;white-space:pre-wrap;overflow:auto;font:14px ui-monospace,SFMono-Regular,Menlo,monospace;color:#e8e8e8}.command .prompt{color:#aaa}.approval-actions{display:flex;gap:8px;align-items:center;margin-top:11px}.approval-actions button{border-radius:11px;padding:10px 13px;background:#eee;color:#161616;font-weight:650}.approval-actions button.secondary{background:rgba(255,255,255,.12);color:#eee}.approval-actions button.danger{background:rgba(255,117,107,.16);color:#ffb4ae}.terminal{background:#0b0b0b;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px;min-height:150px;max-height:48vh;overflow:auto;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:#e8e8e8;white-space:pre-wrap;word-break:break-word}.terminal:focus{outline:2px solid rgba(255,255,255,.35);outline-offset:2px}.quick{display:flex;gap:7px;overflow:auto;padding:10px 0;scrollbar-width:none}.quick::-webkit-scrollbar{display:none}.quick button{background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:9px;padding:8px 11px;white-space:nowrap;color:#ddd}.composer{position:fixed;left:14px;right:14px;bottom:max(12px,env(safe-area-inset-bottom));margin:auto;max-width:952px;background:rgba(44,44,44,.9);border:1px solid rgba(255,255,255,.16);border-radius:16px;padding:8px;display:flex;gap:7px;box-shadow:0 12px 40px rgba(0,0,0,.35);backdrop-filter:blur(18px)}.composer input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#fff;padding:8px}.composer input::placeholder{color:#777}.composer button{width:42px;height:38px;border-radius:11px;background:rgba(255,255,255,.1);font-size:17px}.composer button.send{background:#f5f5f5;color:#111;font-weight:700}.empty{color:#999;padding:35px 8px;text-align:center}.badge{color:#999;font-size:12px;margin:5px 0 15px}.modal{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:20px;z-index:3}.modal.hidden{display:none}.modal-card{width:min(420px,100%);background:#2b2b2b;border:1px solid rgba(255,255,255,.18);border-radius:18px;padding:18px;box-shadow:0 18px 70px #000}.modal-card h2{margin:0 0 7px;font-size:20px}.modal-card p{color:#aaa;line-height:1.45}.modal-card input{width:100%;background:#171717;border:1px solid var(--line);border-radius:10px;padding:12px;color:#fff;letter-spacing:.18em;text-align:center}.modal-card button{margin-top:12px;border-radius:11px;padding:11px 14px;background:#eee;color:#111;font-weight:650}.modal-card .error{color:#ffaaa4;min-height:18px;font-size:13px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(min-width:720px){.shell{padding-left:28px;padding-right:28px}.composer{left:28px;right:28px}.terminal{max-height:50vh}.chat{padding-top:20px}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style></head>
+<body><div class="shell">
+<header class="top"><button class="back" aria-label="Back" onclick="history.back()">‹</button><div class="title">Task chat</div><div class="state"><span class="dot"></span><span id="state">Pairing</span></div></header>
+<nav class="tabs" id="tabs" aria-label="Terminal tabs"><button class="newtab" id="newtab" aria-label="New terminal">＋</button></nav>
+<main class="content"><section class="chat" id="chat"><div class="empty" id="empty">Pair this browser to start a terminal task.</div></section></main>
+<div class="composer"><button id="paste" title="Send browser clipboard to host" aria-label="Send browser clipboard to host">⇩</button><button id="copyhost" title="Copy host clipboard to browser" aria-label="Copy host clipboard to browser">⇧</button><input id="input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command…"><button id="more" title="More controls" aria-label="More controls">•••</button><button class="send" id="send" title="Review command" aria-label="Review command">↑</button></div>
+</div>
+<div class="modal" id="pair"><div class="modal-card"><h2>Open this workspace</h2><p>Enter the six-digit code shown in Vamp Host → Settings → Browser control. The code expires after ten minutes.</p><input id="code" inputmode="numeric" maxlength="6" placeholder="000000" aria-label="Pairing code"><div class="error" id="pair-error"></div><button id="pair-button">Pair browser</button></div></div>
+<script>
+const $=id=>document.getElementById(id);let ws=null,token=null,sessionId=null,active=null,order=[],tabs=new Map(),approved=new Set();
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function strip(s){return s.replace(/[\u001b\u009b]\[[0-?]*[ -\/]*[@-~]/g,'').replace(/[\u001b\u009b][^\n]/g,'')}
+function addMessage(html,tab=active){let el=document.createElement('div');el.className='message';el.innerHTML=html;$('chat').appendChild(el);el.scrollIntoView({block:'nearest'});return el}
+function setState(s){$('state').textContent=s}
+function renderTabs(){let nav=$('tabs');nav.querySelectorAll('.tab').forEach(x=>x.remove());order.forEach(id=>{let t=tabs.get(id),b=document.createElement('button');b.className='tab '+(id===active?'active':'');b.dataset.id=id;b.innerHTML='<span class="tab-dot">'+(t.unread?'● ':'')+'</span>'+esc(t.title)+'<span class="close" aria-label="Close">×</span>';b.onclick=e=>{if(e.target.classList.contains('close'))closeTab(id);else selectTab(id)};nav.insertBefore(b,$('newtab'))})}
+function createTab(startup=null,title=null){if(order.length>=8){addMessage('<div class="badge">Terminal capacity reached (8 tabs).</div>');return}let id=crypto.randomUUID(),t={id,title:title||'Terminal '+(order.length+1),startupCommand:startup,out:'',unread:false,opened:false};tabs.set(id,t);order.push(id);active=id;renderTabs();if(ws&&ws.readyState===1){send({type:'open',terminalID:id,cols:Math.max(40,Math.floor(innerWidth/8)),rows:Math.max(12,Math.floor((innerHeight-250)/21)),startupCommand:startup})}else{showPair();}return id}
+function selectTab(id){if(!tabs.has(id))return;active=id;tabs.get(id).unread=false;document.querySelectorAll('.stream').forEach(x=>x.classList.toggle('active',x.dataset.id===id));renderTabs();$('input').focus()}
+function closeTab(id){if(ws&&ws.readyState===1)send({type:'close',terminalID:id});document.querySelector('.stream[data-id="'+id+'"]')?.remove();tabs.delete(id);order=order.filter(x=>x!==id);if(active===id)active=order[0]||null;if(!active)createTab();renderTabs()}
+function ensureStream(id){let t=tabs.get(id);if(!t)return null;let el=document.querySelector('.stream[data-id="'+id+'"]');if(!el){el=document.createElement('div');el.className='stream '+(active===id?'active':'');el.dataset.id=id;el.innerHTML='<div class="terminal" tabindex="0" aria-label="Terminal output"></div><div class="quick"><button data-k="ctrlc">Ctrl-C</button><button data-k="esc">Esc</button><button data-k="tab">Tab</button><button data-k="up">↑</button><button data-k="down">↓</button><button data-k="left">←</button><button data-k="right">→</button><button data-k="ctrld">Ctrl-D</button><button data-k="clear">Clear</button></div>';let keys={ctrlc:'\u0003',esc:'\u001b',tab:'\t',up:'\u001b[A',down:'\u001b[B',left:'\u001b[D',right:'\u001b[C',ctrld:'\u0004',clear:'\u000c'};el.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{sendInput(id,keys[b.dataset.k]||'')});$('chat').appendChild(el)}return el}
+function appendOutput(id,text){let t=tabs.get(id);if(!t)return;t.out+=strip(text);if(t.out.length>200000)t.out=t.out.slice(-200000);let el=ensureStream(id),term=el.querySelector('.terminal');term.textContent=t.out;term.scrollTop=term.scrollHeight;if(active!==id){t.unread=true;renderTabs()}}
+function sendInput(id,text){let bytes=new TextEncoder().encode(text),bin='';bytes.forEach(x=>bin+=String.fromCharCode(x));send({type:'input',terminalID:id,data:btoa(bin)})}
+function send(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))}
+function reviewCommand(){let value=$('input').value.trim();if(!value||!active)return;$('input').value='';if(approved.has(value)){sendInput(active,value+'\n');appendCommand(value,'Approved');return}let card=document.createElement('div');card.className='command-card';card.innerHTML='<div class="eyebrow">⌁ Permission required</div><div class="approval">Awaiting approval</div><div class="command"><span class="prompt">$ </span>'+esc(value)+'<br><span style="color:#888">No output yet.</span></div><div class="approval-actions"><button>Allow</button><button class="secondary">Always allow here</button><button class="danger">Deny</button></div>';card.querySelectorAll('button')[0].onclick=()=>{sendInput(active,value+'\n');appendCommand(value,'Allowed');card.remove()};card.querySelectorAll('button')[1].onclick=()=>{approved.add(value);sendInput(active,value+'\n');appendCommand(value,'Always allowed here');card.remove()};card.querySelectorAll('button')[2].onclick=()=>{appendCommand(value,'Denied');card.remove()};$('chat').appendChild(card);card.scrollIntoView({block:'nearest'})}
+function appendCommand(v,status){addMessage('<div class="meta">You · '+esc(status)+'</div><div class="body"><span style="color:#aaa">$ </span>'+esc(v)+'</div>')}
+function showPair(){$('pair').classList.remove('hidden');$('code').focus()}
+async function pair(){let code=$('code').value.trim(),r=await fetch('/api/pair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});if(!r.ok){$('pair-error').textContent='That code is invalid or expired.';return}let x=await r.json();token=x.token;$('pair').classList.add('hidden');connect()}
+function connect(){setState('Connecting');ws=new WebSocket(location.origin.replace('http','ws')+'/socket?token='+encodeURIComponent(token));ws.onopen=()=>{setState('Connected');if(order.length===0)createTab();else order.forEach(id=>{let t=tabs.get(id);if(t&&!t.opened)send({type:'open',terminalID:id,cols:Math.max(40,Math.floor(innerWidth/8)),rows:Math.max(12,Math.floor((innerHeight-250)/21)),startupCommand:t.startupCommand||null})});};ws.onclose=()=>{setState('Offline');tabs.forEach(t=>{t.opened=false;t.out='';t.unread=false});document.querySelectorAll('.stream').forEach(x=>x.remove());addMessage('<div class="badge">Browser session ended. Pair again to reconnect.</div>');};ws.onerror=()=>setState('Connection error');ws.onmessage=e=>{let x;try{x=JSON.parse(e.data)}catch{return}if(x.type==='hello'){sessionId=x.sessionID;setState('Connected')}else if(x.type==='ready'){let t=tabs.get(x.terminalID);if(t){t.opened=true;ensureStream(x.terminalID);addMessage('<div class="meta">System · terminal ready</div><div class="body">'+esc(t.title)+' is connected.</div>')}}else if(x.type==='output'){appendOutput(x.terminalID,new TextDecoder().decode(Uint8Array.from(atob(x.data),c=>c.charCodeAt(0))));}else if(x.type==='close'){let t=tabs.get(x.terminalID);if(t){t.opened=false;t.unread=active!==x.terminalID;renderTabs()}addMessage('<div class="meta">System · terminal closed</div><div class="body">'+esc(x.reason||'closed')+'</div>')}else if(x.type==='clipboard'){navigator.clipboard?.writeText(x.text||'');addMessage('<div class="meta">System · clipboard</div><div class="body">Host clipboard copied to this browser.</div>')}else if(x.type==='error'){addMessage('<div class="badge">'+esc(x.code)+'</div>')}}}
+$('newtab').onclick=()=>createTab();$('send').onclick=reviewCommand;$('input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();reviewCommand()}});$('pair-button').onclick=pair;$('code').addEventListener('keydown',e=>{if(e.key==='Enter')pair()});$('paste').onclick=async()=>{let text=await navigator.clipboard?.readText();if(text&&active)sendInput(active,text)};$('copyhost').onclick=()=>{if(ws&&ws.readyState===1)send({type:'clipboardGet'})};$('more').onclick=()=>{let action=prompt('Attach a tmux or screen session, or launch an agent. Example: tmux attach -t work');if(action)createTab(action,'Session '+(order.length+1))};showPair();
+</script>
+<script>
+// Harden the embedded browser client after the initial lightweight boot code:
+// keep approvals and input tied to the tab that created them, preserve UTF-8
+// across output chunks, expose both clipboard directions, and make reconnect
+// and resize paths explicit.
+const vampTerminalSize = () => ({
+  cols: Math.max(40, Math.floor(innerWidth / 8)),
+  rows: Math.max(12, Math.floor((innerHeight - 250) / 21))
+});
+
+const vampNextTerminalTitle = () => {
+  const titles = new Set([...tabs.values()].map((tab) => tab.title));
+  let number = 1;
+  while (titles.has('Terminal ' + number)) number += 1;
+  return 'Terminal ' + number;
+};
+
+const vampOpenTerminal = (id) => {
+  const tab = tabs.get(id);
+  if (!tab || !ws || ws.readyState !== WebSocket.OPEN) return false;
+  const size = vampTerminalSize();
+  send({
+    type: 'open',
+    terminalID: id,
+    cols: size.cols,
+    rows: size.rows,
+    startupCommand: tab.startupCommand || null
+  });
+  return true;
+};
+
+const vampResizeTerminal = (id) => {
+  const tab = tabs.get(id);
+  if (!tab || !tab.opened || !ws || ws.readyState !== WebSocket.OPEN) return;
+  const size = vampTerminalSize();
+  send({ type: 'resize', terminalID: id, cols: size.cols, rows: size.rows });
+};
+
+renderTabs = () => {
+  const navigation = $('tabs');
+  navigation.querySelectorAll('.tab').forEach((element) => element.remove());
+  order.forEach((id) => {
+    const tab = tabs.get(id);
+    if (!tab) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tab ' + (id === active ? 'active' : '');
+    button.dataset.id = id;
+    button.setAttribute('aria-pressed', String(id === active));
+    button.innerHTML = '<span class="tab-dot">' + (tab.unread ? '● ' : '') +
+      '</span>' + esc(tab.title) + '<span class="close" aria-label="Close">×</span>';
+    button.onclick = (event) => {
+      if (event.target.classList.contains('close')) closeTab(id);
+      else selectTab(id);
+    };
+    navigation.insertBefore(button, $('newtab'));
+  });
+};
+
+createTab = (startup = null, title = null) => {
+  if (order.length >= 8) {
+    addMessage('<div class="badge">Terminal capacity reached (8 tabs).</div>');
+    return null;
+  }
+  const id = crypto.randomUUID();
+  const tab = {
+    id,
+    title: title || vampNextTerminalTitle(),
+    startupCommand: startup,
+    out: '',
+    unread: false,
+    opened: false,
+    decoder: new TextDecoder(),
+    approvals: new Set()
+  };
+  tabs.set(id, tab);
+  order.push(id);
+  active = id;
+  renderTabs();
+  if (ws && ws.readyState === WebSocket.OPEN) vampOpenTerminal(id);
+  else showPair();
+  return id;
+};
+
+selectTab = (id) => {
+  const tab = tabs.get(id);
+  if (!tab) return;
+  active = id;
+  tab.unread = false;
+  if (tab.opened) ensureStream(id);
+  document.querySelectorAll('.stream').forEach((element) => {
+    element.classList.toggle('active', element.dataset.id === id);
+  });
+  renderTabs();
+  $('input').focus();
+};
+
+closeTab = (id) => {
+  const tab = tabs.get(id);
+  if (!tab) return;
+  if (tab.opened && ws && ws.readyState === WebSocket.OPEN) {
+    send({ type: 'close', terminalID: id });
+  }
+  document.querySelector('.stream[data-id="' + id + '"]')?.remove();
+  tabs.delete(id);
+  order = order.filter((value) => value !== id);
+  if (active === id) active = order[0] || null;
+  if (!active) createTab();
+  if (active) selectTab(active);
+  renderTabs();
+};
+
+ensureStream = (id) => {
+  const tab = tabs.get(id);
+  if (!tab) return null;
+  let element = document.querySelector('.stream[data-id="' + id + '"]');
+  if (!element) {
+    element = document.createElement('div');
+    element.className = 'stream ' + (active === id ? 'active' : '');
+    element.dataset.id = id;
+    element.innerHTML =
+      '<div class="terminal" tabindex="0" aria-label="Terminal output"></div>' +
+      '<div class="quick">' +
+      '<button data-k="ctrlc">Ctrl-C</button><button data-k="esc">Esc</button>' +
+      '<button data-k="tab">Tab</button><button data-k="up">↑</button>' +
+      '<button data-k="down">↓</button><button data-k="left">←</button>' +
+      '<button data-k="right">→</button><button data-k="ctrld">Ctrl-D</button>' +
+      '<button data-k="clear">Clear</button></div>';
+    const keys = {
+      ctrlc: '\u0003', esc: '\u001b', tab: '\t', up: '\u001b[A',
+      down: '\u001b[B', left: '\u001b[D', right: '\u001b[C',
+      ctrld: '\u0004', clear: '\u000c'
+    };
+    element.querySelectorAll('[data-k]').forEach((button) => {
+      button.onclick = () => {
+        if (button.dataset.k === 'clear') {
+          const terminal = element.querySelector('.terminal');
+          if (terminal) terminal.textContent = '';
+        }
+        sendInput(id, keys[button.dataset.k] || '');
+      };
+    });
+    $('chat').appendChild(element);
+  }
+  return element;
+};
+
+appendOutput = (id, text) => {
+  const tab = tabs.get(id);
+  if (!tab) return;
+  tab.decoder ||= new TextDecoder();
+  tab.approvals ||= new Set();
+  tab.out += strip(text);
+  if (tab.out.length > 200000) tab.out = tab.out.slice(-200000);
+  const element = ensureStream(id);
+  const terminal = element?.querySelector('.terminal');
+  if (terminal) {
+    terminal.textContent = tab.out;
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+  if (active !== id) {
+    tab.unread = true;
+    renderTabs();
+  }
+};
+
+const vampAppendOutputChunk = (id, encoded) => {
+  const tab = tabs.get(id);
+  if (!tab) return;
+  tab.decoder ||= new TextDecoder();
+  const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+  appendOutput(id, tab.decoder.decode(bytes, { stream: true }));
+};
+
+sendInput = (id, text) => {
+  const tab = tabs.get(id);
+  if (!tab || !tab.opened) return;
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  bytes.forEach((value) => { binary += String.fromCharCode(value); });
+  send({ type: 'input', terminalID: id, data: btoa(binary) });
+};
+
+appendCommand = (value, status, tabID = active) => {
+  const title = tabs.get(tabID)?.title || 'Terminal';
+  addMessage('<div class="meta">You · ' + esc(title) + ' · ' + esc(status) +
+    '</div><div class="body"><span style="color:#aaa">$ </span>' + esc(value) + '</div>');
+};
+
+reviewCommand = () => {
+  const value = $('input').value.trim();
+  const tabID = active;
+  const tab = tabs.get(tabID);
+  if (!value || !tabID) return;
+  $('input').value = '';
+  if (!tab || !tab.opened) {
+    addMessage('<div class="badge">This terminal is still opening.</div>');
+    return;
+  }
+  tab.approvals ||= new Set();
+  if (tab.approvals.has(value)) {
+    sendInput(tabID, value + '\n');
+    appendCommand(value, 'Approved', tabID);
+    return;
+  }
+  const card = document.createElement('div');
+  card.className = 'command-card';
+  card.innerHTML =
+    '<div class="eyebrow">⌁ Permission required</div>' +
+    '<div class="approval">Awaiting approval · ' + esc(tab.title) + '</div>' +
+    '<div class="command"><span class="prompt">$ </span>' + esc(value) +
+    '<br><span style="color:#888">No output yet.</span></div>' +
+    '<div class="approval-actions"><button>Allow</button>' +
+    '<button class="secondary">Always allow here</button>' +
+    '<button class="danger">Deny</button></div>';
+  const buttons = card.querySelectorAll('button');
+  buttons[0].onclick = () => {
+    if (tabs.get(tabID)?.opened) sendInput(tabID, value + '\n');
+    appendCommand(value, 'Allowed', tabID);
+    card.remove();
+  };
+  buttons[1].onclick = () => {
+    const current = tabs.get(tabID);
+    if (current) {
+      current.approvals ||= new Set();
+      current.approvals.add(value);
+      if (current.opened) sendInput(tabID, value + '\n');
+    }
+    appendCommand(value, 'Always allowed here', tabID);
+    card.remove();
+  };
+  buttons[2].onclick = () => {
+    appendCommand(value, 'Denied', tabID);
+    card.remove();
+  };
+  $('chat').appendChild(card);
+  card.scrollIntoView({ block: 'nearest' });
+};
+
+showPair = () => {
+  $('pair').classList.remove('hidden');
+  $('pair-error').textContent = '';
+  if (!$('pair-button').disabled) $('code').focus();
+};
+
+const vampRefreshStatus = async () => {
+  try {
+    const response = await fetch('/api/status', { cache: 'no-store' });
+    const status = await response.json();
+    if (!status.terminalModeEnabled) {
+      setState('Disabled');
+      $('empty').textContent = 'Turn on Terminal Mode in Vamp Host before pairing this browser.';
+      $('pair-error').textContent = 'Terminal Mode is disabled on the Mac.';
+      $('pair-button').disabled = true;
+    } else {
+      $('pair-button').disabled = false;
+      if (!ws || ws.readyState !== WebSocket.OPEN) setState('Pairing');
+      $('empty').textContent = 'Pair this browser to start a terminal task.';
+    }
+  } catch (_) {
+    setState('Offline');
+    $('pair-error').textContent = 'Vamp Host is not reachable.';
+  }
+};
+
+pair = async () => {
+  const code = $('code').value.trim();
+  if (!/^\d{6}$/.test(code)) {
+    $('pair-error').textContent = 'Enter the six-digit code from Vamp Host.';
+    return;
+  }
+  const button = $('pair-button');
+  button.disabled = true;
+  try {
+    const response = await fetch('/api/pair', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    if (!response.ok) {
+      if (response.status === 403) {
+        $('pair-error').textContent = 'Terminal Mode is disabled on the Mac.';
+      } else if (response.status === 409) {
+        $('pair-error').textContent = 'Another browser is already connected to this host.';
+      } else {
+        $('pair-error').textContent = 'That code is invalid or expired.';
+      }
+      return;
+    }
+    const result = await response.json();
+    token = result.token;
+    $('pair').classList.add('hidden');
+    connect();
+  } catch (_) {
+    $('pair-error').textContent = 'Could not reach Vamp Host.';
+  } finally {
+    button.disabled = false;
+  }
+};
+
+connect = () => {
+  if (!token) return;
+  setState('Connecting');
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const connection = new WebSocket(
+    protocol + '//' + location.host + '/socket?token=' + encodeURIComponent(token)
+  );
+  ws = connection;
+  connection.onopen = () => {
+    setState('Connected');
+    if (order.length === 0) createTab();
+    else order.forEach((id) => {
+      const tab = tabs.get(id);
+      if (tab && !tab.opened) vampOpenTerminal(id);
+    });
+  };
+  connection.onclose = () => {
+    if (ws !== connection) return;
+    ws = null;
+    token = null;
+    setState('Offline');
+    tabs.forEach((tab) => {
+      tab.opened = false;
+      tab.out = '';
+      tab.unread = false;
+      tab.decoder = new TextDecoder();
+    });
+    document.querySelectorAll('.stream').forEach((element) => element.remove());
+    addMessage('<div class="badge">Browser session ended. Pair again to reconnect.</div>');
+    showPair();
+    vampRefreshStatus();
+  };
+  connection.onerror = () => setState('Connection error');
+  connection.onmessage = (event) => {
+    let value;
+    try { value = JSON.parse(event.data); } catch (_) { return; }
+    if (value.type === 'hello') {
+      sessionId = value.sessionID;
+      setState('Connected');
+    } else if (value.type === 'ready') {
+      const tab = tabs.get(value.terminalID);
+      if (tab) {
+        tab.opened = true;
+        ensureStream(value.terminalID);
+        vampResizeTerminal(value.terminalID);
+        addMessage('<div class="meta">System · terminal ready</div><div class="body">' +
+          esc(tab.title) + ' is connected.</div>');
+      }
+    } else if (value.type === 'output') {
+      vampAppendOutputChunk(value.terminalID, value.data);
+    } else if (value.type === 'close') {
+      const tab = tabs.get(value.terminalID);
+      if (tab) {
+        const remainder = tab.decoder?.decode() || '';
+        if (remainder) appendOutput(value.terminalID, remainder);
+        tab.opened = false;
+        tab.unread = active !== value.terminalID;
+        renderTabs();
+      }
+      addMessage('<div class="meta">System · terminal closed</div><div class="body">' +
+        esc(value.reason || 'closed') + '</div>');
+    } else if (value.type === 'clipboard') {
+      navigator.clipboard?.writeText(value.text || '');
+      addMessage('<div class="meta">System · clipboard</div><div class="body">' +
+        'Host clipboard copied to this browser.</div>');
+    } else if (value.type === 'error') {
+      if (value.code === 'terminal-disabled') setState('Disabled');
+      addMessage('<div class="badge">' + esc(value.code) + '</div>');
+    }
+  };
+};
+
+const setHostClipboardButton = document.createElement('button');
+setHostClipboardButton.id = 'sethost';
+setHostClipboardButton.title = 'Set host clipboard from browser';
+setHostClipboardButton.setAttribute('aria-label', 'Set host clipboard from browser');
+setHostClipboardButton.textContent = '⇄';
+$('copyhost').insertAdjacentElement('afterend', setHostClipboardButton);
+setHostClipboardButton.onclick = async () => {
+  try {
+    const text = await navigator.clipboard?.readText();
+    if (text && ws && ws.readyState === WebSocket.OPEN) {
+      send({ type: 'clipboardSet', text });
+      addMessage('<div class="meta">System · clipboard</div><div class="body">Browser clipboard sent to the Mac.</div>');
+    }
+  } catch (_) {
+    addMessage('<div class="badge">Browser clipboard permission was not granted.</div>');
+  }
+};
+
+$('newtab').onclick = () => createTab();
+$('send').onclick = reviewCommand;
+$('pair-button').onclick = pair;
+$('paste').title = 'Paste browser clipboard into the active terminal';
+$('paste').setAttribute('aria-label', 'Paste browser clipboard into the active terminal');
+$('paste').onclick = async () => {
+  try {
+    const text = await navigator.clipboard?.readText();
+    if (text && active) sendInput(active, text);
+  } catch (_) {
+    addMessage('<div class="badge">Browser clipboard permission was not granted.</div>');
+  }
+};
+$('copyhost').onclick = () => {
+  if (ws && ws.readyState === WebSocket.OPEN) send({ type: 'clipboardGet' });
+};
+$('more').onclick = () => {
+  const action = prompt('Attach a tmux or screen session, or launch an agent. Example: tmux attach -t work');
+  if (action) createTab(action, 'Session ' + (order.length + 1));
+};
+window.addEventListener('resize', () => order.forEach(vampResizeTerminal));
+window.visualViewport?.addEventListener('resize', () => order.forEach(vampResizeTerminal));
+window.addEventListener('beforeunload', () => ws?.close());
+vampRefreshStatus();
+</script></body></html>
+"""#
+}
+#endif

@@ -7,6 +7,7 @@ ScreenHarbor.xcodeproj/
 build/
 Build/
 .packaging-machost/
+.packaging-vamp-terminal-ios/
 .packaging-macclient/
 .packaging-macclient-appstore/
 .packaging-ios/
@@ -112,7 +113,7 @@ machost-appstore-project.yml
 AppStore-Metadata-MacClient.md
 /RELEASE_PROCESS.md
 
-# The public fork exposes only the account-independent release tools
+# The public repository exposes only the account-independent release tools
 scripts/*
 !scripts/screenharbor
 !scripts/package-screenharbor.sh
@@ -120,6 +121,45 @@ scripts/*
 !scripts/publish-screenharbor.sh
 !scripts/generate-screenharbor-sbom.sh
 !scripts/package-screenharbor-ios.sh
+
+# Vamp Terminal is the account-independent open-source sideload target. Keep
+# only the active hand-maintained project inputs visible; stale project copies
+# and local Xcode state remain ignored.
+!RemoteDesktopToolApps.xcodeproj/
+RemoteDesktopToolApps.xcodeproj/*
+!RemoteDesktopToolApps.xcodeproj/project.pbxproj
+!RemoteDesktopToolApps.xcodeproj/xcshareddata/
+RemoteDesktopToolApps.xcodeproj/xcshareddata/*
+!RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/
+RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/*
+!RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/VampTerminalApp.xcscheme
+!RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/VampTerminalHost.xcscheme
+
+!Configuration/
+Configuration/*
+!Configuration/VampTerminal-Info.plist
+!Configuration/VampTerminal.entitlements
+!Configuration/VampTerminalHost-Info.plist
+!Configuration/VampTerminalHost.entitlements
+!Configuration/MacHost-Info.plist
+!Configuration/MacHost-AppStore.entitlements
+!Configuration/ClientiOS-Info.plist
+!Configuration/ClientiOS.entitlements
+!Configuration/ClientiOSLiveActivity-Info.plist
+
+# The active project still references the shared Mac host/client asset and
+# configuration inputs. Keep those build inputs while excluding stale copies.
+!Sources/HostApp/Assets.xcassets/
+!Sources/HostApp/Assets.xcassets/**
+Sources/HostApp/Assets.xcassets/.DS_Store
+
+!Sources/VampTerminal/Assets.xcassets/
+!Sources/VampTerminal/Assets.xcassets/**
+!scripts/package-vamp-terminal-ios.sh
+!scripts/install-vamp-cli.command
+!scripts/vamp
+!scripts/vamp-linux-host
+!scripts/vamp-terminal-host
 
 # Legacy client signing and branded asset files are not used by ScreenHarbor.xcodeproj
 MacClient/Resources/Assets.xcassets/

@@ -1,6 +1,6 @@
 # Developer Certificate of Origin
 
-ScreenHarbor uses the Developer Certificate of Origin (DCO) 1.1. By adding a
+Vamp Terminal uses the Developer Certificate of Origin (DCO) 1.1. By adding a
 `Signed-off-by` trailer to a commit, a contributor certifies that the contribution
 meets the terms of the DCO.
 

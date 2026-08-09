@@ -64,6 +64,7 @@ final class HostSessionCoordinator: ObservableObject {
     private let sessionModeController: HostSessionModeController
     private let performanceStateController: HostPerformanceStateController
     private let fileTransferManager: HostFileTransferManager
+    private let productMode: HostProductMode
     #if os(macOS)
     var audioPipeline: HostAudioCapturePipeline?
     /// Extra displays streamed in parallel to the primary, keyed by display ID. The primary
@@ -156,6 +157,7 @@ final class HostSessionCoordinator: ObservableObject {
         sessionModeController: HostSessionModeController,
         performanceStateController: HostPerformanceStateController,
         fileTransferManager: HostFileTransferManager,
+        productMode: HostProductMode = .full,
         ensureDiscoveryAdvertising: @escaping @MainActor @Sendable () async -> Void = {}
     ) {
         self.hostIdentity = hostIdentity
@@ -172,6 +174,7 @@ final class HostSessionCoordinator: ObservableObject {
         self.sessionModeController = sessionModeController
         self.performanceStateController = performanceStateController
         self.fileTransferManager = fileTransferManager
+        self.productMode = productMode
         self.ensureDiscoveryAdvertising = ensureDiscoveryAdvertising
         self.connectionDebugger = ConnectionDebugger(role: "host", eventLogStore: eventLogStore)
         self.connectionDebugger.snapshotProvider = { [weak self] in
@@ -457,6 +460,20 @@ final class HostSessionCoordinator: ObservableObject {
         let clientID = sender.id
         let clientName = sender.displayName ?? "Unknown Client"
 
+        if productMode.isTerminalOnly,
+           offer.clientCapabilities?.contains(.supportsTerminal) != true {
+            logger.warning("Rejected non-terminal client '\(clientName)' from terminal-only host")
+            signalingService.dropCurrentConnection()
+            phase = .awaitingClient
+            errorMessage = "This host accepts Vamp Terminal clients only."
+            await eventLogStore.append(EventLogItem(
+                severity: .warning,
+                category: "Session",
+                message: "Rejected non-terminal client '\(clientName)' from Vamp Terminal Host"
+            ))
+            return
+        }
+
         // Require a real cryptographic fingerprint. A missing or empty fingerprint
         // means the client sent no public key — we cannot verify identity, so reject.
         guard let fingerprint = sender.publicKeyFingerprint, !fingerprint.isEmpty else {
@@ -526,7 +543,9 @@ final class HostSessionCoordinator: ObservableObject {
         hasSentInitialDataChannelState = false
 
         do {
-            let blockedPermissions = await blockedRequiredPermissions()
+            let blockedPermissions = productMode.isTerminalOnly
+                ? []
+                : await blockedRequiredPermissions()
             if !blockedPermissions.isEmpty {
                 // Don't send specific permission details to unauthenticated clients
                 try await sendSignalingEvent(
@@ -561,12 +580,16 @@ final class HostSessionCoordinator: ObservableObject {
             streamingCoordinator.startCoordinating()
             observeConnectionState()
             observeDataChannelState()
-            observeDisplayLayoutChanges()
+            if !productMode.isTerminalOnly {
+                observeDisplayLayoutChanges()
+            }
             lastClientActivityAt = nil
             captureFailureRestartAttempted = false
             observeClientActivity()
             startLivenessWatchdog()
-            observeCaptureState()
+            if !productMode.isTerminalOnly {
+                observeCaptureState()
+            }
 
             // Send answer back via signaling
             try await signalingService.sendAnswer(answer, to: ClientIdentity(
@@ -614,7 +637,11 @@ final class HostSessionCoordinator: ObservableObject {
         inputCommandRouter.lockStateProvider = lockStateProvider
 
         // Start the input command router regardless of capture/encode success
-        inputCommandRouter.startListening(sessionID: sessionID, expectedSessionTokenHex: offer.sessionToken)
+        inputCommandRouter.startListening(
+            sessionID: sessionID,
+            expectedSessionTokenHex: offer.sessionToken,
+            terminalOnly: productMode.isTerminalOnly
+        )
         inputCommandRouter.onQualityAdjust = { [weak self] preset in
             guard let self else { return }
             Task { await self.applyRuntimeQualityAdjust(preset) }
@@ -627,6 +654,16 @@ final class HostSessionCoordinator: ObservableObject {
         inputCommandRouter.onSetActiveDisplays = { [weak self] message in
             await self?.handleSetActiveDisplays(message)
         }
+
+        if productMode.isTerminalOnly {
+            // The terminal-only product still uses the authenticated WebRTC
+            // data channel, but never starts ScreenCaptureKit, the encoder, or
+            // the audio pipeline. The session-ready signal is enough for the
+            // terminal client to mount its workspace.
+            await publishInitialSessionState(sessionID: sessionID)
+            return
+        }
+
         // Observe lock state transitions and push a hostStatus update so the
         // iOS client can show the "Mac is locked" overlay immediately.
         lockStateObserver = lockStatePublisher?
@@ -968,6 +1005,10 @@ final class HostSessionCoordinator: ObservableObject {
                 guard state == .open else { continue }
                 guard let sessionID = self.activeSessionID else { continue }
                 guard self.hasPublishedInitialSessionState, !self.hasSentInitialDataChannelState else { continue }
+                if self.productMode.isTerminalOnly {
+                    self.hasSentInitialDataChannelState = true
+                    continue
+                }
 
                 do {
                     let layout = try await self.displayLayoutProvider.currentDisplayLayout()
@@ -1350,13 +1391,15 @@ final class HostSessionCoordinator: ObservableObject {
     /// Flags this host advertises to clients. HEVC is advertised only when this
     /// machine has a hardware HEVC encoder, so the host never negotiates HEVC it
     /// can't encode efficiently (mirrors the client's hardware-decode gate).
-    private static let hostCapabilityFlags: HostCapabilityFlags = {
+    private static let fullHostCapabilityFlags: HostCapabilityFlags = {
         var flags: HostCapabilityFlags = [
             .supportsH264,
             .supportsMultiDisplay,
             .supportsMacClient,
             .supportsAudioLater,
-            .supportsVideoFragmentation
+            .supportsVideoFragmentation,
+            .supportsTerminal,
+            .supportsMultipleTerminals
         ]
         if VideoEncoderCapabilities.supportsHardwareHEVCEncode {
             flags.insert(.supportsHEVC)
@@ -1369,11 +1412,25 @@ final class HostSessionCoordinator: ObservableObject {
     /// Assumed client capabilities for older clients that don't advertise their own
     /// (preserves the prior behaviour: all first-party clients decode HEVC in hardware).
     private static let assumedClientCapabilityFlags: HostCapabilityFlags =
-        [.supportsH264, .supportsHEVC, .supportsMultiDisplay, .supportsAudioLater]
+        [
+            .supportsH264,
+            .supportsHEVC,
+            .supportsMultiDisplay,
+            .supportsAudioLater,
+            .supportsTerminal,
+            .supportsMultipleTerminals
+        ]
 
     /// Capabilities the connected client advertised in its session offer, if any.
     /// `nil` until an offer with capabilities arrives (older clients leave it nil).
     private var advertisedClientCapabilities: HostCapabilityFlags?
+
+    private var hostCapabilityFlags: HostCapabilityFlags {
+        if productMode.isTerminalOnly {
+            return productMode.advertisedCapabilities
+        }
+        return Self.fullHostCapabilityFlags
+    }
 
     /// The client capabilities to negotiate against: the client's own advertisement
     /// when present, otherwise the assumed baseline for older clients.
@@ -1384,7 +1441,7 @@ final class HostSessionCoordinator: ObservableObject {
     /// Capabilities agreed between host and client. Falls back to an H.264-only
     /// baseline if negotiation ever fails, so a session always has a usable codec.
     private var negotiatedCapabilities: NegotiatedCapabilities {
-        CapabilityNegotiator.negotiate(host: Self.hostCapabilityFlags, client: effectiveClientCapabilities)
+        CapabilityNegotiator.negotiate(host: hostCapabilityFlags, client: effectiveClientCapabilities)
             ?? NegotiatedCapabilities(videoCodec: .h264, supportsMultiDisplay: false, supportsAudio: false, supportsMacClient: false)
     }
 
@@ -1423,6 +1480,22 @@ final class HostSessionCoordinator: ObservableObject {
         hasPublishedInitialSessionState = true
 
         do {
+            if productMode.isTerminalOnly {
+                try await sendSignalingEvent(
+                    .sessionReady(
+                        SessionReadyMessage(
+                            sessionID: sessionID,
+                            selectedDisplayID: nil,
+                            negotiatedCapabilities: negotiatedCapabilities
+                        )
+                    ),
+                    sessionID: sessionID,
+                    recipient: nil
+                )
+                phase = .streaming
+                return
+            }
+
             let layout = try await displayLayoutProvider.currentDisplayLayout()
             let selectedDisplayID = captureEngine.diagnostics.currentDisplayID ?? layout.primaryDisplayID
 

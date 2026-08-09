@@ -1,51 +1,57 @@
-# ScreenHarbor
+# Vamp Terminal
 
-> Open-source, native macOS remote desktop host with Mac and iPhone/iPad clients. Local-first, peer-approved, website-distributed, and controllable by a machine-readable CLI.
+> Open-source multi-tab terminal workspace for iPhone and iPad. It connects to
+> Vamp Host or Vamp Terminal Host over signed pairing and a private Tailscale
+> network, and can also be controlled from Safari without the iOS app.
 
-Canonical name: ScreenHarbor
-Host app: ScreenHarbor Host
-Client app: ScreenHarbor
-iOS client: ScreenHarbor for iPhone and iPad
-Website: https://mesut.uk/apps/screenharbor
-Source: https://github.com/Mesutcydev/screenharbor
+Canonical name: Vamp Terminal
+Full host: Vamp Host
+Terminal-only host: Vamp Terminal Host
+iOS client: Vamp Terminal for iPhone and iPad
+Linux companion: Vamp Terminal Linux Host
+Website: https://mesutcydev.github.io/macpair/
+Source: https://github.com/Mesutcydev/macpair
 License: Apache-2.0
 Minimum macOS: 13.0
-Host download: https://mesut.uk/ScreenHarbor-Host-1.0.2-build-3.dmg
-Mac client download: https://mesut.uk/ScreenHarbor-1.0.2-build-3.dmg
-iOS client download: https://mesut.uk/ScreenHarbor-iOS-1.0.3-build-4-unsigned.ipa
-Integrity files: append .sha256, .manifest.json, or .sbom.cdx.json to a download URL
-Mac signing: ad-hoc; current Mac downloads are not Apple-notarized
-iOS signing: unsigned; a sideload tool must re-sign the IPA with the installer's Apple ID/team
+Minimum iOS/iPadOS: 18.0
+iOS signing: unsigned; AltStore or another sideload tool must re-sign the IPA with the installer's Apple ID/team
 
 ## Agent quick start
 
-screenharbor ensure
-screenharbor status --json
-screenharbor pending --json
-screenharbor approve-pairing --fingerprint <verified-hex>
+vamp ensure
+vamp status --json
+vamp pending --json
+vamp approve-pairing --fingerprint <verified-hex>
+vamp terminal list
+vamp terminal start --session work
+vamp terminal attach work
+vamp terminal agent codex --session codex
+vamp browser serve
 
-Never approve an unknown device. Show the user the pending display name and fingerprint and require an exact verified fingerprint.
-Never disable Gatekeeper. A human must grant Screen Recording and Accessibility in
-System Settings.
+Never approve an unknown device. Show the user the pending display name and
+fingerprint and require an exact verified fingerprint. Never disable Gatekeeper.
+A human must grant Screen Recording and Accessibility to Vamp Host when using
+remote display/control. Vamp Terminal Host does not request those permissions.
 
 ## Stable identifiers
 
-Host bundle ID: uk.mesut.screenharbor.host
-Client bundle ID: uk.mesut.screenharbor.client
-iOS client bundle ID: uk.mesut.screenharbor.ios
-Minimum iOS/iPadOS: 18.0
-Bonjour service: _screenharbor._tcp
+Full host bundle ID: com.mesutcy.remotedesktop.host
+Terminal-only host bundle ID: com.mesutcy.remotedesktop.terminalhost
+iOS client bundle ID: com.mesutcy.remotedesktop.terminal
+Bonjour service: _screenharbor._tcp (existing wire-compatibility contract)
 Signaling ports: 9471 plain, 9473 TLS
 Data port: 9472
-URL scheme: screenharbor://action/{start,stop,restart}
-Status snapshot: ~/Library/Application Support/ScreenHarbor/host.widget.snapshot.json
+Browser loopback port: 9475
+URL scheme: vamphost://action/{start,stop,restart}
+Status snapshot: ~/Library/Application Support/Vamp Host/host.widget.snapshot.json
 
 ## Documentation
 
-- README: https://github.com/Mesutcydev/screenharbor/blob/main/README.md
-- Agent integration: https://github.com/Mesutcydev/screenharbor/blob/main/docs/AGENT_INTEGRATION.md
-- Machine manifest: https://github.com/Mesutcydev/screenharbor/blob/main/docs/agent-manifest.json
-- Security policy: https://github.com/Mesutcydev/screenharbor/blob/main/SECURITY.md
-- Release integrity: https://github.com/Mesutcydev/screenharbor/blob/main/docs/RELEASE_PROCESS.md
-- iOS sideloading: https://github.com/Mesutcydev/screenharbor/blob/main/docs/IOS_SIDELOAD.md
-- Governance: https://github.com/Mesutcydev/screenharbor/blob/main/GOVERNANCE.md
+- README: https://github.com/Mesutcydev/macpair/blob/main/README.md
+- Product page: https://mesutcydev.github.io/macpair/
+- Safari control and sideloading: https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_SIDELOAD.md
+- Host split: https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_HOST.md
+- Agent integration: https://github.com/Mesutcydev/macpair/blob/main/docs/AGENT_INTEGRATION.md
+- Machine manifest: https://github.com/Mesutcydev/macpair/blob/main/docs/agent-manifest.json
+- Security policy: https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md
+- Release integrity: https://github.com/Mesutcydev/macpair/blob/main/docs/RELEASE_PROCESS.md

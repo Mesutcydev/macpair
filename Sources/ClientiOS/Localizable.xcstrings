@@ -1415,120 +1415,120 @@
       }
     },
     ">": {},
-    "screenharbor pending --json": {
+    "vamp pending --json": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - اقتران"
+            "value": "~/vamp - اقتران"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - koppeln"
+            "value": "~/vamp - koppeln"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "screenharbor pending --json"
+            "value": "vamp pending --json"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - emparejar"
+            "value": "~/vamp - emparejar"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - associer"
+            "value": "~/vamp - associer"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - पेयर करें"
+            "value": "~/vamp - पेयर करें"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - abbina"
+            "value": "~/vamp - abbina"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - ペアリング"
+            "value": "~/vamp - ペアリング"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - 페어링"
+            "value": "~/vamp - 페어링"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - koppelen"
+            "value": "~/vamp - koppelen"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - sparuj"
+            "value": "~/vamp - sparuj"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - parear"
+            "value": "~/vamp - parear"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - сопряжение"
+            "value": "~/vamp - сопряжение"
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - parkoppla"
+            "value": "~/vamp - parkoppla"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - จับคู่"
+            "value": "~/vamp - จับคู่"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - eşleştir"
+            "value": "~/vamp - eşleştir"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - ghép nối"
+            "value": "~/vamp - ghép nối"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - 配对"
+            "value": "~/vamp - 配对"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "~/screenharbor - 配對"
+            "value": "~/vamp - 配對"
           }
         }
       }
@@ -4435,121 +4435,121 @@
       }
     },
     "Connection lost — reconnecting…": {},
-    "Control your ScreenHarbor host from anywhere": {
+    "Control your Vamp Remote Control host from anywhere": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "تحكم في مضيف ScreenHarbor الخاص بك من أي مكان"
+            "value": "تحكم في مضيف Vamp Remote Control الخاص بك من أي مكان"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Steuern Sie Ihren ScreenHarbor-Host von überall"
+            "value": "Steuern Sie Ihren Vamp Remote Control-Host von überall"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Control your ScreenHarbor host from anywhere"
+            "value": "Control your Vamp Remote Control host from anywhere"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Controle su host ScreenHarbor desde cualquier lugar"
+            "value": "Controle su host Vamp Remote Control desde cualquier lugar"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Contrôlez votre hôte ScreenHarbor depuis n'importe où"
+            "value": "Contrôlez votre hôte Vamp Remote Control depuis n'importe où"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "कहीं से भी अपने ScreenHarbor होस्ट को नियंत्रित करें"
+            "value": "कहीं से भी अपने Vamp Remote Control होस्ट को नियंत्रित करें"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Controlla il tuo host ScreenHarbor da qualsiasi luogo"
+            "value": "Controlla il tuo host Vamp Remote Control da qualsiasi luogo"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "どこからでもScreenHarborホストを制御"
+            "value": "どこからでもVamp Remote Controlホストを制御"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "어디서나 ScreenHarbor 호스트를 제어하세요"
+            "value": "어디서나 Vamp Remote Control 호스트를 제어하세요"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bedien uw ScreenHarbor-host overal vandaan"
+            "value": "Bedien uw Vamp Remote Control-host overal vandaan"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kontroluj swojego hosta ScreenHarbor z dowolnego miejsca"
+            "value": "Kontroluj swojego hosta Vamp Remote Control z dowolnego miejsca"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Controle seu host ScreenHarbor de qualquer lugar"
+            "value": "Controle seu host Vamp Remote Control de qualquer lugar"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Управляйте своим ScreenHarbor-хостом откуда угодно"
+            "value": "Управляйте своим Vamp Remote Control-хостом откуда угодно"
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Styr din ScreenHarbor-värd var som helst ifrån"
+            "value": "Styr din Vamp Remote Control-värd var som helst ifrån"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "ควบคุมโฮสต์ ScreenHarbor ของคุณจากทุกที่"
+            "value": "ควบคุมโฮสต์ Vamp Remote Control ของคุณจากทุกที่"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor ana bilgisayarınızı her yerden kontrol edin"
+            "value": "Vamp Remote Control ana bilgisayarınızı her yerden kontrol edin"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Điều khiển máy chủ ScreenHarbor của bạn từ mọi nơi"
+            "value": "Điều khiển máy chủ Vamp Remote Control của bạn từ mọi nơi"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "随时随地控制您的 ScreenHarbor 主机"
+            "value": "随时随地控制您的 Vamp Remote Control 主机"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "隨時隨地控制您的 ScreenHarbor 主機"
+            "value": "隨時隨地控制您的 Vamp Remote Control 主機"
           }
         }
       }
@@ -7708,121 +7708,121 @@
       }
     },
     "For outside-LAN access, connect both devices with Tailscale and use the Mac’s Tailscale IP.": {},
-    "For remote access outside home or office, install the same private network app on the ScreenHarbor host and Mac, then paste the host's Tailscale Connect address here.": {
+    "For remote access outside home or office, install the same private network app on the Vamp Remote Control host and Mac, then paste the host's Tailscale Connect address here.": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "للوصول عن بُعد خارج المنزل أو المكتب، قم بتثبيت تطبيق الشبكة الخاصة نفسه على مضيف ScreenHarbor وMac، ثم الصق عنوان Tailscale Connect الخاص بالمضيف هنا."
+            "value": "للوصول عن بُعد خارج المنزل أو المكتب، قم بتثبيت تطبيق الشبكة الخاصة نفسه على مضيف Vamp Remote Control وMac، ثم الصق عنوان Tailscale Connect الخاص بالمضيف هنا."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Für Fernzugriff außerhalb von Zuhause oder Büro installieren Sie dieselbe private Netzwerk-App auf dem ScreenHarbor-Host und Mac und fügen Sie dann die Tailscale Connect-Adresse des Hosts hier ein."
+            "value": "Für Fernzugriff außerhalb von Zuhause oder Büro installieren Sie dieselbe private Netzwerk-App auf dem Vamp Remote Control-Host und Mac und fügen Sie dann die Tailscale Connect-Adresse des Hosts hier ein."
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "For remote access outside home or office, install the same private network app on the ScreenHarbor host and Mac, then paste the host's Tailscale Connect address here."
+            "value": "For remote access outside home or office, install the same private network app on the Vamp Remote Control host and Mac, then paste the host's Tailscale Connect address here."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Para acceso remoto fuera de casa u oficina, instale la misma aplicación de red privada en el host ScreenHarbor y el Mac, luego pegue la dirección Tailscale Connect del host aquí."
+            "value": "Para acceso remoto fuera de casa u oficina, instale la misma aplicación de red privada en el host Vamp Remote Control y el Mac, luego pegue la dirección Tailscale Connect del host aquí."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pour l'accès à distance en dehors du domicile ou du bureau, installez la même application de réseau privé sur l'hôte ScreenHarbor et l'Mac, puis collez l'adresse Tailscale Connect de l'hôte ici."
+            "value": "Pour l'accès à distance en dehors du domicile ou du bureau, installez la même application de réseau privé sur l'hôte Vamp Remote Control et l'Mac, puis collez l'adresse Tailscale Connect de l'hôte ici."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "घर या कार्यालय के बाहर रिमोट एक्सेस के लिए, ScreenHarbor होस्ट और Mac पर समान निजी नेटवर्क ऐप इंस्टॉल करें, फिर होस्ट का Tailscale Connect पता यहां पेस्ट करें।"
+            "value": "घर या कार्यालय के बाहर रिमोट एक्सेस के लिए, Vamp Remote Control होस्ट और Mac पर समान निजी नेटवर्क ऐप इंस्टॉल करें, फिर होस्ट का Tailscale Connect पता यहां पेस्ट करें।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Per l'accesso remoto fuori casa o ufficio, installa la stessa app di rete privata sull'host ScreenHarbor e su Mac, quindi incolla qui l'indirizzo Tailscale Connect dell'host."
+            "value": "Per l'accesso remoto fuori casa o ufficio, installa la stessa app di rete privata sull'host Vamp Remote Control e su Mac, quindi incolla qui l'indirizzo Tailscale Connect dell'host."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "自宅やオフィスの外部からのリモートアクセスには、ScreenHarborホストとMacに同じプライベートネットワークアプリをインストールし、ホストのTailscale Connectアドレスをここに貼り付けてください。"
+            "value": "自宅やオフィスの外部からのリモートアクセスには、Vamp Remote ControlホストとMacに同じプライベートネットワークアプリをインストールし、ホストのTailscale Connectアドレスをここに貼り付けてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "집이나 사무실 외부에서 원격 접근하려면 ScreenHarbor 호스트와 Mac에 동일한 사설 네트워크 앱을 설치한 다음 호스트의 Tailscale Connect 주소를 여기에 붙여넣으세요."
+            "value": "집이나 사무실 외부에서 원격 접근하려면 Vamp Remote Control 호스트와 Mac에 동일한 사설 네트워크 앱을 설치한 다음 호스트의 Tailscale Connect 주소를 여기에 붙여넣으세요."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voor externe toegang buiten huis of kantoor installeert u dezelfde privénetwerk-app op de ScreenHarbor-host en Mac en plakt u het Tailscale Connect-adres van de host hier."
+            "value": "Voor externe toegang buiten huis of kantoor installeert u dezelfde privénetwerk-app op de Vamp Remote Control-host en Mac en plakt u het Tailscale Connect-adres van de host hier."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aby uzyskać zdalny dostęp poza domem lub biurem, zainstaluj tę samą aplikację sieci prywatnej na hoście ScreenHarbor i telefonie Mac, a następnie wklej tutaj adres Tailscale Connect hosta."
+            "value": "Aby uzyskać zdalny dostęp poza domem lub biurem, zainstaluj tę samą aplikację sieci prywatnej na hoście Vamp Remote Control i telefonie Mac, a następnie wklej tutaj adres Tailscale Connect hosta."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Para acesso remoto fora de casa ou escritório, instale o mesmo app de rede privada no host ScreenHarbor e no Mac, depois cole o endereço Tailscale Connect do host aqui."
+            "value": "Para acesso remoto fora de casa ou escritório, instale o mesmo app de rede privada no host Vamp Remote Control e no Mac, depois cole o endereço Tailscale Connect do host aqui."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Для удаленного доступа вне дома или офиса установите одно и то же приложение частной сети на ScreenHarbor-хост и Mac, затем вставьте сюда адрес Tailscale Connect хоста."
+            "value": "Для удаленного доступа вне дома или офиса установите одно и то же приложение частной сети на Vamp Remote Control-хост и Mac, затем вставьте сюда адрес Tailscale Connect хоста."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "För fjärråtkomst utanför hemmet eller kontoret, installera samma privata nätverksapp på ScreenHarbor-värden och Mac, klistra sedan in värdens Tailscale Connect-adress här."
+            "value": "För fjärråtkomst utanför hemmet eller kontoret, installera samma privata nätverksapp på Vamp Remote Control-värden och Mac, klistra sedan in värdens Tailscale Connect-adress här."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "สำหรับการเข้าถึงระยะไกลนอกบ้านหรือสำนักงาน ให้ติดตั้งแอปเครือข่ายส่วนตัวเดียวกันบนโฮสต์ ScreenHarbor และ Mac จากนั้นวางที่อยู่ Tailscale Connect ของโฮสต์ที่นี่"
+            "value": "สำหรับการเข้าถึงระยะไกลนอกบ้านหรือสำนักงาน ให้ติดตั้งแอปเครือข่ายส่วนตัวเดียวกันบนโฮสต์ Vamp Remote Control และ Mac จากนั้นวางที่อยู่ Tailscale Connect ของโฮสต์ที่นี่"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ev veya ofis dışından uzaktan erişim için, aynı özel ağ uygulamasını ScreenHarbor ana bilgisayarına ve Mac'a yükleyin, ardından ana bilgisayarın Tailscale Connect adresini buraya yapıştırın."
+            "value": "Ev veya ofis dışından uzaktan erişim için, aynı özel ağ uygulamasını Vamp Remote Control ana bilgisayarına ve Mac'a yükleyin, ardından ana bilgisayarın Tailscale Connect adresini buraya yapıştırın."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Để truy cập từ xa bên ngoài nhà hoặc văn phòng, hãy cài đặt cùng một ứng dụng mạng riêng trên máy chủ ScreenHarbor và Mac, sau đó dán địa chỉ Tailscale Connect của máy chủ vào đây."
+            "value": "Để truy cập từ xa bên ngoài nhà hoặc văn phòng, hãy cài đặt cùng một ứng dụng mạng riêng trên máy chủ Vamp Remote Control và Mac, sau đó dán địa chỉ Tailscale Connect của máy chủ vào đây."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "对于家庭或办公室外的远程访问，请在 ScreenHarbor 主机和 Mac 上安装相同的专用网络应用，然后将主机的 Tailscale Connect 地址粘贴到此处。"
+            "value": "对于家庭或办公室外的远程访问，请在 Vamp Remote Control 主机和 Mac 上安装相同的专用网络应用，然后将主机的 Tailscale Connect 地址粘贴到此处。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "如需在家或辦公室外部進行遠端存取，請在 ScreenHarbor 主機和 Mac 上安裝相同的專用網路應用程式，然後將主機的 Tailscale Connect 位址貼到此處。"
+            "value": "如需在家或辦公室外部進行遠端存取，請在 Vamp Remote Control 主機和 Mac 上安裝相同的專用網路應用程式，然後將主機的 Tailscale Connect 位址貼到此處。"
           }
         }
       }
@@ -8156,8 +8156,8 @@
       "comment": "A button to start using Tailscale.",
       "isCommentAutoGenerated": true
     },
-    "GET SCREENHARBOR HOST": {
-      "comment": "A label for a button that downloads the ScreenHarbor Host app.",
+    "GET VAMP TERMINAL HOST": {
+      "comment": "A label for a button that downloads the Vamp Host app.",
       "isCommentAutoGenerated": true
     },
     "go": {
@@ -8829,8 +8829,8 @@
         }
       }
     },
-    "HOW SCREENHARBOR WORKS": {
-      "comment": "The title of a card that describes how ScreenHarbor works.",
+    "HOW VAMP TERMINAL WORKS": {
+      "comment": "The title of a card that describes how Vamp Remote Control works.",
       "isCommentAutoGenerated": true
     },
     "input validation": {
@@ -9071,7 +9071,7 @@
         }
       }
     },
-    "It’s an Apple-Silicon Mac on Wi-Fi, which macOS can’t wake from sleep over the network without an Apple TV/HomePod acting as a Sleep Proxy.\n\nFix: on the Mac, open ScreenHarbor Host → Settings → turn on “Keep Mac Awake & Reachable” (so it never sleeps), or connect it via Ethernet. Tap “Wake anyway” to try regardless (works if a Sleep Proxy is on the network).": {},
+    "It’s an Apple-Silicon Mac on Wi-Fi, which macOS can’t wake from sleep over the network without an Apple TV/HomePod acting as a Sleep Proxy.\n\nFix: on the Mac, open Vamp Host → Settings → turn on “Keep Mac Awake & Reachable” (so it never sleeps), or connect it via Ethernet. Tap “Wake anyway” to try regardless (works if a Sleep Proxy is on the network).": {},
     "Keep latency and frame metrics on the stream.": {
       "extractionState": "stale",
       "localizations": {
@@ -10844,121 +10844,121 @@
         }
       }
     },
-    "Looking for ScreenHarbor hosts on your local network…": {
+    "Looking for Vamp Remote Control hosts on your local network…": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "البحث عن مضيفي ScreenHarbor على شبكتك المحلية…"
+            "value": "البحث عن مضيفي Vamp Remote Control على شبكتك المحلية…"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Suche nach ScreenHarbor-Hosts in Ihrem lokalen Netzwerk…"
+            "value": "Suche nach Vamp Remote Control-Hosts in Ihrem lokalen Netzwerk…"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Looking for ScreenHarbor hosts on your local network…"
+            "value": "Looking for Vamp Remote Control hosts on your local network…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Buscando hosts ScreenHarbor en su red local…"
+            "value": "Buscando hosts Vamp Remote Control en su red local…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recherche d'hôtes ScreenHarbor sur votre réseau local…"
+            "value": "Recherche d'hôtes Vamp Remote Control sur votre réseau local…"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "आपके स्थानीय नेटवर्क पर ScreenHarbor होस्ट खोज रहे हैं…"
+            "value": "आपके स्थानीय नेटवर्क पर Vamp Remote Control होस्ट खोज रहे हैं…"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ricerca di host ScreenHarbor sulla rete locale…"
+            "value": "Ricerca di host Vamp Remote Control sulla rete locale…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ローカルネットワークでScreenHarborホストを検索中…"
+            "value": "ローカルネットワークでVamp Remote Controlホストを検索中…"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "로컬 네트워크에서 ScreenHarbor 호스트 검색 중…"
+            "value": "로컬 네트워크에서 Vamp Remote Control 호스트 검색 중…"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zoeken naar ScreenHarbor-hosts op uw lokale netwerk…"
+            "value": "Zoeken naar Vamp Remote Control-hosts op uw lokale netwerk…"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wyszukiwanie hostów ScreenHarbor w sieci lokalnej…"
+            "value": "Wyszukiwanie hostów Vamp Remote Control w sieci lokalnej…"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Procurando hosts ScreenHarbor na sua rede local…"
+            "value": "Procurando hosts Vamp Remote Control na sua rede local…"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Поиск ScreenHarbor-хостов в вашей локальной сети…"
+            "value": "Поиск Vamp Remote Control-хостов в вашей локальной сети…"
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Söker efter ScreenHarbor-värdar på ditt lokala nätverk…"
+            "value": "Söker efter Vamp Remote Control-värdar på ditt lokala nätverk…"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "กำลังค้นหาโฮสต์ ScreenHarbor บนเครือข่ายท้องถิ่นของคุณ…"
+            "value": "กำลังค้นหาโฮสต์ Vamp Remote Control บนเครือข่ายท้องถิ่นของคุณ…"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yerel ağınızda ScreenHarbor ana bilgisayarları aranıyor…"
+            "value": "Yerel ağınızda Vamp Remote Control ana bilgisayarları aranıyor…"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Đang tìm máy chủ ScreenHarbor trên mạng cục bộ của bạn…"
+            "value": "Đang tìm máy chủ Vamp Remote Control trên mạng cục bộ của bạn…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在本地网络上查找 ScreenHarbor 主机…"
+            "value": "正在本地网络上查找 Vamp Remote Control 主机…"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在您的區域網路上尋找 ScreenHarbor 主機…"
+            "value": "正在您的區域網路上尋找 Vamp Remote Control 主機…"
           }
         }
       }
@@ -11233,121 +11233,121 @@
         }
       }
     },
-    "Manage trusted ScreenHarbor hosts, connection posture, privacy defaults, and stream behavior.": {
+    "Manage trusted Vamp Remote Control hosts, connection posture, privacy defaults, and stream behavior.": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "إدارة مضيفي ScreenHarbor الموثوقين، ووضع الاتصال، وإعدادات الخصوصية الافتراضية، وسلوك البث."
+            "value": "إدارة مضيفي Vamp Remote Control الموثوقين، ووضع الاتصال، وإعدادات الخصوصية الافتراضية، وسلوك البث."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verwalten Sie vertrauenswürdige ScreenHarbor-Hosts, Verbindungshaltung, Datenschutzstandards und Stream-Verhalten."
+            "value": "Verwalten Sie vertrauenswürdige Vamp Remote Control-Hosts, Verbindungshaltung, Datenschutzstandards und Stream-Verhalten."
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Manage trusted ScreenHarbor hosts, connection posture, privacy defaults, and stream behavior."
+            "value": "Manage trusted Vamp Remote Control hosts, connection posture, privacy defaults, and stream behavior."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Administre hosts ScreenHarbor de confianza, postura de conexión, valores predeterminados de privacidad y comportamiento de transmisión."
+            "value": "Administre hosts Vamp Remote Control de confianza, postura de conexión, valores predeterminados de privacidad y comportamiento de transmisión."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gérez les hôtes ScreenHarbor de confiance, la posture de connexion, les paramètres de confidentialité par défaut et le comportement du flux."
+            "value": "Gérez les hôtes Vamp Remote Control de confiance, la posture de connexion, les paramètres de confidentialité par défaut et le comportement du flux."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "विश्वसनीय ScreenHarbor होस्ट, कनेक्शन मुद्रा, गोपनीयता डिफ़ॉल्ट और स्ट्रीम व्यवहार प्रबंधित करें।"
+            "value": "विश्वसनीय Vamp Remote Control होस्ट, कनेक्शन मुद्रा, गोपनीयता डिफ़ॉल्ट और स्ट्रीम व्यवहार प्रबंधित करें।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gestisci host ScreenHarbor fidati, postura di connessione, impostazioni predefinite sulla privacy e comportamento dello stream."
+            "value": "Gestisci host Vamp Remote Control fidati, postura di connessione, impostazioni predefinite sulla privacy e comportamento dello stream."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "信頼できるScreenHarborホスト、接続ポスチャー、プライバシー既定値、ストリーム動作を管理します。"
+            "value": "信頼できるVamp Remote Controlホスト、接続ポスチャー、プライバシー既定値、ストリーム動作を管理します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "신뢰할 수 있는 ScreenHarbor 호스트, 연결 자세, 개인정보 기본값 및 스트림 동작을 관리합니다."
+            "value": "신뢰할 수 있는 Vamp Remote Control 호스트, 연결 자세, 개인정보 기본값 및 스트림 동작을 관리합니다."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beheer vertrouwde ScreenHarbor-hosts, verbindingshouding, privacy-standaardinstellingen en streamgedrag."
+            "value": "Beheer vertrouwde Vamp Remote Control-hosts, verbindingshouding, privacy-standaardinstellingen en streamgedrag."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zarządzaj zaufanymi hostami ScreenHarbor, postawą połączenia, domyślnymi ustawieniami prywatności i zachowaniem strumienia."
+            "value": "Zarządzaj zaufanymi hostami Vamp Remote Control, postawą połączenia, domyślnymi ustawieniami prywatności i zachowaniem strumienia."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gerencie hosts ScreenHarbor confiáveis, postura de conexão, padrões de privacidade e comportamento do stream."
+            "value": "Gerencie hosts Vamp Remote Control confiáveis, postura de conexão, padrões de privacidade e comportamento do stream."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Управляйте доверенными ScreenHarbor-хостами, режимом подключения, настройками конфиденциальности по умолчанию и поведением потока."
+            "value": "Управляйте доверенными Vamp Remote Control-хостами, режимом подключения, настройками конфиденциальности по умолчанию и поведением потока."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hantera betrodda ScreenHarbor-värdar, anslutningsställning, sekretessstandarder och strömbeteende."
+            "value": "Hantera betrodda Vamp Remote Control-värdar, anslutningsställning, sekretessstandarder och strömbeteende."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "จัดการโฮสต์ ScreenHarbor ที่เชื่อถือได้ ท่าทางการเชื่อมต่อ ค่าเริ่มต้นความเป็นส่วนตัว และพฤติกรรมสตรีม"
+            "value": "จัดการโฮสต์ Vamp Remote Control ที่เชื่อถือได้ ท่าทางการเชื่อมต่อ ค่าเริ่มต้นความเป็นส่วนตัว และพฤติกรรมสตรีม"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Güvenilir ScreenHarbor ana bilgisayarlarını, bağlantı duruşunu, gizlilik varsayılanlarını ve akış davranışını yönetin."
+            "value": "Güvenilir Vamp Remote Control ana bilgisayarlarını, bağlantı duruşunu, gizlilik varsayılanlarını ve akış davranışını yönetin."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quản lý máy chủ ScreenHarbor đáng tin cậy, tư thế kết nối, mặc định quyền riêng tư và hành vi luồng."
+            "value": "Quản lý máy chủ Vamp Remote Control đáng tin cậy, tư thế kết nối, mặc định quyền riêng tư và hành vi luồng."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "管理受信任的 ScreenHarbor 主机、连接姿态、隐私默认设置和流行为。"
+            "value": "管理受信任的 Vamp Remote Control 主机、连接姿态、隐私默认设置和流行为。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "管理受信任的 ScreenHarbor 主機、連線姿態、隱私預設值和串流行為。"
+            "value": "管理受信任的 Vamp Remote Control 主機、連線姿態、隱私預設值和串流行為。"
           }
         }
       }
@@ -12219,67 +12219,67 @@
         }
       }
     },
-    "new hosts require visible approval on ScreenHarbor host before access": {
+    "new hosts require visible approval on Vamp Remote Control host before access": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "تتطلب المضيفون الجدد موافقة مرئية على مضيف ScreenHarbor قبل الوصول"
+            "value": "تتطلب المضيفون الجدد موافقة مرئية على مضيف Vamp Remote Control قبل الوصول"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Neue Hosts benötigen sichtbare Genehmigung auf dem ScreenHarbor Host"
+            "value": "Neue Hosts benötigen sichtbare Genehmigung auf dem Vamp Host"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "new hosts require visible approval on ScreenHarbor host before access"
+            "value": "new hosts require visible approval on Vamp Remote Control host before access"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los nuevos hosts requieren aprobación visible en ScreenHarbor host"
+            "value": "Los nuevos hosts requieren aprobación visible en Vamp Remote Control host"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les nouveaux hôtes nécessitent une approbation visible sur l'hôte ScreenHarbor"
+            "value": "Les nouveaux hôtes nécessitent une approbation visible sur l'hôte Vamp Remote Control"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "新しいホストはScreenHarborホスト上での承認が必要です"
+            "value": "新しいホストはVamp Remote Controlホスト上での承認が必要です"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los nuevos hosts requieren aprobación visible en ScreenHarbor host"
+            "value": "Los nuevos hosts requieren aprobación visible en Vamp Remote Control host"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yeni hostlar erişim için ScreenHarbor host üzerinde onay gerektirir"
+            "value": "Yeni hostlar erişim için Vamp Remote Control host üzerinde onay gerektirir"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "新主机在访问前需要在ScreenHarbor主机上获得批准"
+            "value": "新主机在访问前需要在Vamp Remote Control主机上获得批准"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "新主机在访问前需要在ScreenHarbor主机上获得批准"
+            "value": "新主机在访问前需要在Vamp Remote Control主机上获得批准"
           }
         }
       }
@@ -12828,66 +12828,66 @@
         }
       }
     },
-    "No trusted hosts. Pair a ScreenHarbor host to create trust.": {
+    "No trusted hosts. Pair a Vamp Remote Control host to create trust.": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "لا توجد مضيفون موثوقون. قم بإقران مضيف ScreenHarbor لإنشاء الثقة."
+            "value": "لا توجد مضيفون موثوقون. قم بإقران مضيف Vamp Remote Control لإنشاء الثقة."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keine vertrauenswürdigen Hosts. Verbinde einen ScreenHarbor Host um Vertrauen herzustellen."
+            "value": "Keine vertrauenswürdigen Hosts. Verbinde einen Vamp Host um Vertrauen herzustellen."
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "No trusted hosts. Pair a ScreenHarbor host to create trust."
+            "value": "No trusted hosts. Pair a Vamp Remote Control host to create trust."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sin hosts de confianza. Empareja un ScreenHarbor host para crear confianza."
+            "value": "Sin hosts de confianza. Empareja un Vamp Remote Control host para crear confianza."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun hôte de confiance. Associez un hôte ScreenHarbor pour établir la confiance."
+            "value": "Aucun hôte de confiance. Associez un hôte Vamp Remote Control pour établir la confiance."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "信頼済みホストがありません。信頼を確立するためにScreenHarborホストをペアリングしてください。"
+            "value": "信頼済みホストがありません。信頼を確立するためにVamp Remote Controlホストをペアリングしてください。"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sin hosts de confianza. Empareja un ScreenHarbor host para crear confianza."
+            "value": "Sin hosts de confianza. Empareja un Vamp Remote Control host para crear confianza."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Güvenilir host yok. Güven için bir ScreenHarbor host eşleştir."
+            "value": "Güvenilir host yok. Güven için bir Vamp Remote Control host eşleştir."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有受信任的主机。配对一个ScreenHarbor主机以建立信任。"
+            "value": "没有受信任的主机。配对一个Vamp Remote Control主机以建立信任。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有受信任的主机。配对一个ScreenHarbor主机以建立信任。"
+            "value": "没有受信任的主机。配对一个Vamp Remote Control主机以建立信任。"
           }
         }
       }
@@ -13431,143 +13431,143 @@
         }
       }
     },
-    "Only control Macs you own or are authorized to access. You can stop ScreenHarbor Host at any time.": {
+    "Only control Macs you own or are authorized to access. You can stop Vamp Host at any time.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Only control Macs you own or are authorized to access. You can stop ScreenHarbor Host at any time."
+            "value": "Only control Macs you own or are authorized to access. You can stop Vamp Host at any time."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅控制您拥有或有权访问的 Mac。您可以随时停止 ScreenHarbor Host。"
+            "value": "仅控制您拥有或有权访问的 Mac。您可以随时停止 Vamp Host。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅控制您拥有或有权访问的 Mac。您可以随时停止 ScreenHarbor Host。"
+            "value": "仅控制您拥有或有权访问的 Mac。您可以随时停止 Vamp Host。"
           }
         }
       }
     },
-    "Only trusted devices can connect. Never share pairing codes, and revoke access from Security when a device should no longer control your ScreenHarbor host.": {
+    "Only trusted devices can connect. Never share pairing codes, and revoke access from Security when a device should no longer control your Vamp Remote Control host.": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يمكن فقط للأجهزة الموثوقة الاتصال. لا تشارك رموز الاقتران أبدًا، وقم بإلغاء الوصول من الأمان عندما لا ينبغي للجهاز التحكم في مضيف ScreenHarbor الخاص بك."
+            "value": "يمكن فقط للأجهزة الموثوقة الاتصال. لا تشارك رموز الاقتران أبدًا، وقم بإلغاء الوصول من الأمان عندما لا ينبغي للجهاز التحكم في مضيف Vamp Remote Control الخاص بك."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nur vertrauenswürdige Geräte können sich verbinden. Geben Sie niemals Kopplungscodes weiter und widerrufen Sie den Zugriff in den Sicherheitseinstellungen, wenn ein Gerät Ihren ScreenHarbor-Host nicht mehr steuern soll."
+            "value": "Nur vertrauenswürdige Geräte können sich verbinden. Geben Sie niemals Kopplungscodes weiter und widerrufen Sie den Zugriff in den Sicherheitseinstellungen, wenn ein Gerät Ihren Vamp Remote Control-Host nicht mehr steuern soll."
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Only trusted devices can connect. Never share pairing codes, and revoke access from Security when a device should no longer control your ScreenHarbor host."
+            "value": "Only trusted devices can connect. Never share pairing codes, and revoke access from Security when a device should no longer control your Vamp Remote Control host."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solo los dispositivos de confianza pueden conectarse. Nunca comparta códigos de emparejamiento y revoque el acceso desde Seguridad cuando un dispositivo ya no deba controlar su host ScreenHarbor."
+            "value": "Solo los dispositivos de confianza pueden conectarse. Nunca comparta códigos de emparejamiento y revoque el acceso desde Seguridad cuando un dispositivo ya no deba controlar su host Vamp Remote Control."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seuls les appareils de confiance peuvent se connecter. Ne partagez jamais les codes d'appairage et révoquez l'accès depuis Sécurité lorsqu'un appareil ne doit plus contrôler votre hôte ScreenHarbor."
+            "value": "Seuls les appareils de confiance peuvent se connecter. Ne partagez jamais les codes d'appairage et révoquez l'accès depuis Sécurité lorsqu'un appareil ne doit plus contrôler votre hôte Vamp Remote Control."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "केवल विश्वसनीय डिवाइस ही कनेक्ट कर सकते हैं। पेयरिंग कोड कभी साझा न करें, और जब कोई डिवाइस आपके ScreenHarbor होस्ट को नियंत्रित नहीं करना चाहिए, तो सुरक्षा से एक्सेस रद्द करें।"
+            "value": "केवल विश्वसनीय डिवाइस ही कनेक्ट कर सकते हैं। पेयरिंग कोड कभी साझा न करें, और जब कोई डिवाइस आपके Vamp Remote Control होस्ट को नियंत्रित नहीं करना चाहिए, तो सुरक्षा से एक्सेस रद्द करें।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solo i dispositivi fidati possono connettersi. Non condividere mai i codici di abbinamento e revoca l'accesso da Sicurezza quando un dispositivo non deve più controllare il tuo host ScreenHarbor."
+            "value": "Solo i dispositivi fidati possono connettersi. Non condividere mai i codici di abbinamento e revoca l'accesso da Sicurezza quando un dispositivo non deve più controllare il tuo host Vamp Remote Control."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "信頼できるデバイスのみ接続できます。ペアリングコードは決して共有せず、デバイスがScreenHarborホストを制御すべきでなくなった場合はセキュリティからアクセスを取り消してください。"
+            "value": "信頼できるデバイスのみ接続できます。ペアリングコードは決して共有せず、デバイスがVamp Remote Controlホストを制御すべきでなくなった場合はセキュリティからアクセスを取り消してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "신뢰할 수 있는 기기만 연결할 수 있습니다. 페어링 코드를 절대 공유하지 말고, 기기가 더 이상 ScreenHarbor 호스트를 제어하지 않아야 할 때는 보안에서 액세스를 취소하세요."
+            "value": "신뢰할 수 있는 기기만 연결할 수 있습니다. 페어링 코드를 절대 공유하지 말고, 기기가 더 이상 Vamp Remote Control 호스트를 제어하지 않아야 할 때는 보안에서 액세스를 취소하세요."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alleen vertrouwde apparaten kunnen verbinding maken. Deel nooit koppelingscodes en trek de toegang in via Beveiliging wanneer een apparaat uw ScreenHarbor-host niet langer mag bedienen."
+            "value": "Alleen vertrouwde apparaten kunnen verbinding maken. Deel nooit koppelingscodes en trek de toegang in via Beveiliging wanneer een apparaat uw Vamp Remote Control-host niet langer mag bedienen."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tylko zaufane urządzenia mogą się łączyć. Nigdy nie udostępniaj kodów parowania i cofnij dostęp w Zabezpieczeniach, gdy urządzenie nie powinno już kontrolować Twojego hosta ScreenHarbor."
+            "value": "Tylko zaufane urządzenia mogą się łączyć. Nigdy nie udostępniaj kodów parowania i cofnij dostęp w Zabezpieczeniach, gdy urządzenie nie powinno już kontrolować Twojego hosta Vamp Remote Control."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apenas dispositivos confiáveis podem se conectar. Nunca compartilhe códigos de pareamento e revogue o acesso em Segurança quando um dispositivo não deve mais controlar seu host ScreenHarbor."
+            "value": "Apenas dispositivos confiáveis podem se conectar. Nunca compartilhe códigos de pareamento e revogue o acesso em Segurança quando um dispositivo não deve mais controlar seu host Vamp Remote Control."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Только доверенные устройства могут подключаться. Никогда не передавайте коды сопряжения и отзывайте доступ в разделе Безопасность, когда устройство больше не должно управлять вашим ScreenHarbor-хостом."
+            "value": "Только доверенные устройства могут подключаться. Никогда не передавайте коды сопряжения и отзывайте доступ в разделе Безопасность, когда устройство больше не должно управлять вашим Vamp Remote Control-хостом."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Endast betrodda enheter kan ansluta. Dela aldrig parkopplingskoder och återkalla åtkomst från Säkerhet när en enhet inte längre ska styra din ScreenHarbor-värd."
+            "value": "Endast betrodda enheter kan ansluta. Dela aldrig parkopplingskoder och återkalla åtkomst från Säkerhet när en enhet inte längre ska styra din Vamp Remote Control-värd."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "เฉพาะอุปกรณ์ที่เชื่อถือได้เท่านั้นที่สามารถเชื่อมต่อได้ อย่าแชร์รหัสจับคู่ และเพิกถอนการเข้าถึงจากความปลอดภัยเมื่ออุปกรณ์ไม่ควรควบคุมโฮสต์ ScreenHarbor ของคุณอีกต่อไป"
+            "value": "เฉพาะอุปกรณ์ที่เชื่อถือได้เท่านั้นที่สามารถเชื่อมต่อได้ อย่าแชร์รหัสจับคู่ และเพิกถอนการเข้าถึงจากความปลอดภัยเมื่ออุปกรณ์ไม่ควรควบคุมโฮสต์ Vamp Remote Control ของคุณอีกต่อไป"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yalnızca güvenilir cihazlar bağlanabilir. Eşleştirme kodlarını asla paylaşmayın ve bir cihaz artık ScreenHarbor ana bilgisayarınızı kontrol etmemesi gerektiğinde Güvenlik'ten erişimi iptal edin."
+            "value": "Yalnızca güvenilir cihazlar bağlanabilir. Eşleştirme kodlarını asla paylaşmayın ve bir cihaz artık Vamp Remote Control ana bilgisayarınızı kontrol etmemesi gerektiğinde Güvenlik'ten erişimi iptal edin."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chỉ thiết bị đáng tin cậy mới có thể kết nối. Không bao giờ chia sẻ mã ghép nối và thu hồi quyền truy cập từ Bảo mật khi thiết bị không còn nên điều khiển máy chủ ScreenHarbor của bạn."
+            "value": "Chỉ thiết bị đáng tin cậy mới có thể kết nối. Không bao giờ chia sẻ mã ghép nối và thu hồi quyền truy cập từ Bảo mật khi thiết bị không còn nên điều khiển máy chủ Vamp Remote Control của bạn."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "只有受信任的设备才能连接。切勿分享配对码，当某设备不应再控制您的 ScreenHarbor 主机时，请从安全设置中撤销访问权限。"
+            "value": "只有受信任的设备才能连接。切勿分享配对码，当某设备不应再控制您的 Vamp Remote Control 主机时，请从安全设置中撤销访问权限。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "只有受信任的裝置才能連接。切勿分享配對碼，當裝置不應再控制您的 ScreenHarbor 主機時，請從安全性設定中撤銷存取權限。"
+            "value": "只有受信任的裝置才能連接。切勿分享配對碼，當裝置不應再控制您的 Vamp Remote Control 主機時，請從安全性設定中撤銷存取權限。"
           }
         }
       }
@@ -14112,7 +14112,7 @@
         }
       }
     },
-    "open ScreenHarbor Host on your mac and make sure both devices share the same wi-fi, then scan. away from your network? tap “connect by address” below and enter the mac’s tailscale address.": {
+    "open Vamp Host on your mac and make sure both devices share the same wi-fi, then scan. away from your network? tap “connect by address” below and enter the mac’s tailscale address.": {
       "comment": "A description of how to connect to a mac that isn't on the same network.",
       "isCommentAutoGenerated": true
     },
@@ -14418,67 +14418,67 @@
         }
       }
     },
-    "Pair your Mac with a ScreenHarbor host in a secure terminal flow.": {
+    "Pair your Mac with a Vamp Remote Control host in a secure terminal flow.": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "اقرن Mac بمضيف ScreenHarbor في تدفق طرفية آمن."
+            "value": "اقرن Mac بمضيف Vamp Remote Control في تدفق طرفية آمن."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verbinde dein Mac über einen sicheren Terminal-Flow mit einem ScreenHarbor Host."
+            "value": "Verbinde dein Mac über einen sicheren Terminal-Flow mit einem Vamp Host."
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Pair your Mac with a ScreenHarbor host in a secure terminal flow."
+            "value": "Pair your Mac with a Vamp Remote Control host in a secure terminal flow."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Empareja tu Mac con un ScreenHarbor host en un flujo de terminal seguro."
+            "value": "Empareja tu Mac con un Vamp Remote Control host en un flujo de terminal seguro."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Associez votre Mac à un hôte ScreenHarbor dans un terminal sécurisé."
+            "value": "Associez votre Mac à un hôte Vamp Remote Control dans un terminal sécurisé."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "安全なターミナルフローでMacをScreenHarborホストとペアリングします。"
+            "value": "安全なターミナルフローでMacをVamp Remote Controlホストとペアリングします。"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Empareja tu Mac con un ScreenHarbor host en un flujo de terminal seguro."
+            "value": "Empareja tu Mac con un Vamp Remote Control host en un flujo de terminal seguro."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac'unuzu güvenli terminal akışında bir ScreenHarbor host ile eşleştirin."
+            "value": "Mac'unuzu güvenli terminal akışında bir Vamp Remote Control host ile eşleştirin."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "通过安全的终端流程将您的Mac与ScreenHarbor主机配对。"
+            "value": "通过安全的终端流程将您的Mac与Vamp Remote Control主机配对。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "通过安全的终端流程将您的Mac与ScreenHarbor主机配对。"
+            "value": "通过安全的终端流程将您的Mac与Vamp Remote Control主机配对。"
           }
         }
       }
@@ -14548,121 +14548,121 @@
         }
       }
     },
-    "Paste the address from ScreenHarbor Host or enter your host's IP, hostname, or Tailscale address.": {
+    "Paste the address from Vamp Host or enter your host's IP, hostname, or Tailscale address.": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "الصق العنوان من ScreenHarbor Host أو أدخل IP المضيف أو اسم المضيف أو عنوان Tailscale."
+            "value": "الصق العنوان من Vamp Host أو أدخل IP المضيف أو اسم المضيف أو عنوان Tailscale."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fügen Sie die Adresse von ScreenHarbor Host ein oder geben Sie die IP, den Hostnamen oder die Tailscale-Adresse Ihres Hosts ein."
+            "value": "Fügen Sie die Adresse von Vamp Host ein oder geben Sie die IP, den Hostnamen oder die Tailscale-Adresse Ihres Hosts ein."
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Paste the address from ScreenHarbor Host or enter your host's IP, hostname, or Tailscale address."
+            "value": "Paste the address from Vamp Host or enter your host's IP, hostname, or Tailscale address."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pegue la dirección de ScreenHarbor Host o introduzca la IP, el nombre de host o la dirección Tailscale de su host."
+            "value": "Pegue la dirección de Vamp Host o introduzca la IP, el nombre de host o la dirección Tailscale de su host."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Collez l'adresse de ScreenHarbor Host ou entrez l'IP, le nom d'hôte ou l'adresse Tailscale de votre hôte."
+            "value": "Collez l'adresse de Vamp Host ou entrez l'IP, le nom d'hôte ou l'adresse Tailscale de votre hôte."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host से पता पेस्ट करें या अपने होस्ट का IP, होस्टनाम या Tailscale पता दर्ज करें।"
+            "value": "Vamp Host से पता पेस्ट करें या अपने होस्ट का IP, होस्टनाम या Tailscale पता दर्ज करें।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Incolla l'indirizzo da ScreenHarbor Host o inserisci l'IP, il nome host o l'indirizzo Tailscale del tuo host."
+            "value": "Incolla l'indirizzo da Vamp Host o inserisci l'IP, il nome host o l'indirizzo Tailscale del tuo host."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Hostからアドレスを貼り付けるか、ホストのIP、ホスト名、またはTailscaleアドレスを入力してください。"
+            "value": "Vamp Hostからアドレスを貼り付けるか、ホストのIP、ホスト名、またはTailscaleアドレスを入力してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host에서 주소를 붙여넣거나 호스트의 IP, 호스트 이름 또는 Tailscale 주소를 입력하세요."
+            "value": "Vamp Host에서 주소를 붙여넣거나 호스트의 IP, 호스트 이름 또는 Tailscale 주소를 입력하세요."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plak het adres van ScreenHarbor Host of voer het IP, de hostnaam of het Tailscale-adres van uw host in."
+            "value": "Plak het adres van Vamp Host of voer het IP, de hostnaam of het Tailscale-adres van uw host in."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wklej adres z ScreenHarbor Host lub wprowadź IP, nazwę hosta lub adres Tailscale swojego hosta."
+            "value": "Wklej adres z Vamp Host lub wprowadź IP, nazwę hosta lub adres Tailscale swojego hosta."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cole o endereço do ScreenHarbor Host ou digite o IP, nome do host ou endereço Tailscale do seu host."
+            "value": "Cole o endereço do Vamp Host ou digite o IP, nome do host ou endereço Tailscale do seu host."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вставьте адрес из ScreenHarbor Host или введите IP, имя хоста или адрес Tailscale вашего хоста."
+            "value": "Вставьте адрес из Vamp Host или введите IP, имя хоста или адрес Tailscale вашего хоста."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klistra in adressen från ScreenHarbor Host eller ange din värds IP, värdnamn eller Tailscale-adress."
+            "value": "Klistra in adressen från Vamp Host eller ange din värds IP, värdnamn eller Tailscale-adress."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "วางที่อยู่จาก ScreenHarbor Host หรือป้อน IP, ชื่อโฮสต์ หรือที่อยู่ Tailscale ของโฮสต์ของคุณ"
+            "value": "วางที่อยู่จาก Vamp Host หรือป้อน IP, ชื่อโฮสต์ หรือที่อยู่ Tailscale ของโฮสต์ของคุณ"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host'tan adresi yapıştırın veya ana bilgisayarınızın IP'sini, ana bilgisayar adını veya Tailscale adresini girin."
+            "value": "Vamp Host'tan adresi yapıştırın veya ana bilgisayarınızın IP'sini, ana bilgisayar adını veya Tailscale adresini girin."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dán địa chỉ từ ScreenHarbor Host hoặc nhập IP, tên máy chủ hoặc địa chỉ Tailscale của máy chủ."
+            "value": "Dán địa chỉ từ Vamp Host hoặc nhập IP, tên máy chủ hoặc địa chỉ Tailscale của máy chủ."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "粘贴 ScreenHarbor Host 中的地址，或输入主机的 IP、主机名或 Tailscale 地址。"
+            "value": "粘贴 Vamp Host 中的地址，或输入主机的 IP、主机名或 Tailscale 地址。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "貼上 ScreenHarbor Host 中的位址，或輸入主機的 IP、主機名稱或 Tailscale 位址。"
+            "value": "貼上 Vamp Host 中的位址，或輸入主機的 IP、主機名稱或 Tailscale 位址。"
           }
         }
       }
@@ -15918,121 +15918,121 @@
         }
       }
     },
-    "Ready to control your ScreenHarbor host over LAN or a trusted private relay.": {
+    "Ready to control your Vamp Remote Control host over LAN or a trusted private relay.": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "جاهز للتحكم في مضيف ScreenHarbor الخاص بك عبر الشبكة المحلية أو مرحل خاص موثوق."
+            "value": "جاهز للتحكم في مضيف Vamp Remote Control الخاص بك عبر الشبكة المحلية أو مرحل خاص موثوق."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bereit, Ihren ScreenHarbor-Host über LAN oder ein vertrauenswürdiges privates Relay zu steuern."
+            "value": "Bereit, Ihren Vamp Remote Control-Host über LAN oder ein vertrauenswürdiges privates Relay zu steuern."
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Ready to control your ScreenHarbor host over LAN or a trusted private relay."
+            "value": "Ready to control your Vamp Remote Control host over LAN or a trusted private relay."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Listo para controlar su host ScreenHarbor a través de LAN o un relay privado de confianza."
+            "value": "Listo para controlar su host Vamp Remote Control a través de LAN o un relay privado de confianza."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prêt à contrôler votre hôte ScreenHarbor via LAN ou un relais privé de confiance."
+            "value": "Prêt à contrôler votre hôte Vamp Remote Control via LAN ou un relais privé de confiance."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "LAN या विश्वसनीय निजी रिले पर अपने ScreenHarbor होस्ट को नियंत्रित करने के लिए तैयार।"
+            "value": "LAN या विश्वसनीय निजी रिले पर अपने Vamp Remote Control होस्ट को नियंत्रित करने के लिए तैयार।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pronto a controllare il tuo host ScreenHarbor tramite LAN o un relay privato fidato."
+            "value": "Pronto a controllare il tuo host Vamp Remote Control tramite LAN o un relay privato fidato."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "LANまたは信頼できるプライベートリレーを介してScreenHarborホストを制御する準備ができました。"
+            "value": "LANまたは信頼できるプライベートリレーを介してVamp Remote Controlホストを制御する準備ができました。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "LAN 또는 신뢰할 수 있는 사설 릴레이를 통해 ScreenHarbor 호스트를 제어할 준비가 되었습니다."
+            "value": "LAN 또는 신뢰할 수 있는 사설 릴레이를 통해 Vamp Remote Control 호스트를 제어할 준비가 되었습니다."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klaar om uw ScreenHarbor-host te bedienen via LAN of een vertrouwde privérelay."
+            "value": "Klaar om uw Vamp Remote Control-host te bedienen via LAN of een vertrouwde privérelay."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gotowy do sterowania hostem ScreenHarbor przez LAN lub zaufany prywatny przekaźnik."
+            "value": "Gotowy do sterowania hostem Vamp Remote Control przez LAN lub zaufany prywatny przekaźnik."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pronto para controlar seu host ScreenHarbor via LAN ou um relay privado confiável."
+            "value": "Pronto para controlar seu host Vamp Remote Control via LAN ou um relay privado confiável."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Готов к управлению вашим ScreenHarbor-хостом через LAN или доверенный частный ретранслятор."
+            "value": "Готов к управлению вашим Vamp Remote Control-хостом через LAN или доверенный частный ретранслятор."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Redo att styra din ScreenHarbor-värd via LAN eller ett betrott privat relä."
+            "value": "Redo att styra din Vamp Remote Control-värd via LAN eller ett betrott privat relä."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "พร้อมที่จะควบคุมโฮสต์ ScreenHarbor ของคุณผ่าน LAN หรือรีเลย์ส่วนตัวที่เชื่อถือได้"
+            "value": "พร้อมที่จะควบคุมโฮสต์ Vamp Remote Control ของคุณผ่าน LAN หรือรีเลย์ส่วนตัวที่เชื่อถือได้"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor ana bilgisayarınızı LAN veya güvenilir bir özel röle üzerinden kontrol etmeye hazır."
+            "value": "Vamp Remote Control ana bilgisayarınızı LAN veya güvenilir bir özel röle üzerinden kontrol etmeye hazır."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sẵn sàng điều khiển máy chủ ScreenHarbor của bạn qua LAN hoặc chuyển tiếp riêng tư đáng tin cậy."
+            "value": "Sẵn sàng điều khiển máy chủ Vamp Remote Control của bạn qua LAN hoặc chuyển tiếp riêng tư đáng tin cậy."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已准备就绪，可通过局域网或受信任的专用中继控制您的 ScreenHarbor 主机。"
+            "value": "已准备就绪，可通过局域网或受信任的专用中继控制您的 Vamp Remote Control 主机。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "已準備好透過區域網路或受信任的專用中繼控制您的 ScreenHarbor 主機。"
+            "value": "已準備好透過區域網路或受信任的專用中繼控制您的 Vamp Remote Control 主機。"
           }
         }
       }
@@ -18459,89 +18459,89 @@
         }
       }
     },
-    "scan a code shown by ScreenHarbor Host": {
+    "scan a code shown by Vamp Host": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "scan a code shown by ScreenHarbor Host"
+            "value": "scan a code shown by Vamp Host"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "扫描 ScreenHarbor Host 显示的二维码"
+            "value": "扫描 Vamp Host 显示的二维码"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "扫描 ScreenHarbor Host 显示的二维码"
+            "value": "扫描 Vamp Host 显示的二维码"
           }
         }
       }
     },
-    "scan code from screenharbor": {
+    "scan code from Vamp Terminal": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "امسح الرمز من ScreenHarbor Host"
+            "value": "امسح الرمز من Vamp Host"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Code von ScreenHarbor Host scannen"
+            "value": "Code von Vamp Host scannen"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "scan code from screenharbor"
+            "value": "scan code from Vamp Terminal"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Escanear código de ScreenHarbor Host"
+            "value": "Escanear código de Vamp Host"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scanner le code depuis ScreenHarbor Host"
+            "value": "Scanner le code depuis Vamp Host"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Hostからコードをスキャン"
+            "value": "Vamp Hostからコードをスキャン"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Escanear código de ScreenHarbor Host"
+            "value": "Escanear código de Vamp Host"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host'tan kodu tara"
+            "value": "Vamp Host'tan kodu tara"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "从ScreenHarbor Host扫描二维码"
+            "value": "从Vamp Host扫描二维码"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "从ScreenHarbor Host扫描二维码"
+            "value": "从Vamp Host扫描二维码"
           }
         }
       }
@@ -22921,210 +22921,210 @@
         }
       }
     },
-    "ScreenHarbor Host is the Mac app this controls. If it’s already installed, we’ll stop showing the download cards here. You can still find them in settings.": {},
-    "ScreenHarbor Host receives your approved commands and performs them on your Mac.": {
+    "Vamp Host is the Mac app this controls. If it’s already installed, we’ll stop showing the download cards here. You can still find them in settings.": {},
+    "Vamp Host receives your approved commands and performs them on your Mac.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "ScreenHarbor Host receives your approved commands and performs them on your Mac."
+            "value": "Vamp Host receives your approved commands and performs them on your Mac."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host 接收您批准的命令并在您的 Mac 上执行。"
+            "value": "Vamp Host 接收您批准的命令并在您的 Mac 上执行。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor Host 接收您批准的命令并在您的 Mac 上执行。"
+            "value": "Vamp Host 接收您批准的命令并在您的 Mac 上执行。"
           }
         }
       }
     },
-    "ScreenHarbor": {
+    "Vamp Remote Control": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor रिमोट कंट्रोल प्रो"
+            "value": "Vamp Remote Control रिमोट कंट्रोल प्रो"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarborリモートコントロールPro"
+            "value": "Vamp Remote ControlリモートコントロールPro"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor 원격 제어 Pro"
+            "value": "Vamp Remote Control 원격 제어 Pro"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor"
+            "value": "Vamp Remote Control"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor 远程控制专业版"
+            "value": "Vamp Remote Control 远程控制专业版"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor 遠端控制專業版"
+            "value": "Vamp Remote Control 遠端控制專業版"
           }
         }
       }
     },
-    "ScreenHarbor requires ScreenHarbor Host running on macOS to function.": {
+    "Vamp Remote Control requires Vamp Host running on macOS to function.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "ScreenHarbor requires ScreenHarbor Host running on macOS to function."
+            "value": "Vamp Remote Control requires Vamp Host running on macOS to function."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor 需要 ScreenHarbor Host 在 macOS 上运行才能使用。"
+            "value": "Vamp Remote Control 需要 Vamp Host 在 macOS 上运行才能使用。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor 需要 ScreenHarbor Host 在 macOS 上运行才能使用。"
+            "value": "Vamp Remote Control 需要 Vamp Host 在 macOS 上运行才能使用。"
           }
         }
       }
     },
-    "ScreenHarbor requires ScreenHarbor Host running on macOS to function. For full control, install the direct-download host and keep it open on the Mac you want to access.": {
+    "Vamp Remote Control requires Vamp Host running on macOS to function. For full control, install the direct-download host and keep it open on the Mac you want to access.": {
       "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "ScreenHarbor requires ScreenHarbor Host running on macOS to function. For full control, install the direct-download host and keep it open on the Mac you want to access."
+            "value": "Vamp Remote Control requires Vamp Host running on macOS to function. For full control, install the direct-download host and keep it open on the Mac you want to access."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor 需要 ScreenHarbor Host 在 macOS 上运行才能使用。如需完全控制，请安装直接下载版主机并在您要访问的 Mac 上保持其打开。"
+            "value": "Vamp Remote Control 需要 Vamp Host 在 macOS 上运行才能使用。如需完全控制，请安装直接下载版主机并在您要访问的 Mac 上保持其打开。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "ScreenHarbor 需要 ScreenHarbor Host 在 macOS 上运行才能使用。如需完全控制，请安装直接下载版主机并在您要访问的 Mac 上保持其打开。"
+            "value": "Vamp Remote Control 需要 Vamp Host 在 macOS 上运行才能使用。如需完全控制，请安装直接下载版主机并在您要访问的 Mac 上保持其打开。"
           }
         }
       }
     },
-    "screenharbor.host": {
+    "vamp.host": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "screenharbor.host"
+            "value": "vamp.host"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "screenharbor.host"
+            "value": "vamp.host"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "screenharbor.host"
+            "value": "vamp.host"
           }
         }
       }

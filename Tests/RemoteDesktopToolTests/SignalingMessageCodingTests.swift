@@ -40,7 +40,9 @@ final class SignalingMessageCodingTests: XCTestCase {
             videoCodec: .hevc,
             supportsMultiDisplay: true,
             supportsAudio: false,
-            supportsMacClient: true
+            supportsMacClient: true,
+            supportsTerminal: true,
+            supportsMultipleTerminals: true
         )
         let envelope = SignalingEnvelope(
             protocolVersion: 1,
@@ -60,5 +62,14 @@ final class SignalingMessageCodingTests: XCTestCase {
 
         XCTAssertEqual(decoded.kind, .sessionReady)
         XCTAssertEqual(decoded, envelope)
+    }
+
+    func testLegacyNegotiatedCapabilitiesDecodeWithoutTerminalFields() throws {
+        let data = Data("{\"videoCodec\":\"h264\",\"supportsMultiDisplay\":false,\"supportsAudio\":false,\"supportsMacClient\":false}".utf8)
+
+        let decoded = try JSONDecoder().decode(NegotiatedCapabilities.self, from: data)
+
+        XCTAssertFalse(decoded.supportsTerminal)
+        XCTAssertFalse(decoded.supportsMultipleTerminals)
     }
 }

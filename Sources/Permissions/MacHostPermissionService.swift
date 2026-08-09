@@ -15,6 +15,7 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
     }
 
     public func currentStates() async -> [PermissionState] {
+        guard policy.supportsScreenCapture else { return [] }
         var states = [await screenRecordingState()]
         if policy.requiresAccessibilityPermission {
             states.append(refreshStateSync(for: .accessibility))
@@ -25,6 +26,9 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
     public func refreshState(for kind: PermissionKind) async -> PermissionState {
         switch kind {
         case .screenRecording:
+            guard policy.supportsScreenCapture else {
+                return PermissionState(kind: kind, authorizationState: .restricted, lastCheckedAt: Date())
+            }
             return await screenRecordingState()
         case .accessibility, .localNetwork, .microphone:
             return refreshStateSync(for: kind)
@@ -34,15 +38,22 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
     public func requestPermission(for kind: PermissionKind) async throws -> PermissionState {
         switch kind {
         case .screenRecording:
-            await MainActor.run { NSApplication.shared.activate(ignoringOtherApps: true) }
-            _ = CGRequestScreenCaptureAccess()
+            guard policy.supportsScreenCapture else {
+                return PermissionState(kind: kind, authorizationState: .restricted, lastCheckedAt: Date())
+            }
+            await MainActor.run {
+                NSApplication.shared.activate(ignoringOtherApps: true)
+                _ = CGRequestScreenCaptureAccess()
+            }
         case .accessibility:
             guard policy.canRequestAccessibilityPermission else {
                 return refreshStateSync(for: kind)
             }
             let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
             let options = [promptKey: true] as CFDictionary
-            _ = AXIsProcessTrustedWithOptions(options)
+            await MainActor.run {
+                _ = AXIsProcessTrustedWithOptions(options)
+            }
         case .localNetwork, .microphone:
             break
         }
@@ -50,6 +61,7 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
     }
 
     public func friendlyStatuses() async -> [FriendlyPermissionStatus] {
+        guard policy.supportsScreenCapture else { return [] }
         let screenRecording = await screenRecordingState()
 
         var statuses = [FriendlyPermissionStatus(
@@ -79,6 +91,7 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
     }
 
     public func openSettings(for kind: PermissionKind) async throws {
+        guard policy.supportsScreenCapture || kind != .screenRecording else { return }
         if kind == .accessibility && !policy.canRequestAccessibilityPermission {
             return
         }

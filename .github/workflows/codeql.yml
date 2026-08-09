@@ -31,21 +31,21 @@ jobs:
           - language: swift
             build-mode: manual
             component: host
-            scheme: ScreenHarborHost
+            scheme: MacHost
             destination: platform=macOS
             category: /language:swift/component:host
           - language: swift
             build-mode: manual
             component: macos-client
-            scheme: ScreenHarborClient
+            scheme: VampTerminalHost
             destination: platform=macOS
-            category: /language:swift/component:macos-client
+            category: /language:swift/component:terminal-host
           - language: swift
             build-mode: manual
-            component: ios-client
-            scheme: ScreenHarborIOS
+            component: ios-terminal-client
+            scheme: VampTerminalApp
             destination: generic/platform=iOS Simulator
-            category: /language:swift/component:ios-client
+            category: /language:swift/component:ios-terminal-client
           - language: c-cpp
             build-mode: none
             component: core
@@ -65,26 +65,18 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
-      - name: Install XcodeGen
-        if: matrix.build-mode == 'manual'
-        run: brew install xcodegen
-
-      - name: Generate Xcode project
-        if: matrix.build-mode == 'manual'
-        run: xcodegen generate --spec screenharbor-project.yml
-
       - name: Resolve app dependencies
         if: matrix.build-mode == 'manual'
         run: >-
           xcodebuild
           -resolvePackageDependencies
-          -project ScreenHarbor.xcodeproj
+          -project RemoteDesktopToolApps.xcodeproj
 
       - name: Build Swift app target
         if: matrix.build-mode == 'manual'
         run: >-
           xcodebuild
-          -project ScreenHarbor.xcodeproj
+          -project RemoteDesktopToolApps.xcodeproj
           -scheme "${{ matrix.scheme }}"
           -configuration Debug
           -destination "${{ matrix.destination }}"

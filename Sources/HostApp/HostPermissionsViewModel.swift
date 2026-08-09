@@ -1,4 +1,3 @@
-import CoreGraphics
 import Foundation
 import Diagnostics
 import Permissions
@@ -13,6 +12,7 @@ final class HostPermissionsViewModel: ObservableObject {
     private let permissionService: any PermissionServiceProtocol
     private let eventLogStore: any EventLogStoreProtocol
     private var previousStates: [PermissionKind: PermissionAuthorizationState] = [:]
+    private var refreshPending = false
 
     init(
         permissionService: any PermissionServiceProtocol,
@@ -64,25 +64,27 @@ final class HostPermissionsViewModel: ObservableObject {
     }
 
     func refresh() async {
+        if isRefreshing {
+            refreshPending = true
+            return
+        }
+
         isRefreshing = true
         lastErrorMessage = nil
-        // The system permission request is now gated behind the in-app
-        // explainer sheet (HostPermissionExplainerSheet).  We only fire it
-        // once the user has seen the explainer AND we haven't already
-        // prompted, so the OS dialog never appears without context.
-        if UserDefaults.standard.bool(forKey: "host.didShowPermissionExplainer"),
-            !UserDefaults.standard.bool(forKey: "host.didRequestScreenRecording") {
-            UserDefaults.standard.set(true, forKey: "host.didRequestScreenRecording")
-            _ = CGRequestScreenCaptureAccess()
-        }
-        let newStatuses = await permissionService.friendlyStatuses()
-        statuses = newStatuses
-        await logPermissionChanges(newStatuses)
+
+        repeat {
+            refreshPending = false
+            let newStatuses = await permissionService.friendlyStatuses()
+            statuses = newStatuses
+            await logPermissionChanges(newStatuses)
+        } while refreshPending
+
         isRefreshing = false
     }
 
-    /// Called by the explainer sheet on dismiss.  Marks the explainer as
-    /// shown so the next refresh() call is free to fire the OS prompt.
+    /// Called by the explainer sheet on dismiss. The actual native request is
+    /// made explicitly by the caller so a state refresh never races the TCC
+    /// prompt it is trying to observe.
     func markExplainerShown() {
         UserDefaults.standard.set(true, forKey: "host.didShowPermissionExplainer")
     }

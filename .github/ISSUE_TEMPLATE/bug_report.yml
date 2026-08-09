@@ -21,7 +21,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: ScreenHarbor version and build
+      label: Vamp version and build
       placeholder: 1.0.0 (1)
     validations:
       required: true

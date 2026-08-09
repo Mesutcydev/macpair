@@ -1,6 +1,6 @@
 # Open-source program readiness
 
-This checklist keeps ScreenHarbor ready for infrastructure, security, tooling,
+This checklist keeps Vamp Terminal ready for infrastructure, security, tooling,
 and maintainer-support programs without overstating the project's maturity.
 Program rules change; verify the linked requirements immediately before applying.
 

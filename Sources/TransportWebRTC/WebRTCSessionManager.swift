@@ -445,25 +445,8 @@ extension WebRTCSessionManager: WebRTCSessionManaging {
             throw WebRTCSessionError.dataChannelUnavailable
         }
         var outbound = message
-        // INVARIANT: every control kind the host auth-gates (HostInputCommandRouter.
-        // validateControlEnvelopeAuth) MUST be listed here — an unsigned envelope is silently
-        // dropped by the host. A kind missing here = a feature that mysteriously does nothing
-        // (this is exactly how .setActiveDisplays / multi-display was dead).
         if let token = withLock({ controlChannelAuthTokenHex }),
-           message.kind == .inputCommand
-            || message.kind == .chatMessage
-            || message.kind == .qualityAdjust
-            || message.kind == .fileTransfer
-            || message.kind == .displaySwitch
-            || message.kind == .setActiveDisplays
-            || message.kind == .requestKeyframe
-            || message.kind == .unlockPassword
-            || message.kind == .clipboardSync
-            || message.kind == .clipboardRequest
-            || message.kind == .terminalOpen
-            || message.kind == .terminalInput
-            || message.kind == .terminalResize
-            || message.kind == .terminalClose {
+           message.kind.requiresControlChannelAuthentication {
             let counter = withLock { () -> UInt64 in
                 outboundControlAuthCounter += 1
                 return outboundControlAuthCounter

@@ -28,39 +28,73 @@ final class ClientClipboardSyncManager: ObservableObject {
     /// Called by ClientSessionCoordinator when a clipboardSync arrives from the host.
     func receive(_ message: ClipboardSyncMessage) {
         guard isEnabled,
+              message.sessionID == sessionID,
               message.source == "host",
               !message.text.isEmpty else { return }
         ClipboardBridge.setString(message.text)
         lastSyncedText = message.text
+        isSyncing = false
     }
 
     // MARK: - Outgoing (client → host)
 
     /// Push the client Mac's current clipboard text to the host.
-    func pushToHost() {
+    @discardableResult
+    func pushToHost() -> Bool {
         guard isEnabled,
               let sessionID, let sendEnvelope,
-              let text = ClipboardBridge.string, !text.isEmpty else { return }
+              let text = ClipboardBridge.string, !text.isEmpty else { return false }
+        return pushTextToHost(text, sessionID: sessionID, sendEnvelope: sendEnvelope)
+    }
+
+    /// Push explicit text to the host. Terminal OSC 52 writes use this path
+    /// so a remote command can opt into the same user-triggered clipboard
+    /// bridge without first mutating the phone clipboard twice.
+    @discardableResult
+    func pushTextToHost(_ text: String) -> Bool {
+        guard isEnabled,
+              let sessionID, let sendEnvelope else { return false }
+        return pushTextToHost(text, sessionID: sessionID, sendEnvelope: sendEnvelope)
+    }
+
+    private func pushTextToHost(
+        _ text: String,
+        sessionID: UUID,
+        sendEnvelope: (DataChannelEnvelope) throws -> Void
+    ) -> Bool {
+        guard !text.isEmpty else { return false }
         let message = ClipboardSyncMessage(sessionID: sessionID, text: text, source: "client")
-        guard let envelope = try? DataChannelEnvelope.clipboardSync(message) else { return }
-        try? sendEnvelope(envelope)
+        guard let envelope = try? DataChannelEnvelope.clipboardSync(message) else { return false }
+        do {
+            try sendEnvelope(envelope)
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Ask the host to push its current clipboard to us.
-    func requestFromHost() {
-        guard isEnabled, let sessionID, let sendEnvelope else { return }
+    @discardableResult
+    func requestFromHost() -> Bool {
+        guard isEnabled, let sessionID, let sendEnvelope else { return false }
         isSyncing = true
         let message = ClipboardRequestMessage(sessionID: sessionID)
         guard let envelope = try? DataChannelEnvelope.clipboardRequest(message) else {
             isSyncing = false
-            return
+            return false
         }
-        try? sendEnvelope(envelope)
+        do {
+            try sendEnvelope(envelope)
+        } catch {
+            isSyncing = false
+            return false
+        }
         // Reset syncing flag after a short window — host reply clears it via receive(_:).
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(3))
             isSyncing = false
         }
+        return true
     }
 
     // MARK: - Session lifecycle

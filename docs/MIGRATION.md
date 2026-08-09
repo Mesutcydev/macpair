@@ -1,8 +1,8 @@
 # Legacy identifier compatibility
 
-ScreenHarbor is the public name of the macOS host and client. Some internal source
-types, persisted keys, and protocol fields still contain historical names such as
-`MacHost`, `MacClient`, or `com.remotedesktop`.
+Vamp Terminal is the public product name. Some internal source types, persisted
+keys, and protocol fields still contain historical names such as `MacHost`,
+`MacClient`, or `com.remotedesktop`.
 
 Those identifiers are intentionally retained where changing them could:
 
@@ -12,6 +12,7 @@ Those identifiers are intentionally retained where changing them could:
 - create an unsafe migration in a security-sensitive path.
 
 They are implementation details, not public branding. New user-facing text, bundle
-identifiers, URL schemes, Bonjour services, documentation, and release artifacts use
-ScreenHarbor identifiers. A legacy identifier should only be renamed with a
+identifiers, URL schemes, documentation, and release artifacts use Vamp identifiers.
+The existing `_screenharbor._tcp` service name remains because it is part of the
+paired-client wire contract. A legacy identifier should only be renamed with a
 documented compatibility migration and regression tests.

@@ -12,19 +12,25 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
     public var supportsAudio: Bool
     public var supportsMacClient: Bool
     public var supportsHDR10: Bool
+    public var supportsTerminal: Bool
+    public var supportsMultipleTerminals: Bool
 
     public init(
         videoCodec: VideoCodec,
         supportsMultiDisplay: Bool,
         supportsAudio: Bool,
         supportsMacClient: Bool,
-        supportsHDR10: Bool = false
+        supportsHDR10: Bool = false,
+        supportsTerminal: Bool = false,
+        supportsMultipleTerminals: Bool = false
     ) {
         self.videoCodec = videoCodec
         self.supportsMultiDisplay = supportsMultiDisplay
         self.supportsAudio = supportsAudio
         self.supportsMacClient = supportsMacClient
         self.supportsHDR10 = supportsHDR10
+        self.supportsTerminal = supportsTerminal
+        self.supportsMultipleTerminals = supportsMultipleTerminals
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -33,6 +39,8 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         case supportsAudio
         case supportsMacClient
         case supportsHDR10
+        case supportsTerminal
+        case supportsMultipleTerminals
     }
 
     public init(from decoder: Decoder) throws {
@@ -42,6 +50,8 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         supportsAudio = try container.decode(Bool.self, forKey: .supportsAudio)
         supportsMacClient = try container.decode(Bool.self, forKey: .supportsMacClient)
         supportsHDR10 = try container.decodeIfPresent(Bool.self, forKey: .supportsHDR10) ?? false
+        supportsTerminal = try container.decodeIfPresent(Bool.self, forKey: .supportsTerminal) ?? false
+        supportsMultipleTerminals = try container.decodeIfPresent(Bool.self, forKey: .supportsMultipleTerminals) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -51,6 +61,8 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         try container.encode(supportsAudio, forKey: .supportsAudio)
         try container.encode(supportsMacClient, forKey: .supportsMacClient)
         try container.encode(supportsHDR10, forKey: .supportsHDR10)
+        try container.encode(supportsTerminal, forKey: .supportsTerminal)
+        try container.encode(supportsMultipleTerminals, forKey: .supportsMultipleTerminals)
     }
 }
 
@@ -75,7 +87,9 @@ public enum CapabilityNegotiator {
             supportsMacClient: host.contains(.supportsMacClient) && client.contains(.supportsMacClient),
             supportsHDR10: codec == .hevc
                 && host.contains(.supportsHDR10)
-                && client.contains(.supportsHDR10)
+                && client.contains(.supportsHDR10),
+            supportsTerminal: host.contains(.supportsTerminal) && client.contains(.supportsTerminal),
+            supportsMultipleTerminals: host.contains(.supportsMultipleTerminals) && client.contains(.supportsMultipleTerminals)
         )
     }
 }

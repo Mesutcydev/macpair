@@ -10,7 +10,7 @@ protocol ClientSettingsSyncing: AnyObject {
 
 final class ClientSettingsSyncService: ClientSettingsSyncing {
     private enum Keys {
-        static let featureSettings = "uk.mesut.screenharbor.ios.featureSettings"
+        static let featureSettings = "com.mesutcy.remotedesktop.terminal.featureSettings"
     }
 
     private let defaults: UserDefaults

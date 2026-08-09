@@ -181,5 +181,5 @@ struct KeysScreen: View {
 }
 
 #Preview("KeysScreen") {
-    KeysScreen(environment: ClientAppEnvironment.makeDefault(clientName: "ScreenHarbor iOS"))
+    KeysScreen(environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client"))
 }

@@ -16,9 +16,7 @@ import SharedModels
 import SharedProtocol
 import SharedUtilities
 import TransportWebRTC
-#if SWIFT_PACKAGE
 import HostWidgetShared
-#endif
 #if os(macOS)
 import ServiceManagement
 import IOKit.pwr_mgt
@@ -46,6 +44,7 @@ final class HostAppEnvironment: ObservableObject {
     }
 
     let hostIdentity: HostIdentity
+    let productMode: HostProductMode
     let captureEngine: any CaptureEngineProtocol
     let encoderPipeline: any EncoderPipelineProtocol
     let displayLayoutProvider: any DisplayLayoutProviding
@@ -78,6 +77,7 @@ final class HostAppEnvironment: ObservableObject {
     #if os(macOS)
     let audioPipeline: HostAudioCapturePipeline
     let terminalService: HostTerminalService
+    let browserControlService: HostBrowserControlService
     #endif
 
     private let pathMonitor = NWPathMonitor()
@@ -94,6 +94,17 @@ final class HostAppEnvironment: ObservableObject {
     /// Terminal Mode is opt-in: even an authenticated client can't spawn a
     /// shell unless the user explicitly turns it on in host settings.
     @Published var terminalModeEnabled: Bool
+    /// Loopback browser-control status. Safari access is deliberately separate
+    /// from the WebRTC media session and is exposed through Tailscale Serve.
+    #if os(macOS)
+    @Published private(set) var browserControlStatus = HostBrowserControlStatus(
+        running: false,
+        port: nil,
+        pairingCode: "",
+        pairingCodeExpiresAt: .distantPast,
+        lastError: nil
+    )
+    #endif
     /// When on, hold a power assertion so this Mac never idle-sleeps while the host runs — keeping it
     /// reachable for remote connections. This is the practical answer for an Apple-Silicon Mac on
     /// Wi-Fi with no Sleep Proxy, which the OS cannot wake from sleep at all (so we keep it awake
@@ -138,6 +149,7 @@ final class HostAppEnvironment: ObservableObject {
         signalingService: any SessionCoordinatorSignaling,
         webRTCSessionManager: any WebRTCSessionManaging,
         discoveryAdvertiser: any HostDiscoveryAdvertiserProtocol,
+        productMode: HostProductMode = .full,
         recordingService: SessionRecordingService = SessionRecordingService()
     ) {
         let preferredMode = UserDefaults.standard.string(forKey: Keys.sessionMode)
@@ -146,7 +158,9 @@ final class HostAppEnvironment: ObservableObject {
         let storedMode = runtimePolicy.enforcedSessionMode ?? preferredMode
         let storedLowPower = UserDefaults.standard.bool(forKey: Keys.lowPowerModeEnabled)
         // Terminal Mode defaults to OFF — opt-in only.
-        let storedTerminalMode = UserDefaults.standard.bool(forKey: Keys.terminalModeEnabled)
+        let storedTerminalMode = productMode.isTerminalOnly
+            ? true
+            : UserDefaults.standard.bool(forKey: Keys.terminalModeEnabled)
         // Keep-awake defaults to OFF — opt-in only.
         let storedKeepAwake = UserDefaults.standard.bool(forKey: Keys.keepAwakeEnabled)
         let canonicalHostIdentity: HostIdentity
@@ -167,6 +181,7 @@ final class HostAppEnvironment: ObservableObject {
         }
 
         self.hostIdentity = canonicalHostIdentity
+        self.productMode = productMode
         self.captureEngine = captureEngine
         self.encoderPipeline = encoderPipeline
         self.displayLayoutProvider = displayLayoutProvider
@@ -206,6 +221,7 @@ final class HostAppEnvironment: ObservableObject {
         let pipeline = HostAudioCapturePipeline()
         self.audioPipeline = pipeline
         self.terminalService = HostTerminalService()
+        self.browserControlService = HostBrowserControlService()
         #endif
         self.manualLowPowerModeEnabled = storedLowPower
         self.terminalModeEnabled = storedTerminalMode
@@ -228,7 +244,8 @@ final class HostAppEnvironment: ObservableObject {
         )
         self.discoveryAdvertiserViewModel = DiscoveryAdvertiserViewModel(
             hostIdentity: canonicalHostIdentity,
-            advertiser: discoveryAdvertiser
+            advertiser: discoveryAdvertiser,
+            productMode: productMode
         )
         self.sessionCoordinator = HostSessionCoordinator(
             hostIdentity: canonicalHostIdentity,
@@ -245,6 +262,7 @@ final class HostAppEnvironment: ObservableObject {
             sessionModeController: self.sessionModeController,
             performanceStateController: self.performanceStateController,
             fileTransferManager: self.fileTransferManager,
+            productMode: productMode,
             ensureDiscoveryAdvertising: { [weak discoveryAdvertiserViewModel = self.discoveryAdvertiserViewModel] in
                 await discoveryAdvertiserViewModel?.ensureAdvertising()
             }
@@ -364,6 +382,25 @@ final class HostAppEnvironment: ObservableObject {
         self.inputCommandRouter.onSessionEnded = { [weak terminalService = self.terminalService] in
             terminalService?.sessionDidEnd()
         }
+
+        #if os(macOS)
+        self.browserControlService.terminalModeProvider = { [weak self] in
+            self?.terminalModeEnabled ?? false
+        }
+        self.browserControlService.readClipboard = {
+            NSPasteboard.general.string(forType: .string)
+        }
+        self.browserControlService.writeClipboard = { text in
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        }
+        self.browserControlService.onStatusChange = { [weak self] status in
+            Task { @MainActor [weak self] in
+                self?.browserControlStatus = status
+            }
+        }
+        self.browserControlStatus = self.browserControlService.currentStatus()
+        #endif
         #endif
 
         if let bonjourSignaling = self.signalingService as? BonjourSignalingService,
@@ -402,7 +439,7 @@ final class HostAppEnvironment: ObservableObject {
         guard appNapActivity == nil else { return }
         appNapActivity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiatedAllowingIdleSystemSleep, .suddenTerminationDisabled],
-            reason: "ScreenHarbor Host stays reachable for incoming remote connections"
+            reason: "Vamp Host stays reachable for incoming remote connections"
         )
     }
     #endif
@@ -411,7 +448,7 @@ final class HostAppEnvironment: ObservableObject {
         (displayLayoutProvider as? any DisplayLayoutObserving)?.layoutChanges()
     }
 
-    static func placeholder() -> HostAppEnvironment {
+    static func placeholder(mode: HostProductMode = .full) -> HostAppEnvironment {
         let cryptoIdentity = CryptoIdentityService(tag: "com.remotedesktop.host.p256")
         let fingerprint = cryptoIdentity.fingerprint
         let host = HostIdentity(
@@ -425,18 +462,33 @@ final class HostAppEnvironment: ObservableObject {
         let services = PlaceholderHostServices()
         let eventLogStore = InMemoryEventLogStore()
         let recordingService = SessionRecordingService()
-        let runtimePolicy = currentRuntimePolicy()
+        let runtimePolicy = currentRuntimePolicy(for: mode)
         #if os(macOS)
         let permissionService: any PermissionServiceProtocol = MacHostPermissionService(policy: runtimePolicy)
         let displayLayoutProvider: any DisplayLayoutProviding = CoreGraphicsDisplayLayoutProvider()
-        let captureEngine: any CaptureEngineProtocol = ScreenCaptureEngine()
-        let encoder = VideoToolboxEncoder()
-        let encoderBridge = EncoderCaptureFrameBridge(encoder: encoder)
-        encoderBridge.sampleBufferMirroringHandler = { sampleBuffer, _ in
-            recordingService.append(sampleBuffer: sampleBuffer)
+        let captureEngine: any CaptureEngineProtocol
+        let encoderPipeline: any EncoderPipelineProtocol
+        let encoderBridge: EncoderCaptureFrameBridge?
+        if mode.isTerminalOnly {
+            // Keep the light product free of ScreenCaptureKit and VideoToolbox
+            // initialization. The coordinator never starts these services in
+            // terminal-only mode, but using placeholders here also keeps launch
+            // and permission checks terminal-only.
+            captureEngine = services
+            encoderPipeline = services
+            encoderBridge = nil
+        } else {
+            let screenCaptureEngine = ScreenCaptureEngine()
+            let encoder = VideoToolboxEncoder()
+            let bridge = EncoderCaptureFrameBridge(encoder: encoder)
+            bridge.sampleBufferMirroringHandler = { sampleBuffer, _ in
+                recordingService.append(sampleBuffer: sampleBuffer)
+            }
+            screenCaptureEngine.setFrameReceiver(bridge)
+            captureEngine = screenCaptureEngine
+            encoderPipeline = encoder
+            encoderBridge = bridge
         }
-        captureEngine.setFrameReceiver(encoderBridge)
-        let encoderPipeline: any EncoderPipelineProtocol = encoder
         #else
         let permissionService: any PermissionServiceProtocol = services
         let displayLayoutProvider: any DisplayLayoutProviding = services
@@ -445,7 +497,7 @@ final class HostAppEnvironment: ObservableObject {
         #endif
         #if os(macOS)
         let inputService: any InputInjectionServiceProtocol
-        if runtimePolicy.supportsRemoteInput {
+        if !mode.isTerminalOnly && runtimePolicy.supportsRemoteInput {
             let inputBridge = CGEventInputBridge()
             let dlp = displayLayoutProvider
             inputService = HostInputInjectionService(
@@ -480,6 +532,7 @@ final class HostAppEnvironment: ObservableObject {
             signalingService: signalingService,
             webRTCSessionManager: webRTCSessionManager,
             discoveryAdvertiser: BonjourHostDiscoveryAdvertiser(),
+            productMode: mode,
             recordingService: recordingService
         )
         #if os(macOS)
@@ -489,8 +542,8 @@ final class HostAppEnvironment: ObservableObject {
         return environment
     }
 
-    private static func currentRuntimePolicy() -> MacHostRuntimePolicy {
-        return MacHostRuntimePolicy.current
+    private static func currentRuntimePolicy(for mode: HostProductMode) -> MacHostRuntimePolicy {
+        mode.isTerminalOnly ? .terminalOnly : .current
     }
 
     private static func currentHostDisplayName() -> String {
@@ -551,7 +604,7 @@ final class HostAppEnvironment: ObservableObject {
         let snapshot = HostWidgetSnapshot(
             phase: .idle,
             statusTitle: "host app closed",
-            hostName: "screenharbor host",
+            hostName: "vamp host",
             primaryAddress: nil,
             addressLabel: nil,
             connectedClient: nil,
@@ -565,13 +618,29 @@ final class HostAppEnvironment: ObservableObject {
     func startRuntimeIfNeeded() async {
         await permissionsViewModel.refresh()
         await discoveryAdvertiserViewModel.startIfNeeded()
+        #if os(macOS)
+        // Safari access is loopback-only; the operator explicitly exposes it
+        // through Tailscale Serve when they want browser control away from the
+        // Mac. Starting the local service with the host keeps the QR/code flow
+        // predictable without opening a LAN listener.
+        browserControlService.start()
+        #endif
         await sessionCoordinator.startSession()
     }
 
     func stopRuntime() async {
+        #if os(macOS)
+        browserControlService.stop()
+        #endif
         await sessionCoordinator.stopSession()
         await discoveryAdvertiserViewModel.stop()
     }
+
+    #if os(macOS)
+    func rotateBrowserPairingCode() {
+        browserControlService.rotatePairingCode()
+    }
+    #endif
 
     func resolveTrustPrompt(approved: Bool) {
         trustPromptContinuation?.resume(returning: approved)
@@ -678,12 +747,16 @@ final class HostAppEnvironment: ObservableObject {
     }
 
     func setTerminalModeEnabled(_ isEnabled: Bool) {
+        if productMode.isTerminalOnly {
+            terminalModeEnabled = true
+            return
+        }
         terminalModeEnabled = isEnabled
         UserDefaults.standard.set(isEnabled, forKey: Keys.terminalModeEnabled)
         #if os(macOS)
         // Turning the feature off mid-session must kill any live shell.
         if !isEnabled {
-            terminalService.sessionDidEnd()
+            terminalService.sessionDidEnd(notifyClient: true, reason: "terminal-disabled")
         }
         #endif
         Task {
@@ -817,7 +890,7 @@ final class HostAppEnvironment: ObservableObject {
         IOPMAssertionCreateWithName(
             kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),
-            "ScreenHarbor Host is actively streaming to a remote client" as CFString,
+            "Vamp Host is actively streaming to a remote client" as CFString,
             &streamingAssertionID
         )
     }
@@ -833,7 +906,7 @@ final class HostAppEnvironment: ObservableObject {
         IOPMAssertionCreateWithName(
             kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),
-            "ScreenHarbor Host is keeping this Mac awake so it stays reachable for remote connections" as CFString,
+            "Vamp Host is keeping this Mac awake so it stays reachable for remote connections" as CFString,
             &keepAwakeAssertionID
         )
     }

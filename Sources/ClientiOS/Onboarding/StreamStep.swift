@@ -9,7 +9,7 @@ struct StreamStep: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            PRScreenHeader(title: "pair", host: "screenharbor.host", state: .live)
+            PRScreenHeader(title: "pair", host: "vamp.host", state: .live)
 
             VStack(spacing: 12) {
                 terminalCard
@@ -77,7 +77,7 @@ struct StreamStep: View {
                     Spacer(minLength: 0)
                 }
 
-                Text("screenharbor pending --json")
+                Text("vamp pending --json")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(PR.dim)
                     .lineLimit(1)

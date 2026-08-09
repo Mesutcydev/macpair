@@ -256,7 +256,7 @@ private struct HostMinimalDashboard: View {
                 onContinue: {
                     permissionsViewModel.markExplainerShown()
                     showPermissionExplainer = false
-                    Task { await permissionsViewModel.refresh() }
+                    Task { await permissionsViewModel.requestPrompt(for: .screenRecording) }
                 }
             )
             .frame(width: 460)
@@ -534,7 +534,7 @@ private struct HostMinimalDashboard: View {
             // ── header ───────────────────────────────────────────
             HStack(spacing: 7) {
                 HostPulseDot(color: statusColor)
-                Text("screenharbor host")
+                Text("vamp host")
                     .font(.system(size: 12.5, weight: .bold, design: .monospaced))
                     .foregroundStyle(AppColor.textPrimary)
                     .tracking(0.4)
@@ -1107,8 +1107,10 @@ private struct HostSettingsView: View {
     let showOnboarding: () -> Void
     @State private var pendingMaxFileSize = ""
     @AppStorage("host.remoteUnlock.enabled") private var remoteUnlockEnabled = true
+    @AppStorage("host.vampTerminal.promo.dismissed") private var vampTerminalPromoDismissed = false
     @State private var showPairedDevices = false
     @State private var showDiagnostics = false
+    @State private var browserCommandCopied = false
 
     var body: some View {
         Form {
@@ -1218,14 +1220,76 @@ private struct HostSettingsView: View {
             }
 
             Section("Terminal Mode") {
+                if !vampTerminalPromoDismissed {
+                    VampTerminalHostPromoCard {
+                        vampTerminalPromoDismissed = true
+                    }
+                }
                 Toggle("Enabled", isOn: Binding(
                     get: { environment.terminalModeEnabled },
                     set: { environment.setTerminalModeEnabled($0) }
                 ))
-                Text("When on, your paired client Mac can open an interactive shell on this Mac and run any command you could run in Terminal.app. Turn off if you don't need it — turning off mid-session kills the active shell.")
+                Text("When on, a paired Vamp Terminal client can open up to 8 independent interactive shell tabs on this Mac and run commands you could run in Terminal.app. Turn off if you don't need it — disabling Terminal Mode kills every active tab.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            #if os(macOS)
+            Section("Safari control") {
+                VStack(alignment: .leading, spacing: 7) {
+                    Label("Task-chat terminal in Safari", systemImage: "safari")
+                        .font(.headline)
+                    Text("The host serves a terminal-only browser workspace on loopback. Expose it privately with Tailscale Serve; no public port or iOS app is required.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let port = environment.browserControlStatus.port {
+                    LabeledContent("Local service", value: "127.0.0.1:\(port)")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Pairing code")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 10) {
+                            Text(environment.browserControlStatus.pairingCode.isEmpty ? "Starting…" : environment.browserControlStatus.pairingCode)
+                                .font(.title3.monospacedDigit().weight(.semibold))
+                                .textSelection(.enabled)
+                            Spacer()
+                            Button("Rotate") {
+                                environment.rotateBrowserPairingCode()
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+
+                    if let serveCommand = environment.browserControlStatus.serveCommand {
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(serveCommand, forType: .string)
+                            browserCommandCopied = true
+                        } label: {
+                            Label(browserCommandCopied ? "Serve command copied" : "Copy Tailscale Serve command", systemImage: browserCommandCopied ? "checkmark" : "doc.on.doc")
+                        }
+                        .controlSize(.small)
+                        .accessibilityHint("Paste the command into Terminal on this Mac, then open the resulting tailnet HTTPS URL in Safari.")
+                        Text(serveCommand)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .lineLimit(2)
+                    }
+                } else if let error = environment.browserControlStatus.lastError {
+                    Text("Browser service unavailable: \(error)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Start the host runtime to generate a private browser endpoint.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            #endif
 
             Section("Remote Unlock") {
                 Toggle("Enabled", isOn: $remoteUnlockEnabled)
@@ -1278,6 +1342,60 @@ private struct HostSettingsView: View {
             environment.lowPowerModeService.refresh()
             pendingMaxFileSize = "\(environment.fileTransferSettings.maxFileSizeMB)"
         }
+    }
+}
+
+/// Quiet, dismissible promotion for the companion open-source iPhone/iPad
+/// terminal. It lives next to Terminal Mode so the host operator sees the
+/// feature at the moment it becomes useful, without turning settings into an
+/// advertisement-heavy surface.
+private struct VampTerminalHostPromoCard: View {
+    @Environment(\.openURL) private var openURL
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "iphone.and.arrow.forward")
+                    .font(.title3.weight(.semibold))
+                    .frame(width: 34, height: 34)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Vamp Terminal for iPhone & iPad")
+                        .font(.callout.weight(.semibold))
+                    Text("Use up to 8 terminal tabs over Tailscale, or control the same task workspace from Safari.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Dismiss Vamp Terminal promotion")
+            }
+
+            Button {
+                openURL(HostAppLinks.vampTerminalURL)
+            } label: {
+                Label("View open-source project", systemImage: "arrow.up.right.square")
+                    .font(.caption.weight(.semibold))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(11)
+        .background(.quaternary.opacity(0.55), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .stroke(.secondary.opacity(0.2), lineWidth: 1)
+        }
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -1397,7 +1515,7 @@ private struct HostOnboardingView: View {
 
                             guideStep(1, "Open Notification Center", "Click the clock / date in the menu bar.")
                             guideStep(2, "Edit Widgets", "Scroll down and click “Edit Widgets”.")
-                            guideStep(3, "Search for ScreenHarbor Host", "Find it in the widget gallery.")
+                            guideStep(3, "Search for Vamp Host", "Find it in the widget gallery.")
                             guideStep(4, "Drag the medium size onto your desktop", "Use the medium size — it has the start, stop, and restart buttons.")
 
                             Label {
@@ -1590,14 +1708,14 @@ private struct HostOnboardingView: View {
     }
 }
 
-/// A small native SwiftUI mock of the medium "ScreenHarbor Host" desktop widget so users
+/// A small native SwiftUI mock of the medium "Vamp Host" desktop widget so users
 /// can recognize it in the widget gallery. Static — not interactive.
 private struct HostWidgetMockPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Circle().fill(Color.green).frame(width: 7, height: 7)
-                Text("screenharbor host")
+                Text("vamp host")
                     .font(.system(.caption, design: .default).weight(.semibold))
                     .foregroundStyle(.primary)
                 Spacer()
@@ -1659,7 +1777,7 @@ private struct HostWidgetHelpView: View {
             VStack(alignment: .leading, spacing: 10) {
                 step(1, "Open Notification Center", "Click the date & time in the menu bar.")
                 step(2, "Edit Widgets", "Scroll down and click “Edit Widgets”.")
-                step(3, "Add “ScreenHarbor Host”", "Find it in the gallery and drag it out. Use the medium size for start / stop / restart buttons.")
+                step(3, "Add “Vamp Host”", "Find it in the gallery and drag it out. Use the medium size for start / stop / restart buttons.")
             }
 
             Label {
@@ -2946,8 +3064,8 @@ private struct HostPermissionExplainerSheet: View {
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(.primary)
                 Text(supportsRemoteInput
-                    ? "ScreenHarbor Host needs two macOS privacy permissions to stream your screen and accept input from another Mac. Both prompts will appear next."
-                    : "ScreenHarbor Host needs Screen Recording permission to stream your Mac display.")
+                    ? "Vamp Host needs two macOS privacy permissions to stream your screen and accept input from another Mac. Both prompts will appear next."
+                    : "Vamp Host needs Screen Recording permission to stream your Mac display.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

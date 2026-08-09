@@ -250,7 +250,7 @@ payload = {
     "sha256": sha,
     "appleNotarized": False,
     "codeSignature": "ad-hoc",
-    "sourceRepository": "https://github.com/Mesutcydev/screenharbor",
+    "sourceRepository": "https://github.com/Mesutcydev/macpair",
     "sourceCommit": source_commit,
     "sourceCommitDate": source_commit_date,
     "sourceTreeState": source_tree_state,

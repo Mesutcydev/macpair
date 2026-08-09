@@ -27,9 +27,6 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
-
       - name: Verify Swift package lock
         run: |
           swift package resolve
@@ -38,31 +35,38 @@ jobs:
       - name: Run core tests
         run: swift test
 
-      - name: Generate Xcode project
-        run: xcodegen generate --spec screenharbor-project.yml
-
       - name: Resolve app dependencies
         run: >-
           xcodebuild
           -resolvePackageDependencies
-          -project ScreenHarbor.xcodeproj
+          -project RemoteDesktopToolApps.xcodeproj
 
       - name: Build host
         run: >-
           xcodebuild
-          -project ScreenHarbor.xcodeproj
-          -scheme ScreenHarborHost
+          -project RemoteDesktopToolApps.xcodeproj
+          -scheme MacHost
           -configuration Debug
           -destination 'platform=macOS'
           CODE_SIGNING_ALLOWED=NO
           build
 
-      - name: Build and test client
+      - name: Build terminal-only macOS host
         run: >-
           xcodebuild
-          -project ScreenHarbor.xcodeproj
-          -scheme ScreenHarborClient
+          -project RemoteDesktopToolApps.xcodeproj
+          -scheme VampTerminalHost
           -configuration Debug
           -destination 'platform=macOS'
           CODE_SIGNING_ALLOWED=NO
-          test
+          build
+
+      - name: Build iOS terminal client
+        run: >-
+          xcodebuild
+          -project RemoteDesktopToolApps.xcodeproj
+          -scheme VampTerminalApp
+          -configuration Debug
+          -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO
+          build
