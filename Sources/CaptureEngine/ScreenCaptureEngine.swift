@@ -1,6 +1,7 @@
 #if os(macOS)
 import AVFoundation
 import CoreMedia
+import CoreGraphics
 import Foundation
 import IOKit.pwr_mgt
 import ScreenCaptureKit
@@ -193,6 +194,11 @@ public final class ScreenCaptureEngine: NSObject, CaptureEngineProtocol, @unchec
             streamConfig.queueDepth = config.queueDepth
             if dynamicRange == .sdr {
                 streamConfig.pixelFormat = config.pixelFormat
+                // Normalize the SDR wire path so a wide-gamut display profile does
+                // not arrive at the encoder as P3/HDR-ish data that the client then
+                // presents as BT.709. This keeps dark terminal UI contrast intact.
+                streamConfig.colorSpaceName = CGColorSpace.sRGB
+                streamConfig.colorMatrix = kCVImageBufferYCbCrMatrix_ITU_R_709_2
             }
             if dynamicRange == .hdr10 {
                 // The HDR preset doesn't pin a pixel format, but the encoder/decoder are

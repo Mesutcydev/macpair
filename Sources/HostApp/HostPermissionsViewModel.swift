@@ -23,7 +23,9 @@ final class HostPermissionsViewModel: ObservableObject {
     }
 
     var blockers: [FriendlyPermissionStatus] {
-        statuses.filter { $0.isRequired && !$0.isGranted }
+        // A temporarily unknown TCC state means the privacy daemon is still
+        // checking. Only a confirmed denial should block host readiness.
+        statuses.filter { $0.isRequired && $0.authorizationState == .denied }
     }
 
     var allRequiredGranted: Bool {
@@ -63,7 +65,11 @@ final class HostPermissionsViewModel: ObservableObject {
             : "Screen Recording is required for streaming. This build runs in View Only mode — remote keyboard and pointer control are available in the direct-download host."
     }
 
-    func refresh() async {
+    /// Re-read TCC state without presenting OS permission sheets. The parameter
+    /// remains source-compatible with older host call sites; prompting is only
+    /// allowed from an explicit user action.
+    func refresh(requestOSPromptIfNeeded: Bool = true) async {
+        _ = requestOSPromptIfNeeded
         if isRefreshing {
             refreshPending = true
             return
@@ -135,11 +141,14 @@ final class HostPermissionsViewModel: ObservableObject {
 
     func openSettings(for kind: PermissionKind) async {
         do {
-            // Trigger the native permission prompt first so macOS creates the
-            // app entry in Privacy & Security before deep-linking to Settings.
+            // Register the TCC entry only when needed. The permission service
+            // caps each native prompt to one per permission kind per process.
             switch kind {
             case .screenRecording, .accessibility:
-                _ = try await permissionService.requestPermission(for: kind)
+                let current = await permissionService.refreshState(for: kind)
+                if current.authorizationState != .granted {
+                    _ = try await permissionService.requestPermission(for: kind)
+                }
             case .localNetwork, .microphone:
                 break
             }

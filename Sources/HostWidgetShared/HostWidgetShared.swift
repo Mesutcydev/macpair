@@ -152,8 +152,13 @@ public enum HostWidgetStore {
     /// Signed widget builds use their App Group. The account-independent website
     /// build has no Apple team entitlement and uses an ordinary app support folder.
     private static var containerURL: URL? {
-        if let url = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: HostWidgetConstants.appGroup) {
+        // An unsigned direct-download build can still see an old on-disk App Group
+        // container even though it has no application-groups entitlement. Use the
+        // shared container only for sandboxed builds; otherwise keep state isolated
+        // in the Vamp Host Application Support directory.
+        if ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil,
+           let url = FileManager.default
+                .containerURL(forSecurityApplicationGroupIdentifier: HostWidgetConstants.appGroup) {
             return url
         }
         return FileManager.default.homeDirectoryForCurrentUser

@@ -9,6 +9,9 @@ import ScreenCaptureKit
 
 public final class MacHostPermissionService: PermissionServiceProtocol {
     private let policy: MacHostRuntimePolicy
+    /// Hard cap: each permission kind may present at most one OS sheet per process.
+    private static let osPromptLock = NSLock()
+    private static var osPromptedKinds: Set<PermissionKind> = []
 
     public init(policy: MacHostRuntimePolicy = .current) {
         self.policy = policy
@@ -41,12 +44,24 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
             guard policy.supportsScreenCapture else {
                 return PermissionState(kind: kind, authorizationState: .restricted, lastCheckedAt: Date())
             }
+            if CGPreflightScreenCaptureAccess() {
+                return await screenRecordingState()
+            }
+            guard Self.claimOSPrompt(for: .screenRecording) else {
+                return await screenRecordingState()
+            }
             await MainActor.run {
                 NSApplication.shared.activate(ignoringOtherApps: true)
                 _ = CGRequestScreenCaptureAccess()
             }
         case .accessibility:
             guard policy.canRequestAccessibilityPermission else {
+                return refreshStateSync(for: kind)
+            }
+            if AXIsProcessTrusted() {
+                return refreshStateSync(for: kind)
+            }
+            guard Self.claimOSPrompt(for: .accessibility) else {
                 return refreshStateSync(for: kind)
             }
             let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
@@ -58,6 +73,14 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
             break
         }
         return await refreshState(for: kind)
+    }
+
+    private static func claimOSPrompt(for kind: PermissionKind) -> Bool {
+        osPromptLock.lock()
+        defer { osPromptLock.unlock() }
+        if osPromptedKinds.contains(kind) { return false }
+        osPromptedKinds.insert(kind)
+        return true
     }
 
     public func friendlyStatuses() async -> [FriendlyPermissionStatus] {
@@ -119,53 +142,75 @@ public final class MacHostPermissionService: PermissionServiceProtocol {
     }
 
     private func screenRecordingState() async -> PermissionState {
-        // Three-way race. All three run concurrently; first to finish wins.
-        //
-        // Why not call CGPreflightScreenCaptureAccess() before withCheckedContinuation:
-        // on macOS 26 beta the privacy daemon can stall, making the synchronous C call
-        // block indefinitely — the timeout would never be reached. Running it on a
-        // DispatchQueue thread keeps it off the Swift cooperative pool.
+        // Never call ScreenCaptureKit while CoreGraphics says access is denied:
+        // SCShareableContent can present the native permission sheet during a
+        // polling refresh, which caused repeated prompts during host setup.
+        // Keep the synchronous preflight off Swift's cooperative pool because
+        // the macOS privacy daemon can stall it on some OS releases.
+        let preflightGranted = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                continuation.resume(returning: CGPreflightScreenCaptureAccess())
+            }
+        }
+
+        if !preflightGranted {
+            return PermissionState(
+                kind: .screenRecording,
+                authorizationState: .denied,
+                lastCheckedAt: Date()
+            )
+        }
+
+        // Once preflight is granted, SCK is only a settling/availability check;
+        // trust the grant if the probe is still catching up after System Settings.
         return await withCheckedContinuation { continuation in
             let lock = NSLock()
             var resumed = false
+            var shareableContent: ScreenRecordingPermissionResolver.ShareableContentSignal?
+            var timedOut = false
 
-            func resumeOnce(_ authState: PermissionAuthorizationState) {
+            @inline(__always)
+            func withLock<T>(_ body: () -> T) -> T {
                 lock.lock()
                 defer { lock.unlock() }
-                guard !resumed else { return }
-                resumed = true
+                return body()
+            }
+
+            func considerResolve() {
+                let result: PermissionAuthorizationState? = withLock {
+                    guard !resumed else { return nil }
+                    guard let state = ScreenRecordingPermissionResolver.resolve(
+                        preflight: .granted,
+                        shareableContent: shareableContent,
+                        timedOut: timedOut
+                    ) else { return nil }
+                    resumed = true
+                    return state
+                }
+                guard let result else { return }
                 continuation.resume(returning: PermissionState(
                     kind: .screenRecording,
-                    authorizationState: authState,
+                    authorizationState: result,
                     lastCheckedAt: Date()
                 ))
             }
 
-            // Path A: synchronous C API on a background OS thread (not cooperative pool)
-            DispatchQueue.global(qos: .userInitiated).async {
-                if CGPreflightScreenCaptureAccess() {
-                    resumeOnce(.granted)
-                }
-                // If false, don't resolve — SCShareableContent may still confirm granted.
-            }
-
-            // Path B: ScreenCaptureKit probe (authoritative when C API lies)
             Task {
                 do {
                     let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                    resumeOnce(content.displays.isEmpty ? .denied : .granted)
+                    withLock {
+                        shareableContent = content.displays.isEmpty ? .deniedEmptyDisplays : .granted
+                    }
                 } catch {
-                    resumeOnce(.denied)
+                    withLock { shareableContent = .error }
                 }
+                considerResolve()
             }
 
-            // Path C: 5-second ceiling so UI never stalls.
-            // Returns .unknown (not .denied) so the UI shows "Needs checking"
-            // rather than "Blocked" when the TCC daemon is temporarily stalled
-            // (common on macOS 26+ after install or OS update).
             Task {
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
-                resumeOnce(.unknown)
+                withLock { timedOut = true }
+                considerResolve()
             }
         }
     }

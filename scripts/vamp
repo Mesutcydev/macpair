@@ -72,6 +72,20 @@ err() { printf '%s\n' "$*" >&2; }
 
 resolve_app_path() {
   local candidate
+  # Direct-download installs are often not indexed by Spotlight yet. Prefer the
+  # conventional app locations before falling back to metadata search.
+  for candidate in "/Applications/Vamp Host.app" "/Applications/Vamp Terminal Host.app" "/Applications/MacPair Host.app" "/Applications/ScreenHarbor Host.app"; do
+    if [[ -d "$candidate" ]]; then
+      if [[ "$candidate" == "/Applications/Vamp Terminal Host.app" && -z "$HOST_BUNDLE_ID_OVERRIDE" ]]; then
+        BUNDLE_ID="$LIGHT_BUNDLE_ID"
+        [[ -n "$URL_SCHEME_OVERRIDE" ]] || URL_SCHEME="vampterminalhost"
+        [[ -n "$HOST_DISPLAY_OVERRIDE" ]] || APP_DISPLAY_NAME="Vamp Terminal Host"
+      fi
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+
   candidate=$(mdfind "kMDItemCFBundleIdentifier == '$BUNDLE_ID'" 2>/dev/null | head -1 || true)
   if [[ -n "$candidate" && -d "$candidate" ]]; then
     printf '%s' "$candidate"
@@ -91,17 +105,6 @@ resolve_app_path() {
     fi
   fi
 
-  for candidate in "/Applications/Vamp Host.app" "/Applications/Vamp Terminal Host.app" "/Applications/ScreenHarbor Host.app"; do
-    if [[ -d "$candidate" ]]; then
-      if [[ "$candidate" == "/Applications/Vamp Terminal Host.app" && -z "$HOST_BUNDLE_ID_OVERRIDE" ]]; then
-        BUNDLE_ID="$LIGHT_BUNDLE_ID"
-        [[ -n "$URL_SCHEME_OVERRIDE" ]] || URL_SCHEME="vampterminalhost"
-        [[ -n "$HOST_DISPLAY_OVERRIDE" ]] || APP_DISPLAY_NAME="Vamp Terminal Host"
-      fi
-      printf '%s' "$candidate"
-      return 0
-    fi
-  done
   return 1
 }
 
