@@ -1,10 +1,6 @@
 # Contributing
 
-<<<<<<< HEAD
-Thanks for helping improve MacPair.
-=======
 Thanks for helping improve Vamp Terminal.
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
 ## Development setup
 
@@ -15,16 +11,8 @@ Thanks for helping improve Vamp Terminal.
 3. Run the core tests:
 
    ```bash
-<<<<<<< HEAD
-   xcodebuild -project MacPair.xcodeproj -scheme ScreenHarborHost \
-     -configuration Debug CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
-
-   xcodebuild -project MacPair.xcodeproj -scheme ScreenHarborClient \
-     -configuration Debug CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
-=======
    swift test
    python3 -m unittest discover -s tests -p 'test_*.py' -v
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
    ```
 
 4. Build the `MacHost`, `VampTerminalHost`, and `VampTerminalApp` schemes with

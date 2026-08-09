@@ -167,11 +167,7 @@ public final class CoreGraphicsDisplayLayoutProvider: DisplayLayoutObserving {
 
     private func wakeDisplay() {
         var id: IOPMAssertionID = 0
-<<<<<<< HEAD
-        IOPMAssertionDeclareUserActivity("MacPair display layout query" as CFString, kIOPMUserActiveLocal, &id)
-=======
         IOPMAssertionDeclareUserActivity("Vamp display layout query" as CFString, kIOPMUserActiveLocal, &id)
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     }
 }
 #endif

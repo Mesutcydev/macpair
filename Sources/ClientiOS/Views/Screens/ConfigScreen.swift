@@ -111,11 +111,7 @@ struct ConfigScreen: View {
                         Text("\(trustedHostCount) · mixed")
                     }) {
                         if trustedVM.trustedHosts.isEmpty && hostsVM.savedHosts.isEmpty {
-<<<<<<< HEAD
-                            Text("No trusted hosts. Pair a MacPair Host to create trust.")
-=======
                             Text("No trusted hosts. Pair a Vamp Host to create trust.")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(PR.dim)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -213,11 +209,7 @@ struct ConfigScreen: View {
                         )
                         PRRow(
                             label: "trust model",
-<<<<<<< HEAD
-                            hint: "new hosts require visible approval in MacPair Host before access",
-=======
                             hint: "new hosts require visible approval in Vamp Host before access",
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                             trailing: { secBadge("pinned", tint: PR.accent) },
                             isLast: false
                         )
@@ -270,31 +262,18 @@ struct ConfigScreen: View {
                         )
                     }
 
-<<<<<<< HEAD
-                    PRCard("macpair host") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("MacPair requires MacPair Host running on macOS.")
-                                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                                .foregroundColor(PR.fg)
-                            Text("MacPair Host receives your approved commands and performs them on your Mac.")
-=======
                     PRCard("vamp host") {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Vamp Remote Control requires Vamp Host running on macOS.")
                                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                                 .foregroundColor(PR.fg)
                             Text("Vamp Host receives your approved commands and performs them on your Mac.")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(PR.dim)
                             Text("For outside-LAN access, connect both devices with Tailscale and use the Mac’s Tailscale IP.")
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(PR.dim)
-<<<<<<< HEAD
-                            Text("Only control Macs you own or are authorized to access. You can stop MacPair Host at any time.")
-=======
                             Text("Only control Macs you own or are authorized to access. You can stop Vamp Host at any time.")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(PR.dim)
 
@@ -334,11 +313,7 @@ struct ConfigScreen: View {
                         }, isLast: false)
 
                         PRRow(label: "protocol", trailing: {
-<<<<<<< HEAD
-                            Text("macpair/1")
-=======
                             Text("vamp-terminal/1")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                                 .font(.system(size: 12, design: .monospaced))
                                 .foregroundColor(PR.fg)
                         }, isLast: false)
@@ -347,11 +322,7 @@ struct ConfigScreen: View {
                             Image(systemName: "chevron.right")
                                 .foregroundColor(PR.dim)
                         }, onTap: {
-<<<<<<< HEAD
-                            if let url = URL(string: "https://github.com/Mesutcydev/macpair") {
-=======
                             if let url = URL(string: "https://mesutcydev.github.io/macpair/") {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                                 openURL(url)
                             }
                         }, isLast: true)
@@ -364,11 +335,7 @@ struct ConfigScreen: View {
 
             PRScreenHeader(
                 title: "config",
-<<<<<<< HEAD
-                host: "macpair.host · v1.0.4",
-=======
                 host: "vamp.host · v1.0.3",
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                 state: sessionCoordinator.phase == .error ? .error : .live
             )
             .zIndex(1)
@@ -464,43 +431,24 @@ struct ConfigScreen: View {
 
 #Preview("ConfigScreen") {
     ConfigScreen(
-<<<<<<< HEAD
-        environment: ClientAppEnvironment.makeDefault(clientName: "MacPair iOS"),
-=======
         environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client"),
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
         appLock: AppLockService()
     )
 }
 
-<<<<<<< HEAD
-// MARK: - MacPair Host promo + explainer
-//
-// Shared UI for getting the required MacPair Host Mac app and explaining how MacPair works.
-=======
 // MARK: - Vamp Host promo + explainer
 //
 // Shared UI for getting the required Vamp Host Mac app and explaining how Vamp Remote Control works.
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 // Reused by the home empty state, the first-run welcome, and this config screen. Lives
 // here (an already-compiled file) rather than a new file to skip the two-target pbxproj
 // registration dance — see [[build-targets-and-file-membership]].
 
-<<<<<<< HEAD
-enum ScreenHarborHostLinks {
-    static let direct = URL(string: "https://mesut.uk/apps/macpair-host")!
-}
-
-/// A cross-promo–style card for installing MacPair Host.
-struct ScreenHarborHostPromoCard: View {
-=======
 enum VampHostLinks {
     static let direct = URL(string: "https://mesutcydev.github.io/macpair/#hosts")!
 }
 
 /// A cross-promo–style card for installing Vamp Host.
 struct VampHostPromoCard: View {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     struct Badge: Identifiable {
         let id = UUID()
         let icon: String
@@ -591,11 +539,7 @@ struct VampHostPromoCard: View {
     static var direct: VampHostPromoCard {
         VampHostPromoCard(
             eyebrow: "DIRECT DOWNLOAD",
-<<<<<<< HEAD
-            title: "MacPair Host",
-=======
             title: "Vamp Host",
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             subtitle: "The open-source Mac host distributed directly by the project.",
             badges: [Badge(icon: "bolt.fill", label: "full build"), Badge(icon: "chevron.left.forwardslash.chevron.right", label: "open source")],
             ctaLabel: "Download",
@@ -605,17 +549,6 @@ struct VampHostPromoCard: View {
     }
 }
 
-<<<<<<< HEAD
-/// Three-step MacPair explainer.
-struct HowItWorksCard: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("HOW MACPAIR WORKS")
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .tracking(1.5)
-                .foregroundColor(PR.dim)
-            step(1, title: "Get MacPair Host on your Mac", detail: "Download it from mesut.uk or build it from source, then open it.")
-=======
 /// Three-step Vamp Remote Control explainer.
 struct HowItWorksCard: View {
     var body: some View {
@@ -625,7 +558,6 @@ struct HowItWorksCard: View {
                 .tracking(1.5)
                 .foregroundColor(PR.dim)
             step(1, title: "Get Vamp Host on your Mac", detail: "Download it from mesut.uk or build it from source, then open it.")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             step(2, title: "Approve this iPhone", detail: "The first time, accept the connection on your Mac.")
             step(3, title: "Tap your Mac to connect", detail: "It shows up here — tap to mirror and control it.")
         }

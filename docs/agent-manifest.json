@@ -1,18 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-<<<<<<< HEAD
-  "name": "MacPair",
-  "description": "Open-source native Mac remote desktop host with Mac and iPhone/iPad clients",
-  "manifestVersion": "1.1.0",
-  "license": "Apache-2.0",
-  "website": "https://mesut.uk/apps/macpair",
-=======
   "name": "Vamp Terminal",
   "description": "Open-source multi-tab terminal client for iPhone and iPad with Vamp Host, Safari control, Tailscale, and Linux browser-host support.",
   "manifestVersion": "2.0.0",
   "license": "Apache-2.0",
   "website": "https://mesutcydev.github.io/macpair/",
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
   "source": "https://github.com/Mesutcydev/macpair",
   "platform": {
     "os": "iOS/iPadOS",
@@ -25,14 +17,8 @@
     "linuxBrowserHost": {"os": "Linux", "minimumVersion": "Python 3"}
   },
   "downloads": {
-<<<<<<< HEAD
-    "host": "https://github.com/Mesutcydev/macpair/releases/download/v1.0.10/MacPair-Host-1.0.10-build-11.dmg",
-    "client": "https://github.com/Mesutcydev/macpair/releases/download/v1.0.10/MacPair-1.0.10-build-11.dmg",
-    "iosClient": "https://mesut.uk/MacPair-iOS-1.0.5-build-6-unsigned.ipa",
-=======
     "iosArtifactDirectory": "dist/VampTerminal/",
     "iosArtifactPattern": "VampTerminal-iOS-*-altstore-unsigned.ipa",
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     "integritySuffixes": [".sha256", ".manifest.json", ".sbom.cdx.json"],
     "appleNotarized": false,
     "iosCodeSignature": "unsigned",
@@ -40,20 +26,6 @@
     "iosSideloadTool": "AltStore"
   },
   "apps": {
-<<<<<<< HEAD
-    "host": {
-      "displayName": "MacPair Host",
-      "bundleId": "uk.mesut.screenharbor.host",
-      "urlScheme": "screenharbor"
-    },
-    "client": {
-      "displayName": "MacPair",
-      "bundleId": "uk.mesut.screenharbor.client"
-    },
-    "iosClient": {
-      "displayName": "MacPair",
-      "bundleId": "uk.mesut.screenharbor.ios",
-=======
     "fullHost": {
       "displayName": "Vamp Host",
       "bundleId": "com.mesutcy.remotedesktop.host",
@@ -67,7 +39,6 @@
     "iosClient": {
       "displayName": "Vamp Terminal",
       "bundleId": "com.mesutcy.remotedesktop.terminal",
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "minimumOSVersion": "18.0"
     }
   },
@@ -82,15 +53,9 @@
   "cli": {
     "command": "vamp",
     "installation": {
-<<<<<<< HEAD
-      "appPath": "/Applications/MacPair Host.app",
-      "bundledCommand": "/Applications/MacPair Host.app/Contents/Resources/screenharbor",
-      "recommendedSymlink": "/usr/local/bin/screenharbor"
-=======
       "fullHostAppPath": "/Applications/Vamp Host.app",
       "bundledCommand": "/Applications/Vamp Host.app/Contents/Resources/vamp",
       "recommendedSymlink": "/usr/local/bin/vamp"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     },
     "commands": [
       ["ensure"],

@@ -77,11 +77,7 @@ private struct HostMenuBarContent: View {
             HStack(spacing: 10) {
                 HostAppLogo(size: 26, cornerRadius: 6)
                 VStack(alignment: .leading, spacing: 1) {
-<<<<<<< HEAD
-                    Text("MacPair Host")
-=======
                     Text("Vamp Host")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                         .font(.headline)
                     Text(headerCaption)
                         .font(.caption)

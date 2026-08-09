@@ -1,10 +1,6 @@
 import SwiftUI
 
-<<<<<<< HEAD:Sources/SharedUI/ScreenHarborSplashView.swift
-// Shared MacPair splash for the Mac client and host.
-=======
 // Shared Vamp splash for the Mac client and host.
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts):Sources/SharedUI/VampSplashView.swift
 
 // Self-contained color helper because this module is shared by both Mac apps.
 private func vsHex(_ hex: UInt32, _ a: Double = 1) -> Color {
@@ -20,13 +16,8 @@ public struct VampSplashConfig {
 
     var layout: Layout
     var iconSize: CGFloat
-<<<<<<< HEAD:Sources/SharedUI/ScreenHarborSplashView.swift
-    var wordmarkLead: String            // "Mac"
-    var wordmarkAccent: String          // "Pair" / "Pair Host"
-=======
     var wordmarkLead: String            // "Vamp"
     var wordmarkAccent: String          // " Remote Control" / " Host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts):Sources/SharedUI/VampSplashView.swift
     var accentColor: Color
     var wordmarkSize: CGFloat
     var taglineSize: CGFloat
@@ -55,11 +46,7 @@ public struct VampSplashConfig {
         // before the Vamp splash dismisses the overlay.
         VampSplashConfig(
             layout: .iosFullScreen, iconSize: 116,
-<<<<<<< HEAD:Sources/SharedUI/ScreenHarborSplashView.swift
-            wordmarkLead: "Mac", wordmarkAccent: "Pair", accentColor: vsHex(0x35C6D3),
-=======
             wordmarkLead: "Vamp", wordmarkAccent: " Remote Control", accentColor: vsHex(0x35C6D3),
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts):Sources/SharedUI/VampSplashView.swift
             wordmarkSize: 29, taglineSize: 14,
             taglines: ["Your Mac, anywhere.", "Private by design.", "Ready when you are."],
             statusText: nil, version: nil, progressWidth: 132,
@@ -72,11 +59,7 @@ public struct VampSplashConfig {
     public static func macClient(version: String) -> VampSplashConfig {
         VampSplashConfig(
             layout: .macPanel, iconSize: 92,
-<<<<<<< HEAD:Sources/SharedUI/ScreenHarborSplashView.swift
-            wordmarkLead: "Mac", wordmarkAccent: "Pair", accentColor: vsHex(0x35C6D3),
-=======
             wordmarkLead: "Vamp", wordmarkAccent: " Remote Control", accentColor: vsHex(0x35C6D3),
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts):Sources/SharedUI/VampSplashView.swift
             wordmarkSize: 26, taglineSize: 13.5,
             taglines: ["Your Mac, anywhere.", "Private by design."],
             statusText: nil, version: version, progressWidth: 150,
@@ -89,11 +72,7 @@ public struct VampSplashConfig {
     public static func host(version: String, statusText: String) -> VampSplashConfig {
         VampSplashConfig(
             layout: .macPanel, iconSize: 92,
-<<<<<<< HEAD:Sources/SharedUI/ScreenHarborSplashView.swift
-            wordmarkLead: "Mac", wordmarkAccent: "Pair Host", accentColor: vsHex(0x35C6D3),
-=======
             wordmarkLead: "Vamp", wordmarkAccent: " Host", accentColor: vsHex(0x35C6D3),
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts):Sources/SharedUI/VampSplashView.swift
             wordmarkSize: 26, taglineSize: 13.5,
             taglines: ["Sharing this Mac."],
             statusText: statusText, version: version, progressWidth: 150,
@@ -369,11 +348,7 @@ struct VampSplashView: View {
 // MARK: - Presentation
 
 public extension View {
-<<<<<<< HEAD:Sources/SharedUI/ScreenHarborSplashView.swift
-    /// Overlays the MacPair splash on launch, then cross-fades it out after `minimumDuration`.
-=======
     /// Overlays the Vamp splash on launch, then cross-fades it out after `minimumDuration`.
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts):Sources/SharedUI/VampSplashView.swift
     /// Pass `enabled: false` when the window won't actually be shown to the user — e.g. the
     /// host launches straight into the menu bar when its desktop widget is installed, which
     /// order-outs the window and would otherwise make the splash flash for a frame and vanish.

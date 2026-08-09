@@ -46,11 +46,7 @@ private struct AppLockPrivacyCover: View {
 @main
 struct ClientiOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
-<<<<<<< HEAD
-    @StateObject private var environment = ClientAppEnvironment.makeDefault(clientName: "MacPair iOS")
-=======
     @StateObject private var environment = ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     @StateObject private var keepaliveService = BackgroundKeepaliveService()
     @StateObject private var appLock = AppLockService()
     @State private var observersInstalled = false

@@ -4435,201 +4435,121 @@
       }
     },
     "Connection lost — reconnecting…": {},
-<<<<<<< HEAD
-    "Control your MacPair host from anywhere": {
-=======
     "Control your Vamp Remote Control host from anywhere": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "تحكم في مضيف MacPair الخاص بك من أي مكان"
-=======
             "value": "تحكم في مضيف Vamp Remote Control الخاص بك من أي مكان"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Steuern Sie Ihren MacPair-Host von überall"
-=======
             "value": "Steuern Sie Ihren Vamp Remote Control-Host von überall"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "Control your MacPair host from anywhere"
-=======
             "value": "Control your Vamp Remote Control host from anywhere"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Controle su host MacPair desde cualquier lugar"
-=======
             "value": "Controle su host Vamp Remote Control desde cualquier lugar"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Contrôlez votre hôte MacPair depuis n'importe où"
-=======
             "value": "Contrôlez votre hôte Vamp Remote Control depuis n'importe où"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "कहीं से भी अपने MacPair होस्ट को नियंत्रित करें"
-=======
             "value": "कहीं से भी अपने Vamp Remote Control होस्ट को नियंत्रित करें"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Controlla il tuo host MacPair da qualsiasi luogo"
-=======
             "value": "Controlla il tuo host Vamp Remote Control da qualsiasi luogo"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "どこからでもMacPairホストを制御"
-=======
             "value": "どこからでもVamp Remote Controlホストを制御"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "어디서나 MacPair 호스트를 제어하세요"
-=======
             "value": "어디서나 Vamp Remote Control 호스트를 제어하세요"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Bedien uw MacPair-host overal vandaan"
-=======
             "value": "Bedien uw Vamp Remote Control-host overal vandaan"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Kontroluj swojego hosta MacPair z dowolnego miejsca"
-=======
             "value": "Kontroluj swojego hosta Vamp Remote Control z dowolnego miejsca"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Controle seu host MacPair de qualquer lugar"
-=======
             "value": "Controle seu host Vamp Remote Control de qualquer lugar"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Управляйте своим MacPair-хостом откуда угодно"
-=======
             "value": "Управляйте своим Vamp Remote Control-хостом откуда угодно"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Styr din MacPair-värd var som helst ifrån"
-=======
             "value": "Styr din Vamp Remote Control-värd var som helst ifrån"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "ควบคุมโฮสต์ MacPair ของคุณจากทุกที่"
-=======
             "value": "ควบคุมโฮสต์ Vamp Remote Control ของคุณจากทุกที่"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair ana bilgisayarınızı her yerden kontrol edin"
-=======
             "value": "Vamp Remote Control ana bilgisayarınızı her yerden kontrol edin"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Điều khiển máy chủ MacPair của bạn từ mọi nơi"
-=======
             "value": "Điều khiển máy chủ Vamp Remote Control của bạn từ mọi nơi"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "随时随地控制您的 MacPair 主机"
-=======
             "value": "随时随地控制您的 Vamp Remote Control 主机"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "隨時隨地控制您的 MacPair 主機"
-=======
             "value": "隨時隨地控制您的 Vamp Remote Control 主機"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
@@ -7788,201 +7708,121 @@
       }
     },
     "For outside-LAN access, connect both devices with Tailscale and use the Mac’s Tailscale IP.": {},
-<<<<<<< HEAD
-    "For remote access outside home or office, install the same private network app on the MacPair host and Mac, then paste the host's Tailscale Connect address here.": {
-=======
     "For remote access outside home or office, install the same private network app on the Vamp Remote Control host and Mac, then paste the host's Tailscale Connect address here.": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "للوصول عن بُعد خارج المنزل أو المكتب، قم بتثبيت تطبيق الشبكة الخاصة نفسه على مضيف MacPair وMac، ثم الصق عنوان Tailscale Connect الخاص بالمضيف هنا."
-=======
             "value": "للوصول عن بُعد خارج المنزل أو المكتب، قم بتثبيت تطبيق الشبكة الخاصة نفسه على مضيف Vamp Remote Control وMac، ثم الصق عنوان Tailscale Connect الخاص بالمضيف هنا."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Für Fernzugriff außerhalb von Zuhause oder Büro installieren Sie dieselbe private Netzwerk-App auf dem MacPair-Host und Mac und fügen Sie dann die Tailscale Connect-Adresse des Hosts hier ein."
-=======
             "value": "Für Fernzugriff außerhalb von Zuhause oder Büro installieren Sie dieselbe private Netzwerk-App auf dem Vamp Remote Control-Host und Mac und fügen Sie dann die Tailscale Connect-Adresse des Hosts hier ein."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "For remote access outside home or office, install the same private network app on the MacPair host and Mac, then paste the host's Tailscale Connect address here."
-=======
             "value": "For remote access outside home or office, install the same private network app on the Vamp Remote Control host and Mac, then paste the host's Tailscale Connect address here."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Para acceso remoto fuera de casa u oficina, instale la misma aplicación de red privada en el host MacPair y el Mac, luego pegue la dirección Tailscale Connect del host aquí."
-=======
             "value": "Para acceso remoto fuera de casa u oficina, instale la misma aplicación de red privada en el host Vamp Remote Control y el Mac, luego pegue la dirección Tailscale Connect del host aquí."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Pour l'accès à distance en dehors du domicile ou du bureau, installez la même application de réseau privé sur l'hôte MacPair et l'Mac, puis collez l'adresse Tailscale Connect de l'hôte ici."
-=======
             "value": "Pour l'accès à distance en dehors du domicile ou du bureau, installez la même application de réseau privé sur l'hôte Vamp Remote Control et l'Mac, puis collez l'adresse Tailscale Connect de l'hôte ici."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "घर या कार्यालय के बाहर रिमोट एक्सेस के लिए, MacPair होस्ट और Mac पर समान निजी नेटवर्क ऐप इंस्टॉल करें, फिर होस्ट का Tailscale Connect पता यहां पेस्ट करें।"
-=======
             "value": "घर या कार्यालय के बाहर रिमोट एक्सेस के लिए, Vamp Remote Control होस्ट और Mac पर समान निजी नेटवर्क ऐप इंस्टॉल करें, फिर होस्ट का Tailscale Connect पता यहां पेस्ट करें।"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Per l'accesso remoto fuori casa o ufficio, installa la stessa app di rete privata sull'host MacPair e su Mac, quindi incolla qui l'indirizzo Tailscale Connect dell'host."
-=======
             "value": "Per l'accesso remoto fuori casa o ufficio, installa la stessa app di rete privata sull'host Vamp Remote Control e su Mac, quindi incolla qui l'indirizzo Tailscale Connect dell'host."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "自宅やオフィスの外部からのリモートアクセスには、MacPairホストとMacに同じプライベートネットワークアプリをインストールし、ホストのTailscale Connectアドレスをここに貼り付けてください。"
-=======
             "value": "自宅やオフィスの外部からのリモートアクセスには、Vamp Remote ControlホストとMacに同じプライベートネットワークアプリをインストールし、ホストのTailscale Connectアドレスをここに貼り付けてください。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "집이나 사무실 외부에서 원격 접근하려면 MacPair 호스트와 Mac에 동일한 사설 네트워크 앱을 설치한 다음 호스트의 Tailscale Connect 주소를 여기에 붙여넣으세요."
-=======
             "value": "집이나 사무실 외부에서 원격 접근하려면 Vamp Remote Control 호스트와 Mac에 동일한 사설 네트워크 앱을 설치한 다음 호스트의 Tailscale Connect 주소를 여기에 붙여넣으세요."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Voor externe toegang buiten huis of kantoor installeert u dezelfde privénetwerk-app op de MacPair-host en Mac en plakt u het Tailscale Connect-adres van de host hier."
-=======
             "value": "Voor externe toegang buiten huis of kantoor installeert u dezelfde privénetwerk-app op de Vamp Remote Control-host en Mac en plakt u het Tailscale Connect-adres van de host hier."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Aby uzyskać zdalny dostęp poza domem lub biurem, zainstaluj tę samą aplikację sieci prywatnej na hoście MacPair i telefonie Mac, a następnie wklej tutaj adres Tailscale Connect hosta."
-=======
             "value": "Aby uzyskać zdalny dostęp poza domem lub biurem, zainstaluj tę samą aplikację sieci prywatnej na hoście Vamp Remote Control i telefonie Mac, a następnie wklej tutaj adres Tailscale Connect hosta."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Para acesso remoto fora de casa ou escritório, instale o mesmo app de rede privada no host MacPair e no Mac, depois cole o endereço Tailscale Connect do host aqui."
-=======
             "value": "Para acesso remoto fora de casa ou escritório, instale o mesmo app de rede privada no host Vamp Remote Control e no Mac, depois cole o endereço Tailscale Connect do host aqui."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Для удаленного доступа вне дома или офиса установите одно и то же приложение частной сети на MacPair-хост и Mac, затем вставьте сюда адрес Tailscale Connect хоста."
-=======
             "value": "Для удаленного доступа вне дома или офиса установите одно и то же приложение частной сети на Vamp Remote Control-хост и Mac, затем вставьте сюда адрес Tailscale Connect хоста."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "För fjärråtkomst utanför hemmet eller kontoret, installera samma privata nätverksapp på MacPair-värden och Mac, klistra sedan in värdens Tailscale Connect-adress här."
-=======
             "value": "För fjärråtkomst utanför hemmet eller kontoret, installera samma privata nätverksapp på Vamp Remote Control-värden och Mac, klistra sedan in värdens Tailscale Connect-adress här."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "สำหรับการเข้าถึงระยะไกลนอกบ้านหรือสำนักงาน ให้ติดตั้งแอปเครือข่ายส่วนตัวเดียวกันบนโฮสต์ MacPair และ Mac จากนั้นวางที่อยู่ Tailscale Connect ของโฮสต์ที่นี่"
-=======
             "value": "สำหรับการเข้าถึงระยะไกลนอกบ้านหรือสำนักงาน ให้ติดตั้งแอปเครือข่ายส่วนตัวเดียวกันบนโฮสต์ Vamp Remote Control และ Mac จากนั้นวางที่อยู่ Tailscale Connect ของโฮสต์ที่นี่"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Ev veya ofis dışından uzaktan erişim için, aynı özel ağ uygulamasını MacPair ana bilgisayarına ve Mac'a yükleyin, ardından ana bilgisayarın Tailscale Connect adresini buraya yapıştırın."
-=======
             "value": "Ev veya ofis dışından uzaktan erişim için, aynı özel ağ uygulamasını Vamp Remote Control ana bilgisayarına ve Mac'a yükleyin, ardından ana bilgisayarın Tailscale Connect adresini buraya yapıştırın."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Để truy cập từ xa bên ngoài nhà hoặc văn phòng, hãy cài đặt cùng một ứng dụng mạng riêng trên máy chủ MacPair và Mac, sau đó dán địa chỉ Tailscale Connect của máy chủ vào đây."
-=======
             "value": "Để truy cập từ xa bên ngoài nhà hoặc văn phòng, hãy cài đặt cùng một ứng dụng mạng riêng trên máy chủ Vamp Remote Control và Mac, sau đó dán địa chỉ Tailscale Connect của máy chủ vào đây."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "对于家庭或办公室外的远程访问，请在 MacPair 主机和 Mac 上安装相同的专用网络应用，然后将主机的 Tailscale Connect 地址粘贴到此处。"
-=======
             "value": "对于家庭或办公室外的远程访问，请在 Vamp Remote Control 主机和 Mac 上安装相同的专用网络应用，然后将主机的 Tailscale Connect 地址粘贴到此处。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "如需在家或辦公室外部進行遠端存取，請在 MacPair 主機和 Mac 上安裝相同的專用網路應用程式，然後將主機的 Tailscale Connect 位址貼到此處。"
-=======
             "value": "如需在家或辦公室外部進行遠端存取，請在 Vamp Remote Control 主機和 Mac 上安裝相同的專用網路應用程式，然後將主機的 Tailscale Connect 位址貼到此處。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
@@ -8316,13 +8156,8 @@
       "comment": "A button to start using Tailscale.",
       "isCommentAutoGenerated": true
     },
-<<<<<<< HEAD
-    "GET MACPAIR HOST": {
-      "comment": "A label for a button that downloads the MacPair Host app.",
-=======
     "GET VAMP TERMINAL HOST": {
       "comment": "A label for a button that downloads the Vamp Host app.",
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "isCommentAutoGenerated": true
     },
     "go": {
@@ -8994,13 +8829,8 @@
         }
       }
     },
-<<<<<<< HEAD
-    "HOW MACPAIR WORKS": {
-      "comment": "The title of a card that describes how MacPair works.",
-=======
     "HOW VAMP TERMINAL WORKS": {
       "comment": "The title of a card that describes how Vamp Remote Control works.",
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "isCommentAutoGenerated": true
     },
     "input validation": {
@@ -9241,11 +9071,7 @@
         }
       }
     },
-<<<<<<< HEAD
-    "It’s an Apple-Silicon Mac on Wi-Fi, which macOS can’t wake from sleep over the network without an Apple TV/HomePod acting as a Sleep Proxy.\n\nFix: on the Mac, open MacPair Host → Settings → turn on “Keep Mac Awake & Reachable” (so it never sleeps), or connect it via Ethernet. Tap “Wake anyway” to try regardless (works if a Sleep Proxy is on the network).": {},
-=======
     "It’s an Apple-Silicon Mac on Wi-Fi, which macOS can’t wake from sleep over the network without an Apple TV/HomePod acting as a Sleep Proxy.\n\nFix: on the Mac, open Vamp Host → Settings → turn on “Keep Mac Awake & Reachable” (so it never sleeps), or connect it via Ethernet. Tap “Wake anyway” to try regardless (works if a Sleep Proxy is on the network).": {},
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     "Keep latency and frame metrics on the stream.": {
       "extractionState": "stale",
       "localizations": {
@@ -11018,201 +10844,121 @@
         }
       }
     },
-<<<<<<< HEAD
-    "Looking for MacPair hosts on your local network…": {
-=======
     "Looking for Vamp Remote Control hosts on your local network…": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "البحث عن مضيفي MacPair على شبكتك المحلية…"
-=======
             "value": "البحث عن مضيفي Vamp Remote Control على شبكتك المحلية…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Suche nach MacPair-Hosts in Ihrem lokalen Netzwerk…"
-=======
             "value": "Suche nach Vamp Remote Control-Hosts in Ihrem lokalen Netzwerk…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "Looking for MacPair hosts on your local network…"
-=======
             "value": "Looking for Vamp Remote Control hosts on your local network…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Buscando hosts MacPair en su red local…"
-=======
             "value": "Buscando hosts Vamp Remote Control en su red local…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Recherche d'hôtes MacPair sur votre réseau local…"
-=======
             "value": "Recherche d'hôtes Vamp Remote Control sur votre réseau local…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "आपके स्थानीय नेटवर्क पर MacPair होस्ट खोज रहे हैं…"
-=======
             "value": "आपके स्थानीय नेटवर्क पर Vamp Remote Control होस्ट खोज रहे हैं…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Ricerca di host MacPair sulla rete locale…"
-=======
             "value": "Ricerca di host Vamp Remote Control sulla rete locale…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "ローカルネットワークでMacPairホストを検索中…"
-=======
             "value": "ローカルネットワークでVamp Remote Controlホストを検索中…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "로컬 네트워크에서 MacPair 호스트 검색 중…"
-=======
             "value": "로컬 네트워크에서 Vamp Remote Control 호스트 검색 중…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Zoeken naar MacPair-hosts op uw lokale netwerk…"
-=======
             "value": "Zoeken naar Vamp Remote Control-hosts op uw lokale netwerk…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Wyszukiwanie hostów MacPair w sieci lokalnej…"
-=======
             "value": "Wyszukiwanie hostów Vamp Remote Control w sieci lokalnej…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Procurando hosts MacPair na sua rede local…"
-=======
             "value": "Procurando hosts Vamp Remote Control na sua rede local…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Поиск MacPair-хостов в вашей локальной сети…"
-=======
             "value": "Поиск Vamp Remote Control-хостов в вашей локальной сети…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Söker efter MacPair-värdar på ditt lokala nätverk…"
-=======
             "value": "Söker efter Vamp Remote Control-värdar på ditt lokala nätverk…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "กำลังค้นหาโฮสต์ MacPair บนเครือข่ายท้องถิ่นของคุณ…"
-=======
             "value": "กำลังค้นหาโฮสต์ Vamp Remote Control บนเครือข่ายท้องถิ่นของคุณ…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Yerel ağınızda MacPair ana bilgisayarları aranıyor…"
-=======
             "value": "Yerel ağınızda Vamp Remote Control ana bilgisayarları aranıyor…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Đang tìm máy chủ MacPair trên mạng cục bộ của bạn…"
-=======
             "value": "Đang tìm máy chủ Vamp Remote Control trên mạng cục bộ của bạn…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "正在本地网络上查找 MacPair 主机…"
-=======
             "value": "正在本地网络上查找 Vamp Remote Control 主机…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "正在您的區域網路上尋找 MacPair 主機…"
-=======
             "value": "正在您的區域網路上尋找 Vamp Remote Control 主機…"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
@@ -11487,201 +11233,121 @@
         }
       }
     },
-<<<<<<< HEAD
-    "Manage trusted MacPair hosts, connection posture, privacy defaults, and stream behavior.": {
-=======
     "Manage trusted Vamp Remote Control hosts, connection posture, privacy defaults, and stream behavior.": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "إدارة مضيفي MacPair الموثوقين، ووضع الاتصال، وإعدادات الخصوصية الافتراضية، وسلوك البث."
-=======
             "value": "إدارة مضيفي Vamp Remote Control الموثوقين، ووضع الاتصال، وإعدادات الخصوصية الافتراضية، وسلوك البث."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Verwalten Sie vertrauenswürdige MacPair-Hosts, Verbindungshaltung, Datenschutzstandards und Stream-Verhalten."
-=======
             "value": "Verwalten Sie vertrauenswürdige Vamp Remote Control-Hosts, Verbindungshaltung, Datenschutzstandards und Stream-Verhalten."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "Manage trusted MacPair hosts, connection posture, privacy defaults, and stream behavior."
-=======
             "value": "Manage trusted Vamp Remote Control hosts, connection posture, privacy defaults, and stream behavior."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Administre hosts MacPair de confianza, postura de conexión, valores predeterminados de privacidad y comportamiento de transmisión."
-=======
             "value": "Administre hosts Vamp Remote Control de confianza, postura de conexión, valores predeterminados de privacidad y comportamiento de transmisión."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Gérez les hôtes MacPair de confiance, la posture de connexion, les paramètres de confidentialité par défaut et le comportement du flux."
-=======
             "value": "Gérez les hôtes Vamp Remote Control de confiance, la posture de connexion, les paramètres de confidentialité par défaut et le comportement du flux."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "विश्वसनीय MacPair होस्ट, कनेक्शन मुद्रा, गोपनीयता डिफ़ॉल्ट और स्ट्रीम व्यवहार प्रबंधित करें।"
-=======
             "value": "विश्वसनीय Vamp Remote Control होस्ट, कनेक्शन मुद्रा, गोपनीयता डिफ़ॉल्ट और स्ट्रीम व्यवहार प्रबंधित करें।"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Gestisci host MacPair fidati, postura di connessione, impostazioni predefinite sulla privacy e comportamento dello stream."
-=======
             "value": "Gestisci host Vamp Remote Control fidati, postura di connessione, impostazioni predefinite sulla privacy e comportamento dello stream."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "信頼できるMacPairホスト、接続ポスチャー、プライバシー既定値、ストリーム動作を管理します。"
-=======
             "value": "信頼できるVamp Remote Controlホスト、接続ポスチャー、プライバシー既定値、ストリーム動作を管理します。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "신뢰할 수 있는 MacPair 호스트, 연결 자세, 개인정보 기본값 및 스트림 동작을 관리합니다."
-=======
             "value": "신뢰할 수 있는 Vamp Remote Control 호스트, 연결 자세, 개인정보 기본값 및 스트림 동작을 관리합니다."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Beheer vertrouwde MacPair-hosts, verbindingshouding, privacy-standaardinstellingen en streamgedrag."
-=======
             "value": "Beheer vertrouwde Vamp Remote Control-hosts, verbindingshouding, privacy-standaardinstellingen en streamgedrag."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Zarządzaj zaufanymi hostami MacPair, postawą połączenia, domyślnymi ustawieniami prywatności i zachowaniem strumienia."
-=======
             "value": "Zarządzaj zaufanymi hostami Vamp Remote Control, postawą połączenia, domyślnymi ustawieniami prywatności i zachowaniem strumienia."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Gerencie hosts MacPair confiáveis, postura de conexão, padrões de privacidade e comportamento do stream."
-=======
             "value": "Gerencie hosts Vamp Remote Control confiáveis, postura de conexão, padrões de privacidade e comportamento do stream."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Управляйте доверенными MacPair-хостами, режимом подключения, настройками конфиденциальности по умолчанию и поведением потока."
-=======
             "value": "Управляйте доверенными Vamp Remote Control-хостами, режимом подключения, настройками конфиденциальности по умолчанию и поведением потока."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Hantera betrodda MacPair-värdar, anslutningsställning, sekretessstandarder och strömbeteende."
-=======
             "value": "Hantera betrodda Vamp Remote Control-värdar, anslutningsställning, sekretessstandarder och strömbeteende."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "จัดการโฮสต์ MacPair ที่เชื่อถือได้ ท่าทางการเชื่อมต่อ ค่าเริ่มต้นความเป็นส่วนตัว และพฤติกรรมสตรีม"
-=======
             "value": "จัดการโฮสต์ Vamp Remote Control ที่เชื่อถือได้ ท่าทางการเชื่อมต่อ ค่าเริ่มต้นความเป็นส่วนตัว และพฤติกรรมสตรีม"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Güvenilir MacPair ana bilgisayarlarını, bağlantı duruşunu, gizlilik varsayılanlarını ve akış davranışını yönetin."
-=======
             "value": "Güvenilir Vamp Remote Control ana bilgisayarlarını, bağlantı duruşunu, gizlilik varsayılanlarını ve akış davranışını yönetin."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Quản lý máy chủ MacPair đáng tin cậy, tư thế kết nối, mặc định quyền riêng tư và hành vi luồng."
-=======
             "value": "Quản lý máy chủ Vamp Remote Control đáng tin cậy, tư thế kết nối, mặc định quyền riêng tư và hành vi luồng."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "管理受信任的 MacPair 主机、连接姿态、隐私默认设置和流行为。"
-=======
             "value": "管理受信任的 Vamp Remote Control 主机、连接姿态、隐私默认设置和流行为。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "管理受信任的 MacPair 主機、連線姿態、隱私預設值和串流行為。"
-=======
             "value": "管理受信任的 Vamp Remote Control 主機、連線姿態、隱私預設值和串流行為。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
@@ -12553,111 +12219,67 @@
         }
       }
     },
-<<<<<<< HEAD
-    "new hosts require visible approval on MacPair host before access": {
-=======
     "new hosts require visible approval on Vamp Remote Control host before access": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "تتطلب المضيفون الجدد موافقة مرئية على مضيف MacPair قبل الوصول"
-=======
             "value": "تتطلب المضيفون الجدد موافقة مرئية على مضيف Vamp Remote Control قبل الوصول"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Neue Hosts benötigen sichtbare Genehmigung auf dem MacPair Host"
-=======
             "value": "Neue Hosts benötigen sichtbare Genehmigung auf dem Vamp Host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "new hosts require visible approval on MacPair host before access"
-=======
             "value": "new hosts require visible approval on Vamp Remote Control host before access"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Los nuevos hosts requieren aprobación visible en MacPair host"
-=======
             "value": "Los nuevos hosts requieren aprobación visible en Vamp Remote Control host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Les nouveaux hôtes nécessitent une approbation visible sur l'hôte MacPair"
-=======
             "value": "Les nouveaux hôtes nécessitent une approbation visible sur l'hôte Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "新しいホストはMacPairホスト上での承認が必要です"
-=======
             "value": "新しいホストはVamp Remote Controlホスト上での承認が必要です"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Los nuevos hosts requieren aprobación visible en MacPair host"
-=======
             "value": "Los nuevos hosts requieren aprobación visible en Vamp Remote Control host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Yeni hostlar erişim için MacPair host üzerinde onay gerektirir"
-=======
             "value": "Yeni hostlar erişim için Vamp Remote Control host üzerinde onay gerektirir"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "新主机在访问前需要在MacPair主机上获得批准"
-=======
             "value": "新主机在访问前需要在Vamp Remote Control主机上获得批准"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "新主机在访问前需要在MacPair主机上获得批准"
-=======
             "value": "新主机在访问前需要在Vamp Remote Control主机上获得批准"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
@@ -13206,110 +12828,66 @@
         }
       }
     },
-<<<<<<< HEAD
-    "No trusted hosts. Pair a MacPair host to create trust.": {
-=======
     "No trusted hosts. Pair a Vamp Remote Control host to create trust.": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "لا توجد مضيفون موثوقون. قم بإقران مضيف MacPair لإنشاء الثقة."
-=======
             "value": "لا توجد مضيفون موثوقون. قم بإقران مضيف Vamp Remote Control لإنشاء الثقة."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Keine vertrauenswürdigen Hosts. Verbinde einen MacPair Host um Vertrauen herzustellen."
-=======
             "value": "Keine vertrauenswürdigen Hosts. Verbinde einen Vamp Host um Vertrauen herzustellen."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "No trusted hosts. Pair a MacPair host to create trust."
-=======
             "value": "No trusted hosts. Pair a Vamp Remote Control host to create trust."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Sin hosts de confianza. Empareja un MacPair host para crear confianza."
-=======
             "value": "Sin hosts de confianza. Empareja un Vamp Remote Control host para crear confianza."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Aucun hôte de confiance. Associez un hôte MacPair pour établir la confiance."
-=======
             "value": "Aucun hôte de confiance. Associez un hôte Vamp Remote Control pour établir la confiance."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "信頼済みホストがありません。信頼を確立するためにMacPairホストをペアリングしてください。"
-=======
             "value": "信頼済みホストがありません。信頼を確立するためにVamp Remote Controlホストをペアリングしてください。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Sin hosts de confianza. Empareja un MacPair host para crear confianza."
-=======
             "value": "Sin hosts de confianza. Empareja un Vamp Remote Control host para crear confianza."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Güvenilir host yok. Güven için bir MacPair host eşleştir."
-=======
             "value": "Güvenilir host yok. Güven için bir Vamp Remote Control host eşleştir."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "没有受信任的主机。配对一个MacPair主机以建立信任。"
-=======
             "value": "没有受信任的主机。配对一个Vamp Remote Control主机以建立信任。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "没有受信任的主机。配对一个MacPair主机以建立信任。"
-=======
             "value": "没有受信任的主机。配对一个Vamp Remote Control主机以建立信任。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
@@ -13853,239 +13431,143 @@
         }
       }
     },
-<<<<<<< HEAD
-    "Only control Macs you own or are authorized to access. You can stop MacPair Host at any time.": {
-=======
     "Only control Macs you own or are authorized to access. You can stop Vamp Host at any time.": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "Only control Macs you own or are authorized to access. You can stop MacPair Host at any time."
-=======
             "value": "Only control Macs you own or are authorized to access. You can stop Vamp Host at any time."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "仅控制您拥有或有权访问的 Mac。您可以随时停止 MacPair Host。"
-=======
             "value": "仅控制您拥有或有权访问的 Mac。您可以随时停止 Vamp Host。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "仅控制您拥有或有权访问的 Mac。您可以随时停止 MacPair Host。"
-=======
             "value": "仅控制您拥有或有权访问的 Mac。您可以随时停止 Vamp Host。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
     },
-<<<<<<< HEAD
-    "Only trusted devices can connect. Never share pairing codes, and revoke access from Security when a device should no longer control your MacPair host.": {
-=======
     "Only trusted devices can connect. Never share pairing codes, and revoke access from Security when a device should no longer control your Vamp Remote Control host.": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "يمكن فقط للأجهزة الموثوقة الاتصال. لا تشارك رموز الاقتران أبدًا، وقم بإلغاء الوصول من الأمان عندما لا ينبغي للجهاز التحكم في مضيف MacPair الخاص بك."
-=======
             "value": "يمكن فقط للأجهزة الموثوقة الاتصال. لا تشارك رموز الاقتران أبدًا، وقم بإلغاء الوصول من الأمان عندما لا ينبغي للجهاز التحكم في مضيف Vamp Remote Control الخاص بك."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Nur vertrauenswürdige Geräte können sich verbinden. Geben Sie niemals Kopplungscodes weiter und widerrufen Sie den Zugriff in den Sicherheitseinstellungen, wenn ein Gerät Ihren MacPair-Host nicht mehr steuern soll."
-=======
             "value": "Nur vertrauenswürdige Geräte können sich verbinden. Geben Sie niemals Kopplungscodes weiter und widerrufen Sie den Zugriff in den Sicherheitseinstellungen, wenn ein Gerät Ihren Vamp Remote Control-Host nicht mehr steuern soll."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "Only trusted devices can connect. Never share pairing codes, and revoke access from Security when a device should no longer control your MacPair host."
-=======
             "value": "Only trusted devices can connect. Never share pairing codes, and revoke access from Security when a device should no longer control your Vamp Remote Control host."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Solo los dispositivos de confianza pueden conectarse. Nunca comparta códigos de emparejamiento y revoque el acceso desde Seguridad cuando un dispositivo ya no deba controlar su host MacPair."
-=======
             "value": "Solo los dispositivos de confianza pueden conectarse. Nunca comparta códigos de emparejamiento y revoque el acceso desde Seguridad cuando un dispositivo ya no deba controlar su host Vamp Remote Control."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Seuls les appareils de confiance peuvent se connecter. Ne partagez jamais les codes d'appairage et révoquez l'accès depuis Sécurité lorsqu'un appareil ne doit plus contrôler votre hôte MacPair."
-=======
             "value": "Seuls les appareils de confiance peuvent se connecter. Ne partagez jamais les codes d'appairage et révoquez l'accès depuis Sécurité lorsqu'un appareil ne doit plus contrôler votre hôte Vamp Remote Control."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "केवल विश्वसनीय डिवाइस ही कनेक्ट कर सकते हैं। पेयरिंग कोड कभी साझा न करें, और जब कोई डिवाइस आपके MacPair होस्ट को नियंत्रित नहीं करना चाहिए, तो सुरक्षा से एक्सेस रद्द करें।"
-=======
             "value": "केवल विश्वसनीय डिवाइस ही कनेक्ट कर सकते हैं। पेयरिंग कोड कभी साझा न करें, और जब कोई डिवाइस आपके Vamp Remote Control होस्ट को नियंत्रित नहीं करना चाहिए, तो सुरक्षा से एक्सेस रद्द करें।"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Solo i dispositivi fidati possono connettersi. Non condividere mai i codici di abbinamento e revoca l'accesso da Sicurezza quando un dispositivo non deve più controllare il tuo host MacPair."
-=======
             "value": "Solo i dispositivi fidati possono connettersi. Non condividere mai i codici di abbinamento e revoca l'accesso da Sicurezza quando un dispositivo non deve più controllare il tuo host Vamp Remote Control."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "信頼できるデバイスのみ接続できます。ペアリングコードは決して共有せず、デバイスがMacPairホストを制御すべきでなくなった場合はセキュリティからアクセスを取り消してください。"
-=======
             "value": "信頼できるデバイスのみ接続できます。ペアリングコードは決して共有せず、デバイスがVamp Remote Controlホストを制御すべきでなくなった場合はセキュリティからアクセスを取り消してください。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "신뢰할 수 있는 기기만 연결할 수 있습니다. 페어링 코드를 절대 공유하지 말고, 기기가 더 이상 MacPair 호스트를 제어하지 않아야 할 때는 보안에서 액세스를 취소하세요."
-=======
             "value": "신뢰할 수 있는 기기만 연결할 수 있습니다. 페어링 코드를 절대 공유하지 말고, 기기가 더 이상 Vamp Remote Control 호스트를 제어하지 않아야 할 때는 보안에서 액세스를 취소하세요."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Alleen vertrouwde apparaten kunnen verbinding maken. Deel nooit koppelingscodes en trek de toegang in via Beveiliging wanneer een apparaat uw MacPair-host niet langer mag bedienen."
-=======
             "value": "Alleen vertrouwde apparaten kunnen verbinding maken. Deel nooit koppelingscodes en trek de toegang in via Beveiliging wanneer een apparaat uw Vamp Remote Control-host niet langer mag bedienen."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Tylko zaufane urządzenia mogą się łączyć. Nigdy nie udostępniaj kodów parowania i cofnij dostęp w Zabezpieczeniach, gdy urządzenie nie powinno już kontrolować Twojego hosta MacPair."
-=======
             "value": "Tylko zaufane urządzenia mogą się łączyć. Nigdy nie udostępniaj kodów parowania i cofnij dostęp w Zabezpieczeniach, gdy urządzenie nie powinno już kontrolować Twojego hosta Vamp Remote Control."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Apenas dispositivos confiáveis podem se conectar. Nunca compartilhe códigos de pareamento e revogue o acesso em Segurança quando um dispositivo não deve mais controlar seu host MacPair."
-=======
             "value": "Apenas dispositivos confiáveis podem se conectar. Nunca compartilhe códigos de pareamento e revogue o acesso em Segurança quando um dispositivo não deve mais controlar seu host Vamp Remote Control."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Только доверенные устройства могут подключаться. Никогда не передавайте коды сопряжения и отзывайте доступ в разделе Безопасность, когда устройство больше не должно управлять вашим MacPair-хостом."
-=======
             "value": "Только доверенные устройства могут подключаться. Никогда не передавайте коды сопряжения и отзывайте доступ в разделе Безопасность, когда устройство больше не должно управлять вашим Vamp Remote Control-хостом."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Endast betrodda enheter kan ansluta. Dela aldrig parkopplingskoder och återkalla åtkomst från Säkerhet när en enhet inte längre ska styra din MacPair-värd."
-=======
             "value": "Endast betrodda enheter kan ansluta. Dela aldrig parkopplingskoder och återkalla åtkomst från Säkerhet när en enhet inte längre ska styra din Vamp Remote Control-värd."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "เฉพาะอุปกรณ์ที่เชื่อถือได้เท่านั้นที่สามารถเชื่อมต่อได้ อย่าแชร์รหัสจับคู่ และเพิกถอนการเข้าถึงจากความปลอดภัยเมื่ออุปกรณ์ไม่ควรควบคุมโฮสต์ MacPair ของคุณอีกต่อไป"
-=======
             "value": "เฉพาะอุปกรณ์ที่เชื่อถือได้เท่านั้นที่สามารถเชื่อมต่อได้ อย่าแชร์รหัสจับคู่ และเพิกถอนการเข้าถึงจากความปลอดภัยเมื่ออุปกรณ์ไม่ควรควบคุมโฮสต์ Vamp Remote Control ของคุณอีกต่อไป"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Yalnızca güvenilir cihazlar bağlanabilir. Eşleştirme kodlarını asla paylaşmayın ve bir cihaz artık MacPair ana bilgisayarınızı kontrol etmemesi gerektiğinde Güvenlik'ten erişimi iptal edin."
-=======
             "value": "Yalnızca güvenilir cihazlar bağlanabilir. Eşleştirme kodlarını asla paylaşmayın ve bir cihaz artık Vamp Remote Control ana bilgisayarınızı kontrol etmemesi gerektiğinde Güvenlik'ten erişimi iptal edin."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Chỉ thiết bị đáng tin cậy mới có thể kết nối. Không bao giờ chia sẻ mã ghép nối và thu hồi quyền truy cập từ Bảo mật khi thiết bị không còn nên điều khiển máy chủ MacPair của bạn."
-=======
             "value": "Chỉ thiết bị đáng tin cậy mới có thể kết nối. Không bao giờ chia sẻ mã ghép nối và thu hồi quyền truy cập từ Bảo mật khi thiết bị không còn nên điều khiển máy chủ Vamp Remote Control của bạn."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "只有受信任的设备才能连接。切勿分享配对码，当某设备不应再控制您的 MacPair 主机时，请从安全设置中撤销访问权限。"
-=======
             "value": "只有受信任的设备才能连接。切勿分享配对码，当某设备不应再控制您的 Vamp Remote Control 主机时，请从安全设置中撤销访问权限。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "只有受信任的裝置才能連接。切勿分享配對碼，當裝置不應再控制您的 MacPair 主機時，請從安全性設定中撤銷存取權限。"
-=======
             "value": "只有受信任的裝置才能連接。切勿分享配對碼，當裝置不應再控制您的 Vamp Remote Control 主機時，請從安全性設定中撤銷存取權限。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
@@ -14630,11 +14112,7 @@
         }
       }
     },
-<<<<<<< HEAD
-    "open MacPair Host on your mac and make sure both devices share the same wi-fi, then scan. away from your network? tap “connect by address” below and enter the mac’s tailscale address.": {
-=======
     "open Vamp Host on your mac and make sure both devices share the same wi-fi, then scan. away from your network? tap “connect by address” below and enter the mac’s tailscale address.": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "comment": "A description of how to connect to a mac that isn't on the same network.",
       "isCommentAutoGenerated": true
     },
@@ -14940,111 +14418,67 @@
         }
       }
     },
-<<<<<<< HEAD
-    "Pair your Mac with a MacPair host in a secure terminal flow.": {
-=======
     "Pair your Mac with a Vamp Remote Control host in a secure terminal flow.": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "اقرن Mac بمضيف MacPair في تدفق طرفية آمن."
-=======
             "value": "اقرن Mac بمضيف Vamp Remote Control في تدفق طرفية آمن."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Verbinde dein Mac über einen sicheren Terminal-Flow mit einem MacPair Host."
-=======
             "value": "Verbinde dein Mac über einen sicheren Terminal-Flow mit einem Vamp Host."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "Pair your Mac with a MacPair host in a secure terminal flow."
-=======
             "value": "Pair your Mac with a Vamp Remote Control host in a secure terminal flow."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Empareja tu Mac con un MacPair host en un flujo de terminal seguro."
-=======
             "value": "Empareja tu Mac con un Vamp Remote Control host en un flujo de terminal seguro."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Associez votre Mac à un hôte MacPair dans un terminal sécurisé."
-=======
             "value": "Associez votre Mac à un hôte Vamp Remote Control dans un terminal sécurisé."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "安全なターミナルフローでMacをMacPairホストとペアリングします。"
-=======
             "value": "安全なターミナルフローでMacをVamp Remote Controlホストとペアリングします。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Empareja tu Mac con un MacPair host en un flujo de terminal seguro."
-=======
             "value": "Empareja tu Mac con un Vamp Remote Control host en un flujo de terminal seguro."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Mac'unuzu güvenli terminal akışında bir MacPair host ile eşleştirin."
-=======
             "value": "Mac'unuzu güvenli terminal akışında bir Vamp Remote Control host ile eşleştirin."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "通过安全的终端流程将您的Mac与MacPair主机配对。"
-=======
             "value": "通过安全的终端流程将您的Mac与Vamp Remote Control主机配对。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "通过安全的终端流程将您的Mac与MacPair主机配对。"
-=======
             "value": "通过安全的终端流程将您的Mac与Vamp Remote Control主机配对。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
@@ -15114,201 +14548,121 @@
         }
       }
     },
-<<<<<<< HEAD
-    "Paste the address from MacPair Host or enter your host's IP, hostname, or Tailscale address.": {
-=======
     "Paste the address from Vamp Host or enter your host's IP, hostname, or Tailscale address.": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "الصق العنوان من MacPair Host أو أدخل IP المضيف أو اسم المضيف أو عنوان Tailscale."
-=======
             "value": "الصق العنوان من Vamp Host أو أدخل IP المضيف أو اسم المضيف أو عنوان Tailscale."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Fügen Sie die Adresse von MacPair Host ein oder geben Sie die IP, den Hostnamen oder die Tailscale-Adresse Ihres Hosts ein."
-=======
             "value": "Fügen Sie die Adresse von Vamp Host ein oder geben Sie die IP, den Hostnamen oder die Tailscale-Adresse Ihres Hosts ein."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "Paste the address from MacPair Host or enter your host's IP, hostname, or Tailscale address."
-=======
             "value": "Paste the address from Vamp Host or enter your host's IP, hostname, or Tailscale address."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Pegue la dirección de MacPair Host o introduzca la IP, el nombre de host o la dirección Tailscale de su host."
-=======
             "value": "Pegue la dirección de Vamp Host o introduzca la IP, el nombre de host o la dirección Tailscale de su host."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Collez l'adresse de MacPair Host ou entrez l'IP, le nom d'hôte ou l'adresse Tailscale de votre hôte."
-=======
             "value": "Collez l'adresse de Vamp Host ou entrez l'IP, le nom d'hôte ou l'adresse Tailscale de votre hôte."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Host से पता पेस्ट करें या अपने होस्ट का IP, होस्टनाम या Tailscale पता दर्ज करें।"
-=======
             "value": "Vamp Host से पता पेस्ट करें या अपने होस्ट का IP, होस्टनाम या Tailscale पता दर्ज करें।"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Incolla l'indirizzo da MacPair Host o inserisci l'IP, il nome host o l'indirizzo Tailscale del tuo host."
-=======
             "value": "Incolla l'indirizzo da Vamp Host o inserisci l'IP, il nome host o l'indirizzo Tailscale del tuo host."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Hostからアドレスを貼り付けるか、ホストのIP、ホスト名、またはTailscaleアドレスを入力してください。"
-=======
             "value": "Vamp Hostからアドレスを貼り付けるか、ホストのIP、ホスト名、またはTailscaleアドレスを入力してください。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Host에서 주소를 붙여넣거나 호스트의 IP, 호스트 이름 또는 Tailscale 주소를 입력하세요."
-=======
             "value": "Vamp Host에서 주소를 붙여넣거나 호스트의 IP, 호스트 이름 또는 Tailscale 주소를 입력하세요."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Plak het adres van MacPair Host of voer het IP, de hostnaam of het Tailscale-adres van uw host in."
-=======
             "value": "Plak het adres van Vamp Host of voer het IP, de hostnaam of het Tailscale-adres van uw host in."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Wklej adres z MacPair Host lub wprowadź IP, nazwę hosta lub adres Tailscale swojego hosta."
-=======
             "value": "Wklej adres z Vamp Host lub wprowadź IP, nazwę hosta lub adres Tailscale swojego hosta."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Cole o endereço do MacPair Host ou digite o IP, nome do host ou endereço Tailscale do seu host."
-=======
             "value": "Cole o endereço do Vamp Host ou digite o IP, nome do host ou endereço Tailscale do seu host."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Вставьте адрес из MacPair Host или введите IP, имя хоста или адрес Tailscale вашего хоста."
-=======
             "value": "Вставьте адрес из Vamp Host или введите IP, имя хоста или адрес Tailscale вашего хоста."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Klistra in adressen från MacPair Host eller ange din värds IP, värdnamn eller Tailscale-adress."
-=======
             "value": "Klistra in adressen från Vamp Host eller ange din värds IP, värdnamn eller Tailscale-adress."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "วางที่อยู่จาก MacPair Host หรือป้อน IP, ชื่อโฮสต์ หรือที่อยู่ Tailscale ของโฮสต์ของคุณ"
-=======
             "value": "วางที่อยู่จาก Vamp Host หรือป้อน IP, ชื่อโฮสต์ หรือที่อยู่ Tailscale ของโฮสต์ของคุณ"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Host'tan adresi yapıştırın veya ana bilgisayarınızın IP'sini, ana bilgisayar adını veya Tailscale adresini girin."
-=======
             "value": "Vamp Host'tan adresi yapıştırın veya ana bilgisayarınızın IP'sini, ana bilgisayar adını veya Tailscale adresini girin."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Dán địa chỉ từ MacPair Host hoặc nhập IP, tên máy chủ hoặc địa chỉ Tailscale của máy chủ."
-=======
             "value": "Dán địa chỉ từ Vamp Host hoặc nhập IP, tên máy chủ hoặc địa chỉ Tailscale của máy chủ."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "粘贴 MacPair Host 中的地址，或输入主机的 IP、主机名或 Tailscale 地址。"
-=======
             "value": "粘贴 Vamp Host 中的地址，或输入主机的 IP、主机名或 Tailscale 地址。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "貼上 MacPair Host 中的位址，或輸入主機的 IP、主機名稱或 Tailscale 位址。"
-=======
             "value": "貼上 Vamp Host 中的位址，或輸入主機的 IP、主機名稱或 Tailscale 位址。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
@@ -16564,201 +15918,121 @@
         }
       }
     },
-<<<<<<< HEAD
-    "Ready to control your MacPair host over LAN or a trusted private relay.": {
-=======
     "Ready to control your Vamp Remote Control host over LAN or a trusted private relay.": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "جاهز للتحكم في مضيف MacPair الخاص بك عبر الشبكة المحلية أو مرحل خاص موثوق."
-=======
             "value": "جاهز للتحكم في مضيف Vamp Remote Control الخاص بك عبر الشبكة المحلية أو مرحل خاص موثوق."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Bereit, Ihren MacPair-Host über LAN oder ein vertrauenswürdiges privates Relay zu steuern."
-=======
             "value": "Bereit, Ihren Vamp Remote Control-Host über LAN oder ein vertrauenswürdiges privates Relay zu steuern."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "Ready to control your MacPair host over LAN or a trusted private relay."
-=======
             "value": "Ready to control your Vamp Remote Control host over LAN or a trusted private relay."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Listo para controlar su host MacPair a través de LAN o un relay privado de confianza."
-=======
             "value": "Listo para controlar su host Vamp Remote Control a través de LAN o un relay privado de confianza."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Prêt à contrôler votre hôte MacPair via LAN ou un relais privé de confiance."
-=======
             "value": "Prêt à contrôler votre hôte Vamp Remote Control via LAN ou un relais privé de confiance."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "LAN या विश्वसनीय निजी रिले पर अपने MacPair होस्ट को नियंत्रित करने के लिए तैयार।"
-=======
             "value": "LAN या विश्वसनीय निजी रिले पर अपने Vamp Remote Control होस्ट को नियंत्रित करने के लिए तैयार।"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Pronto a controllare il tuo host MacPair tramite LAN o un relay privato fidato."
-=======
             "value": "Pronto a controllare il tuo host Vamp Remote Control tramite LAN o un relay privato fidato."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "LANまたは信頼できるプライベートリレーを介してMacPairホストを制御する準備ができました。"
-=======
             "value": "LANまたは信頼できるプライベートリレーを介してVamp Remote Controlホストを制御する準備ができました。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "LAN 또는 신뢰할 수 있는 사설 릴레이를 통해 MacPair 호스트를 제어할 준비가 되었습니다."
-=======
             "value": "LAN 또는 신뢰할 수 있는 사설 릴레이를 통해 Vamp Remote Control 호스트를 제어할 준비가 되었습니다."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Klaar om uw MacPair-host te bedienen via LAN of een vertrouwde privérelay."
-=======
             "value": "Klaar om uw Vamp Remote Control-host te bedienen via LAN of een vertrouwde privérelay."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Gotowy do sterowania hostem MacPair przez LAN lub zaufany prywatny przekaźnik."
-=======
             "value": "Gotowy do sterowania hostem Vamp Remote Control przez LAN lub zaufany prywatny przekaźnik."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Pronto para controlar seu host MacPair via LAN ou um relay privado confiável."
-=======
             "value": "Pronto para controlar seu host Vamp Remote Control via LAN ou um relay privado confiável."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Готов к управлению вашим MacPair-хостом через LAN или доверенный частный ретранслятор."
-=======
             "value": "Готов к управлению вашим Vamp Remote Control-хостом через LAN или доверенный частный ретранслятор."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Redo att styra din MacPair-värd via LAN eller ett betrott privat relä."
-=======
             "value": "Redo att styra din Vamp Remote Control-värd via LAN eller ett betrott privat relä."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "พร้อมที่จะควบคุมโฮสต์ MacPair ของคุณผ่าน LAN หรือรีเลย์ส่วนตัวที่เชื่อถือได้"
-=======
             "value": "พร้อมที่จะควบคุมโฮสต์ Vamp Remote Control ของคุณผ่าน LAN หรือรีเลย์ส่วนตัวที่เชื่อถือได้"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair ana bilgisayarınızı LAN veya güvenilir bir özel röle üzerinden kontrol etmeye hazır."
-=======
             "value": "Vamp Remote Control ana bilgisayarınızı LAN veya güvenilir bir özel röle üzerinden kontrol etmeye hazır."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Sẵn sàng điều khiển máy chủ MacPair của bạn qua LAN hoặc chuyển tiếp riêng tư đáng tin cậy."
-=======
             "value": "Sẵn sàng điều khiển máy chủ Vamp Remote Control của bạn qua LAN hoặc chuyển tiếp riêng tư đáng tin cậy."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "已准备就绪，可通过局域网或受信任的专用中继控制您的 MacPair 主机。"
-=======
             "value": "已准备就绪，可通过局域网或受信任的专用中继控制您的 Vamp Remote Control 主机。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "已準備好透過區域網路或受信任的專用中繼控制您的 MacPair 主機。"
-=======
             "value": "已準備好透過區域網路或受信任的專用中繼控制您的 Vamp Remote Control 主機。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
@@ -19185,149 +18459,89 @@
         }
       }
     },
-<<<<<<< HEAD
-    "scan a code shown by MacPair Host": {
-=======
     "scan a code shown by Vamp Host": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "scan a code shown by MacPair Host"
-=======
             "value": "scan a code shown by Vamp Host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "扫描 MacPair Host 显示的二维码"
-=======
             "value": "扫描 Vamp Host 显示的二维码"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "扫描 MacPair Host 显示的二维码"
-=======
             "value": "扫描 Vamp Host 显示的二维码"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
     },
-<<<<<<< HEAD
-    "scan code from macpair": {
-=======
     "scan code from Vamp Terminal": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "امسح الرمز من MacPair Host"
-=======
             "value": "امسح الرمز من Vamp Host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Code von MacPair Host scannen"
-=======
             "value": "Code von Vamp Host scannen"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "scan code from macpair"
-=======
             "value": "scan code from Vamp Terminal"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Escanear código de MacPair Host"
-=======
             "value": "Escanear código de Vamp Host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Scanner le code depuis MacPair Host"
-=======
             "value": "Scanner le code depuis Vamp Host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Hostからコードをスキャン"
-=======
             "value": "Vamp Hostからコードをスキャン"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Escanear código de MacPair Host"
-=======
             "value": "Escanear código de Vamp Host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Host'tan kodu tara"
-=======
             "value": "Vamp Host'tan kodu tara"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "从MacPair Host扫描二维码"
-=======
             "value": "从Vamp Host扫描二维码"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "从MacPair Host扫描二维码"
-=======
             "value": "从Vamp Host扫描二维码"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
@@ -23707,355 +22921,210 @@
         }
       }
     },
-<<<<<<< HEAD
-    "MacPair Host is the Mac app this controls. If it’s already installed, we’ll stop showing the download cards here. You can still find them in settings.": {},
-    "MacPair Host receives your approved commands and performs them on your Mac.": {
-=======
     "Vamp Host is the Mac app this controls. If it’s already installed, we’ll stop showing the download cards here. You can still find them in settings.": {},
     "Vamp Host receives your approved commands and performs them on your Mac.": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "MacPair Host receives your approved commands and performs them on your Mac."
-=======
             "value": "Vamp Host receives your approved commands and performs them on your Mac."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Host 接收您批准的命令并在您的 Mac 上执行。"
-=======
             "value": "Vamp Host 接收您批准的命令并在您的 Mac 上执行。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Host 接收您批准的命令并在您的 Mac 上执行。"
-=======
             "value": "Vamp Host 接收您批准的命令并在您的 Mac 上执行。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
     },
-<<<<<<< HEAD
-    "MacPair": {
-=======
     "Vamp Remote Control": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair रिमोट कंट्रोल प्रो"
-=======
             "value": "Vamp Remote Control रिमोट कंट्रोल प्रो"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPairリモートコントロールPro"
-=======
             "value": "Vamp Remote ControlリモートコントロールPro"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair 원격 제어 Pro"
-=======
             "value": "Vamp Remote Control 원격 제어 Pro"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair"
-=======
             "value": "Vamp Remote Control"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair 远程控制专业版"
-=======
             "value": "Vamp Remote Control 远程控制专业版"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair 遠端控制專業版"
-=======
             "value": "Vamp Remote Control 遠端控制專業版"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
     },
-<<<<<<< HEAD
-    "MacPair requires MacPair Host running on macOS to function.": {
-=======
     "Vamp Remote Control requires Vamp Host running on macOS to function.": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "MacPair requires MacPair Host running on macOS to function."
-=======
             "value": "Vamp Remote Control requires Vamp Host running on macOS to function."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair 需要 MacPair Host 在 macOS 上运行才能使用。"
-=======
             "value": "Vamp Remote Control 需要 Vamp Host 在 macOS 上运行才能使用。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair 需要 MacPair Host 在 macOS 上运行才能使用。"
-=======
             "value": "Vamp Remote Control 需要 Vamp Host 在 macOS 上运行才能使用。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
     },
-<<<<<<< HEAD
-    "MacPair requires MacPair Host running on macOS to function. For full control, install the direct-download host and keep it open on the Mac you want to access.": {
-=======
     "Vamp Remote Control requires Vamp Host running on macOS to function. For full control, install the direct-download host and keep it open on the Mac you want to access.": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "MacPair requires MacPair Host running on macOS to function. For full control, install the direct-download host and keep it open on the Mac you want to access."
-=======
             "value": "Vamp Remote Control requires Vamp Host running on macOS to function. For full control, install the direct-download host and keep it open on the Mac you want to access."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair 需要 MacPair Host 在 macOS 上运行才能使用。如需完全控制，请安装直接下载版主机并在您要访问的 Mac 上保持其打开。"
-=======
             "value": "Vamp Remote Control 需要 Vamp Host 在 macOS 上运行才能使用。如需完全控制，请安装直接下载版主机并在您要访问的 Mac 上保持其打开。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair 需要 MacPair Host 在 macOS 上运行才能使用。如需完全控制，请安装直接下载版主机并在您要访问的 Mac 上保持其打开。"
-=======
             "value": "Vamp Remote Control 需要 Vamp Host 在 macOS 上运行才能使用。如需完全控制，请安装直接下载版主机并在您要访问的 Mac 上保持其打开。"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
     },
-<<<<<<< HEAD
-    "macpair.host": {
-=======
     "vamp.host": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "macpair.host"
-=======
             "value": "vamp.host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "macpair.host"
-=======
             "value": "vamp.host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "macpair.host"
-=======
             "value": "vamp.host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }

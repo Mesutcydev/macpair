@@ -177,11 +177,7 @@
 
    APPENDIX: How to apply the Apache License to your work.
 
-<<<<<<< HEAD
-      Copyright 2026 Mesut Can Yagci and MacPair contributors
-=======
       Copyright 2026 Mesut Can Yagci and Vamp contributors
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.

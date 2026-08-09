@@ -1,25 +1,3 @@
-<<<<<<< HEAD
-# AGENTS.md — MacPair
-
-This file is the operational contract for AI agents working with MacPair.
-
-## Product
-
-MacPair is an open-source native Mac remote desktop suite:
-
-| Component | Value |
-| --- | --- |
-| Host app | `MacPair Host` |
-| Client app | `MacPair` |
-| Host bundle ID | `uk.mesut.screenharbor.host` |
-| Client bundle ID | `uk.mesut.screenharbor.client` |
-| iOS client bundle ID | `uk.mesut.screenharbor.ios` |
-| Project | `MacPair.xcodeproj` |
-| Host scheme | `ScreenHarborHost` |
-| Client scheme | `ScreenHarborClient` |
-| iOS client scheme | `ScreenHarborIOS` |
-| Bonjour service | `_screenharbor._tcp` |
-=======
 # AGENTS.md — Vamp Terminal
 
 This file is the operational contract for AI agents working with Vamp Terminal.
@@ -43,7 +21,6 @@ pairing, trust, Tailscale, and authenticated WebRTC stack in this repository.
 | Light host scheme | `VampTerminalHost` |
 | iOS scheme | `VampTerminalApp` |
 | Bonjour service | `_screenharbor._tcp` (wire-compatibility contract only) |
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 | Signaling ports | `9471` plain, `9473` TLS |
 | Data port | `9472` |
 | Browser control | loopback `9475`, exposed privately with Tailscale Serve |
@@ -59,20 +36,6 @@ account, hosted relay, or public port forwarding is required.
 ```bash
 swift test
 
-<<<<<<< HEAD
-xcodebuild -project MacPair.xcodeproj \
-  -scheme ScreenHarborHost -configuration Release \
-  CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
-
-xcodebuild -project MacPair.xcodeproj \
-  -scheme ScreenHarborClient -configuration Release \
-  CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
-
-xcodebuild -project MacPair.xcodeproj \
-  -scheme ScreenHarborIOS -configuration Release \
-  -sdk iphoneos -destination 'generic/platform=iOS' \
-  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= build
-=======
 xcodebuild -project RemoteDesktopToolApps.xcodeproj -scheme MacHost \
   -configuration Release CODE_SIGNING_ALLOWED=NO build
 
@@ -82,7 +45,6 @@ xcodebuild -project RemoteDesktopToolApps.xcodeproj -scheme VampTerminalHost \
 xcodebuild -project RemoteDesktopToolApps.xcodeproj -scheme VampTerminalApp \
   -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 ```
 
 Package an AltStore-ready IPA with:
@@ -95,18 +57,8 @@ Do not add a hard-coded Apple team or private credential to the public project.
 
 ## Agent CLI
 
-<<<<<<< HEAD
-After the host app is installed, the CLI lives at:
-
-```text
-/Applications/MacPair Host.app/Contents/Resources/screenharbor
-```
-
-Its optional PATH symlink is `/usr/local/bin/screenharbor`.
-=======
 The repository includes the `vamp` wrapper. After installing Vamp Host, agents
 can use:
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
 ```bash
 vamp ensure

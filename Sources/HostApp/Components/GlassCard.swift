@@ -80,11 +80,7 @@ private struct HostGlassSurfaceModifier<S: InsettableShape>: ViewModifier {
 
 extension View {
     /// Uses Apple's native Liquid Glass on macOS 26 while retaining a material
-<<<<<<< HEAD
-    /// fallback for every macOS version supported by MacPair Host.
-=======
     /// fallback for every macOS version supported by Vamp Host.
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     ///
     /// `tint` remains source-compatible with existing call sites; surfaces use
     /// the system's neutral regular glass, while semantic color stays in content.

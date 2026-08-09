@@ -1,15 +1,9 @@
 # Release process
 
-<<<<<<< HEAD
-MacPair releases are built from a clean, committed source tree. The direct
-Mac website channel is ad-hoc signed and is not Apple-notarized. The iOS IPA is
-unsigned and must be re-signed by the installer's sideloading tool.
-=======
 Vamp releases are built from a clean, committed source tree. The iOS IPA is
 unsigned and must be re-signed by the installer's sideloading tool. The two
 macOS hosts are local utilities: Vamp Host is the complete host, while Vamp
 Terminal Host is the terminal-only variant.
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
 ## Prepare
 

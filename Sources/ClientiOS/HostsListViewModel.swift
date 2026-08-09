@@ -433,11 +433,7 @@ final class HostsListViewModel: ObservableObject {
             description.contains("not allowed") ||
             description.contains("no auth") ||
             nsError.code == 1 {
-<<<<<<< HEAD
-            return "Allow Local Network in Settings → Privacy → Local Network so MacPair can find your Mac."
-=======
             return "Allow Local Network in Settings → Privacy → Local Network so Vamp Terminal can find your Mac."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
         }
         if description.contains("offline") || description.contains("not reachable") {
             return "Wi-Fi appears offline. Connect to the same Wi-Fi as your Mac and try again."
@@ -447,11 +443,7 @@ final class HostsListViewModel: ObservableObject {
 
     private func localNetworkMessage(for message: String) -> String {
         // Generic fallback — try to be actionable rather than blame-the-user.
-<<<<<<< HEAD
-        "Couldn't find any Macs on this network yet. Make sure MacPair Host is open and on the same Wi-Fi, or tap “Enter address manually”."
-=======
         "Couldn't find any Macs on this network yet. Make sure Vamp Host is open and on the same Wi-Fi, or tap “Enter address manually”."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     }
 
     // MARK: - Manual Connection

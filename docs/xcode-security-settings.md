@@ -1,10 +1,6 @@
 # Xcode Security Settings
 
-<<<<<<< HEAD
-Security build-setting decisions for MacPair.
-=======
 Security build-setting decisions for Vamp Host and Vamp Terminal.
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
 ## Enabled settings
 

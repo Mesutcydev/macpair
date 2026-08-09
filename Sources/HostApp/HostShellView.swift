@@ -263,29 +263,12 @@ private struct HostMinimalDashboard: View {
         }
         .onChange(of: scenePhase) { phase in
             guard phase == .active else { return }
-            // Re-read TCC after returning from System Settings. Without this,
-            // the dashboard keeps showing stale blockers until a manual Refresh.
-            // Never re-fire OS prompts here — Settings return is exactly when
-            // a second CG/AX sheet feels like a permission loop.
-            Task { await permissionsViewModel.refresh(requestOSPromptIfNeeded: false) }
             Task.detached(priority: .utility) {
                 let info = getTailscaleConnectionInfo()
                 await MainActor.run {
                     tailscaleInfo = info
                     Task { await discoveryViewModel.updateTailscaleIdentity(hostname: info?.dnsName, ip: info?.ipAddress) }
                 }
-            }
-        }
-        .task(id: permissionsViewModel.blockers.count) {
-            // While setup is blocked, keep probing so a grant + relaunch or a
-            // late TCC settle is picked up without requiring another click.
-            guard !permissionsViewModel.blockers.isEmpty else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
-                guard !Task.isCancelled else { return }
-                guard !permissionsViewModel.blockers.isEmpty else { return }
-                guard !permissionsViewModel.isRefreshing else { continue }
-                await permissionsViewModel.refresh(requestOSPromptIfNeeded: false)
             }
         }
         .onChange(of: sessionCoordinator.phase) { _ in
@@ -551,11 +534,7 @@ private struct HostMinimalDashboard: View {
             // ── header ───────────────────────────────────────────
             HStack(spacing: 7) {
                 HostPulseDot(color: statusColor)
-<<<<<<< HEAD
-                Text("macpair host")
-=======
                 Text("vamp host")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                     .font(.system(size: 12.5, weight: .bold, design: .monospaced))
                     .foregroundStyle(AppColor.textPrimary)
                     .tracking(0.4)
@@ -1536,11 +1515,7 @@ private struct HostOnboardingView: View {
 
                             guideStep(1, "Open Notification Center", "Click the clock / date in the menu bar.")
                             guideStep(2, "Edit Widgets", "Scroll down and click “Edit Widgets”.")
-<<<<<<< HEAD
-                            guideStep(3, "Search for MacPair Host", "Find it in the widget gallery.")
-=======
                             guideStep(3, "Search for Vamp Host", "Find it in the widget gallery.")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                             guideStep(4, "Drag the medium size onto your desktop", "Use the medium size — it has the start, stop, and restart buttons.")
 
                             Label {
@@ -1733,22 +1708,14 @@ private struct HostOnboardingView: View {
     }
 }
 
-<<<<<<< HEAD
-/// A small native SwiftUI mock of the medium "MacPair Host" desktop widget so users
-=======
 /// A small native SwiftUI mock of the medium "Vamp Host" desktop widget so users
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 /// can recognize it in the widget gallery. Static — not interactive.
 private struct HostWidgetMockPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Circle().fill(Color.green).frame(width: 7, height: 7)
-<<<<<<< HEAD
-                Text("macpair host")
-=======
                 Text("vamp host")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                     .font(.system(.caption, design: .default).weight(.semibold))
                     .foregroundStyle(.primary)
                 Spacer()
@@ -1810,11 +1777,7 @@ private struct HostWidgetHelpView: View {
             VStack(alignment: .leading, spacing: 10) {
                 step(1, "Open Notification Center", "Click the date & time in the menu bar.")
                 step(2, "Edit Widgets", "Scroll down and click “Edit Widgets”.")
-<<<<<<< HEAD
-                step(3, "Add “MacPair Host”", "Find it in the gallery and drag it out. Use the medium size for start / stop / restart buttons.")
-=======
                 step(3, "Add “Vamp Host”", "Find it in the gallery and drag it out. Use the medium size for start / stop / restart buttons.")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             }
 
             Label {
@@ -1902,26 +1865,6 @@ private struct HostPermissionsView: View {
                             Spacer()
                         }
                         .padding(4)
-                    }
-
-                    if viewModel.permissionsResetByUpdate {
-                        GroupBox {
-                            HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(AppColor.warning)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Approvals were cleared by the update")
-                                        .font(.callout.weight(.semibold))
-                                        .foregroundStyle(.primary)
-                                    Text(viewModel.permissionsResetByUpdateMessage)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                                Spacer(minLength: 0)
-                            }
-                            .padding(4)
-                        }
                     }
 
                     // Required permissions
@@ -2580,7 +2523,7 @@ private struct HostStreamingView: View {
         .navigationTitle("Streaming")
         .background(HostPageBackground())
         .task {
-            await permissionsViewModel.refresh(requestOSPromptIfNeeded: false)
+            await permissionsViewModel.refresh()
             await captureViewModel.loadDisplayLayout()
             captureViewModel.startObservingState()
             if let changes = environment.displayLayoutChanges {
@@ -2759,7 +2702,7 @@ private struct HostDiagnosticsView: View {
             }
             Button {
                 Task {
-                    await permissionsVM.refresh(requestOSPromptIfNeeded: false)
+                    await permissionsVM.refresh()
                     await viewModel.refresh()
                 }
             } label: {
@@ -2767,7 +2710,7 @@ private struct HostDiagnosticsView: View {
             }
         }
         .task {
-            await permissionsVM.refresh(requestOSPromptIfNeeded: false)
+            await permissionsVM.refresh()
             await viewModel.refresh()
         }
     }
@@ -3121,13 +3064,8 @@ private struct HostPermissionExplainerSheet: View {
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(.primary)
                 Text(supportsRemoteInput
-<<<<<<< HEAD
-                    ? "MacPair Host needs two macOS privacy permissions to stream your screen and accept input from another Mac. Both prompts will appear next."
-                    : "MacPair Host needs Screen Recording permission to stream your Mac display.")
-=======
                     ? "Vamp Host needs two macOS privacy permissions to stream your screen and accept input from another Mac. Both prompts will appear next."
                     : "Vamp Host needs Screen Recording permission to stream your Mac display.")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

@@ -471,11 +471,7 @@ struct SimpleHomeView: View {
     /// (tap to go fullscreen) instead of auto-opening fullscreen. Mirrors the old
     /// developer "stream" card. Off keeps the simple straight-to-fullscreen flow.
     @AppStorage("client.ui.inlineStreamPreview") private var inlineStreamPreview = false
-<<<<<<< HEAD
-    /// Set once the user confirms that MacPair Host is installed —
-=======
     /// Set once the user confirms that Vamp Host is installed —
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     /// permanently hides the host download cards on the home screen. Settings still shows them.
     @AppStorage("client.ui.vampHostInstalled") private var vampHostInstalled = false
 
@@ -602,11 +598,7 @@ struct SimpleHomeView: View {
                 // generic network message here told users to check Wi-Fi for a permission problem.
                 errorText = sessionCoordinator.blockedState?.message
                     ?? sessionCoordinator.errorMessage
-<<<<<<< HEAD
-                    ?? "Couldn’t reach that Mac. Make sure MacPair Host is open on the same network."
-=======
                     ?? "Couldn’t reach that Mac. Make sure Vamp Host is open on the same network."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             case .idle:
                 connectingHostID = nil
                 showStream = false
@@ -670,15 +662,9 @@ struct SimpleHomeView: View {
             }
             Button("Cancel", role: .cancel) { pendingUnwakeableHost = nil }
         } message: {
-<<<<<<< HEAD
-            Text("It’s an Apple-Silicon Mac on Wi-Fi, which macOS can’t wake from sleep over the network without an Apple TV/HomePod acting as a Sleep Proxy.\n\nFix: on the Mac, open MacPair Host → Settings → turn on “Keep Mac Awake & Reachable” (so it never sleeps), or connect it via Ethernet. Tap “Wake anyway” to try regardless (works if a Sleep Proxy is on the network).")
-        }
-        .alert("Is MacPair Host installed on your Mac?", isPresented: $showInstalledPrompt) {
-=======
             Text("It’s an Apple-Silicon Mac on Wi-Fi, which macOS can’t wake from sleep over the network without an Apple TV/HomePod acting as a Sleep Proxy.\n\nFix: on the Mac, open Vamp Host → Settings → turn on “Keep Mac Awake & Reachable” (so it never sleeps), or connect it via Ethernet. Tap “Wake anyway” to try regardless (works if a Sleep Proxy is on the network).")
         }
         .alert("Is Vamp Host installed on your Mac?", isPresented: $showInstalledPrompt) {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             Button("Yes, it’s installed") {
                 vampHostInstalled = true
                 AppHaptics.selection()
@@ -688,11 +674,7 @@ struct SimpleHomeView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-<<<<<<< HEAD
-            Text("MacPair Host is the Mac app this controls. If it’s already installed, we’ll stop showing the download card here. You can still find it in settings.")
-=======
             Text("Vamp Host is the Mac app this controls. If it’s already installed, we’ll stop showing the download card here. You can still find it in settings.")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
         }
     }
 
@@ -711,11 +693,7 @@ struct SimpleHomeView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-<<<<<<< HEAD
-                Text("MacPair")
-=======
                 Text("Vamp Remote Control")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                     .font(.headline)
                     .foregroundColor(PR.fg)
                 Text(headerSubtitle)
@@ -995,11 +973,7 @@ struct SimpleHomeView: View {
             Text(isScanning ? "scanning for macs…" : "no macs found yet")
                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
                 .foregroundColor(PR.fg)
-<<<<<<< HEAD
-            Text("open MacPair Host on your Mac and make sure both devices share the same Wi-Fi, then scan. Away from your network? Tap “connect by address” below and enter the Mac’s Tailscale address.")
-=======
             Text("open Vamp Host on your Mac and make sure both devices share the same Wi-Fi, then scan. Away from your network? Tap “connect by address” below and enter the Mac’s Tailscale address.")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(PR.dim)
                 .multilineTextAlignment(.center)
@@ -1038,21 +1012,13 @@ struct SimpleHomeView: View {
 
     // MARK: Home host promo (dismissible)
 
-<<<<<<< HEAD
-    /// The MacPair Host download card shown on the home screen below "connect by address".
-=======
     /// The Vamp Host download card shown on the home screen below "connect by address".
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     /// Dismissible: tapping ✕ asks whether the host is installed; "yes" hides it for good
     /// (`vampHostInstalled`), "not yet" hides it until the next launch.
     private var homeHostPromo: some View {
         VStack(spacing: 12) {
             HStack {
-<<<<<<< HEAD
-                Text("GET MACPAIR HOST")
-=======
                 Text("GET VAMP HOST")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .tracking(1.5)
                     .foregroundColor(PR.dim)
@@ -1225,11 +1191,7 @@ struct SimpleHomeView: View {
         // Offline and only reachable over Tailscale: a wake signal can't travel over Tailscale,
         // so be honest instead of attempting a doomed connect to a sleeping Mac.
         if isWakeBlockedByRelay(host) {
-<<<<<<< HEAD
-            showWakeInfo("Can’t wake over Tailscale — a wake signal only travels on the same Wi-Fi. Wake this Mac from its local network, or keep it awake in MacPair Host → Settings.", isError: true)
-=======
             showWakeInfo("Can’t wake over Tailscale — a wake signal only travels on the same Wi-Fi. Wake this Mac from its local network, or keep it awake in Vamp Host → Settings.", isError: true)
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             return
         }
         // Remind to enable the VPN before attempting a Tailscale/relay address —
@@ -1361,11 +1323,7 @@ struct SimpleHomeView: View {
             // The Mac never came back. Give actionable guidance instead of leaving a silent failure —
             // the usual cause is an Apple-Silicon Mac on Wi-Fi that can't be woken remotely.
             withAnimation(.easeOut(duration: 0.2)) {
-<<<<<<< HEAD
-                wakeFeedback = "Your Mac didn’t respond. Apple-Silicon Macs on Wi-Fi can’t be woken remotely — on the Mac, open MacPair Host → Settings → turn on “Keep Mac Awake & Reachable”, or connect it via Ethernet."
-=======
                 wakeFeedback = "Your Mac didn’t respond. Apple-Silicon Macs on Wi-Fi can’t be woken remotely — on the Mac, open Vamp Host → Settings → turn on “Keep Mac Awake & Reachable”, or connect it via Ethernet."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                 wakeFeedbackIsError = true
             }
             let shown = wakeFeedback
@@ -3174,10 +3132,6 @@ private extension Color {
 
 #Preview("MirrorScreen") {
     if #available(iOS 16.1, *) {
-<<<<<<< HEAD
-        MirrorScreen(environment: ClientAppEnvironment.makeDefault(clientName: "MacPair iOS"))
-=======
         MirrorScreen(environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client"))
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     }
 }

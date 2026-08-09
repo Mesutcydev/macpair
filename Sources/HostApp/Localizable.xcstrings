@@ -7263,11 +7263,7 @@
         }
       }
     },
-<<<<<<< HEAD
-    "MacPair Host Guide": {
-=======
     "Vamp Host Guide": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "extractionState": "stale",
       "localizations": {
         "ar": {
@@ -7279,91 +7275,55 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Host-Anleitung"
-=======
             "value": "Vamp Host-Anleitung"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Guía de MacPair Host"
-=======
             "value": "Guía de Vamp Host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Guide MacPair Host"
-=======
             "value": "Guide Vamp Host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Hostガイド"
-=======
             "value": "Vamp Hostガイド"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Host Kılavuzu"
-=======
             "value": "Vamp Host Kılavuzu"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Host 指南"
-=======
             "value": "Vamp Host 指南"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "MacPair Host Guide"
-=======
             "value": "Vamp Host Guide"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "Guía de MacPair Host"
-=======
             "value": "Guía de Vamp Host"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "MacPair Host 指南"
-=======
             "value": "Vamp Host 指南"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }
@@ -7412,200 +7372,120 @@
         }
       }
     },
-<<<<<<< HEAD
-    "mesut.uk/apps/macpair-host": {
-=======
     "mesutcydev.github.io/macpair": {
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ar": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-<<<<<<< HEAD
-            "value": "mesut.uk/apps/macpair-host"
-=======
             "value": "mesutcydev.github.io/macpair"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
           }
         }
       }

@@ -439,11 +439,7 @@ final class HostAppEnvironment: ObservableObject {
         guard appNapActivity == nil else { return }
         appNapActivity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiatedAllowingIdleSystemSleep, .suddenTerminationDisabled],
-<<<<<<< HEAD
-            reason: "MacPair Host stays reachable for incoming remote connections"
-=======
             reason: "Vamp Host stays reachable for incoming remote connections"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
         )
     }
     #endif
@@ -608,11 +604,7 @@ final class HostAppEnvironment: ObservableObject {
         let snapshot = HostWidgetSnapshot(
             phase: .idle,
             statusTitle: "host app closed",
-<<<<<<< HEAD
-            hostName: "macpair host",
-=======
             hostName: "vamp host",
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             primaryAddress: nil,
             addressLabel: nil,
             connectedClient: nil,
@@ -624,9 +616,7 @@ final class HostAppEnvironment: ObservableObject {
     #endif
 
     func startRuntimeIfNeeded() async {
-        // Probe only — the dashboard owns the one-shot OS prompt so startup
-        // and the blocker poll cannot each open CG/AX sheets.
-        await permissionsViewModel.refresh(requestOSPromptIfNeeded: false)
+        await permissionsViewModel.refresh()
         await discoveryAdvertiserViewModel.startIfNeeded()
         #if os(macOS)
         // Safari access is loopback-only; the operator explicitly exposes it
@@ -900,11 +890,7 @@ final class HostAppEnvironment: ObservableObject {
         IOPMAssertionCreateWithName(
             kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),
-<<<<<<< HEAD
-            "MacPair Host is actively streaming to a remote client" as CFString,
-=======
             "Vamp Host is actively streaming to a remote client" as CFString,
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             &streamingAssertionID
         )
     }
@@ -920,11 +906,7 @@ final class HostAppEnvironment: ObservableObject {
         IOPMAssertionCreateWithName(
             kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),
-<<<<<<< HEAD
-            "MacPair Host is keeping this Mac awake so it stays reachable for remote connections" as CFString,
-=======
             "Vamp Host is keeping this Mac awake so it stays reachable for remote connections" as CFString,
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             &keepAwakeAssertionID
         )
     }

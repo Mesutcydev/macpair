@@ -60,15 +60,9 @@ final class HostFileTransferSettingsStore: ObservableObject {
             return displayName(for: URL(fileURLWithPath: path, isDirectory: true))
         }
         if supportsDefaultDownloadsLocation {
-<<<<<<< HEAD
-            return "Downloads/MacPair Transfers"
-        }
-        return "Choose a folder in MacPair Host settings"
-=======
             return "Downloads/Vamp Host Transfers"
         }
         return "Choose a folder in Vamp Host settings"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     }
 
     func scopedSaveDirectory() -> ScopedDirectoryAccess? {
@@ -110,11 +104,7 @@ final class HostFileTransferSettingsStore: ObservableObject {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.prompt = "Choose Folder"
-<<<<<<< HEAD
-        panel.message = "Choose where incoming files from MacPair should be saved."
-=======
         panel.message = "Choose where incoming files from Vamp Host should be saved."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
         if panel.runModal() == .OK, let url = panel.url {
             let bookmark = try? url.bookmarkData(
@@ -135,11 +125,7 @@ final class HostFileTransferSettingsStore: ObservableObject {
         #endif
         return homeDir
             .appendingPathComponent("Downloads", isDirectory: true)
-<<<<<<< HEAD
-            .appendingPathComponent("MacPair Transfers", isDirectory: true)
-=======
             .appendingPathComponent("Vamp Host Transfers", isDirectory: true)
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
     }
 
     private func displayName(for url: URL) -> String {
@@ -348,11 +334,7 @@ actor HostFileTransferManager {
             return
         }
         guard let scopedDirectory = settingsSnapshot.destination else {
-<<<<<<< HEAD
-            await sendResponse(rejectEnvelope(reason: "Choose a save folder in MacPair Host settings first.", offer: offer))
-=======
             await sendResponse(rejectEnvelope(reason: "Choose a save folder in Vamp Host settings first.", offer: offer))
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             return
         }
 
@@ -912,15 +894,9 @@ actor HostFileTransferManager {
     }
 
     private static func destinationDisplayName(for state: IncomingTransferState) -> String {
-<<<<<<< HEAD
-        if ["ScreenHarbor Transfers", "MacPair Transfers"].contains(state.destinationDirectory.url.lastPathComponent),
-           state.destinationDirectory.url.path.contains("/Downloads/") {
-            return "Downloads/MacPair Transfers"
-=======
         if state.destinationDirectory.url.lastPathComponent == "Vamp Host Transfers",
            state.destinationDirectory.url.path.contains("/Downloads/") {
             return "Downloads/Vamp Host Transfers"
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
         }
 
         let finalDirectory = state.finalURL.deletingLastPathComponent()

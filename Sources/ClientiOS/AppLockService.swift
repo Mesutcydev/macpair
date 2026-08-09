@@ -58,11 +58,7 @@ final class AppLockService: ObservableObject {
             : .deviceOwnerAuthentication
 
         do {
-<<<<<<< HEAD
-            let ok = try await ctx.evaluatePolicy(policy, localizedReason: "Unlock MacPair")
-=======
             let ok = try await ctx.evaluatePolicy(policy, localizedReason: "Unlock Vamp Remote Control")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             if ok { isLocked = false }
         } catch let laErr as LAError {
             switch laErr.code {

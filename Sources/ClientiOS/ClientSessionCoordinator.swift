@@ -389,11 +389,7 @@ final class ClientSessionCoordinator: ObservableObject {
                     bonjourSig.requireTLS = false
                     bonjourSig.connectionPIN = nil
                     sigSvc.disconnect()
-<<<<<<< HEAD
-                    throw RemoteDesktopError.connectionFailed("Secure connection to the Mac failed. Update MacPair Host on the Mac, then try again.")
-=======
                     throw RemoteDesktopError.connectionFailed("Secure connection to the Mac failed. Update Vamp Host on the Mac, then try again.")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                 }
             }
 
@@ -466,19 +462,11 @@ final class ClientSessionCoordinator: ObservableObject {
                     // firewalled).  Phase tells us where we got stuck.
                     if phase == .signalingConnected {
                         throw RemoteDesktopError.timeout(
-<<<<<<< HEAD
-                            "Host didn't approve the connection. Open MacPair Host on your Mac and tap “Allow”."
-                        )
-                    }
-                    throw RemoteDesktopError.timeout(
-                        "No answer from the Mac. Make sure MacPair Host is running and that your firewall isn't blocking it."
-=======
                             "Host didn't approve the connection. Open Vamp Host on your Mac and tap “Allow”."
                         )
                     }
                     throw RemoteDesktopError.timeout(
                         "No answer from the Mac. Make sure Vamp Host is running and that your firewall isn't blocking it."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                     )
                 }
                 try await Task.sleep(nanoseconds: 500_000_000)
@@ -533,17 +521,10 @@ final class ClientSessionCoordinator: ObservableObject {
         let isTLS = lower.contains("tls") || lower.contains("handshake") || lower.contains("certificate")
 
         if isTLS {
-<<<<<<< HEAD
-            return "Secure handshake with the Mac failed. The host may be running an older version — update MacPair Host on the Mac and try again."
-        }
-        if isRefused {
-            return "The Mac refused the connection. Open MacPair Host on the Mac, then try again."
-=======
             return "Secure handshake with the Mac failed. The host may be running an older version — update Vamp Host on the Mac and try again."
         }
         if isRefused {
             return "The Mac refused the connection. Open Vamp Host on the Mac, then try again."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
         }
         if isUnreachable {
             return "Can't reach the Mac. Check that you're on the same Wi-Fi (or that Tailscale is up if connecting remotely)."
@@ -910,11 +891,7 @@ final class ClientSessionCoordinator: ObservableObject {
                 guard claimed == expected else {
                     logger.warning("Rejected answer due to host fingerprint mismatch expected=\(expected, privacy: .public) claimed=\(claimed, privacy: .public)")
                     phase = .error
-<<<<<<< HEAD
-                    errorMessage = "This Mac's identity changed since you last connected. If you reinstalled MacPair Host, remove this saved Mac and reconnect; otherwise don't proceed."
-=======
                     errorMessage = "This Mac's identity changed since you last connected. If you reinstalled Vamp Host, remove this saved Mac and reconnect; otherwise don't proceed."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                     await eventLogStore.append(EventLogItem(
                         severity: .warning,
                         category: "Trust",
@@ -1200,11 +1177,7 @@ final class ClientSessionCoordinator: ObservableObject {
                    self.phase == .waitingForMedia {
                     self.logger.error("No video after \(String(format: "%.0f", elapsed))s in waitingForMedia — surfacing error")
                     self.phase = .error
-<<<<<<< HEAD
-                    self.errorMessage = "Connected to the Mac, but no video arrived. On the Mac, make sure a display is selected and that Screen Recording is allowed for MacPair Host."
-=======
                     self.errorMessage = "Connected to the Mac, but no video arrived. On the Mac, make sure a display is selected and that Screen Recording is allowed for Vamp Host."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                     await self.eventLogStore.append(EventLogItem(
                         severity: .error,
                         category: "Session",

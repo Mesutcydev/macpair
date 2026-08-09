@@ -7,11 +7,7 @@ struct WelcomeStep: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-<<<<<<< HEAD
-            PRScreenHeader(title: "welcome", host: "macpair.host", state: .live)
-=======
             PRScreenHeader(title: "welcome", host: "vamp.host", state: .live)
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
             ScrollView {
                 VStack(spacing: 12) {
@@ -57,11 +53,7 @@ struct WelcomeStep: View {
                         VStack(alignment: .leading, spacing: 8) {
                             secLine(icon: "key.fill",           text: "P-256 device key — unique identity, stored in Keychain")
                             secLine(icon: "checkmark.seal.fill", text: "fingerprint pinning — every reconnect cryptographically verified")
-<<<<<<< HEAD
-                            secLine(icon: "person.badge.shield.checkmark.fill", text: "explicit approval — new MacPair clients must be accepted on-screen")
-=======
                             secLine(icon: "person.badge.shield.checkmark.fill", text: "explicit approval — new Vamp Remote Control clients must be accepted on-screen")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                             secLine(icon: "network",            text: "lan-direct transport — no data leaves your local network")
                             secLine(icon: "lock.doc.fill",      text: "session-locked commands — validated against active session ID")
                             secLine(icon: "arrow.clockwise",    text: "replay guard — stale packets older than 30 s are dropped")

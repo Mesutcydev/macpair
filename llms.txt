@@ -1,23 +1,3 @@
-<<<<<<< HEAD
-# MacPair
-
-> Open-source, native Mac remote desktop host with Mac and iPhone/iPad clients. Local-first, peer-approved, website-distributed, and controllable by a machine-readable CLI.
-
-Canonical name: MacPair
-Host app: MacPair Host
-Client app: MacPair
-iOS client: MacPair for iPhone and iPad
-Website: https://mesut.uk/apps/macpair
-Source: https://github.com/Mesutcydev/macpair
-License: Apache-2.0
-Minimum macOS: 13.0
-Host download: https://github.com/Mesutcydev/macpair/releases/download/v1.0.10/MacPair-Host-1.0.10-build-11.dmg
-Mac client download: https://github.com/Mesutcydev/macpair/releases/download/v1.0.10/MacPair-1.0.10-build-11.dmg
-iOS client download: https://mesut.uk/MacPair-iOS-1.0.5-build-6-unsigned.ipa
-Integrity files: append .sha256, .manifest.json, or .sbom.cdx.json to a download URL
-Mac signing: ad-hoc; current Mac downloads are not Apple-notarized
-iOS signing: unsigned; a sideload tool must re-sign the IPA with the installer's Apple ID/team
-=======
 # Vamp Terminal
 
 > Open-source multi-tab terminal workspace for iPhone and iPad. It connects to
@@ -35,7 +15,6 @@ License: Apache-2.0
 Minimum macOS: 13.0
 Minimum iOS/iPadOS: 18.0
 iOS signing: unsigned; AltStore or another sideload tool must re-sign the IPA with the installer's Apple ID/team
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
 ## Agent quick start
 
@@ -69,18 +48,10 @@ Status snapshot: ~/Library/Application Support/Vamp Host/host.widget.snapshot.js
 ## Documentation
 
 - README: https://github.com/Mesutcydev/macpair/blob/main/README.md
-<<<<<<< HEAD
-=======
 - Product page: https://mesutcydev.github.io/macpair/
 - Safari control and sideloading: https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_SIDELOAD.md
 - Host split: https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_HOST.md
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 - Agent integration: https://github.com/Mesutcydev/macpair/blob/main/docs/AGENT_INTEGRATION.md
 - Machine manifest: https://github.com/Mesutcydev/macpair/blob/main/docs/agent-manifest.json
 - Security policy: https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md
 - Release integrity: https://github.com/Mesutcydev/macpair/blob/main/docs/RELEASE_PROCESS.md
-<<<<<<< HEAD
-- iOS sideloading: https://github.com/Mesutcydev/macpair/blob/main/docs/IOS_SIDELOAD.md
-- Governance: https://github.com/Mesutcydev/macpair/blob/main/GOVERNANCE.md
-=======
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)

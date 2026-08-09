@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 
-<<<<<<< HEAD
-# Generates a CycloneDX 1.5 SBOM for one MacPair release artifact.
-=======
 # Generates a CycloneDX 1.5 SBOM for one Vamp or legacy release artifact.
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
 set -euo pipefail
 
@@ -48,16 +44,12 @@ output = os.environ["OUTPUT"]
 sha = os.environ["SHA"]
 serial = os.environ["SERIAL"]
 
-<<<<<<< HEAD
-app_name = "MacPair Host" if component == "host" else "MacPair"
-=======
 app_name = {
     "host": "Vamp Host",
     "client": "Vamp Remote Client",
     "ios-client": "Vamp Remote Client for iOS",
     "vamp-terminal": "Vamp Terminal",
 }.get(component, "Vamp")
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 bundle_id = {
     "host": "uk.mesut.screenharbor.host",
     "client": "uk.mesut.screenharbor.client",

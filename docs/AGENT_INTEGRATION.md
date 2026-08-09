@@ -1,10 +1,6 @@
 # Agent integration
 
-<<<<<<< HEAD
-MacPair Host is a normal menu-bar macOS app, not a daemon. Launching the app starts its runtime automatically after required permissions are available.
-=======
 Vamp Host is a normal menu-bar macOS app, not a daemon. Launching the app starts its runtime automatically after required permissions are available. Vamp Terminal Host exposes the same terminal workflow without the screen-capture or remote-input surfaces.
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
 ## Discovery and readiness
 

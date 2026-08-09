@@ -22,11 +22,7 @@ struct WakeCoordinator {
             switch self {
             case .requestSent(_, _, let wakeReady):
                 if wakeReady == false {
-<<<<<<< HEAD
-                    return "Wake signal sent, but this Mac has “Wake for network access” turned off — enable it in MacPair Host settings, then try again."
-=======
             return "Wake signal sent, but this Mac has “Wake for network access” turned off — enable it in Vamp Host settings, then try again."
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
                 }
                 return "Wake signal sent — give your Mac a few seconds to wake. (Apple-Silicon Macs on Wi-Fi need a Sleep Proxy on the network.)"
             case .noTarget:

@@ -143,11 +143,7 @@ final class HostWidgetBridge {
         let snapshot = HostWidgetSnapshot(
             phase: widgetPhase,
             statusTitle: statusTitle,
-<<<<<<< HEAD
-            hostName: "macpair host",
-=======
             hostName: "vamp host",
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
             primaryAddress: address,
             addressLabel: address == nil ? nil : "lan",
             connectedClient: environment.sessionCoordinator.connectedClientName,
@@ -162,11 +158,7 @@ final class HostWidgetBridge {
         #if canImport(WidgetKit)
         // Target this widget explicitly. On macOS, reloadAllTimelines() can be
         // coalesced with unrelated widget work and leave the final offline entry
-<<<<<<< HEAD
-        // visible after MacPair Host has already relaunched.
-=======
         // visible after Vamp Host has already relaunched.
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
         WidgetCenter.shared.reloadTimelines(ofKind: HostWidgetConstants.widgetKind)
         #endif
     }

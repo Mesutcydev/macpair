@@ -9,11 +9,7 @@ struct StreamStep: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-<<<<<<< HEAD
-            PRScreenHeader(title: "pair", host: "macpair.host", state: .live)
-=======
             PRScreenHeader(title: "pair", host: "vamp.host", state: .live)
->>>>>>> c989667 (Add Vamp Terminal multi-tab hosts)
 
             VStack(spacing: 12) {
                 terminalCard
