@@ -140,7 +140,7 @@ extension VampAgentProvider {
         let scopedSessionName: String
         if let workspaceID {
             let suffix = String(workspaceID.uuidString.prefix(8)).lowercased()
-            scopedSessionName = "(sessionName)-(suffix)"
+            scopedSessionName = "\(sessionName)-\(suffix)"
         } else {
             scopedSessionName = sessionName
         }
