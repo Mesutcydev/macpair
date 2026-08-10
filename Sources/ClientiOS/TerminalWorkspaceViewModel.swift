@@ -1,4 +1,5 @@
 import Combine
+import CryptoKit
 import Foundation
 import SharedProtocol
 import TransportWebRTC
@@ -177,6 +178,8 @@ final class TerminalChatStore: ObservableObject {
         let isFailure = !hadReady || normalizedReason == "terminal-start-timeout"
             || normalizedReason == "terminal-disabled"
             || normalizedReason == "terminal-capacity"
+            || normalizedReason == "workspace-unavailable"
+            || normalizedReason == "workspace-mismatch"
             || normalizedReason == "eof"
             || normalizedReason == "shell-exited"
             || normalizedReason?.hasPrefix("forkpty failed") == true
@@ -188,6 +191,10 @@ final class TerminalChatStore: ObservableObject {
             text = "The host has reached its 8-terminal limit. Close another tab before opening one."
         } else if normalizedReason == "terminal-start-timeout" {
             text = "The shell did not start. Check Terminal Mode on the host, then retry this tab."
+        } else if normalizedReason == "workspace-unavailable" {
+            text = "That workspace is no longer available on the Mac. Refresh workspaces and choose another folder."
+        } else if normalizedReason == "workspace-mismatch" {
+            text = "The selected workspace changed before launch. Refresh workspaces and try again."
         } else if !hadReady && (normalizedReason == "eof" || normalizedReason == "shell-exited") {
             text = "The host shell exited before it became ready. Check Terminal Mode and retry this tab."
         } else if normalizedReason?.hasPrefix("forkpty failed") == true {
@@ -480,6 +487,207 @@ private enum TerminalChatTextSanitizer {
     }
 }
 
+/// Keeps the host-backed workspace catalog separate from live PTY tabs. The
+/// catalog is persisted locally by host identity, while availability and Git
+/// metadata always come from the connected host.
+@MainActor
+final class VampWorkspaceStore: ObservableObject {
+    @Published private(set) var workspaces: [RemoteWorkspace] = []
+    @Published private(set) var roots: [WorkspaceBrowseRoot] = []
+    @Published private(set) var directoryEntries: [WorkspaceDirectoryEntry] = []
+    @Published private(set) var browsePath: String?
+    @Published private(set) var isLoading = false
+    @Published private(set) var isBrowsing = false
+    @Published private(set) var errorMessage: String?
+
+    private let coordinator: ClientSessionCoordinator
+    private var hostID: UUID?
+    private var persistenceKey: String?
+    private var persistedWorkspaces: [RemoteWorkspace] = []
+    private var pendingListRequestID: UUID?
+    private var pendingDirectoryRequestID: UUID?
+
+    init(coordinator: ClientSessionCoordinator) {
+        self.coordinator = coordinator
+        coordinator.onWorkspaceListResponse = { [weak self] response in
+            self?.receive(response)
+        }
+        coordinator.onWorkspaceDirectoryResponse = { [weak self] response in
+            self?.receive(response)
+        }
+    }
+
+    func activate() {
+        isLoading = true
+        errorMessage = nil
+        do {
+            pendingListRequestID = try coordinator.requestWorkspaces(refresh: false)
+        } catch {
+            isLoading = false
+            errorMessage = "Reconnect to the Mac to browse its workspaces."
+        }
+    }
+
+    func retryWhenTransportIsReady() {
+        guard coordinator.activeSessionID != nil else { return }
+        do {
+            pendingListRequestID = try coordinator.requestWorkspaces(refresh: false)
+            isLoading = true
+            errorMessage = nil
+        } catch {
+            // The data channel can transition to open before this callback is
+            // scheduled. A later open notification will retry without turning
+            // a transient transport race into a permanent empty state.
+        }
+    }
+
+    func refresh() {
+        isLoading = true
+        errorMessage = nil
+        do {
+            pendingListRequestID = try coordinator.requestWorkspaces(refresh: true)
+        } catch {
+            isLoading = false
+            errorMessage = "Reconnect to the Mac to refresh workspaces."
+        }
+    }
+
+    func browse(path: String) {
+        isBrowsing = true
+        errorMessage = nil
+        do {
+            pendingDirectoryRequestID = try coordinator.requestWorkspaceDirectory(path: path)
+        } catch {
+            isBrowsing = false
+            errorMessage = "Reconnect to the Mac to browse this folder."
+        }
+    }
+
+    func browseParent() {
+        guard let browsePath else { return }
+        let parent = URL(fileURLWithPath: browsePath).deletingLastPathComponent().path
+        guard parent != browsePath else { return }
+        browse(path: parent)
+    }
+
+    func toggleFavorite(_ workspaceID: UUID) {
+        guard let index = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
+        workspaces[index].isFavorite.toggle()
+        persist()
+    }
+
+    /// Adds a folder selected from the host browser to this host's local
+    /// recents without inventing any metadata. The next refresh replaces the
+    /// lightweight browser entry with the host's full Git/project record.
+    func adopt(_ workspace: RemoteWorkspace) {
+        guard workspace.hostID == hostID || hostID == nil else { return }
+        if let index = workspaces.firstIndex(where: { $0.path == workspace.path }) {
+            workspaces[index].isAvailable = workspace.isAvailable
+            if workspaces[index].gitInfo?.projectHints.isEmpty != false {
+                workspaces[index].gitInfo = workspace.gitInfo
+            }
+        } else {
+            workspaces.append(workspace)
+        }
+        hostID = workspace.hostID
+        persistenceKey = "com.mesutcy.vamp-terminal.workspaces.\(workspace.hostID.uuidString)"
+        persist()
+    }
+
+    func markOpened(_ workspace: RemoteWorkspace) {
+        guard let index = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
+        workspaces[index].lastOpenedAt = Date()
+        persist()
+    }
+
+    func workspace(for entry: WorkspaceDirectoryEntry) -> RemoteWorkspace? {
+        guard let hostID else { return nil }
+        return RemoteWorkspace(
+            id: stableWorkspaceID(path: entry.path, hostID: hostID),
+            hostID: hostID,
+            name: entry.name,
+            path: entry.path,
+            kind: entry.isGitRepository ? .gitRepository : .folder,
+            gitInfo: GitWorkspaceInfo(projectHints: entry.projectHints),
+            isAvailable: entry.isReadable
+        )
+    }
+
+    private func receive(_ response: WorkspaceListResponseMessage) {
+        guard response.sessionID == coordinator.activeSessionID,
+              pendingListRequestID == nil || pendingListRequestID == response.requestID else { return }
+        pendingListRequestID = nil
+        hostID = response.hostID
+        persistenceKey = "com.mesutcy.vamp-terminal.workspaces.\(response.hostID.uuidString)"
+        loadPersisted()
+        roots = response.roots
+        workspaces = merge(server: response.workspaces)
+        isLoading = false
+        errorMessage = response.errorMessage
+        persist()
+    }
+
+    private func receive(_ response: WorkspaceDirectoryResponseMessage) {
+        guard response.sessionID == coordinator.activeSessionID,
+              pendingDirectoryRequestID == nil || pendingDirectoryRequestID == response.requestID else { return }
+        pendingDirectoryRequestID = nil
+        browsePath = response.path
+        directoryEntries = response.entries
+        isBrowsing = false
+        errorMessage = response.errorMessage
+    }
+
+    private func merge(server: [RemoteWorkspace]) -> [RemoteWorkspace] {
+        let byPath = Dictionary(uniqueKeysWithValues: persistedWorkspaces.map { ($0.path, $0) })
+        var merged = server.map { remote in
+            var value = remote
+            if let saved = byPath[remote.path] {
+                value.lastOpenedAt = saved.lastOpenedAt
+                value.isFavorite = saved.isFavorite
+            }
+            return value
+        }
+        let knownPaths = Set(server.map(\.path))
+        merged.append(contentsOf: persistedWorkspaces.filter { !knownPaths.contains($0.path) }.map {
+            var stale = $0
+            stale.isAvailable = false
+            return stale
+        })
+        return merged.sorted { lhs, rhs in
+            if lhs.isFavorite != rhs.isFavorite { return lhs.isFavorite }
+            let leftDate = lhs.lastOpenedAt ?? .distantPast
+            let rightDate = rhs.lastOpenedAt ?? .distantPast
+            if leftDate != rightDate { return leftDate > rightDate }
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    private func loadPersisted() {
+        persistedWorkspaces = []
+        guard let persistenceKey,
+              let data = UserDefaults.standard.data(forKey: persistenceKey),
+              let decoded = try? JSONDecoder().decode([RemoteWorkspace].self, from: data) else { return }
+        persistedWorkspaces = decoded
+    }
+
+    private func persist() {
+        guard let persistenceKey,
+              let data = try? JSONEncoder().encode(workspaces) else { return }
+        UserDefaults.standard.set(data, forKey: persistenceKey)
+        persistedWorkspaces = workspaces
+    }
+
+    private func stableWorkspaceID(path: String, hostID: UUID) -> UUID {
+        var digest = Array(SHA256.hash(data: Data((hostID.uuidString + "\n" + path).utf8)))
+        digest[6] = (digest[6] & 0x0f) | 0x50
+        digest[8] = (digest[8] & 0x3f) | 0x80
+        let bytes = digest.prefix(16)
+        let hex = bytes.map { String(format: "%02x", $0) }.joined()
+        let formatted = "\(hex.prefix(8))-\(hex.dropFirst(8).prefix(4))-\(hex.dropFirst(12).prefix(4))-\(hex.dropFirst(16).prefix(4))-\(hex.dropFirst(20).prefix(12))"
+        return UUID(uuidString: formatted) ?? UUID()
+    }
+}
+
 /// Coordinates the terminal tabs that share one authenticated WebRTC session.
 /// Each tab owns one ClientTerminalSessionManager, so shell state and output
 /// stay independent while the SwiftUI panes remain mounted.
@@ -493,6 +701,9 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         let session: ClientTerminalSessionManager
         let chat: TerminalChatStore
         var provider: VampAgentProvider?
+        var workspaceID: UUID?
+        var workingDirectory: String?
+        var launchRequest: SessionLaunchRequest?
         var hasUnreadOutput = false
 
         @MainActor var state: ClientTerminalSessionManager.State { session.state }
@@ -505,6 +716,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
     @Published private(set) var clipboardStatusMessage: String?
 
     private let coordinator: ClientSessionCoordinator
+    let workspaceStore: VampWorkspaceStore
     private let clipboardSync = ClientClipboardSyncManager()
     private var sessionObservations: [UUID: AnyCancellable] = [:]
     private var phaseObservation: AnyCancellable?
@@ -514,6 +726,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
 
     init(coordinator: ClientSessionCoordinator) {
         self.coordinator = coordinator
+        self.workspaceStore = VampWorkspaceStore(coordinator: coordinator)
 
         coordinator.onTerminalReady = { [weak self] message in
             self?.receiveReady(message)
@@ -536,6 +749,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
                 guard !Task.isCancelled else { return }
                 guard state == .open else { continue }
                 self.retryOpeningTabs(for: coordinator.phase)
+                self.workspaceStore.retryWhenTransportIsReady()
             }
         }
     }
@@ -586,6 +800,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
             guard let self else { throw WebRTCSessionError.dataChannelUnavailable }
             try self.coordinator.sendTerminalEnvelope(envelope)
         }
+        workspaceStore.activate()
         _ = createTab()
     }
 
@@ -609,7 +824,12 @@ final class TerminalWorkspaceViewModel: ObservableObject {
     func createTab(
         startupCommand: String? = nil,
         title: String? = nil,
-        provider: VampAgentProvider? = nil
+        provider: VampAgentProvider? = nil,
+        workspace: RemoteWorkspace? = nil,
+        resumeMode: ResumeMode = .new,
+        persistenceMode: PersistenceMode = .sessionOnly,
+        launchExecutable: String? = nil,
+        launchArguments: [String] = []
     ) -> Bool {
         guard canCreateTab, let sessionID = activeSessionID else { return false }
 
@@ -623,12 +843,27 @@ final class TerminalWorkspaceViewModel: ObservableObject {
             try coordinator.sendTerminalEnvelope(envelope)
         }
         let tabTitle = title ?? nextDefaultTabTitle()
+        let launchRequest: SessionLaunchRequest? = if let workspace, let provider {
+            SessionLaunchRequest(
+                hostID: workspace.hostID,
+                workspaceID: workspace.id,
+                workingDirectory: workspace.path,
+                agent: provider.rawValue,
+                resumeMode: resumeMode,
+                persistenceMode: persistenceMode
+            )
+        } else {
+            nil
+        }
         let tab = Tab(
             id: tabID,
             title: tabTitle,
             session: session,
             chat: TerminalChatStore(tabTitle: tabTitle),
-            provider: provider
+            provider: provider,
+            workspaceID: workspace?.id,
+            workingDirectory: workspace?.path,
+            launchRequest: launchRequest
         )
         // Mount and observe the tab before sending TerminalOpen. This keeps a
         // very fast host-ready response from arriving before the tab is
@@ -638,7 +873,18 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         if let startupCommand {
             tab.chat.recordStartupCommand(startupCommand)
         }
-        _ = session.open(cols: 80, rows: 24, startupCommand: startupCommand)
+        _ = session.open(
+            cols: 80,
+            rows: 24,
+            startupCommand: startupCommand,
+            workspaceID: workspace?.id,
+            workingDirectory: workspace?.path,
+            launchExecutable: launchExecutable,
+            launchArguments: launchArguments
+        )
+        if let workspace {
+            workspaceStore.markOpened(workspace)
+        }
         scheduleOpeningRetry(for: tabID)
         selectedTabID = tabID
         lastTerminalError = nil
@@ -781,6 +1027,8 @@ final class TerminalWorkspaceViewModel: ObservableObject {
                     lastTerminalError = "Terminal Mode is disabled in Vamp Host settings. Turn it on, then retry this tab."
                 case "terminal-capacity":
                     lastTerminalError = "The Mac has reached its 8-terminal limit. Close a tab on the Mac, then retry."
+                case "workspace-unavailable", "workspace-mismatch":
+                    lastTerminalError = "\(tab.title) could not start in that workspace. Refresh workspaces and choose an available folder."
                 case "shell-exited":
                     lastTerminalError = wasOpening
                         ? "\(tab.title) exited before it became ready. Check Terminal Mode and retry."
@@ -876,6 +1124,8 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         return reason == "terminal-start-timeout"
             || reason == "terminal-disabled"
             || reason == "terminal-capacity"
+            || reason == "workspace-unavailable"
+            || reason == "workspace-mismatch"
             || reason == "shell-exited"
             || reason == "eof"
             || reason.hasPrefix("forkpty failed")

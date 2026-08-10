@@ -995,24 +995,11 @@ private enum BrowserControlWebAssets {
 <div class="modal" id="pair"><div class="modal-card"><h2>Open this workspace</h2><p>Scan the QR code from Vamp Host, or enter the six-digit code shown in Settings → Browser control. The code expires after ten minutes.</p><input id="code" inputmode="numeric" maxlength="18" placeholder="000000" aria-label="Pairing code" autocomplete="one-time-code"><div class="error" id="pair-error"></div><button id="pair-button">Pair browser</button></div></div>
 <div class="modal hidden" id="more-modal"><div class="modal-card more-card"><div class="more-kicker">Terminal actions</div><h2>Open a session</h2><p>Start a fresh shell, attach a persistent tmux or screen session, or open a coding agent in a new tab.</p><div class="more-actions"><button id="more-shell" type="button"><span class="provider-mark" style="--provider:#e8e8e8">›_</span><span><b>New shell</b><br><small>Open an independent terminal tab</small></span></button><button id="more-tmux" type="button" class="secondary"><span class="provider-mark" style="--provider:#9dd6ff">▣</span><span><b>Attach / create tmux</b><br><small>Resume a named workspace</small></span></button><button id="more-screen" type="button" class="secondary"><span class="provider-mark" style="--provider:#b8a6ff">▤</span><span><b>Attach screen</b><br><small>Resume a GNU screen session</small></span></button></div><div class="provider-title">Agent launchers</div><div class="provider-grid"><button type="button" data-provider="opencode" style="--provider:#00c8ce"><span class="provider-mark">◈</span><span>OpenCode</span></button><button type="button" data-provider="pi" style="--provider:#f57a48"><span class="provider-mark">π</span><span>Pi</span></button><button type="button" data-provider="commandcode" style="--provider:#b883ff"><span class="provider-mark">⌘</span><span>CommandCode</span></button><button type="button" data-provider="chatgpt" style="--provider:#10a37f"><span class="provider-mark">◌</span><span>ChatGPT CLI</span></button><button type="button" data-provider="claude" style="--provider:#dc6a42"><span class="provider-mark">✦</span><span>Claude Code</span></button><button type="button" data-provider="kimi" style="--provider:#4c8dff"><span class="provider-mark">K</span><span>Kimi</span></button><button type="button" data-provider="qwen" style="--provider:#4678f2"><span class="provider-mark">Q</span><span>Qwen Code</span></button><button type="button" data-provider="codex" style="--provider:#10a37f"><span class="provider-mark">⌘</span><span>Codex CLI</span></button><button type="button" data-provider="aider" style="--provider:#66c28c"><span class="provider-mark">A</span><span>Aider</span></button><button type="button" data-provider="grok" style="--provider:#e6a94f"><span class="provider-mark">G</span><span>Grok CLI</span></button></div><label class="more-command">Custom command or session<input id="more-command" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tmux attach -t work"></label><div class="more-footer"><button id="more-cancel" class="secondary" type="button">Cancel</button><button id="more-open" type="button">Open tab</button></div></div></div>
 <script>
-const $=id=>document.getElementById(id);let ws=null,token=null,sessionId=null,active=null,order=[],tabs=new Map(),approved=new Set();
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function strip(s){return s.replace(/[\u001b\u009b]\[[0-?]*[ -\/]*[@-~]/g,'').replace(/[\u001b\u009b][^\n]/g,'')}
-function addMessage(html,tab=active){let el=document.createElement('div');el.className='message';el.innerHTML=html;$('chat').appendChild(el);el.scrollIntoView({block:'nearest'});return el}
+const $=id=>document.getElementById(id);
+let ws=null,token=null,sessionId=null,active=null,order=[],tabs=new Map();
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function setState(s){$('state').textContent=s;const dot=document.querySelector('.dot');if(dot){const key=String(s||'').toLowerCase().replace(/\s+/g,'-');dot.className='dot '+(key==='connected'?'connected':key==='connecting'?'connecting':key==='pairing'?'pairing':key==='disabled'?'disabled':key==='offline'||key.includes('error')?'offline':'pairing')}}
-function renderTabs(){let nav=$('tabs');nav.querySelectorAll('.tab').forEach(x=>x.remove());order.forEach(id=>{let t=tabs.get(id),b=document.createElement('button');b.className='tab '+(id===active?'active':'');b.dataset.id=id;b.innerHTML='<span class="tab-dot">'+(t.unread?'● ':'')+'</span>'+esc(t.title)+'<span class="close" aria-label="Close">×</span>';b.onclick=e=>{if(e.target.classList.contains('close'))closeTab(id);else selectTab(id)};nav.insertBefore(b,$('newtab'))})}
-function createTab(startup=null,title=null){if(order.length>=8){addMessage('<div class="badge">Terminal capacity reached (8 tabs).</div>');return}let id=vampNewUUID(),t={id,title:title||'Terminal '+(order.length+1),startupCommand:startup,out:'',unread:false,opened:false};tabs.set(id,t);order.push(id);active=id;renderTabs();if(ws&&ws.readyState===1){send({type:'open',terminalID:id,cols:Math.max(40,Math.floor(innerWidth/8)),rows:Math.max(12,Math.floor((innerHeight-250)/21)),startupCommand:startup})}else{showPair();}$('input').focus();return id}
-function selectTab(id){if(!tabs.has(id))return;active=id;tabs.get(id).unread=false;document.querySelectorAll('.stream').forEach(x=>x.classList.toggle('active',x.dataset.id===id));renderTabs();$('input').focus()}
-function closeTab(id){if(ws&&ws.readyState===1)send({type:'close',terminalID:id});document.querySelector('.stream[data-id="'+id+'"]')?.remove();tabs.delete(id);order=order.filter(x=>x!==id);if(active===id)active=order[0]||null;if(!active)createTab();renderTabs()}
-function ensureStream(id){let t=tabs.get(id);if(!t)return null;let el=document.querySelector('.stream[data-id="'+id+'"]');if(!el){el=document.createElement('div');el.className='stream '+(active===id?'active':'');el.dataset.id=id;el.innerHTML='<div class="terminal" tabindex="0" aria-label="Terminal output"></div><div class="quick"><button data-k="ctrlc">Ctrl-C</button><button data-k="esc">Esc</button><button data-k="tab">Tab</button><button data-k="up">↑</button><button data-k="down">↓</button><button data-k="left">←</button><button data-k="right">→</button><button data-k="ctrld">Ctrl-D</button><button data-k="clear">Clear</button></div>';let keys={ctrlc:'\u0003',esc:'\u001b',tab:'\t',up:'\u001b[A',down:'\u001b[B',left:'\u001b[D',right:'\u001b[C',ctrld:'\u0004',clear:'\u000c'};el.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{sendInput(id,keys[b.dataset.k]||'')});$('chat').appendChild(el)}return el}
-function appendOutput(id,text){let t=tabs.get(id);if(!t)return;t.out+=strip(text);if(t.out.length>200000)t.out=t.out.slice(-200000);let el=ensureStream(id),term=el.querySelector('.terminal');term.textContent=t.out;term.scrollTop=term.scrollHeight;if(active!==id){t.unread=true;renderTabs()}}
-function sendInput(id,text){let bytes=new TextEncoder().encode(text),bin='';bytes.forEach(x=>bin+=String.fromCharCode(x));send({type:'input',terminalID:id,data:btoa(bin)})}
 function send(o){if(ws&&ws.readyState===1){ws.send(JSON.stringify(o));return true}return false}
-function reviewCommand(){let value=$('input').value.trim();if(!value||!active)return;$('input').value='';if(approved.has(value)){sendInput(active,value+'\n');appendCommand(value,'Approved');return}let card=document.createElement('div');card.className='command-card';card.innerHTML='<div class="eyebrow">⌁ Permission required</div><div class="approval">Awaiting approval</div><div class="command"><span class="prompt">$ </span>'+esc(value)+'<br><span style="color:#888">No output yet.</span></div><div class="approval-actions"><button>Allow</button><button class="secondary">Always allow here</button><button class="danger">Deny</button></div>';card.querySelectorAll('button')[0].onclick=()=>{sendInput(active,value+'\n');appendCommand(value,'Allowed');card.remove()};card.querySelectorAll('button')[1].onclick=()=>{approved.add(value);sendInput(active,value+'\n');appendCommand(value,'Always allowed here');card.remove()};card.querySelectorAll('button')[2].onclick=()=>{appendCommand(value,'Denied');card.remove()};$('chat').appendChild(card);card.scrollIntoView({block:'center',inline:'nearest'})}
-function appendCommand(v,status){addMessage('<div class="meta">You · '+esc(status)+'</div><div class="body"><span style="color:#aaa">$ </span>'+esc(v)+'</div>')}
-function showPair(){$('pair').classList.remove('hidden');$('code').focus()}
-async function pair(){let code=$('code').value.trim(),r=await fetch('/api/pair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});if(!r.ok){$('pair-error').textContent='That code is invalid or expired.';return}let x=await r.json();token=x.token;$('pair').classList.add('hidden');connect()}
-function connect(){setState('Connecting');ws=new WebSocket(location.origin.replace('http','ws')+'/socket?token='+encodeURIComponent(token));ws.onopen=()=>{setState('Connected');if(order.length===0)createTab();else order.forEach(id=>{let t=tabs.get(id);if(t&&!t.opened)send({type:'open',terminalID:id,cols:Math.max(40,Math.floor(innerWidth/8)),rows:Math.max(12,Math.floor((innerHeight-250)/21)),startupCommand:t.startupCommand||null})});};ws.onclose=()=>{setState('Offline');tabs.forEach(t=>{t.opened=false;t.out='';t.unread=false});document.querySelectorAll('.stream').forEach(x=>x.remove());addMessage('<div class="badge">Browser session ended. Pair again to reconnect.</div>');};ws.onerror=()=>setState('Connection error');ws.onmessage=e=>{let x;try{x=JSON.parse(e.data)}catch{return}if(x.type==='hello'){sessionId=x.sessionID;setState('Connected')}else if(x.type==='ready'){let t=tabs.get(x.terminalID);if(t){t.opened=true;ensureStream(x.terminalID);addMessage('<div class="meta">System · terminal ready</div><div class="body">'+esc(t.title)+' is connected.</div>')}}else if(x.type==='output'){appendOutput(x.terminalID,new TextDecoder().decode(Uint8Array.from(atob(x.data),c=>c.charCodeAt(0))));}else if(x.type==='close'){let t=tabs.get(x.terminalID);if(t){t.opened=false;t.unread=active!==x.terminalID;renderTabs()}addMessage('<div class="meta">System · terminal closed</div><div class="body">'+esc(x.reason||'closed')+'</div>')}else if(x.type==='clipboard'){navigator.clipboard?.writeText(x.text||'');addMessage('<div class="meta">System · clipboard</div><div class="body">Host clipboard copied to this browser.</div>')}else if(x.type==='error'){addMessage('<div class="badge">'+esc(x.code)+'</div>')}}}
-$('newtab').onclick=()=>createTab();$('send').onclick=reviewCommand;$('input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();reviewCommand()}});$('pair-button').onclick=pair;$('code').addEventListener('keydown',e=>{if(e.key==='Enter')pair()});$('paste').onclick=async()=>{let text=await navigator.clipboard?.readText();if(text&&active)sendInput(active,text)};$('copyhost').onclick=()=>{if(ws&&ws.readyState===1)send({type:'clipboardGet'})};$('more').onclick=()=>{let action=prompt('Attach a tmux or screen session, or launch an agent. Example: tmux attach -t work');if(action)createTab(action,'Session '+(order.length+1))};showPair();
 </script>
 <script>
 // Harden the embedded browser client after the initial lightweight boot code:
@@ -1048,15 +1035,19 @@ const vampRestoreShellPosition = () => {
   });
 };
 const vampTerminalSize = (id = active) => {
-  // The terminal screen is intentionally not rendered in Safari anymore. Use
-  // a stable, readable PTY size instead of measuring a hidden DOM node. Safari
-  // changes visualViewport.height when its URL bar or keyboard moves; using
-  // that value here makes agent TUIs reflow while the user is only scrolling.
-  const width = Math.max(320, innerWidth - 28);
-  const height = 480;
+  // PTY geometry follows the actual task viewport, not a guessed Safari
+  // toolbar height. The card is a projection of the same terminal state, so
+  // its monospace grid and the host's TIOCSWINSZ dimensions stay aligned.
+  const content = document.querySelector('.content');
+  const width = Math.max(320, Math.floor(content?.clientWidth || innerWidth - 28));
+  const viewport = window.visualViewport;
+  const measuredHeight = content?.clientHeight || viewport?.height || innerHeight;
+  const height = Math.max(220, Math.min(640, Math.floor(measuredHeight * 0.62)));
+  const cellWidth = 8.4;
+  const cellHeight = 19.6;
   return {
-    cols: Math.max(64, Math.min(120, Math.floor((width - 28) / 8.4))),
-    rows: Math.max(24, Math.min(28, Math.floor((height - 28) / 20)))
+    cols: Math.max(40, Math.min(160, Math.floor((width - 28) / cellWidth))),
+    rows: Math.max(12, Math.min(40, Math.floor((height - 28) / cellHeight)))
   };
 };
 
@@ -1424,6 +1415,171 @@ class VampBrowserTerminal {
   render() { return this.scrollback.concat(this.screen.map((line) => line.join('').replace(/\s+$/, ''))).join('\n'); }
 }
 
+// Authoritative browser terminal model. It consumes decoded UTF-8 incrementally
+// and projects a VT-like screen buffer; network packets are never treated as
+// lines and raw ANSI text is never appended to the chat surface.
+class VampBrowserVT {
+  constructor(cols = 80, rows = 24) {
+    this.maxScrollback = 2000;
+    this.decoder = new TextDecoder();
+    this.cols = Math.max(1, Math.floor(cols));
+    this.rows = Math.max(1, Math.floor(rows));
+    this.reset();
+  }
+  blankCell() { return {ch:' ',fg:null,bg:null,bold:false,dim:false,italic:false,underline:false,inverse:false,strike:false,continuation:false}; }
+  blank() { return Array.from({length:this.cols}, () => this.blankCell()); }
+  cloneCell(cell) { return {...cell}; }
+  cloneRow(row) { return row.map((cell) => this.cloneCell(cell)); }
+  defaultStyle() { return {fg:null,bg:null,bold:false,dim:false,italic:false,underline:false,inverse:false,strike:false}; }
+  reset() {
+    this.scrollback=[];
+    this.screen=Array.from({length:this.rows},()=>this.blank());
+    this.row=0; this.col=0; this.style=this.defaultStyle();
+    this.saved={row:0,col:0,style:{...this.style}};
+    this.scrollTop=0; this.scrollBottom=this.rows-1; this.alt=null; this.wrap=true; this.wrapNext=false;
+    this.cursorVisible=true; this.applicationCursorKeys=false; this.bracketedPaste=false; this.originMode=false;
+    this.tabStops=new Set(); this.resetTabStops();
+    this.parserState='ground'; this.csiBuffer=''; this.oscBuffer='';
+  }
+  resetTabStops() { this.tabStops.clear(); for (let column=0; column<this.cols; column+=8) this.tabStops.add(column); }
+  cursorSnapshot() { return {row:this.row,col:this.col,style:{...this.style}}; }
+  restoreCursor(snapshot) {
+    this.row=Math.max(0,Math.min(this.rows-1,snapshot?.row||0));
+    this.col=Math.max(0,Math.min(this.cols-1,snapshot?.col||0));
+    if (snapshot?.style) this.style={...snapshot.style};
+    this.wrapNext=false;
+  }
+  resize(cols, rows) {
+    cols=Math.max(1,Math.floor(cols)); rows=Math.max(1,Math.floor(rows));
+    if (cols===this.cols && rows===this.rows) return;
+    const old=this.screen; const oldCols=this.cols;
+    this.cols=cols; this.rows=rows; this.screen=Array.from({length:rows},()=>this.blank());
+    old.slice(-rows).forEach((oldRow,rowIndex)=>oldRow.slice(0,Math.min(oldCols,cols)).forEach((cell,column)=>{this.screen[rowIndex][column]=this.cloneCell(cell);}));
+    this.row=Math.min(this.row,rows-1); this.col=Math.min(this.col,cols-1);
+    this.scrollTop=0; this.scrollBottom=rows-1; this.tabStops=new Set(); this.resetTabStops();
+  }
+  scrollRegionUp(count=1) {
+    const amount=Math.max(1,Math.min(count,this.scrollBottom-this.scrollTop+1));
+    for (let index=0; index<amount; index+=1) {
+      const removed=this.screen.splice(this.scrollTop,1)[0]||this.blank();
+      if (this.scrollTop===0&&!this.alt) {
+        this.scrollback.push(this.cloneRow(removed));
+        if (this.scrollback.length>this.maxScrollback) this.scrollback.splice(0,this.scrollback.length-this.maxScrollback);
+      }
+      this.screen.splice(this.scrollBottom,0,this.blank());
+    }
+  }
+  scrollRegionDown(count=1) { const amount=Math.max(1,Math.min(count,this.scrollBottom-this.scrollTop+1)); for(let index=0;index<amount;index+=1){this.screen.splice(this.scrollBottom,1);this.screen.splice(this.scrollTop,0,this.blank());} }
+  lineFeed() { this.wrapNext=false; if(this.row===this.scrollBottom)this.scrollRegionUp(); else this.row=Math.min(this.rows-1,this.row+1); }
+  reverseIndex() { if(this.row===this.scrollTop)this.scrollRegionDown(); else this.row=Math.max(0,this.row-1); }
+  carriageReturn() { this.col=0; this.wrapNext=false; }
+  tab(direction=1) {
+    const stops=[...this.tabStops].sort((a,b)=>a-b);
+    this.col=direction>0?(stops.find((stop)=>stop>this.col)??this.cols-1):(stops.filter((stop)=>stop<this.col).pop()??0);
+    this.wrapNext=false;
+  }
+  charWidth(character) {
+    const code=character.codePointAt(0)||0;
+    if((code>=0x300&&code<=0x36f)||(code>=0x1ab0&&code<=0x1aff)||(code>=0x1dc0&&code<=0x1dff)||(code>=0x20d0&&code<=0x20ff)||(code>=0xfe00&&code<=0xfe0f))return 0;
+    if((code>=0x1100&&code<=0x115f)||(code>=0x2329&&code<=0x232a)||(code>=0x2e80&&code<=0xa4cf)||(code>=0xac00&&code<=0xd7a3)||(code>=0xf900&&code<=0xfaff)||(code>=0xfe10&&code<=0xfe19)||(code>=0xfe30&&code<=0xfe6f)||(code>=0xff00&&code<=0xff60)||(code>=0x1f300&&code<=0x1faff))return 2;
+    return code<0x20||(code>=0x7f&&code<=0x9f)?0:1;
+  }
+  put(character) {
+    const width=this.charWidth(character);
+    if(width===0){if(this.col>0)this.screen[this.row][this.col-1].ch+=character;return;}
+    if(this.wrapNext){this.col=0;this.lineFeed();}
+    if(width===2&&this.col===this.cols-1){if(this.wrap){this.col=0;this.lineFeed();}else return;}
+    this.screen[this.row][this.col]={...this.style,ch:character,continuation:false};
+    if(width===2&&this.col+1<this.cols)this.screen[this.row][this.col+1]={...this.blankCell(),continuation:true};
+    this.col+=width;
+    if(this.col>=this.cols){this.col=this.cols-1;this.wrapNext=this.wrap;}
+  }
+  eraseCell(row,column){if(this.screen[row]?.[column])this.screen[row][column]=this.blankCell();}
+  eraseLine(mode=0){
+    const start=mode===1?0:this.col; const end=mode===1?this.col:this.cols-1;
+    if(mode===2){for(let column=0;column<this.cols;column+=1)this.eraseCell(this.row,column);return;}
+    for(let column=Math.max(0,start);column<=Math.min(this.cols-1,end);column+=1)this.eraseCell(this.row,column);
+  }
+  eraseDisplay(mode=0){
+    if(mode===2||mode===3){for(let row=0;row<this.rows;row+=1)this.screen[row]=this.blank();if(mode===3)this.scrollback=[];return;}
+    if(mode===0){this.eraseLine(0);for(let row=this.row+1;row<this.rows;row+=1)this.screen[row]=this.blank();}
+    if(mode===1){this.eraseLine(1);for(let row=0;row<this.row;row+=1)this.screen[row]=this.blank();}
+  }
+  eraseCharacters(count=1){for(let column=this.col;column<Math.min(this.cols,this.col+count);column+=1)this.eraseCell(this.row,column);}
+  insertCharacters(count=1){const row=this.screen[this.row];row.splice(this.col,count,...Array.from({length:count},()=>this.blankCell()));row.splice(this.cols);}
+  deleteCharacters(count=1){const row=this.screen[this.row];row.splice(this.col,count);row.push(...Array.from({length:count},()=>this.blankCell()));row.splice(this.cols);}
+  insertLines(count=1){for(let index=0;index<Math.min(count,this.scrollBottom-this.row+1);index+=1){this.screen.splice(this.row,0,this.blank());this.screen.splice(this.scrollBottom+1,1);}}
+  deleteLines(count=1){for(let index=0;index<Math.min(count,this.scrollBottom-this.row+1);index+=1){this.screen.splice(this.row,1);this.screen.splice(this.scrollBottom,0,this.blank());}}
+
+  color256(index){
+    const palette=['#000000','#800000','#008000','#808000','#000080','#800080','#008080','#c0c0c0','#808080','#ff0000','#00ff00','#ffff00','#0000ff','#ff00ff','#00ffff','#ffffff'];
+    if(index<16)return palette[index];
+    if(index>=232){const value=8+(index-232)*10;return `rgb(${value},${value},${value})`;}
+    const value=index-16;const red=Math.floor(value/36);const green=Math.floor((value%36)/6);const blue=value%6;const channel=(entry)=>entry===0?0:55+entry*40;
+    return `rgb(${channel(red)},${channel(green)},${channel(blue)})`;
+  }
+  sgr(values){
+    if(!values.length)values=[0];
+    for(let index=0;index<values.length;index+=1){const value=values[index]??0;
+      if(value===0)this.style=this.defaultStyle();else if(value===1)this.style.bold=true;else if(value===2)this.style.dim=true;else if(value===3)this.style.italic=true;else if(value===4)this.style.underline=true;else if(value===7)this.style.inverse=true;else if(value===9)this.style.strike=true;
+      else if(value===22){this.style.bold=false;this.style.dim=false;}else if(value===23)this.style.italic=false;else if(value===24)this.style.underline=false;else if(value===27)this.style.inverse=false;else if(value===29)this.style.strike=false;
+      else if(value>=30&&value<=37)this.style.fg=this.color256(value-30);else if(value>=90&&value<=97)this.style.fg=this.color256(value-90+8);else if(value===39)this.style.fg=null;
+      else if(value>=40&&value<=47)this.style.bg=this.color256(value-40);else if(value>=100&&value<=107)this.style.bg=this.color256(value-100+8);else if(value===49)this.style.bg=null;
+      else if(value===38||value===48){const target=value===38?'fg':'bg';const mode=values[++index];if(mode===5&&values[index+1]!=null)this.style[target]=this.color256(values[++index]);else if(mode===2&&values[index+3]!=null){this.style[target]=`rgb(${values[index+1]},${values[index+2]},${values[index+3]})`;index+=3;}}
+    }
+  }
+  params(raw){const privateMode=raw.startsWith('?');const body=privateMode?raw.slice(1):raw;const values=body===''?[]:body.split(';').map((entry)=>entry===''?0:parseInt(entry,10)).map((value)=>Number.isFinite(value)?value:0);return {privateMode,values};}
+  enterAlternate(){
+    if(this.alt)return;
+    this.alt={screen:this.screen,scrollback:this.scrollback,row:this.row,col:this.col,saved:this.saved,style:{...this.style},scrollTop:this.scrollTop,scrollBottom:this.scrollBottom};
+    this.screen=Array.from({length:this.rows},()=>this.blank());this.scrollback=[];this.row=0;this.col=0;this.saved=this.cursorSnapshot();this.scrollTop=0;this.scrollBottom=this.rows-1;this.wrapNext=false;
+  }
+  leaveAlternate(){
+    if(!this.alt)return;
+    const saved=this.alt;this.screen=saved.screen;this.scrollback=saved.scrollback;this.row=saved.row;this.col=saved.col;this.saved=saved.saved;this.style=saved.style;this.scrollTop=saved.scrollTop;this.scrollBottom=saved.scrollBottom;this.alt=null;this.wrapNext=false;
+  }
+  setMode(values,enabled,privateMode){
+    values.forEach((value)=>{if(privateMode&&(value===1049||value===1047||value===47)){if(enabled)this.enterAlternate();else this.leaveAlternate();}else if(privateMode&&value===25)this.cursorVisible=enabled;else if(privateMode&&value===1)this.applicationCursorKeys=enabled;else if(privateMode&&value===7)this.wrap=enabled;else if(privateMode&&value===6)this.originMode=enabled;else if(privateMode&&value===2004)this.bracketedPaste=enabled;});
+  }
+  csi(raw,final){
+    const parsed=this.params(raw);const values=parsed.values;const first=values[0]||1;
+    if(final==='h'||final==='l'){this.setMode(values,final==='h',parsed.privateMode);return;}
+    switch(final){
+      case'A':this.row=Math.max(this.originMode?this.scrollTop:0,this.row-first);break;
+      case'B':case'e':this.row=Math.min(this.originMode?this.scrollBottom:this.rows-1,this.row+first);break;
+      case'C':case'a':this.col=Math.min(this.cols-1,this.col+first);this.wrapNext=false;break;
+      case'D':this.col=Math.max(0,this.col-first);this.wrapNext=false;break;
+      case'E':this.row=Math.min(this.rows-1,this.row+first);this.col=0;break;
+      case'F':this.row=Math.max(0,this.row-first);this.col=0;break;
+      case'G':case'`':this.col=Math.max(0,Math.min(this.cols-1,first-1));this.wrapNext=false;break;
+      case'd':this.row=Math.max(0,Math.min(this.rows-1,first-1));this.wrapNext=false;break;
+      case'H':case'f':{const row=Math.max(1,values[0]||1);const column=Math.max(1,values[1]||1);this.row=Math.min(this.originMode?this.scrollBottom:this.rows-1,(this.originMode?this.scrollTop:0)+row-1);this.col=Math.min(this.cols-1,column-1);this.wrapNext=false;break;}
+      case'J':this.eraseDisplay(values[0]||0);break;case'K':this.eraseLine(values[0]||0);break;case'P':this.deleteCharacters(first);break;case'@':this.insertCharacters(first);break;case'X':this.eraseCharacters(first);break;case'L':this.insertLines(first);break;case'M':this.deleteLines(first);break;case'S':this.scrollRegionUp(first);break;case'T':this.scrollRegionDown(first);break;case's':this.saved=this.cursorSnapshot();break;case'u':this.restoreCursor(this.saved);break;case'm':this.sgr(values);break;
+      case'r':{const top=Math.max(1,values[0]||1)-1;const bottom=Math.min(this.rows,values[1]||this.rows)-1;if(top<bottom){this.scrollTop=top;this.scrollBottom=bottom;this.row=this.originMode?top:0;this.col=0;}break;}
+      case'g':if((values[0]||0)===3)this.tabStops.delete(this.col);break;case'I':for(let index=0;index<first;index+=1)this.tab(1);break;case'Z':for(let index=0;index<first;index+=1)this.tab(-1);break;default:break;
+    }
+  }
+
+  feedBytes(bytes){this.feed(this.decoder.decode(bytes,{stream:true}));}
+  finish(){const rest=this.decoder.decode();if(rest)this.feed(rest);this.parserState='ground';this.csiBuffer='';this.oscBuffer='';}
+  feed(text){
+    for(const character of String(text||'')){const code=character.codePointAt(0)||0;
+      if(this.parserState==='csi'){if(code>=0x40&&code<=0x7e){this.csi(this.csiBuffer,character);this.csiBuffer='';this.parserState='ground';}else if(character==='\u001b'){this.csiBuffer='';this.parserState='escape';}else this.csiBuffer+=character;continue;}
+      if(this.parserState==='osc'||this.parserState==='string'){if(character==='\u0007'||character==='\u009c'){this.parserState='ground';this.oscBuffer='';}else if(character==='\u001b')this.parserState='string-escape';else if(this.parserState==='osc')this.oscBuffer+=character;continue;}
+      if(this.parserState==='string-escape'){this.parserState='string';if(character==='\\'){this.parserState='ground';this.oscBuffer='';}continue;}
+      if(this.parserState==='escape'){if(character==='['){this.parserState='csi';this.csiBuffer='';continue;}if(character===']'){this.parserState='osc';this.oscBuffer='';continue;}if('PX^_'.includes(character)){this.parserState='string';continue;}if(character==='7')this.saved=this.cursorSnapshot();else if(character==='8')this.restoreCursor(this.saved);else if(character==='D')this.lineFeed();else if(character==='M')this.reverseIndex();else if(character==='E'){this.carriageReturn();this.lineFeed();}else if(character==='c')this.reset();else if(character==='H')this.tabStops.add(this.col);this.parserState='ground';continue;}
+      if(character==='\u001b'){this.parserState='escape';continue;}if(character==='\u009b'){this.parserState='csi';this.csiBuffer='';continue;}if(character==='\u009d'){this.parserState='osc';this.oscBuffer='';continue;}if(character==='\r'){this.carriageReturn();continue;}if(character==='\n'){this.lineFeed();continue;}if(character==='\b'){this.col=Math.max(0,this.col-1);this.wrapNext=false;continue;}if(character==='\t'){this.tab(1);continue;}if(code===0x07||code===0x0e||code===0x0f||code===0x7f||code<0x20)continue;this.put(character);
+    }
+  }
+  rowText(row){return row.map((cell)=>cell.continuation?'':cell.ch).join('').replace(/\s+$/,'');}
+  render(){return this.scrollback.slice(-200).map((row)=>this.rowText(row)).concat(this.screen.map((row)=>this.rowText(row))).join('\n').replace(/\n+$/,'');}
+  renderHTML(){
+    const color=(cell)=>{let fg=cell.fg;let bg=cell.bg;if(cell.inverse)[fg,bg]=[bg,fg];const styles=[];if(fg)styles.push('color:'+fg);if(bg)styles.push('background-color:'+bg);if(cell.bold)styles.push('font-weight:700');if(cell.dim)styles.push('opacity:.72');if(cell.italic)styles.push('font-style:italic');if(cell.underline)styles.push('text-decoration:underline');if(cell.strike)styles.push('text-decoration:line-through');return styles.join(';');};
+    const rows=this.scrollback.slice(-200).concat(this.screen);
+    return rows.map((row)=>{let html='';let run='';let runStyle=null;const flush=()=>{if(!run)return;html+='<span'+(runStyle?' style="'+runStyle+'"':'')+'>'+esc(run)+'</span>';run='';};row.forEach((cell)=>{if(cell.continuation)return;const style=color(cell);if(runStyle!==null&&style!==runStyle)flush();runStyle=style;run+=cell.ch;});flush();return'<div class="terminal-row">'+(html||'&nbsp;')+'</div>';}).join('');
+  }
+}
+
 const vampNextTerminalTitle = () => {
   const titles = new Set([...tabs.values()].map((tab) => tab.title));
   let number = 1;
@@ -1440,7 +1596,7 @@ const vampOpenTerminal = (id) => {
   ensureStream(id);
   const size = vampTerminalSize(id);
   tab.lastSize = size;
-  tab.terminal ||= new VampBrowserTerminal(size.cols, size.rows);
+  tab.terminal ||= new VampBrowserVT(size.cols, size.rows);
   tab.terminal.resize(size.cols, size.rows);
   const sent = send({
     type: 'open',
@@ -1465,7 +1621,7 @@ const vampResizeTerminal = (id) => {
   tab.terminal?.resize(size.cols, size.rows);
   const element = ensureStream(id);
   const terminal = element?.querySelector('.terminal');
-  if (terminal && tab.terminal) terminal.textContent = tab.terminal.render();
+  if (terminal && tab.terminal) terminal.innerHTML = tab.terminal.renderHTML();
   send({ type: 'resize', terminalID: id, cols: size.cols, rows: size.rows });
 };
 
@@ -1604,7 +1760,7 @@ createTab = (startup = null, title = null) => {
     state: 'opening',
     decoder: new TextDecoder(),
     approvals: new Set(),
-    terminal: new VampBrowserTerminal()
+    terminal: new VampBrowserVT()
   };
   tabs.set(id, tab);
   order.push(id);
@@ -1663,52 +1819,13 @@ ensureStream = (id) => {
   return element;
 };
 
-appendOutput = (id, text) => {
-  const tab = tabs.get(id);
-  if (!tab) return;
-  tab.decoder ||= new TextDecoder();
-  tab.approvals ||= new Set();
-  tab.terminal ||= new VampBrowserTerminal();
-  tab.terminal.feed(text);
-  tab.out = tab.terminal.render();
-  const commandResponse = vampRenderedCommandResponse(tab);
-  if (commandResponse.found) {
-    tab.pendingCommand = null;
-    if (commandResponse.text) vampSetChatOutput(id, commandResponse.text);
-    if (active !== id) {
-      tab.unread = true;
-      renderTabs();
-    }
-    return;
-  }
-  if (tab.pendingCommand) {
-    // Hold back PTY echo fragments until the terminal emulator has a complete
-    // command line. This keeps the task stream readable while bytes arrive.
-    if (active !== id) {
-      tab.unread = true;
-      renderTabs();
-    }
-    return;
-  }
-  const visibleText = vampNormalizeChatOutput(text, tab);
-  if (visibleText) {
-    vampAppendChatOutput(id, visibleText);
-    // Ignore only the echoed command. Subsequent output belongs to the
-    // response card even when it happens to contain the same prompt symbols.
-    tab.pendingCommand = null;
-  }
-  if (active !== id) {
-    tab.unread = true;
-    renderTabs();
-  }
-};
-
 const vampAppendOutputChunk = (id, encoded) => {
   const tab = tabs.get(id);
   if (!tab) return;
-  tab.decoder ||= new TextDecoder();
   const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
-  appendOutput(id, tab.decoder.decode(bytes, { stream: true }));
+  tab.terminal ||= new VampBrowserVT();
+  tab.terminal.feedBytes(bytes);
+  appendOutput(id);
 };
 
 sendInput = (id, text) => {
@@ -1954,7 +2071,7 @@ connect = () => {
       tab.out = '';
       tab.unread = false;
       tab.decoder = new TextDecoder();
-      tab.terminal = new VampBrowserTerminal();
+      tab.terminal = new VampBrowserVT();
       tab.lastSize = null;
       tab.readyNotified = false;
       tab.pendingInput = null;
@@ -2007,7 +2124,7 @@ connect = () => {
         tab.readyNotified = true;
         tab.opened = true;
         tab.state = 'open';
-        tab.terminal ||= new VampBrowserTerminal(value.cols, value.rows);
+        tab.terminal ||= new VampBrowserVT(value.cols, value.rows);
         tab.terminal.resize(value.cols, value.rows);
         ensureStream(terminalID);
         vampResizeTerminal(terminalID);
@@ -2026,8 +2143,8 @@ connect = () => {
       const terminalID = vampTerminalKey(value.terminalID);
       const tab = tabs.get(terminalID);
       if (tab) {
-        const remainder = tab.decoder?.decode() || '';
-        if (remainder) appendOutput(terminalID, remainder);
+        tab.terminal?.finish();
+        appendOutput(terminalID);
         tab.opened = false;
         tab.state = String(value.reason || '').startsWith('terminal-') ? 'error' : 'closed';
         tab.readyNotified = false;
@@ -2188,6 +2305,15 @@ window.visualViewport?.addEventListener('resize', () => {
 });
 window.visualViewport?.addEventListener('scroll', vampUpdateViewportInset);
 window.addEventListener('orientationchange', vampUpdateViewportInset);
+if (globalThis.ResizeObserver) {
+  const vampContentElement = document.querySelector('.content');
+  const vampContentResizeObserver = new ResizeObserver(() => {
+    vampUpdateViewportInset();
+    cancelAnimationFrame(vampResizeFrame);
+    vampResizeFrame = requestAnimationFrame(() => { if (active) vampResizeTerminal(active); });
+  });
+  if (vampContentElement) vampContentResizeObserver.observe(vampContentElement);
+}
 vampUpdateViewportInset();
 if (!$('pair').classList.contains('hidden')) $('composer').classList.add('hidden');
 renderDashboard();
@@ -2252,6 +2378,10 @@ if (vampPairFromURL) {
     .stream-state::before { content: '●'; margin-right: 5px; }
     .stream-caption { margin: 9px 0 12px 37px; color: #8f8f8f; font-size: 12px; }
     .rich-body { min-width: 0; color: #ededed; overflow-wrap: anywhere; }
+    .terminal-rendered { padding: 12px; background: rgba(8,8,8,.86); }
+    .terminal-rendered .stream-caption { margin-bottom: 10px; }
+    .terminal-rendered .rich-body { max-height: min(58dvh, 620px); overflow: auto; overscroll-behavior: contain; border: 1px solid rgba(255,255,255,.10); border-radius: 12px; background: #080808; padding: 12px; }
+    .terminal-row { min-height: 1.4em; width: max-content; min-width: 100%; white-space: pre; color: #e8e8e8; font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-variant-ligatures: none; letter-spacing: 0; tab-size: 8; overflow-wrap: normal; word-break: normal; }
     .rich-body p { margin: 0 0 12px; line-height: 1.6; }
     .rich-body p:last-child { margin-bottom: 0; }
     .rich-body h3 { margin: 0 0 10px; color: #f5f5f5; font-size: 16px; }
@@ -2770,6 +2900,38 @@ if (vampPairFromURL) {
     // chat-following behavior once the card becomes taller than the viewport.
     if (stickToLatest) scrollLatest(true);
   };
+  const terminalRenderQueue = new Set();
+  let terminalRenderFrame = 0;
+  const scheduleTerminalRender = (id) => {
+    terminalRenderQueue.add(id);
+    if (terminalRenderFrame) return;
+    terminalRenderFrame = requestAnimationFrame(() => {
+      terminalRenderFrame = 0;
+      const pending = [...terminalRenderQueue];
+      terminalRenderQueue.clear();
+      pending.forEach((terminalID) => updateTerminalCard(terminalID));
+    });
+  };
+  const updateTerminalCard = (id) => {
+    const tab = tabs.get(id);
+    if (!tab || !tab.terminal) return;
+    const stickToLatest = id === active && (tab.followOutput === true || isNearBottom());
+    const card = ensureOutputCard(id);
+    if (!card) return;
+    card.classList.add('terminal-rendered');
+    const body = card.querySelector('.rich-body');
+    const bodyWasNearBottom = body ? body.scrollHeight - body.scrollTop - body.clientHeight < 28 : true;
+    const previousBodyScrollTop = body?.scrollTop || 0;
+    if (body) {
+      body.innerHTML = tab.terminal.renderHTML() || '<div class="rich-empty">Waiting for terminal output…</div>';
+      body.scrollTop = bodyWasNearBottom ? body.scrollHeight : Math.min(previousBodyScrollTop, body.scrollHeight);
+    }
+    const state = card.querySelector('.stream-state');
+    if (state) state.textContent = tab.pendingCommand ? 'Streaming' : 'Live';
+    filterTabContent();
+    if (stickToLatest) scrollLatest(true);
+  };
+
   const addExplore = (id, detail) => {
     const tab = tabs.get(id);
     if (!tab || !detail) return;
@@ -2798,43 +2960,19 @@ if (vampPairFromURL) {
   appendOutput = (id, text) => {
     const tab = tabs.get(id);
     if (!tab) return;
-    tab.decoder ||= new TextDecoder();
     tab.approvals ||= new Set();
-    tab.terminal ||= new VampBrowserTerminal();
-    tab.terminal.feed(text);
+    tab.terminal ||= new VampBrowserVT();
+    if (text) tab.terminal.feed(text);
     tab.out = tab.terminal.render();
-    const commandResponse = vampRenderedCommandResponse(tab);
-    if (commandResponse.found) {
-      tab.pendingCommand = null;
-      updateOutputCard(id, commandResponse.text || 'No output.', true);
-      if (active !== id) { tab.unread = true; renderTabs(); }
-      return;
-    }
-    if (tab.pendingCommand) {
-      // A shell or agent is allowed to suppress/transform PTY echo. Waiting
-      // forever for an exact rendered copy of the command made the Chat view
-      // look frozen even though the host was producing a real response. Once
-      // this frame contains visible non-prompt text, promote it immediately;
-      // the terminal buffer remains the source of truth for Raw mode.
-      const visible = vampNormalizeChatOutput(text, tab);
-      if (visible) {
-        tab.pendingCommand = null;
-        updateOutputCard(id, visible, false);
-      }
-      if (active !== id) { tab.unread = true; renderTabs(); }
-      return;
-    }
-    // Do not project the shell prompt or an agent's alternate-screen startup
-    // banner into the conversation. The z.ai-style surface starts with a
-    // compact ready chip and only promotes deliberate command responses into
-    // readable assistant cards. This prevents Grok/Claude/OpenCode TUIs from
-    // becoming a giant raw terminal screenshot when a tab first connects.
-    if (!tab.commandCount) {
-      tab.startupSeen = true;
-    } else {
-      const visible = vampNormalizeChatOutput(text, { pendingCommand: null });
-      if (visible) updateOutputCard(id, visible, false);
-    }
+    // The VT screen is the only live-output source. It preserves spaces,
+    // carriage-return rewrites, cursor movement, SGR colors, and alternate
+    // screens; no per-packet regex or chat-text normalization is allowed.
+    // Startup commands (tmux/screen/agents) can emit bytes before the
+    // composer has recorded a command. Every PTY byte must still reach the
+    // same terminal projection; gating this on commandCount made the first
+    // interactive screen appear empty for launched agents.
+    scheduleTerminalRender(id);
+    if (tab.pendingCommand && tab.out.trim()) tab.pendingCommand = null;
     if (active !== id) { tab.unread = true; renderTabs(); }
   };
 

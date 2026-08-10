@@ -31,6 +31,10 @@ final class ClientTerminalSessionManager: ObservableObject {
     private var sessionID: UUID?
     private(set) var terminalID: UUID?
     private var startupCommand: String?
+    private(set) var workspaceID: UUID?
+    private(set) var workingDirectory: String?
+    private var launchExecutable: String?
+    private var launchArguments: [String] = []
     private var sendEnvelope: ((DataChannelEnvelope) throws -> Void)?
     /// Holds input entered while the host is acknowledging a new PTY. This
     /// keeps the mobile composer useful during a slow WebRTC/Tailscale open
@@ -55,6 +59,10 @@ final class ClientTerminalSessionManager: ObservableObject {
         self.lastObservedSequence = 0
         self.terminalID = nil
         self.startupCommand = nil
+        self.workspaceID = nil
+        self.workingDirectory = nil
+        self.launchExecutable = nil
+        self.launchArguments = []
         self.pendingInput.removeAll(keepingCapacity: true)
     }
 
@@ -75,18 +83,34 @@ final class ClientTerminalSessionManager: ObservableObject {
         output.removeAll()
         lastObservedSequence = 0
         startupCommand = nil
+        workspaceID = nil
+        workingDirectory = nil
+        launchExecutable = nil
+        launchArguments = []
         pendingInput.removeAll(keepingCapacity: true)
     }
 
     // MARK: - Outgoing
 
     @discardableResult
-    func open(cols: UInt16, rows: UInt16, startupCommand: String? = nil) -> Bool {
+    func open(
+        cols: UInt16,
+        rows: UInt16,
+        startupCommand: String? = nil,
+        workspaceID: UUID? = nil,
+        workingDirectory: String? = nil,
+        launchExecutable: String? = nil,
+        launchArguments: [String] = []
+    ) -> Bool {
         guard state == .idle || state.isClosed,
               let sessionID, let sendEnvelope else { return false }
         let inputEnteredBeforeOpen = state == .idle ? pendingInput : Data()
         terminalID = UUID()
         self.startupCommand = startupCommand
+        self.workspaceID = workspaceID
+        self.workingDirectory = workingDirectory
+        self.launchExecutable = launchExecutable
+        self.launchArguments = launchArguments
         state = .opening
         output.removeAll()
         lastObservedSequence = 0
@@ -100,6 +124,10 @@ final class ClientTerminalSessionManager: ObservableObject {
             rows: rows,
             sessionID: sessionID,
             startupCommand: self.startupCommand,
+            workspaceID: self.workspaceID,
+            workingDirectory: self.workingDirectory,
+            launchExecutable: self.launchExecutable,
+            launchArguments: self.launchArguments,
             sendEnvelope: sendEnvelope
         )
     }
@@ -118,6 +146,10 @@ final class ClientTerminalSessionManager: ObservableObject {
             sessionID: sessionID,
             terminalID: terminalID,
             startupCommand: startupCommand,
+            workspaceID: workspaceID,
+            workingDirectory: workingDirectory,
+            launchExecutable: launchExecutable,
+            launchArguments: launchArguments,
             sendEnvelope: sendEnvelope
         )
     }
@@ -143,7 +175,15 @@ final class ClientTerminalSessionManager: ObservableObject {
     func retryAfterOpeningFailure(cols: UInt16, rows: UInt16) -> Bool {
         guard case .closed(_, _, let reason) = state,
               Self.isRetryableOpeningFailure(reason) else { return false }
-        return open(cols: cols, rows: rows, startupCommand: startupCommand)
+        return open(
+            cols: cols,
+            rows: rows,
+            startupCommand: startupCommand,
+            workspaceID: workspaceID,
+            workingDirectory: workingDirectory,
+            launchExecutable: launchExecutable,
+            launchArguments: launchArguments
+        )
     }
 
     @discardableResult
@@ -153,6 +193,10 @@ final class ClientTerminalSessionManager: ObservableObject {
         sessionID: UUID,
         terminalID: UUID? = nil,
         startupCommand: String? = nil,
+        workspaceID: UUID? = nil,
+        workingDirectory: String? = nil,
+        launchExecutable: String? = nil,
+        launchArguments: [String] = [],
         sendEnvelope: (DataChannelEnvelope) throws -> Void
     ) -> Bool {
         let id = terminalID ?? self.terminalID ?? UUID()
@@ -162,7 +206,11 @@ final class ClientTerminalSessionManager: ObservableObject {
             terminalID: id,
             cols: cols,
             rows: rows,
-            startupCommand: startupCommand
+            startupCommand: startupCommand,
+            workspaceID: workspaceID,
+            workingDirectory: workingDirectory,
+            launchExecutable: launchExecutable,
+            launchArguments: launchArguments
         )
         guard let envelope = try? DataChannelEnvelope.terminalOpen(message) else { return false }
         do {
@@ -220,6 +268,10 @@ final class ClientTerminalSessionManager: ObservableObject {
         state = .closed(exitCode: nil, signal: nil, reason: reason)
         self.terminalID = nil
         startupCommand = nil
+        workspaceID = nil
+        workingDirectory = nil
+        launchExecutable = nil
+        launchArguments = []
         pendingInput.removeAll(keepingCapacity: true)
     }
 
@@ -261,6 +313,8 @@ final class ClientTerminalSessionManager: ObservableObject {
         terminalID = nil
         if !keepStartupCommand {
             startupCommand = nil
+            workspaceID = nil
+            workingDirectory = nil
         }
         pendingInput.removeAll(keepingCapacity: true)
         return true
@@ -335,6 +389,8 @@ final class ClientTerminalSessionManager: ObservableObject {
         return reason == "terminal-start-timeout"
             || reason == "terminal-disabled"
             || reason == "terminal-capacity"
+            || reason == "workspace-unavailable"
+            || reason == "workspace-mismatch"
             || reason == "shell-exited"
             || reason == "eof"
             || reason.hasPrefix("forkpty failed")

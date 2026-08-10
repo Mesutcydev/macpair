@@ -47,6 +47,14 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
     case terminalResize
     /// Either side: tear-down notice for a terminal (host includes exit code).
     case terminalClose
+    /// Client → host: request the host's cached developer workspaces.
+    case workspaceListRequest
+    /// Host → client: discovered workspaces and safe browse roots.
+    case workspaceListResponse
+    /// Client → host: list child directories under a validated browse path.
+    case workspaceDirectoryRequest
+    /// Host → client: directory entries for a validated browse path.
+    case workspaceDirectoryResponse
 
     /// One source of truth for the control-channel authentication contract.
     /// Any kind that can inject input, change host state, read/write host data,
@@ -57,7 +65,9 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
              .displaySwitch, .setActiveDisplays, .requestKeyframe,
              .unlockPassword, .clipboardSync, .clipboardRequest,
              .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
-             .terminalResize, .terminalClose:
+             .terminalResize, .terminalClose, .workspaceListRequest,
+             .workspaceListResponse, .workspaceDirectoryRequest,
+             .workspaceDirectoryResponse:
             return true
         default:
             return false
@@ -303,6 +313,38 @@ extension DataChannelEnvelope {
             payload: try makeEncoder().encode(message)
         )
     }
+
+    public static func workspaceListRequest(_ message: WorkspaceListRequestMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .workspaceListRequest,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func workspaceListResponse(_ message: WorkspaceListResponseMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .workspaceListResponse,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func workspaceDirectoryRequest(_ message: WorkspaceDirectoryRequestMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .workspaceDirectoryRequest,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func workspaceDirectoryResponse(_ message: WorkspaceDirectoryResponseMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .workspaceDirectoryResponse,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
 }
 
 // MARK: - Decoding Helpers
@@ -409,6 +451,22 @@ extension DataChannelEnvelope {
 
     public func decodeTerminalClose() throws -> TerminalCloseMessage {
         try Self.makeDecoder().decode(TerminalCloseMessage.self, from: payload)
+    }
+
+    public func decodeWorkspaceListRequest() throws -> WorkspaceListRequestMessage {
+        try Self.makeDecoder().decode(WorkspaceListRequestMessage.self, from: payload)
+    }
+
+    public func decodeWorkspaceListResponse() throws -> WorkspaceListResponseMessage {
+        try Self.makeDecoder().decode(WorkspaceListResponseMessage.self, from: payload)
+    }
+
+    public func decodeWorkspaceDirectoryRequest() throws -> WorkspaceDirectoryRequestMessage {
+        try Self.makeDecoder().decode(WorkspaceDirectoryRequestMessage.self, from: payload)
+    }
+
+    public func decodeWorkspaceDirectoryResponse() throws -> WorkspaceDirectoryResponseMessage {
+        try Self.makeDecoder().decode(WorkspaceDirectoryResponseMessage.self, from: payload)
     }
 }
 

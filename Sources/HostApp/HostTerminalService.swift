@@ -1,6 +1,8 @@
 #if os(macOS)
 import Foundation
 import Darwin
+import CryptoKit
+import SharedModels
 import SharedProtocol
 import TransportWebRTC
 import os
@@ -29,6 +31,7 @@ final class HostTerminalService: @unchecked Sendable {
 
     private let logger = Logger(subsystem: "com.remotedesktop.host", category: "Terminal")
     private let queue = DispatchQueue(label: "host.terminal.service")
+    private let workspaceService: HostWorkspaceService?
 
     /// Hard cap per authenticated connection. This keeps a client from
     /// turning one host session into an unbounded process/fd farm.
@@ -51,6 +54,10 @@ final class HostTerminalService: @unchecked Sendable {
     /// Set by the environment; called whenever the service produces an
     /// outgoing envelope (output chunk or close notice).
     var sendEnvelope: ((DataChannelEnvelope) -> Void)?
+
+    init(workspaceService: HostWorkspaceService? = nil) {
+        self.workspaceService = workspaceService
+    }
 
     // MARK: - API
 
@@ -122,6 +129,39 @@ final class HostTerminalService: @unchecked Sendable {
 
         let cols = clampDimension(message.cols, fallback: 80)
         let rows = clampDimension(message.rows, fallback: 24)
+        let workingDirectory: String
+        if let requestedPath = message.workingDirectory {
+            let validated = workspaceService.map { $0.validatedWorkingDirectory(requestedPath) }
+                ?? Self.validateHomeWorkingDirectory(requestedPath)
+            guard let validated else {
+                logger.warning("Rejecting terminal open for unavailable working directory")
+                sendCloseNotice(
+                    sessionID: message.sessionID,
+                    terminalID: message.terminalID,
+                    exitCode: nil,
+                    signal: nil,
+                    reason: "workspace-unavailable"
+                )
+                return
+            }
+            workingDirectory = validated
+        } else {
+            workingDirectory = workspaceService?.homePath ?? NSHomeDirectory()
+        }
+
+        if let requestedWorkspaceID = message.workspaceID,
+           let workspaceService,
+           workspaceService.workspaceID(for: workingDirectory) != requestedWorkspaceID {
+            logger.warning("Rejecting terminal open with workspace identity mismatch")
+            sendCloseNotice(
+                sessionID: message.sessionID,
+                terminalID: message.terminalID,
+                exitCode: nil,
+                signal: nil,
+                reason: "workspace-mismatch"
+            )
+            return
+        }
 
         var master: Int32 = 0
         var ws = winsize(ws_row: rows, ws_col: cols, ws_xpixel: 0, ws_ypixel: 0)
@@ -142,7 +182,12 @@ final class HostTerminalService: @unchecked Sendable {
 
         if pid == 0 {
             // Child process — replace with the user's shell.
-            execShellAndExit(term: message.term ?? "xterm-256color")
+            execShellAndExit(
+                term: message.term ?? "xterm-256color",
+                workingDirectory: workingDirectory,
+                launchExecutable: message.launchExecutable,
+                launchArguments: message.launchArguments
+            )
             // execShellAndExit never returns; defensive fallback below.
             _exit(127)
         }
@@ -155,6 +200,8 @@ final class HostTerminalService: @unchecked Sendable {
             childPID: pid,
             cols: cols,
             rows: rows,
+            workspaceID: message.workspaceID,
+            workingDirectory: workingDirectory,
             outputSequence: 0
         )
         activeTerminals[session.terminalID] = session
@@ -173,7 +220,7 @@ final class HostTerminalService: @unchecked Sendable {
         // input is buffered until the login shell is ready, so this also lets
         // tmux/screen reattach an already-running session without requiring a
         // second round trip or a fragile prompt detector on the client.
-        if let startupCommand = message.startupCommand {
+        if let startupCommand = message.startupCommand, message.launchExecutable == nil {
             writeStartupCommand(startupCommand, to: session)
         }
 
@@ -448,7 +495,12 @@ final class HostTerminalService: @unchecked Sendable {
         }
     }
 
-    private func execShellAndExit(term: String) {
+    private func execShellAndExit(
+        term: String,
+        workingDirectory: String,
+        launchExecutable: String?,
+        launchArguments: [String]
+    ) {
         let env = ProcessInfo.processInfo.environment
         let shell = env["SHELL"] ?? "/bin/zsh"
         let home = env["HOME"] ?? NSHomeDirectory()
@@ -499,8 +551,66 @@ final class HostTerminalService: @unchecked Sendable {
         let interactiveFlag = strdup("-i")
         let argvArr: [UnsafeMutablePointer<CChar>?] = [argv0, loginFlag, interactiveFlag, nil]
 
-        // chdir to $HOME so the shell opens in a sensible place.
-        _ = chdir(home)
+        // Set the process cwd before the shell is exec'd. This keeps the
+        // selected workspace out of the visible transcript and means the
+        // first shell/agent instruction sees the correct directory.
+        guard chdir(workingDirectory) == 0 else {
+            perror("chdir")
+            _exit(126)
+        }
+
+        // Agent launchers use a direct exec path so the PTY does not first
+        // echo a hidden `if command -v …; tmux …` bootstrap command. Resolve
+        // the executable from the host-owned PATH and keep all validation on
+        // the host; the client never supplies an arbitrary absolute path.
+        if let launchExecutable {
+            let isSafeName = !launchExecutable.isEmpty
+                && launchExecutable.count <= 128
+                && !launchExecutable.contains("/")
+                && !launchExecutable.contains("\\")
+                && !launchExecutable.contains("..")
+                && launchExecutable.unicodeScalars.allSatisfy { scalar in
+                    let value = scalar.value
+                    return (value >= 65 && value <= 90)
+                        || (value >= 97 && value <= 122)
+                        || (value >= 48 && value <= 57)
+                        || value == 46 || value == 95 || value == 45 || value == 43
+                }
+            guard isSafeName else {
+                fputs("Vamp Terminal: invalid launcher.\n", stderr)
+                _exit(126)
+            }
+
+            let executablePath = pathEntries
+                .map { URL(fileURLWithPath: $0, isDirectory: true).appendingPathComponent(launchExecutable).path }
+                .first { FileManager.default.isExecutableFile(atPath: $0) }
+            guard let executablePath else {
+                fputs("Vamp Terminal: launcher is not installed or not on PATH.\n", stderr)
+                _exit(127)
+            }
+
+            let safeArguments = Array(launchArguments.prefix(32)).filter { argument in
+                argument.count <= 512 && !argument.contains("\0")
+            }
+            guard safeArguments.count == min(launchArguments.count, 32) else {
+                fputs("Vamp Terminal: invalid launcher arguments.\n", stderr)
+                _exit(126)
+            }
+            let argumentStrings = [executablePath] + safeArguments
+            var argumentPointers = argumentStrings.map { strdup($0) }
+            argumentPointers.append(nil)
+            envCPtrs.withUnsafeBufferPointer { envBuf in
+                argumentPointers.withUnsafeBufferPointer { argBuf in
+                    _ = execve(
+                        executablePath,
+                        UnsafeMutablePointer(mutating: argBuf.baseAddress),
+                        UnsafeMutablePointer(mutating: envBuf.baseAddress)
+                    )
+                }
+            }
+            perror("execve")
+            _exit(127)
+        }
 
         envCPtrs.withUnsafeBufferPointer { envBuf in
             argvArr.withUnsafeBufferPointer { argBuf in
@@ -523,6 +633,21 @@ final class HostTerminalService: @unchecked Sendable {
         return min(value, 1000)
     }
 
+    private static func validateHomeWorkingDirectory(_ path: String) -> String? {
+        let home = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        let candidate = URL(fileURLWithPath: path, isDirectory: true)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        let homePath = home.path.hasSuffix("/") ? home.path : home.path + "/"
+        guard candidate.path == home.path || candidate.path.hasPrefix(homePath) else { return nil }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: candidate.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else { return nil }
+        return candidate.path
+    }
+
     private func decodeWaitStatus(_ status: Int32) -> (exitCode: Int32?, signal: Int32?) {
         // WIFEXITED / WIFSIGNALED — open-coded because Swift doesn't import
         // the macros from <sys/wait.h>.
@@ -543,21 +668,305 @@ final class HostTerminalService: @unchecked Sendable {
         let childPID: pid_t
         var cols: UInt16
         var rows: UInt16
+        let workspaceID: UUID?
+        let workingDirectory: String
         var outputSequence: UInt64
         var budgetWindowStart = Date()
         var budgetSpent = 0
         var readSource: DispatchSourceRead?
         var reaperTask: Task<Void, Never>?
 
-        init(sessionID: UUID, terminalID: UUID, masterFD: Int32, childPID: pid_t, cols: UInt16, rows: UInt16, outputSequence: UInt64) {
+        init(
+            sessionID: UUID,
+            terminalID: UUID,
+            masterFD: Int32,
+            childPID: pid_t,
+            cols: UInt16,
+            rows: UInt16,
+            workspaceID: UUID?,
+            workingDirectory: String,
+            outputSequence: UInt64
+        ) {
             self.sessionID = sessionID
             self.terminalID = terminalID
             self.masterFD = masterFD
             self.childPID = childPID
             self.cols = cols
             self.rows = rows
+            self.workspaceID = workspaceID
+            self.workingDirectory = workingDirectory
             self.outputSequence = outputSequence
         }
+    }
+}
+
+/// Host-side workspace discovery and browsing. This service intentionally uses
+/// Foundation filesystem APIs rather than shell interpolation so a client path
+/// can never become a command injection primitive. It only exposes directories
+/// below the current user's home directory and the small set of developer roots
+/// advertised to the client.
+final class HostWorkspaceService: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "host.workspace.service", qos: .utility)
+    private let fileManager = FileManager.default
+    let hostID: UUID
+    let homePath: String
+    private var cachedWorkspaces: [RemoteWorkspace]?
+
+    init(hostID: UUID, homePath: String = NSHomeDirectory()) {
+        self.hostID = hostID
+        self.homePath = Self.canonicalPath(
+            URL(fileURLWithPath: homePath, isDirectory: true)
+                .standardizedFileURL
+                .resolvingSymlinksInPath()
+                .standardizedFileURL
+                .path
+        )
+    }
+
+    func listWorkspaces(
+        refresh: Bool,
+        completion: @escaping @Sendable ([RemoteWorkspace], [WorkspaceBrowseRoot], String?) -> Void
+    ) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            if !refresh, let cached = self.cachedWorkspaces {
+                completion(cached, self.browseRoots(), nil)
+                return
+            }
+            let result = self.discoverWorkspaces()
+            self.cachedWorkspaces = result
+            completion(result, self.browseRoots(), nil)
+        }
+    }
+
+    func listDirectory(
+        path: String,
+        completion: @escaping @Sendable (String, [WorkspaceDirectoryEntry], String?) -> Void
+    ) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            guard let canonical = self.validatedWorkingDirectory(path) else {
+                completion(path, [], "That folder is unavailable or outside the allowed workspace boundary.")
+                return
+            }
+            do {
+                let urls = try self.fileManager.contentsOfDirectory(
+                    at: URL(fileURLWithPath: canonical, isDirectory: true),
+                    includingPropertiesForKeys: [.isDirectoryKey, .isReadableKey],
+                    options: []
+                )
+                let entries = urls.compactMap { url -> WorkspaceDirectoryEntry? in
+                    guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isReadableKey]),
+                          values.isDirectory == true else { return nil }
+                    let hints = self.projectHints(at: url)
+                    return WorkspaceDirectoryEntry(
+                        name: url.lastPathComponent,
+                        path: url.path,
+                        isDirectory: true,
+                        isReadable: values.isReadable ?? false,
+                        isGitRepository: self.isGitRepository(at: url),
+                        projectHints: hints
+                    )
+                }
+                completion(canonical, entries.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }, nil)
+            } catch {
+                completion(canonical, [], "Unable to read that folder.")
+            }
+        }
+    }
+
+    /// Canonicalize and validate a client-provided cwd. This method is safe to
+    /// call from the terminal service's serial queue and does not dispatch back
+    /// to this service's queue.
+    func validatedWorkingDirectory(_ path: String) -> String? {
+        var requested = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        if requested == "~" { requested = homePath }
+        if requested.hasPrefix("~/") {
+            requested = homePath + String(requested.dropFirst(1))
+        }
+        guard !requested.isEmpty else { return nil }
+        let candidate = URL(fileURLWithPath: requested, isDirectory: true)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        let candidatePath = Self.canonicalPath(candidate.path)
+        let homePrefix = homePath.hasSuffix("/") ? homePath : homePath + "/"
+        guard candidatePath == homePath || candidatePath.hasPrefix(homePrefix) else { return nil }
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: candidatePath, isDirectory: &isDirectory),
+              isDirectory.boolValue,
+              fileManager.isReadableFile(atPath: candidatePath) else { return nil }
+        return candidatePath
+    }
+
+    func workspaceID(for path: String) -> UUID? {
+        guard let canonical = validatedWorkingDirectory(path) else { return nil }
+        return stableWorkspaceID(path: canonical)
+    }
+
+    private func browseRoots() -> [WorkspaceBrowseRoot] {
+        let candidates: [(String, String)] = [
+            ("Home", homePath),
+            ("Desktop", homePath + "/Desktop"),
+            ("Documents", homePath + "/Documents"),
+            ("Downloads", homePath + "/Downloads"),
+            ("Developer", homePath + "/Developer"),
+            ("Projects", homePath + "/Projects"),
+            ("Sites", homePath + "/Sites")
+        ]
+        return candidates.compactMap { name, path in
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+                return nil
+            }
+            return WorkspaceBrowseRoot(name: name, path: path)
+        }
+    }
+
+    private func discoverWorkspaces() -> [RemoteWorkspace] {
+        var found: [String: RemoteWorkspace] = [:]
+        found[homePath] = RemoteWorkspace(
+            id: stableWorkspaceID(path: homePath),
+            hostID: hostID,
+            name: "Home",
+            path: homePath,
+            kind: .home,
+            gitInfo: nil,
+            isAvailable: true
+        )
+
+        let scanRoots = browseRoots().filter { $0.name != "Home" }
+        for root in scanRoots {
+            let rootURL = URL(fileURLWithPath: root.path, isDirectory: true)
+            guard let enumerator = fileManager.enumerator(
+                at: rootURL,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsPackageDescendants]
+            ) else { continue }
+            for case let url as URL in enumerator {
+                if Self.discoveryExcludedDirectoryNames.contains(url.lastPathComponent) {
+                    enumerator.skipDescendants()
+                    continue
+                }
+                let depth = max(0, url.pathComponents.count - rootURL.pathComponents.count)
+                if depth > 3 {
+                    enumerator.skipDescendants()
+                    continue
+                }
+                guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey]),
+                      values.isDirectory == true else { continue }
+                let hints = projectHints(at: url)
+                let isGit = isGitRepository(at: url)
+                guard isGit || !hints.isEmpty else { continue }
+                let kind: WorkspaceKind = isGit ? .gitRepository : .folder
+                let gitInfo = isGit
+                    ? gitMetadata(at: url, projectHints: hints)
+                    : GitWorkspaceInfo(projectHints: hints)
+                let canonicalPath = Self.canonicalPath(url.path)
+                found[canonicalPath] = RemoteWorkspace(
+                    id: stableWorkspaceID(path: canonicalPath),
+                    hostID: hostID,
+                    name: url.lastPathComponent,
+                    path: canonicalPath,
+                    kind: kind,
+                    gitInfo: gitInfo,
+                    isAvailable: true
+                )
+            }
+        }
+        return found.values.sorted {
+            if $0.kind == .home { return true }
+            if $1.kind == .home { return false }
+            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+    }
+
+    private func isGitRepository(at url: URL) -> Bool {
+        // Worktrees can represent .git as a file containing a gitdir pointer,
+        // so do not require it to be a directory.
+        return fileManager.fileExists(atPath: url.appendingPathComponent(".git").path)
+    }
+
+    private func projectHints(at url: URL) -> [String] {
+        let names = (try? fileManager.contentsOfDirectory(atPath: url.path)) ?? []
+        var hints: [String] = []
+        if names.contains("Package.swift") { hints += ["Swift", "Swift Package"] }
+        if names.contains(where: { $0.hasSuffix(".xcodeproj") || $0.hasSuffix(".xcworkspace") || $0 == "project.pbxproj" }) {
+            hints.append("Xcode")
+        }
+        if names.contains("package.json") { hints.append(names.contains("next.config.js") || names.contains("next.config.mjs") ? "Next.js" : "Node") }
+        if names.contains("pnpm-lock.yaml") { hints.append("pnpm") }
+        if names.contains("yarn.lock") { hints.append("Yarn") }
+        if names.contains("Cargo.toml") { hints.append("Rust") }
+        if names.contains("go.mod") { hints.append("Go") }
+        if names.contains("pyproject.toml") || names.contains("requirements.txt") { hints.append("Python") }
+        if names.contains("Gemfile") { hints.append("Ruby") }
+        return NSOrderedSet(array: hints).array as? [String] ?? hints
+    }
+
+    private func gitMetadata(at url: URL, projectHints: [String]) -> GitWorkspaceInfo {
+        let branch = runGit(["rev-parse", "--abbrev-ref", "HEAD"], at: url)
+        let status = runGit(["status", "--porcelain"], at: url)
+        let remote = runGit(["remote", "get-url", "origin"], at: url)
+        let divergence = runGit(["rev-list", "--left-right", "--count", "HEAD...@{upstream}"], at: url)?
+            .split(whereSeparator: { $0 == " " || $0 == "\t" })
+            .compactMap { Int($0) }
+        return GitWorkspaceInfo(
+            branch: branch?.isEmpty == false ? branch : nil,
+            isDirty: !(status?.isEmpty ?? true),
+            remoteURL: remote,
+            ahead: divergence?.first,
+            behind: divergence?.dropFirst().first,
+            projectHints: projectHints
+        )
+    }
+
+    private func runGit(_ arguments: [String], at directory: URL) -> String? {
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = arguments
+        process.currentDirectoryURL = directory
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { return nil }
+            return String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            return nil
+        }
+    }
+
+    private func stableWorkspaceID(path: String) -> UUID {
+        var digest = Array(SHA256.hash(data: Data((hostID.uuidString + "\n" + path).utf8)))
+        digest[6] = (digest[6] & 0x0f) | 0x50
+        digest[8] = (digest[8] & 0x3f) | 0x80
+        let bytes = digest.prefix(16)
+        let hex = bytes.map { String(format: "%02x", $0) }.joined()
+        let formatted = "\(hex.prefix(8))-\(hex.dropFirst(8).prefix(4))-\(hex.dropFirst(12).prefix(4))-\(hex.dropFirst(16).prefix(4))-\(hex.dropFirst(20).prefix(12))"
+        return UUID(uuidString: formatted) ?? UUID()
+    }
+
+    private static let discoveryExcludedDirectoryNames: Set<String> = [
+        ".git", ".build", "DerivedData", "node_modules", "Pods", "build",
+        "dist", "vendor", "target", ".swiftpm"
+    ]
+
+    private static func canonicalPath(_ path: String) -> String {
+        let standardized = URL(fileURLWithPath: path, isDirectory: true)
+            .standardizedFileURL
+            .path
+        // macOS exposes /var and /tmp through /private aliases. Foundation's
+        // directory enumerator can return the target spelling even when the
+        // requested root used the public spelling. Normalize that alias so a
+        // discovered workspace always passes the same boundary check used at
+        // launch time.
+        if standardized.hasPrefix("/private/") {
+            return String(standardized.dropFirst("/private".count))
+        }
+        return standardized
     }
 }
 #endif

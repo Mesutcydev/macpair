@@ -1,4 +1,5 @@
 import SwiftUI
+import SharedProtocol
 
 private enum VampTerminalPresentation: String, CaseIterable, Identifiable {
     case chat
@@ -41,6 +42,8 @@ struct VampTerminalWorkspaceView: View {
     @State private var startupCommandInput = ""
     @State private var startupCommandTitle = "Attach terminal session"
     @State private var showingDisconnectConfirmation = false
+    @State private var selectedAgentForWorkspace: VampAgentProvider?
+    @State private var showingWorkspaces = false
     @State private var presentation: VampTerminalPresentation = .chat
 
     var body: some View {
@@ -81,6 +84,9 @@ struct VampTerminalWorkspaceView: View {
                         },
                         onOpenTerminal: {
                             presentation = .terminal
+                        },
+                        onTerminalInput: { data in
+                            workspace.recordInput(tabID: tab.id, data: data)
                         },
                         onSendClipboardToHost: { _ = workspace.sendClipboardToHost() },
                         onRequestClipboardFromHost: { _ = workspace.requestClipboardFromHost() }
@@ -134,6 +140,37 @@ struct VampTerminalWorkspaceView: View {
         }
         .onDisappear {
             workspace.stop()
+        }
+        .sheet(item: $selectedAgentForWorkspace) { provider in
+            VampWorkspaceChooserView(
+                store: workspace.workspaceStore,
+                provider: provider,
+                hostName: coordinator.connectedHostName ?? "Connected Mac"
+            ) { chosenWorkspace, resumeMode, persistenceMode in
+                let launch = provider.launchConfiguration(
+                    resumeMode: resumeMode,
+                    persistenceMode: persistenceMode,
+                    workspaceID: chosenWorkspace.id
+                )
+                _ = workspace.createTab(
+                    title: provider.displayName,
+                    provider: provider,
+                    workspace: chosenWorkspace,
+                    resumeMode: resumeMode,
+                    persistenceMode: persistenceMode,
+                    launchExecutable: launch.executable,
+                    launchArguments: launch.arguments
+                )
+                selectedAgentForWorkspace = nil
+            }
+        }
+        .sheet(isPresented: $showingWorkspaces) {
+            VampWorkspacesView(
+                store: workspace.workspaceStore,
+                terminalWorkspace: workspace,
+                hostName: coordinator.connectedHostName ?? "Connected Mac",
+                connectionLabel: coordinator.connectionMode.label
+            )
         }
         .alert("Disconnect from Mac?", isPresented: $showingDisconnectConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -260,6 +297,11 @@ struct VampTerminalWorkspaceView: View {
                     }
                 } label: {
                     Label("Open raw terminal", systemImage: "terminal")
+                }
+                Button {
+                    showingWorkspaces = true
+                } label: {
+                    Label("Open workspaces", systemImage: "folder")
                 }
                 Button(role: .destructive) {
                     showingDisconnectConfirmation = true
@@ -418,6 +460,13 @@ struct VampTerminalWorkspaceView: View {
                         agentCommandButton(provider)
                     }
                 }
+                Section("Project context") {
+                    Button {
+                        showingWorkspaces = true
+                    } label: {
+                        Label("Choose workspace", systemImage: "folder.badge.gearshape")
+                    }
+                }
             } label: {
                 Image(systemName: "plus")
                     .font(.subheadline.weight(.bold))
@@ -554,11 +603,10 @@ struct VampTerminalWorkspaceView: View {
 
     private func agentCommandButton(_ provider: VampAgentProvider) -> some View {
         Button {
-            _ = workspace.createTab(
-                startupCommand: provider.startupCommand,
-                title: provider.displayName,
-                provider: provider
-            )
+            // Agent-first launch resolves through the same workspace chooser as
+            // the workspace-first flow. This prevents an agent from silently
+            // inheriting an unrelated global cwd.
+            selectedAgentForWorkspace = provider
         } label: {
             if let assetName = provider.assetName {
                 Label(provider.displayName, image: assetName)
@@ -578,10 +626,12 @@ private struct TerminalChatFeedView: View {
     let provider: VampAgentProvider?
     let onSendCommand: (String) -> Void
     let onOpenTerminal: () -> Void
+    let onTerminalInput: (Data) -> Void
     let onSendClipboardToHost: () -> Void
     let onRequestClipboardFromHost: () -> Void
 
     @State private var draft = ""
+    @StateObject private var terminalInput = VampTerminalInputController()
     @FocusState private var composerFocused: Bool
     @State private var isNearLatest = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -590,9 +640,12 @@ private struct TerminalChatFeedView: View {
         ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     LazyVStack(alignment: .leading, spacing: VampTerminalDesign.space4) {
+                        terminalScreenCard
                         ForEach(chat.blocks) { block in
-                            TerminalChatBlockView(block: block, provider: provider)
-                                .id(block.id)
+                            if block.role != .output {
+                                TerminalChatBlockView(block: block, provider: provider)
+                                    .id(block.id)
+                            }
                         }
                         Color.clear
                             .frame(height: 1)
@@ -677,6 +730,36 @@ private struct TerminalChatFeedView: View {
         }
     }
 
+    private var terminalScreenCard: some View {
+        VStack(alignment: .leading, spacing: VampTerminalDesign.space2) {
+            HStack(spacing: VampTerminalDesign.space2) {
+                Image(systemName: "terminal")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(provider?.accent ?? VampGlassPalette.good)
+                Text("Live terminal screen")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(VampGlassPalette.inkSecondary)
+                Spacer(minLength: 0)
+                Text("VT")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(VampGlassPalette.inkTertiary)
+            }
+            VampSwiftTermContainer(
+                session: session,
+                controller: terminalInput,
+                provider: provider,
+                onTerminalClipboard: { _ in },
+                onTerminalInput: onTerminalInput
+            )
+            .frame(minHeight: 220, idealHeight: 300, maxHeight: 380)
+            .clipShape(RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
+        }
+        .padding(VampTerminalDesign.space3)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(provider?.terminalBackground ?? Color.black, in: RoundedRectangle(cornerRadius: VampTerminalDesign.cardRadius, style: .continuous))
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: provider?.accent.opacity(0.24) ?? VampGlassPalette.ruleStrong)
+    }
+
     private func scrollToLatest(_ proxy: ScrollViewProxy, animated: Bool) {
         if !animated || reduceMotion {
             var transaction = Transaction()
@@ -717,6 +800,544 @@ private struct TerminalChatFeedView: View {
             draft += text
         }
         composerFocused = true
+    }
+}
+
+// MARK: - Workspace / project layer
+
+private struct VampWorkspaceCard: View {
+    let workspace: RemoteWorkspace
+    let isSelected: Bool
+    let activeSessionCount: Int
+    let onTap: () -> Void
+    let onFavorite: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: VampTerminalDesign.space3) {
+            Image(systemName: workspace.kind == .gitRepository ? "shippingbox" : "folder")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(VampGlassPalette.inkSecondary)
+                .frame(width: 36, height: 36)
+                .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+
+            VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
+                HStack(spacing: VampTerminalDesign.space2) {
+                    Text(workspace.name)
+                        .font(.system(.headline, design: .rounded).weight(.semibold))
+                        .foregroundStyle(VampGlassPalette.ink)
+                        .lineLimit(1)
+                    if !workspace.isAvailable {
+                        Text("UNAVAILABLE")
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundStyle(VampGlassPalette.warning)
+                    }
+                }
+                Text(workspace.path)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(VampGlassPalette.inkSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                HStack(spacing: VampTerminalDesign.space2) {
+                    if let gitInfo = workspace.gitInfo {
+                        Label(gitInfo.branch ?? "Git", systemImage: "arrow.triangle.branch")
+                        if gitInfo.isDirty { Text("· changes") }
+                        if !gitInfo.projectHints.isEmpty { Text("· " + gitInfo.projectHints.prefix(2).joined(separator: " · ")) }
+                    } else {
+                        Text(workspace.kind == .home ? "Home folder" : "Folder")
+                    }
+                    if activeSessionCount > 0 { Text("· \(activeSessionCount) active") }
+                }
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(VampGlassPalette.inkTertiary)
+            }
+
+            Spacer(minLength: 0)
+            VStack(spacing: VampTerminalDesign.space2) {
+                Button(action: onFavorite) {
+                    Image(systemName: workspace.isFavorite ? "star.fill" : "star")
+                        .foregroundStyle(workspace.isFavorite ? VampGlassPalette.ink : VampGlassPalette.inkSubtle)
+                        .frame(width: VampTerminalDesign.minTapTarget, height: VampTerminalDesign.minTapTarget)
+                }
+                .buttonStyle(.plain)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(VampGlassPalette.inkSubtle)
+            }
+        }
+        .padding(VampTerminalDesign.space4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.largeCardRadius)
+        .vampGlassOutline(
+            cornerRadius: VampTerminalDesign.largeCardRadius,
+            color: isSelected ? VampGlassPalette.ruleStrong : VampGlassPalette.rule
+        )
+        .contentShape(RoundedRectangle(cornerRadius: VampTerminalDesign.largeCardRadius, style: .continuous))
+        .onTapGesture {
+            guard workspace.isAvailable else { return }
+            onTap()
+        }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(workspace.isAvailable ? "Opens this workspace" : "Workspace unavailable")
+        .opacity(workspace.isAvailable ? 1 : 0.62)
+    }
+}
+
+struct VampWorkspaceChooserView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var store: VampWorkspaceStore
+    let provider: VampAgentProvider
+    let hostName: String
+    let onStart: (RemoteWorkspace, ResumeMode, PersistenceMode) -> Void
+
+    @State private var selectedWorkspaceID: UUID?
+    @State private var resumeMode: ResumeMode = .new
+    @State private var persistenceMode: PersistenceMode = .preserveWithTmux
+
+    private var selectedWorkspace: RemoteWorkspace? {
+        guard let selectedWorkspaceID else { return nil }
+        return store.workspaces.first { $0.id == selectedWorkspaceID && $0.isAvailable }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: VampTerminalDesign.space5) {
+                    VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
+                        Text("New \(provider.displayName) session")
+                            .font(.system(size: 25, weight: .bold, design: .rounded))
+                        Text(hostName + " · " + "Choose where this agent should start.")
+                            .font(.subheadline)
+                            .foregroundStyle(VampGlassPalette.inkSecondary)
+                    }
+
+                    sectionLabel("WORKSPACE")
+                    if store.isLoading && store.workspaces.isEmpty {
+                        ProgressView("Discovering projects on the Mac…")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else if store.workspaces.isEmpty {
+                        emptyWorkspaceMessage
+                    } else {
+                        ForEach(store.workspaces) { workspace in
+                            VampWorkspaceCard(
+                                workspace: workspace,
+                                isSelected: selectedWorkspaceID == workspace.id,
+                                activeSessionCount: 0,
+                                onTap: { selectedWorkspaceID = workspace.id },
+                                onFavorite: { store.toggleFavorite(workspace.id) }
+                            )
+                        }
+                    }
+
+                    NavigationLink {
+                            VampWorkspaceBrowserView(store: store) { workspace in
+                            store.adopt(workspace)
+                            selectedWorkspaceID = workspace.id
+                            onStart(workspace, resumeMode, persistenceMode)
+                        }
+                    } label: {
+                        Label("Browse Mac…", systemImage: "folder.badge.plus")
+                            .font(.headline)
+                            .foregroundStyle(VampGlassPalette.ink)
+                            .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.controlHeight)
+                            .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                            .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius)
+                    }
+                    .buttonStyle(VampGlassPressStyle())
+
+                    if let selectedWorkspace {
+                        VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
+                            sectionLabel("SESSION")
+                            Picker("Session", selection: $resumeMode) {
+                                Text("New session").tag(ResumeMode.new)
+                                Text("Resume previous").tag(ResumeMode.resumePrevious)
+                            }
+                            .pickerStyle(.segmented)
+                            Toggle("Preserve session after disconnect", isOn: Binding(
+                                get: { persistenceMode == .preserveWithTmux },
+                                set: { persistenceMode = $0 ? .preserveWithTmux : .sessionOnly }
+                            ))
+                            .font(.subheadline)
+                            Text("Start in: \(selectedWorkspace.path)")
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundStyle(VampGlassPalette.inkSecondary)
+                                .lineLimit(2)
+                        }
+                    }
+
+                    Button {
+                        guard let selectedWorkspace else { return }
+                        onStart(selectedWorkspace, resumeMode, persistenceMode)
+                        dismiss()
+                    } label: {
+                        Label("Start \(provider.displayName)", systemImage: "arrow.up.right")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.controlHeight)
+                            .background(Color.white, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
+                    }
+                    .buttonStyle(VampGlassPressStyle())
+                    .disabled(selectedWorkspace == nil)
+                    .opacity(selectedWorkspace == nil ? 0.45 : 1)
+                }
+                .padding(.horizontal, VampTerminalDesign.space5)
+                .padding(.vertical, VampTerminalDesign.space5)
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Choose workspace")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { store.refresh() } label: { Image(systemName: "arrow.clockwise") }
+                        .accessibilityLabel("Refresh workspaces")
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .onAppear {
+            store.activate()
+            if selectedWorkspaceID == nil {
+                selectedWorkspaceID = store.workspaces.first(where: { $0.isAvailable })?.id
+            }
+        }
+        .onChange(of: store.workspaces) { _, workspaces in
+            guard selectedWorkspaceID == nil else { return }
+            selectedWorkspaceID = workspaces.first(where: { $0.isAvailable })?.id
+        }
+    }
+
+    private var emptyWorkspaceMessage: some View {
+        VStack(alignment: .leading, spacing: VampTerminalDesign.space2) {
+            Text("No projects discovered yet")
+                .font(.headline)
+            Text(store.errorMessage ?? "Browse the Mac to choose a folder. The folder is never deleted when removed from recents.")
+                .font(.subheadline)
+                .foregroundStyle(VampGlassPalette.inkSecondary)
+        }
+        .padding(VampTerminalDesign.space4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.largeCardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.largeCardRadius)
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .bold, design: .monospaced))
+            .tracking(1.4)
+            .foregroundStyle(VampGlassPalette.inkTertiary)
+    }
+}
+
+struct VampWorkspacesView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var store: VampWorkspaceStore
+    @ObservedObject var terminalWorkspace: TerminalWorkspaceViewModel
+    let hostName: String
+    let connectionLabel: String
+    @State private var selectedWorkspace: RemoteWorkspace?
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: VampTerminalDesign.space5) {
+                    VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
+                        Text("Workspaces")
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                        HStack(spacing: VampTerminalDesign.space2) {
+                            Circle().fill(VampGlassPalette.good).frame(width: 7, height: 7)
+                            Text("\(hostName) · \(connectionLabel)")
+                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(VampGlassPalette.inkSecondary)
+                        }
+                    }
+
+                    Text("RECENT")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .tracking(1.4)
+                        .foregroundStyle(VampGlassPalette.inkTertiary)
+
+                    if store.workspaces.isEmpty && store.isLoading {
+                        ProgressView("Discovering projects…")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        ForEach(store.workspaces) { item in
+                            VampWorkspaceCard(
+                                workspace: item,
+                                isSelected: false,
+                                activeSessionCount: terminalWorkspace.tabs.filter { $0.workspaceID == item.id }.count,
+                                onTap: { selectedWorkspace = item },
+                                onFavorite: { store.toggleFavorite(item.id) }
+                            )
+                        }
+                    }
+
+                    Text("OTHER LOCATIONS")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .tracking(1.4)
+                        .foregroundStyle(VampGlassPalette.inkTertiary)
+                    ForEach(store.roots) { root in
+                        NavigationLink {
+                            VampWorkspaceBrowserView(store: store, initialPath: root.path) { workspace in
+                                store.adopt(workspace)
+                                selectedWorkspace = workspace
+                            }
+                        } label: {
+                            HStack {
+                                Image(systemName: root.name == "Home" ? "house" : "folder")
+                                    .frame(width: 28)
+                                Text(root.name)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(VampGlassPalette.inkSubtle)
+                            }
+                            .font(.headline)
+                            .foregroundStyle(VampGlassPalette.ink)
+                            .padding(.horizontal, VampTerminalDesign.space4)
+                            .frame(minHeight: VampTerminalDesign.controlHeight)
+                            .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                            .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius)
+                        }
+                        .buttonStyle(VampGlassPressStyle())
+                    }
+                }
+                .padding(.horizontal, VampTerminalDesign.space5)
+                .padding(.vertical, VampTerminalDesign.space5)
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Workspaces")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { store.refresh() } label: { Image(systemName: "arrow.clockwise") }
+                }
+            }
+        }
+        .sheet(item: $selectedWorkspace) { item in
+            VampWorkspaceDetailView(
+                workspace: item,
+                store: store,
+                terminalWorkspace: terminalWorkspace,
+                hostName: hostName
+            )
+        }
+        .preferredColorScheme(.dark)
+        .onAppear { store.activate() }
+    }
+}
+
+private struct VampWorkspaceDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    let workspace: RemoteWorkspace
+    @ObservedObject var store: VampWorkspaceStore
+    @ObservedObject var terminalWorkspace: TerminalWorkspaceViewModel
+    let hostName: String
+    @State private var selectedAgent: VampAgentProvider?
+
+    private var activeTabs: [TerminalWorkspaceViewModel.Tab] {
+        terminalWorkspace.tabs.filter { $0.workspaceID == workspace.id }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: VampTerminalDesign.space5) {
+                VStack(alignment: .leading, spacing: VampTerminalDesign.space2) {
+                    Text(workspace.name)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                    Text(workspace.path)
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .foregroundStyle(VampGlassPalette.inkSecondary)
+                        .textSelection(.enabled)
+                    if let git = workspace.gitInfo {
+                        Label("Git · \(git.branch ?? "branch unknown")\(git.isDirty ? " · changes" : " · clean")", systemImage: "arrow.triangle.branch")
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(VampGlassPalette.inkTertiary)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
+                    Text("SESSIONS")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .tracking(1.4)
+                        .foregroundStyle(VampGlassPalette.inkTertiary)
+                    if activeTabs.isEmpty {
+                        Text("No active sessions in this workspace.")
+                            .font(.subheadline)
+                            .foregroundStyle(VampGlassPalette.inkSecondary)
+                    } else {
+                        ForEach(activeTabs) { tab in
+                            HStack(spacing: VampTerminalDesign.space3) {
+                                Circle().fill(VampGlassPalette.good).frame(width: 8, height: 8)
+                                VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
+                                    Text(tab.title).font(.headline)
+                                    Text(tab.stateLabel)
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .foregroundStyle(VampGlassPalette.inkSecondary)
+                                }
+                                Spacer()
+                            }
+                            .padding(VampTerminalDesign.space3)
+                            .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                            .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius)
+                        }
+                    }
+                }
+
+                Menu {
+                    ForEach(VampAgentProvider.allCases) { provider in
+                        Button {
+                            selectedAgent = provider
+                        } label: {
+                            Label(provider.displayName, systemImage: provider.fallbackSystemImage)
+                        }
+                    }
+                } label: {
+                    Label("New agent session", systemImage: "plus")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.controlHeight)
+                        .background(Color.white, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
+                }
+                .buttonStyle(VampGlassPressStyle())
+
+                Button {
+                    _ = terminalWorkspace.createTab(title: "Shell · \(workspace.name)", workspace: workspace)
+                    dismiss()
+                } label: {
+                    Label("Open shell here", systemImage: "terminal")
+                        .font(.headline)
+                        .foregroundStyle(VampGlassPalette.ink)
+                        .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.controlHeight)
+                        .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                        .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius)
+                }
+                .buttonStyle(VampGlassPressStyle())
+            }
+            .padding(.horizontal, VampTerminalDesign.space5)
+            .padding(.vertical, VampTerminalDesign.space5)
+        }
+        .background(Color.black.ignoresSafeArea())
+        .navigationTitle("Workspace")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $selectedAgent) { provider in
+            VampWorkspaceChooserView(store: store, provider: provider, hostName: hostName) { chosen, resumeMode, persistenceMode in
+                let launch = provider.launchConfiguration(
+                    resumeMode: resumeMode,
+                    persistenceMode: persistenceMode,
+                    workspaceID: chosen.id
+                )
+                _ = terminalWorkspace.createTab(
+                    title: provider.displayName,
+                    provider: provider,
+                    workspace: chosen,
+                    resumeMode: resumeMode,
+                    persistenceMode: persistenceMode,
+                    launchExecutable: launch.executable,
+                    launchArguments: launch.arguments
+                )
+                selectedAgent = nil
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+private struct VampWorkspaceBrowserView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var store: VampWorkspaceStore
+    var initialPath: String?
+    let onSelect: (RemoteWorkspace) -> Void
+
+    init(
+        store: VampWorkspaceStore,
+        initialPath: String? = nil,
+        onSelect: @escaping (RemoteWorkspace) -> Void
+    ) {
+        self.store = store
+        self.initialPath = initialPath
+        self.onSelect = onSelect
+    }
+
+    var body: some View {
+        List {
+            Section {
+                if store.isBrowsing {
+                    ProgressView("Reading Mac folder…")
+                } else if store.directoryEntries.isEmpty {
+                    ContentUnavailableView(
+                        "No folders here",
+                        systemImage: "folder",
+                        description: Text("Choose another Mac location or go up one level.")
+                    )
+                }
+                ForEach(store.directoryEntries) { entry in
+                    HStack(spacing: VampTerminalDesign.space3) {
+                        Button {
+                            if let workspace = store.workspace(for: entry) {
+                                onSelect(workspace)
+                                dismiss()
+                            }
+                        } label: {
+                            HStack(spacing: VampTerminalDesign.space3) {
+                                Image(systemName: entry.isGitRepository ? "shippingbox" : "folder")
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(entry.name).foregroundStyle(.primary)
+                                    Text(entry.path)
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        Spacer(minLength: 0)
+                        Button { store.browse(path: entry.path) } label: {
+                            Image(systemName: "chevron.right")
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            } header: {
+                Text(store.browsePath ?? "Mac folders")
+                    .font(.system(size: 11, design: .monospaced))
+                    .textCase(nil)
+            } footer: {
+                Text("Tap a folder to use it as the agent workspace. Use the chevron to browse deeper.")
+            }
+        }
+        .navigationTitle("Browse Mac")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    store.browseParent()
+                } label: {
+                    Label("Up", systemImage: "chevron.up")
+                }
+                .disabled(store.browsePath == nil || URL(fileURLWithPath: store.browsePath ?? "").deletingLastPathComponent().path == store.browsePath)
+            }
+        }
+        .onAppear {
+            if let initialPath {
+                store.browse(path: initialPath)
+            } else if let root = store.roots.first(where: { $0.name == "Home" }) ?? store.roots.first {
+                store.browse(path: root.path)
+            }
+        }
+    }
+}
+
+@MainActor private extension TerminalWorkspaceViewModel.Tab {
+    var stateLabel: String {
+        switch state {
+        case .idle: return "Waiting"
+        case .opening: return "Opening"
+        case .open: return "Running"
+        case .closed: return "Stopped"
+        }
     }
 }
 

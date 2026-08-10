@@ -116,6 +116,10 @@ final class ClientSessionCoordinator: ObservableObject {
     var onTerminalClose: ((TerminalCloseMessage) -> Void)?
     /// Called on MainActor when the host has created a requested PTY.
     var onTerminalReady: ((TerminalReadyMessage) -> Void)?
+    /// Called on MainActor when the host returns its cached workspace catalog.
+    var onWorkspaceListResponse: ((WorkspaceListResponseMessage) -> Void)?
+    /// Called on MainActor when the host returns a validated directory listing.
+    var onWorkspaceDirectoryResponse: ((WorkspaceDirectoryResponseMessage) -> Void)?
     var refreshEndpoint: ((ResolvedHostEndpoint) -> ResolvedHostEndpoint?)?
     /// Returns every distinct address we know for the physical host behind an endpoint
     /// (LAN + Tailscale relay sibling), ordered best-first. Used so reconnect can sweep
@@ -1317,6 +1321,20 @@ final class ClientSessionCoordinator: ObservableObject {
                               message.sessionID == self.activeSessionID else { break }
                         self.onTerminalClose?(message)
                     }
+                case .workspaceListResponse:
+                    guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
+                    if let message = try? envelope.decodeWorkspaceListResponse(),
+                       envelope.sessionID == message.sessionID,
+                       message.sessionID == self.activeSessionID {
+                        self.onWorkspaceListResponse?(message)
+                    }
+                case .workspaceDirectoryResponse:
+                    guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
+                    if let message = try? envelope.decodeWorkspaceDirectoryResponse(),
+                       envelope.sessionID == message.sessionID,
+                       message.sessionID == self.activeSessionID {
+                        self.onWorkspaceDirectoryResponse?(message)
+                    }
                 default:
                     break
                 }
@@ -1386,6 +1404,22 @@ final class ClientSessionCoordinator: ObservableObject {
         }
         logger.notice("Sending terminal envelope: kind=\(envelope.kind.rawValue, privacy: .public)")
         try webRTCSessionManager.sendDataMessage(envelope)
+    }
+
+    func requestWorkspaces(refresh: Bool = false) throws -> UUID {
+        guard let sessionID = activeSessionID else { throw WebRTCSessionError.dataChannelUnavailable }
+        let message = WorkspaceListRequestMessage(sessionID: sessionID, refresh: refresh)
+        let envelope = try DataChannelEnvelope.workspaceListRequest(message)
+        try sendTerminalEnvelope(envelope)
+        return message.requestID
+    }
+
+    func requestWorkspaceDirectory(path: String) throws -> UUID {
+        guard let sessionID = activeSessionID else { throw WebRTCSessionError.dataChannelUnavailable }
+        let message = WorkspaceDirectoryRequestMessage(sessionID: sessionID, path: path)
+        let envelope = try DataChannelEnvelope.workspaceDirectoryRequest(message)
+        try sendTerminalEnvelope(envelope)
+        return message.requestID
     }
 
     /// A small feature-specific view of transport readiness for terminal-tab

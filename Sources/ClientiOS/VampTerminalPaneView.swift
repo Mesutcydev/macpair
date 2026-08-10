@@ -279,7 +279,7 @@ struct VampTerminalPaneView: View {
 }
 
 @MainActor
-private final class VampTerminalInputController: ObservableObject {
+final class VampTerminalInputController: ObservableObject {
     @Published var isKeyboardVisible = true
     @Published var ctrlActive = false
     @Published var metaActive = false
@@ -345,7 +345,7 @@ private final class VampTerminalInputController: ObservableObject {
     }
 }
 
-private struct VampSwiftTermContainer: UIViewRepresentable {
+struct VampSwiftTermContainer: UIViewRepresentable {
     @ObservedObject var session: ClientTerminalSessionManager
     let controller: VampTerminalInputController
     let provider: VampAgentProvider?
@@ -519,6 +519,19 @@ import SwiftUI
 struct VampTerminalPaneView: View {
     @ObservedObject var session: ClientTerminalSessionManager
     let isActive: Bool
+
+    var body: some View { EmptyView() }
+}
+
+@MainActor
+final class VampTerminalInputController: ObservableObject {}
+
+struct VampSwiftTermContainer: View {
+    @ObservedObject var session: ClientTerminalSessionManager
+    let controller: VampTerminalInputController
+    let provider: VampAgentProvider?
+    let onTerminalClipboard: (String) -> Void
+    let onTerminalInput: (Data) -> Void
 
     var body: some View { EmptyView() }
 }

@@ -284,16 +284,66 @@ final class DataChannelMessageTests: XCTestCase {
     }
 
     func testTerminalOpenRoundTripPreservesStartupCommand() throws {
+        let hostID = UUID()
+        let workspaceID = UUID()
         let message = TerminalOpenMessage(
             sessionID: UUID(),
             terminalID: UUID(),
             cols: 120,
             rows: 40,
-            startupCommand: "tmux new-session -A -s agent"
+            startupCommand: "tmux new-session -A -s agent",
+            workspaceID: workspaceID,
+            workingDirectory: "/Users/air/Projects/Vamp",
+            launchExecutable: "tmux",
+            launchArguments: ["new-session", "-A", "-s", "claude", "--", "claude"]
         )
         let envelope = try DataChannelEnvelope.terminalOpen(message)
         let decoded = try DataChannelEnvelope.wireDecode(try envelope.wireEncode())
 
         XCTAssertEqual(try decoded.decodeTerminalOpen(), message)
+        XCTAssertEqual(message.workspaceID, workspaceID)
+        XCTAssertEqual(message.launchExecutable, "tmux")
+        XCTAssertEqual(message.launchArguments.last, "claude")
+    }
+
+    func testWorkspaceMessagesRoundTrip() throws {
+        let sessionID = UUID()
+        let hostID = UUID()
+        let workspace = RemoteWorkspace(
+            hostID: hostID,
+            name: "Vamp",
+            path: "/Users/air/Projects/Vamp",
+            kind: .gitRepository,
+            gitInfo: GitWorkspaceInfo(branch: "main", isDirty: true, projectHints: ["Swift", "Xcode"]),
+            isFavorite: true
+        )
+        let list = WorkspaceListResponseMessage(
+            sessionID: sessionID,
+            requestID: UUID(),
+            hostID: hostID,
+            workspaces: [workspace],
+            roots: [WorkspaceBrowseRoot(name: "Home", path: "/Users/air")]
+        )
+        let directory = WorkspaceDirectoryResponseMessage(
+            sessionID: sessionID,
+            requestID: UUID(),
+            path: "/Users/air/Projects",
+            entries: [WorkspaceDirectoryEntry(
+                name: "Vamp",
+                path: "/Users/air/Projects/Vamp",
+                isGitRepository: true,
+                projectHints: ["Swift"]
+            )]
+        )
+
+        let listDecoded = try DataChannelEnvelope.wireDecode(
+            try DataChannelEnvelope.workspaceListResponse(list).wireEncode()
+        ).decodeWorkspaceListResponse()
+        let directoryDecoded = try DataChannelEnvelope.wireDecode(
+            try DataChannelEnvelope.workspaceDirectoryResponse(directory).wireEncode()
+        ).decodeWorkspaceDirectoryResponse()
+
+        XCTAssertEqual(listDecoded, list)
+        XCTAssertEqual(directoryDecoded, directory)
     }
 }

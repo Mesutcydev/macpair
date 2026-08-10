@@ -224,13 +224,13 @@ struct TerminalModeView: View {
                     controller: input,
                     onInput: { data in transcript.recordInput(data) }
                 )
-                .opacity(presentation == .raw ? 1 : 0.001)
-                .allowsHitTesting(presentation == .raw)
+                // SwiftTerm is the authoritative VT screen buffer for both
+                // presentation modes. The old stream overlay sanitized and
+                // appended PTY chunks, which corrupted cursor movement and
+                // ANSI TUIs before they reached the user.
+                .opacity(1)
+                .allowsHitTesting(true)
                 .background(Color.black)
-
-                if presentation == .stream {
-                    LegacyTerminalStreamView(transcript: transcript)
-                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()

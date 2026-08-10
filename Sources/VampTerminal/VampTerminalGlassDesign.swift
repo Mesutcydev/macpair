@@ -1,4 +1,5 @@
 import SwiftUI
+import SharedProtocol
 
 #if canImport(UIKit)
 import UIKit
@@ -123,6 +124,27 @@ extension VampAgentProvider {
         let shellSession = Self.shellQuote(sessionName)
         let shellDisplayName = Self.shellQuote(displayName)
         return "if ! command -v tmux >/dev/null 2>&1; then printf '\\nVamp Terminal: tmux is not installed or not on PATH.\\n'; elif ! command -v \(shellExecutable) >/dev/null 2>&1; then printf '\\nVamp Terminal: \(shellDisplayName) CLI (\(shellExecutable)) is not installed or not on PATH.\\n'; else tmux new-session -A -s \(shellSession) -- \(shellExecutable); fi"
+    }
+
+    /// Returns a direct process launch configuration. A persisted/resumed
+    /// agent uses tmux, while a session-only launch execs the provider itself.
+    /// Neither path echoes a shell bootstrap script into the PTY transcript.
+    func launchConfiguration(
+        resumeMode: ResumeMode,
+        persistenceMode: PersistenceMode,
+        workspaceID: UUID? = nil
+    ) -> (executable: String, arguments: [String]) {
+        guard persistenceMode == .preserveWithTmux || resumeMode == .resumePrevious else {
+            return (executable, [])
+        }
+        let scopedSessionName: String
+        if let workspaceID {
+            let suffix = String(workspaceID.uuidString.prefix(8)).lowercased()
+            scopedSessionName = "(sessionName)-(suffix)"
+        } else {
+            scopedSessionName = sessionName
+        }
+        return ("tmux", ["new-session", "-A", "-s", scopedSessionName, "--", executable])
     }
 
     private static func shellQuote(_ value: String) -> String {

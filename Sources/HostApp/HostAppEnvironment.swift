@@ -77,6 +77,7 @@ final class HostAppEnvironment: ObservableObject {
     var outgoingFileTransferController: HostOutgoingFileTransferController
     #if os(macOS)
     let audioPipeline: HostAudioCapturePipeline
+    let workspaceService: HostWorkspaceService
     let terminalService: HostTerminalService
     let browserControlService: HostBrowserControlService
     #endif
@@ -223,7 +224,9 @@ final class HostAppEnvironment: ObservableObject {
         #if os(macOS)
         let pipeline = HostAudioCapturePipeline()
         self.audioPipeline = pipeline
-        self.terminalService = HostTerminalService()
+        let workspaceService = HostWorkspaceService(hostID: canonicalHostIdentity.id)
+        self.workspaceService = workspaceService
+        self.terminalService = HostTerminalService(workspaceService: workspaceService)
         self.browserControlService = HostBrowserControlService()
         #endif
         self.manualLowPowerModeEnabled = storedLowPower
@@ -380,6 +383,51 @@ final class HostAppEnvironment: ObservableObject {
         }
         self.inputCommandRouter.onTerminalClose = { [weak terminalService = self.terminalService] message in
             terminalService?.handleClose(message)
+        }
+        self.inputCommandRouter.onWorkspaceListRequest = { [weak self] message in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      self.sessionCoordinator.activeSessionID == message.sessionID else { return }
+                let workspaceService = self.workspaceService
+                workspaceService.listWorkspaces(refresh: message.refresh) { [weak self] workspaces, roots, errorMessage in
+                    Task { @MainActor [weak self] in
+                        guard let self,
+                              self.sessionCoordinator.activeSessionID == message.sessionID else { return }
+                        let response = WorkspaceListResponseMessage(
+                            sessionID: message.sessionID,
+                            requestID: message.requestID,
+                            hostID: workspaceService.hostID,
+                            workspaces: workspaces,
+                            roots: roots,
+                            errorMessage: errorMessage
+                        )
+                        guard let envelope = try? DataChannelEnvelope.workspaceListResponse(response) else { return }
+                        try? self.webRTCSessionManager.sendDataMessage(envelope)
+                    }
+                }
+            }
+        }
+        self.inputCommandRouter.onWorkspaceDirectoryRequest = { [weak self] message in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      self.sessionCoordinator.activeSessionID == message.sessionID else { return }
+                let workspaceService = self.workspaceService
+                workspaceService.listDirectory(path: message.path) { [weak self] canonicalPath, entries, errorMessage in
+                    Task { @MainActor [weak self] in
+                        guard let self,
+                              self.sessionCoordinator.activeSessionID == message.sessionID else { return }
+                        let response = WorkspaceDirectoryResponseMessage(
+                            sessionID: message.sessionID,
+                            requestID: message.requestID,
+                            path: canonicalPath,
+                            entries: entries,
+                            errorMessage: errorMessage
+                        )
+                        guard let envelope = try? DataChannelEnvelope.workspaceDirectoryResponse(response) else { return }
+                        try? self.webRTCSessionManager.sendDataMessage(envelope)
+                    }
+                }
+            }
         }
         self.inputCommandRouter.onSessionEnded = { [weak terminalService = self.terminalService] in
             terminalService?.sessionDidEnd()

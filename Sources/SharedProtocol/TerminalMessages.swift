@@ -1,5 +1,223 @@
 import Foundation
 
+// MARK: - Remote workspaces
+
+/// The kind of host-side location represented by a workspace. These values are
+/// deliberately small and stable because workspaces are persisted by clients.
+public enum WorkspaceKind: String, Codable, Hashable, Sendable {
+    case gitRepository
+    case folder
+    case home
+}
+
+public struct GitWorkspaceInfo: Codable, Hashable, Sendable {
+    public var branch: String?
+    public var isDirty: Bool
+    public var remoteURL: String?
+    public var ahead: Int?
+    public var behind: Int?
+    public var projectHints: [String]
+
+    public init(
+        branch: String? = nil,
+        isDirty: Bool = false,
+        remoteURL: String? = nil,
+        ahead: Int? = nil,
+        behind: Int? = nil,
+        projectHints: [String] = []
+    ) {
+        self.branch = branch
+        self.isDirty = isDirty
+        self.remoteURL = remoteURL
+        self.ahead = ahead
+        self.behind = behind
+        self.projectHints = projectHints
+    }
+}
+
+/// A host-backed project or directory. The path is canonicalized by the host;
+/// clients must never assume that an iOS-provided path is trusted.
+public struct RemoteWorkspace: Identifiable, Codable, Hashable, Sendable {
+    public let id: UUID
+    public var hostID: UUID
+    public var name: String
+    public var path: String
+    public var kind: WorkspaceKind
+    public var gitInfo: GitWorkspaceInfo?
+    public var lastOpenedAt: Date?
+    public var isFavorite: Bool
+    public var isAvailable: Bool
+
+    public init(
+        id: UUID = UUID(),
+        hostID: UUID,
+        name: String,
+        path: String,
+        kind: WorkspaceKind,
+        gitInfo: GitWorkspaceInfo? = nil,
+        lastOpenedAt: Date? = nil,
+        isFavorite: Bool = false,
+        isAvailable: Bool = true
+    ) {
+        self.id = id
+        self.hostID = hostID
+        self.name = name
+        self.path = path
+        self.kind = kind
+        self.gitInfo = gitInfo
+        self.lastOpenedAt = lastOpenedAt
+        self.isFavorite = isFavorite
+        self.isAvailable = isAvailable
+    }
+}
+
+public struct WorkspaceBrowseRoot: Codable, Hashable, Sendable, Identifiable {
+    public let id: String
+    public let name: String
+    public let path: String
+    public let isAvailable: Bool
+
+    public init(name: String, path: String, isAvailable: Bool = true) {
+        self.id = path
+        self.name = name
+        self.path = path
+        self.isAvailable = isAvailable
+    }
+}
+
+public struct WorkspaceDirectoryEntry: Codable, Hashable, Sendable, Identifiable {
+    public let id: String
+    public let name: String
+    public let path: String
+    public let isDirectory: Bool
+    public let isReadable: Bool
+    public let isGitRepository: Bool
+    public let projectHints: [String]
+
+    public init(
+        name: String,
+        path: String,
+        isDirectory: Bool = true,
+        isReadable: Bool = true,
+        isGitRepository: Bool = false,
+        projectHints: [String] = []
+    ) {
+        self.id = path
+        self.name = name
+        self.path = path
+        self.isDirectory = isDirectory
+        self.isReadable = isReadable
+        self.isGitRepository = isGitRepository
+        self.projectHints = projectHints
+    }
+}
+
+public struct WorkspaceListRequestMessage: Codable, Hashable, Sendable {
+    public let sessionID: UUID
+    public let requestID: UUID
+    public let refresh: Bool
+
+    public init(sessionID: UUID, requestID: UUID = UUID(), refresh: Bool = false) {
+        self.sessionID = sessionID
+        self.requestID = requestID
+        self.refresh = refresh
+    }
+}
+
+public struct WorkspaceListResponseMessage: Codable, Hashable, Sendable {
+    public let sessionID: UUID
+    public let requestID: UUID
+    public let hostID: UUID
+    public let workspaces: [RemoteWorkspace]
+    public let roots: [WorkspaceBrowseRoot]
+    public let errorMessage: String?
+
+    public init(
+        sessionID: UUID,
+        requestID: UUID,
+        hostID: UUID,
+        workspaces: [RemoteWorkspace] = [],
+        roots: [WorkspaceBrowseRoot] = [],
+        errorMessage: String? = nil
+    ) {
+        self.sessionID = sessionID
+        self.requestID = requestID
+        self.hostID = hostID
+        self.workspaces = workspaces
+        self.roots = roots
+        self.errorMessage = errorMessage
+    }
+}
+
+public struct WorkspaceDirectoryRequestMessage: Codable, Hashable, Sendable {
+    public let sessionID: UUID
+    public let requestID: UUID
+    public let path: String
+
+    public init(sessionID: UUID, requestID: UUID = UUID(), path: String) {
+        self.sessionID = sessionID
+        self.requestID = requestID
+        self.path = path
+    }
+}
+
+public struct WorkspaceDirectoryResponseMessage: Codable, Hashable, Sendable {
+    public let sessionID: UUID
+    public let requestID: UUID
+    public let path: String
+    public let entries: [WorkspaceDirectoryEntry]
+    public let errorMessage: String?
+
+    public init(
+        sessionID: UUID,
+        requestID: UUID,
+        path: String,
+        entries: [WorkspaceDirectoryEntry] = [],
+        errorMessage: String? = nil
+    ) {
+        self.sessionID = sessionID
+        self.requestID = requestID
+        self.path = path
+        self.entries = entries
+        self.errorMessage = errorMessage
+    }
+}
+
+public enum ResumeMode: String, Codable, Hashable, Sendable {
+    case new
+    case resumePrevious
+}
+
+public enum PersistenceMode: String, Codable, Hashable, Sendable {
+    case sessionOnly
+    case preserveWithTmux
+}
+
+public struct SessionLaunchRequest: Codable, Hashable, Sendable {
+    public let hostID: UUID
+    public let workspaceID: UUID
+    public let workingDirectory: String
+    public let agent: String
+    public let resumeMode: ResumeMode
+    public let persistenceMode: PersistenceMode
+
+    public init(
+        hostID: UUID,
+        workspaceID: UUID,
+        workingDirectory: String,
+        agent: String,
+        resumeMode: ResumeMode = .new,
+        persistenceMode: PersistenceMode = .sessionOnly
+    ) {
+        self.hostID = hostID
+        self.workspaceID = workspaceID
+        self.workingDirectory = workingDirectory
+        self.agent = agent
+        self.resumeMode = resumeMode
+        self.persistenceMode = persistenceMode
+    }
+}
+
 // MARK: - Terminal Mode
 //
 // Bidirectional PTY-backed shell over the existing authenticated WebRTC data
@@ -28,6 +246,19 @@ public struct TerminalOpenMessage: Codable, Hashable, Sendable {
     /// which is the portable way to hand an in-progress agent or terminal
     /// workflow from Mac Terminal to Vamp Terminal.
     public let startupCommand: String?
+    /// Stable workspace identity selected by the client. The host validates
+    /// the path independently before applying it to the child PTY.
+    public let workspaceID: UUID?
+    /// Canonical host-side working directory for this terminal. This is not a
+    /// shell command and is never written into the visible terminal transcript.
+    public let workingDirectory: String?
+    /// Optional executable to launch directly after changing to the workspace.
+    /// When present, the host resolves this name through its own PATH and
+    /// execs it without first echoing a shell bootstrap command into the PTY.
+    public let launchExecutable: String?
+    /// Arguments for `launchExecutable`. The host applies its own bounds and
+    /// executable validation before starting the child process.
+    public let launchArguments: [String]
 
     /// Bounds the command launcher payload without changing the existing PTY
     /// input limit. Commands are still subject to the authenticated terminal
@@ -40,7 +271,11 @@ public struct TerminalOpenMessage: Codable, Hashable, Sendable {
         cols: UInt16,
         rows: UInt16,
         term: String? = "xterm-256color",
-        startupCommand: String? = nil
+        startupCommand: String? = nil,
+        workspaceID: UUID? = nil,
+        workingDirectory: String? = nil,
+        launchExecutable: String? = nil,
+        launchArguments: [String] = []
     ) {
         self.sessionID = sessionID
         self.terminalID = terminalID
@@ -58,6 +293,20 @@ public struct TerminalOpenMessage: Codable, Hashable, Sendable {
         } else {
             self.startupCommand = nil
         }
+        if let workingDirectory {
+            let normalized = workingDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
+            self.workingDirectory = normalized.isEmpty ? nil : String(normalized.prefix(4_096))
+        } else {
+            self.workingDirectory = nil
+        }
+        self.workspaceID = workspaceID
+        if let launchExecutable {
+            let normalizedExecutable = launchExecutable.trimmingCharacters(in: .whitespacesAndNewlines)
+            self.launchExecutable = normalizedExecutable.isEmpty ? nil : String(normalizedExecutable.prefix(128))
+        } else {
+            self.launchExecutable = nil
+        }
+        self.launchArguments = Array(launchArguments.prefix(32)).map { String($0.prefix(512)) }
     }
 }
 

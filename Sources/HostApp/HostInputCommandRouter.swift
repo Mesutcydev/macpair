@@ -70,6 +70,11 @@ final class HostInputCommandRouter: @unchecked Sendable {
     var onTerminalInput: (@Sendable (TerminalInputMessage) -> Void)?
     var onTerminalResize: (@Sendable (TerminalResizeMessage) -> Void)?
     var onTerminalClose: (@Sendable (TerminalCloseMessage) -> Void)?
+    /// Workspace discovery is host-local; these callbacks are only reached
+    /// after the same authenticated session/timestamp validation as terminal
+    /// input, so an unauthenticated peer cannot browse the filesystem.
+    var onWorkspaceListRequest: (@Sendable (WorkspaceListRequestMessage) -> Void)?
+    var onWorkspaceDirectoryRequest: (@Sendable (WorkspaceDirectoryRequestMessage) -> Void)?
     /// Called from `stopListening` so per-session services (terminal, etc.) can clean up.
     var onSessionEnded: (@Sendable () -> Void)?
 
@@ -261,6 +266,10 @@ final class HostInputCommandRouter: @unchecked Sendable {
                     await self.handleTerminalResizeEnvelope(envelope)
                 case .terminalClose:
                     await self.handleTerminalCloseEnvelope(envelope)
+                case .workspaceListRequest:
+                    await self.handleWorkspaceListRequestEnvelope(envelope)
+                case .workspaceDirectoryRequest:
+                    await self.handleWorkspaceDirectoryRequestEnvelope(envelope)
                 default:
                     continue
                 }
@@ -328,7 +337,8 @@ final class HostInputCommandRouter: @unchecked Sendable {
         switch kind {
         case .controlAuth, .ping, .pong,
              .clipboardSync, .clipboardRequest,
-             .terminalOpen, .terminalInput, .terminalResize, .terminalClose:
+             .terminalOpen, .terminalInput, .terminalResize, .terminalClose,
+             .workspaceListRequest, .workspaceDirectoryRequest:
             return true
         default:
             return false
@@ -628,6 +638,36 @@ final class HostInputCommandRouter: @unchecked Sendable {
             return
         }
         onTerminalClose?(message)
+    }
+
+    private func handleWorkspaceListRequestEnvelope(_ envelope: DataChannelEnvelope) async {
+        guard envelope.hasAcceptableTimestamp,
+              validateControlEnvelopeAuth(envelope),
+              let message = try? envelope.decodeWorkspaceListRequest(),
+              envelope.sessionID == message.sessionID else { return }
+        let rejection = InputCommandValidation.validateRouting(
+            commandSessionID: message.sessionID,
+            activeSessionID: activeSessionID,
+            isRouterEnabled: isEnabled,
+            connectionState: webRTCSessionManager.connectionState
+        )
+        guard rejection == nil else { return }
+        onWorkspaceListRequest?(message)
+    }
+
+    private func handleWorkspaceDirectoryRequestEnvelope(_ envelope: DataChannelEnvelope) async {
+        guard envelope.hasAcceptableTimestamp,
+              validateControlEnvelopeAuth(envelope),
+              let message = try? envelope.decodeWorkspaceDirectoryRequest(),
+              envelope.sessionID == message.sessionID else { return }
+        let rejection = InputCommandValidation.validateRouting(
+            commandSessionID: message.sessionID,
+            activeSessionID: activeSessionID,
+            isRouterEnabled: isEnabled,
+            connectionState: webRTCSessionManager.connectionState
+        )
+        guard rejection == nil else { return }
+        onWorkspaceDirectoryRequest?(message)
     }
 
     private func handleFileTransferEnvelope(_ envelope: DataChannelEnvelope) async {
