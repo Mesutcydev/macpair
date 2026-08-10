@@ -5,6 +5,27 @@ import SharedProtocol
 import TransportWebRTC
 
 final class HostTerminalServiceTests: XCTestCase {
+    func testBrowserPairingCodeAcceptsFormattedAndLocalizedDigits() {
+        XCTAssertEqual(HostBrowserPairingCode.normalize(" 12-34·56 "), "123456")
+        XCTAssertEqual(HostBrowserPairingCode.normalize("١٢٣٤٥٦"), "123456")
+        XCTAssertNil(HostBrowserPairingCode.normalize("12345"))
+        XCTAssertNil(HostBrowserPairingCode.normalize("12a456"))
+    }
+
+    func testBrowserPairingLinkReplacesPairCodeWithoutDroppingOtherQueryItems() {
+        let link = HostBrowserPairingLink.make(
+            baseURL: "https://mac.example.test/workspace?source=qr&pair=000000",
+            code: "12 34-56"
+        )
+
+        XCTAssertEqual(link, "https://mac.example.test/workspace?source=qr&pair=123456")
+    }
+
+    func testBrowserPairingLinkRejectsInvalidCodeAndHostURL() {
+        XCTAssertNil(HostBrowserPairingLink.make(baseURL: "127.0.0.1:9475", code: "123456"))
+        XCTAssertNil(HostBrowserPairingLink.make(baseURL: "http://127.0.0.1:9475", code: "12345"))
+    }
+
     func testIndependentTerminalsCanResizeInterleaveOutputAndCloseOne() throws {
         let service = HostTerminalService()
         let recorder = EnvelopeRecorder()

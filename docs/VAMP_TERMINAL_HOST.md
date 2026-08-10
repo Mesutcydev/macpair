@@ -1,7 +1,7 @@
 # Vamp host products
 
-[Download Vamp Host build 6](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-8/VampHost-macOS-3.2.0-build-6-adhoc.zip) ·
-[Download Vamp Terminal Host build 6](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-8/VampTerminalHost-macOS-1.0.0-build-6-adhoc.zip)
+[Download Vamp Host build 7](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-9/VampHost-macOS-3.2.0-build-7-adhoc.zip) ·
+[Download Vamp Terminal Host build 7](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-9/VampTerminalHost-macOS-1.0.0-build-7-adhoc.zip)
 
 Vamp Terminal is the iPhone/iPad client. It can connect to either of these
 macOS host products:
@@ -34,7 +34,8 @@ advertise terminal capability.
 
 `linux-host/vamp_terminal_host.py` is a dependency-free browser companion. It
 is intentionally a WebSocket/Safari path rather than a second WebRTC
-implementation. Run it on loopback, then expose it through Tailscale Serve:
+implementation. Run it on loopback; Tailscale Serve is optional when you want
+an HTTPS hostname:
 
 ```sh
 python3 linux-host/vamp_terminal_host.py
@@ -51,9 +52,10 @@ On the Mac, `127.0.0.1:9475` is the local browser service. On an iPhone or
 iPad, `127.0.0.1` points back to the phone/tablet, so it will not open the
 Mac. Use one of the addresses shown in the host dashboard instead:
 
-- Recommended: the `https://<mac>.ts.net/` Tailscale Serve URL.
-- Fallback: `http://100.x.y.z:9475/`, using `tailscale ip -4` on the Mac.
+- Recommended: `http://100.x.y.z:9475/`, using `tailscale ip -4` on the Mac.
+- Optional: the `https://<mac>.ts.net/` Tailscale Serve URL after running the
+  command above.
 
 Both devices must be signed in to the same tailnet and have Tailscale enabled.
-If the HTTPS hostname does not resolve, enable Tailscale DNS/MagicDNS or use
-the direct 100.x fallback. Do not use public port forwarding.
+If the HTTPS hostname does not resolve or Serve has not been enabled, use the
+direct 100.x address. Do not use public port forwarding.

@@ -642,7 +642,10 @@ final class HostAppEnvironment: ObservableObject {
 
     #if os(macOS)
     func rotateBrowserPairingCode() {
-        browserControlService.rotatePairingCode()
+        // The host service serializes the rotation with listener/client state.
+        // Reflect the returned snapshot immediately so the QR card and the
+        // manually displayed code cannot briefly disagree after a tap.
+        browserControlStatus = browserControlService.rotatePairingCode()
     }
     #endif
 

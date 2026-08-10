@@ -6,10 +6,10 @@ Apple ID/team used on the installing device.
 
 ## Latest published build
 
-- [Vamp Terminal IPA build 8](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-8/VampTerminal-iOS-1.0.0-build-8-altstore-unsigned.ipa)
-- [Vamp Host build 6](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-8/VampHost-macOS-3.2.0-build-6-adhoc.zip)
-- [Vamp Terminal Host build 6](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-8/VampTerminalHost-macOS-1.0.0-build-6-adhoc.zip)
-- [All checksums and manifests](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-8)
+- [Vamp Terminal IPA build 9](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-9/VampTerminal-iOS-1.0.0-build-9-altstore-unsigned.ipa)
+- [Vamp Host build 7](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-9/VampHost-macOS-3.2.0-build-7-adhoc.zip)
+- [Vamp Terminal Host build 7](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-9/VampTerminalHost-macOS-1.0.0-build-7-adhoc.zip)
+- [All checksums and manifests](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-9)
 
 ## Build
 
@@ -66,18 +66,20 @@ ordinary LAN paths, does not open a public HTTP port, and does not provide a
 hosted relay.
 
 1. Open Vamp Host → Settings → Terminal Mode and enable it.
-2. In Settings → Safari control, copy the displayed Tailscale Serve command.
-3. Run that command in Terminal on the Mac. It exposes the loopback service as
-   a private HTTPS URL on the tailnet; Tailscale must be active on the Mac and
-   the Safari device.
-4. Open the resulting tailnet URL in Safari and enter the six-digit pairing
-   code shown by Vamp Host. The code expires after ten minutes; browser access
-   tokens expire after thirty minutes.
+2. In Settings → Safari control, scan the displayed QR or copy the direct
+   Tailscale URL. The QR includes the current six-digit code.
+3. If HTTPS is preferred, copy the Tailscale Serve command and run it in
+   Terminal on the Mac. Tailscale must be active on the Mac and the Safari
+   device.
+4. Open the direct `http://100.x.y.z:9475/` URL (or the Serve URL) in Safari.
+   The code expires after ten minutes; browser access tokens expire after
+   thirty minutes.
 
 `127.0.0.1:9475` only works in a browser on the Mac itself. From an iPhone or
-iPad, use the HTTPS Serve URL or the direct `http://100.x.y.z:9475/` fallback
-shown in the host dashboard. The Mac and mobile device must be on the same
-Tailscale tailnet; MagicDNS/Tailscale DNS is required for the `.ts.net` name.
+iPad, use the direct `http://100.x.y.z:9475/` URL shown in the host dashboard,
+or the HTTPS Serve URL if enabled. The Mac and mobile device must be on the
+same Tailscale tailnet; MagicDNS/Tailscale DNS is only required for the
+`.ts.net` name.
 
 The browser workspace supports up to eight concurrent CLI tabs, background
 output/unread tab indicators, explicit command approval cards, clipboard

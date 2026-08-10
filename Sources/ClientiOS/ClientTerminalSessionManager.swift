@@ -32,6 +32,11 @@ final class ClientTerminalSessionManager: ObservableObject {
     private(set) var terminalID: UUID?
     private var startupCommand: String?
     private var sendEnvelope: ((DataChannelEnvelope) throws -> Void)?
+    /// Holds input entered while the host is acknowledging a new PTY. This
+    /// keeps the mobile composer useful during a slow WebRTC/Tailscale open
+    /// without racing bytes into a PTY that does not exist yet.
+    private var pendingInput = Data()
+    private let pendingInputLimit = TerminalInputMessage.maxChunkBytes
     /// Drops chunks older than this once `outputBacklogCap` is reached so a
     /// long-lived session doesn't grow memory unboundedly.
     private let outputBacklogCap = 256
@@ -47,10 +52,11 @@ final class ClientTerminalSessionManager: ObservableObject {
         self.lastObservedSequence = 0
         self.terminalID = nil
         self.startupCommand = nil
+        self.pendingInput.removeAll(keepingCapacity: true)
     }
 
     func deactivate() {
-        if let terminalID, let sessionID, state == .open || state == .opening {
+        if let terminalID, let sessionID, (state == .open || state == .opening) {
             // Best-effort polite close so the host can teardown the shell.
             let message = TerminalCloseMessage(sessionID: sessionID, terminalID: terminalID, reason: "client-disconnect")
             if let envelope = try? DataChannelEnvelope.terminalClose(message) {
@@ -64,6 +70,7 @@ final class ClientTerminalSessionManager: ObservableObject {
         output.removeAll()
         lastObservedSequence = 0
         startupCommand = nil
+        pendingInput.removeAll(keepingCapacity: true)
     }
 
     // MARK: - Outgoing
@@ -72,11 +79,17 @@ final class ClientTerminalSessionManager: ObservableObject {
     func open(cols: UInt16, rows: UInt16, startupCommand: String? = nil) -> Bool {
         guard state == .idle || state.isClosed,
               let sessionID, let sendEnvelope else { return false }
+        let inputEnteredBeforeOpen = state == .idle ? pendingInput : Data()
         terminalID = UUID()
         self.startupCommand = startupCommand
         state = .opening
         output.removeAll()
         lastObservedSequence = 0
+        // Keep anything typed in the first frame of the workspace. SwiftUI
+        // can render the composer before the data channel has accepted the
+        // open request; dropping that input is indistinguishable from a dead
+        // keyboard to the user.
+        pendingInput = inputEnteredBeforeOpen
         return sendOpen(
             cols: cols,
             rows: rows,
@@ -156,13 +169,25 @@ final class ClientTerminalSessionManager: ObservableObject {
     }
 
     func sendInput(_ data: Data) {
-        guard let sessionID, let terminalID, let sendEnvelope,
+        guard let sessionID,
               !data.isEmpty,
               data.count <= TerminalInputMessage.maxChunkBytes else { return }
-        let message = TerminalInputMessage(sessionID: sessionID, terminalID: terminalID, data: data)
-        if let envelope = try? DataChannelEnvelope.terminalInput(message) {
-            try? sendEnvelope(envelope)
+        guard state == .idle || state == .open || state == .opening else { return }
+        // A tab can be visible for a frame before its PTY ID is allocated, or
+        // while the WebRTC data channel is still becoming writable. Keep the
+        // input local and flush it after terminal-ready instead of making the
+        // first command appear to vanish.
+        guard let terminalID, let sendEnvelope else {
+            guard pendingInput.count + data.count <= pendingInputLimit else { return }
+            pendingInput.append(data)
+            return
         }
+        if state == .idle || state == .opening {
+            guard pendingInput.count + data.count <= pendingInputLimit else { return }
+            pendingInput.append(data)
+            return
+        }
+        _ = sendRawInput(data, sessionID: sessionID, terminalID: terminalID, sendEnvelope: sendEnvelope)
     }
 
     func requestResize(cols: UInt16, rows: UInt16) {
@@ -182,6 +207,7 @@ final class ClientTerminalSessionManager: ObservableObject {
         state = .closed(exitCode: nil, signal: nil, reason: reason)
         self.terminalID = nil
         startupCommand = nil
+        pendingInput.removeAll(keepingCapacity: true)
     }
 
     // MARK: - Incoming (called by ClientSessionCoordinator)
@@ -192,7 +218,10 @@ final class ClientTerminalSessionManager: ObservableObject {
               message.terminalID == terminalID else { return false }
         if message.sequence <= lastObservedSequence { return false }
         lastObservedSequence = message.sequence
-        if state == .opening { state = .open }
+        if state == .opening {
+            state = .open
+            flushPendingInput()
+        }
         output.append(message)
         if output.count > outputBacklogCap {
             output.removeFirst(output.count - outputBacklogCap)
@@ -206,6 +235,7 @@ final class ClientTerminalSessionManager: ObservableObject {
               message.terminalID == terminalID,
               state == .opening else { return false }
         state = .open
+        flushPendingInput()
         return true
     }
 
@@ -219,7 +249,51 @@ final class ClientTerminalSessionManager: ObservableObject {
         if !keepStartupCommand {
             startupCommand = nil
         }
+        pendingInput.removeAll(keepingCapacity: true)
         return true
+    }
+
+    /// The composer remains editable while a shell is opening. Input is
+    /// queued by `sendInput` and flushed after terminal-ready.
+    var canEditInput: Bool {
+        guard sessionID != nil else { return false }
+        if case .closed = state { return false }
+        return true
+    }
+
+    var canSendInput: Bool {
+        canEditInput
+    }
+
+    private func flushPendingInput() {
+        guard !pendingInput.isEmpty,
+              let sessionID,
+              let terminalID,
+              let sendEnvelope else { return }
+        let data = pendingInput
+        pendingInput.removeAll(keepingCapacity: true)
+        guard !sendRawInput(data, sessionID: sessionID, terminalID: terminalID, sendEnvelope: sendEnvelope) else { return }
+
+        var retry = data
+        retry.append(pendingInput)
+        pendingInput = Data(retry.prefix(pendingInputLimit))
+    }
+
+    @discardableResult
+    private func sendRawInput(
+        _ data: Data,
+        sessionID: UUID,
+        terminalID: UUID,
+        sendEnvelope: (DataChannelEnvelope) throws -> Void
+    ) -> Bool {
+        let message = TerminalInputMessage(sessionID: sessionID, terminalID: terminalID, data: data)
+        guard let envelope = try? DataChannelEnvelope.terminalInput(message) else { return false }
+        do {
+            try sendEnvelope(envelope)
+            return true
+        } catch {
+            return false
+        }
     }
 
     private static func isRetryableOpeningFailure(_ reason: String?) -> Bool {

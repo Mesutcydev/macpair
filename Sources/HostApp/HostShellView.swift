@@ -491,9 +491,8 @@ private struct HostMinimalDashboard: View {
     }
 
     /// Safari's browser-control URLs are intentionally separate from the
-    /// WebRTC signaling addresses above. The HTTPS link is the remote path;
-    /// 127.0.0.1 is shown only as a Mac-local diagnostic and is never framed
-    /// as a phone/tablet address.
+    /// WebRTC signaling addresses above. The direct 100.x path works without
+    /// Tailscale Serve; 127.0.0.1 is shown only as a Mac-local diagnostic.
     private var safariConnectSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
@@ -523,7 +522,7 @@ private struct HostMinimalDashboard: View {
                     .foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text("Open the HTTPS address in Safari while Tailscale is connected on both devices. Do not use 127.0.0.1 on the phone.")
+                Text("Open the direct 100.x address in Safari while Tailscale is connected on both devices. Do not use 127.0.0.1 on the phone.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1004,10 +1003,10 @@ private struct HostMinimalDashboard: View {
         guard let port = environment.browserControlStatus.port else { return [] }
         var entries: [ConnectAddressEntry] = []
         if let info = tailscaleInfo {
-            if let dnsName = info.dnsName, !dnsName.isEmpty {
-                entries.append(.init(label: "safari https", value: "https://\(dnsName)"))
-            }
             entries.append(.init(label: "safari direct", value: "http://\(info.ipAddress):\(port)"))
+            if let dnsName = info.dnsName, !dnsName.isEmpty {
+                entries.append(.init(label: "safari https · optional Serve", value: "https://\(dnsName)"))
+            }
         }
         entries.append(.init(label: "mac only", value: "http://127.0.0.1:\(port)"))
         var seen = Set<String>()
@@ -1483,40 +1482,20 @@ private struct HostSettingsView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     Label("Task-chat terminal in Safari", systemImage: "safari")
                         .font(.headline)
-                    Text("The host keeps the browser workspace private to this Mac and Tailscale. Use the HTTPS Serve link or direct 100.x address; no public port or iOS app is required.")
+                    Text("The host keeps the browser workspace private to this Mac and Tailscale. Use the direct 100.x address on your phone; HTTPS Serve is optional.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                if let port = environment.browserControlStatus.port {
+                if environment.browserControlStatus.running,
+                   let port = environment.browserControlStatus.port {
                     LabeledContent("Mac local service", value: "127.0.0.1:\(port)")
                     if let tailscaleInfo {
-                        if let browserURL = tailscaleInfo.browserControlURL {
+                        let directURL = tailscaleInfo.browserControlURL(port: port)
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("Serve HTTPS · recommended")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Text(browserURL)
-                                    .font(.caption.monospaced())
-                                    .textSelection(.enabled)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                            }
-                            Spacer()
-                            Button(browserLinkCopied ? "Copied" : "Copy link") {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(browserURL, forType: .string)
-                                browserLinkCopied = true
-                            }
-                            .controlSize(.small)
-                        }
-                        }
-                        let directURL = "http://\(tailscaleInfo.ipAddress):\(port)"
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Direct Tailscale fallback")
+                                Text("Direct Tailscale · use this on iPhone")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                 Text(directURL)
@@ -1533,8 +1512,30 @@ private struct HostSettingsView: View {
                             }
                             .controlSize(.small)
                         }
+
+                        if let browserURL = tailscaleInfo.browserServeURL {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Optional HTTPS Serve")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Text(browserURL)
+                                        .font(.caption.monospaced())
+                                        .textSelection(.enabled)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                }
+                                Spacer()
+                                Button(browserLinkCopied ? "Copied" : "Copy link") {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(browserURL, forType: .string)
+                                    browserLinkCopied = true
+                                }
+                                .controlSize(.small)
+                            }
+                        }
                     } else {
-                        Text("On a phone or tablet, 127.0.0.1 points back to that device. Use the tailnet HTTPS or direct 100.x URL shown above.")
+                        Text("On a phone or tablet, 127.0.0.1 points back to that device. Use the direct 100.x URL shown above, or enable Tailscale Serve for HTTPS.")
                             .font(.caption)
                             .foregroundStyle(.orange)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1553,6 +1554,34 @@ private struct HostSettingsView: View {
                             }
                             .controlSize(.small)
                         }
+                    }
+
+                    if let pairingURL = browserPairingURL {
+                        HStack(alignment: .top, spacing: 12) {
+                            HostBrowserPairingQRCode(pairingURL: pairingURL)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Label("Scan to pair Safari", systemImage: "qrcode")
+                                    .font(.callout.weight(.semibold))
+                                Text("The QR opens this private host address and fills the current one-time code. Rotate it if a code has been shared.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Text(pairingURL)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                    .lineLimit(2)
+                                    .truncationMode(.middle)
+                                Button("Copy pairing link") {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(pairingURL, forType: .string)
+                                    browserLinkCopied = true
+                                }
+                                .controlSize(.small)
+                            }
+                        }
+                        .padding(8)
+                        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
 
                     if let serveCommand = environment.browserControlStatus.serveCommand {
@@ -1637,6 +1666,23 @@ private struct HostSettingsView: View {
                 getTailscaleConnectionInfo()
             }.value
         }
+    }
+
+    private var browserPairingURL: String? {
+        guard environment.browserControlStatus.running,
+              let port = environment.browserControlStatus.port,
+              !environment.browserControlStatus.pairingCode.isEmpty else { return nil }
+
+        let baseURL: String
+        if let tailscaleInfo {
+            baseURL = tailscaleInfo.browserControlURL(port: port)
+        } else {
+            baseURL = "http://127.0.0.1:\(port)"
+        }
+        return HostBrowserPairingLink.make(
+            baseURL: baseURL,
+            code: environment.browserControlStatus.pairingCode
+        )
     }
 }
 

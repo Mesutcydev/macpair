@@ -19,11 +19,19 @@ struct TailscaleConnectionInfo: Equatable, Sendable {
     }
 
     /// Tailscale Serve terminates HTTPS on the tailnet hostname and proxies to
-    /// the loopback browser service. `127.0.0.1` must never be shown as the
-    /// remote Safari address because it points back to the phone or tablet.
-    var browserControlURL: String? {
+    /// the loopback browser service. This optional address is only reachable
+    /// after the operator has enabled `tailscale serve`.
+    var browserServeURL: String? {
         guard let dnsName, !dnsName.isEmpty else { return nil }
         return "https://\(dnsName)"
+    }
+
+    /// The direct tailnet address works without Tailscale Serve. It is the
+    /// primary Safari address because the host listener accepts the 100.x
+    /// interface whenever Tailscale is online. Loopback is intentionally never
+    /// used for a remote device.
+    func browserControlURL(port: UInt16) -> String {
+        "http://\(ipAddress):\(port)"
     }
 }
 

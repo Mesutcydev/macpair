@@ -159,6 +159,24 @@ private struct VampTerminalHostMenuBarContent: View {
                                 .textSelection(.enabled)
                         }
                     }
+
+                    if let pairingURL = browserPairingURL {
+                        VStack(alignment: .leading, spacing: 9) {
+                            HostBrowserPairingQRCode(pairingURL: pairingURL)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                            Label("Scan to pair", systemImage: "qrcode")
+                                .font(.callout.weight(.semibold))
+                            Text("Opens Safari on the private Tailscale address and fills the current code.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Button("Rotate code") {
+                                environment.rotateBrowserPairingCode()
+                            }
+                            .controlSize(.small)
+                        }
+                        .padding(.top, 4)
+                    }
                 }
                 .padding(10)
                 .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -273,13 +291,19 @@ private struct VampTerminalHostMenuBarContent: View {
     private var browserURL: String? {
         guard environment.browserControlStatus.running,
               let port = environment.browserControlStatus.port else { return nil }
-        if let browserURL = tailscaleInfo?.browserControlURL {
-            return browserURL
-        }
         if let tailscaleInfo {
-            return "http://" + tailscaleInfo.ipAddress + ":" + String(port)
+            return tailscaleInfo.browserControlURL(port: port)
         }
         return nil
+    }
+
+    private var browserPairingURL: String? {
+        guard let browserURL,
+              !environment.browserControlStatus.pairingCode.isEmpty else { return nil }
+        return HostBrowserPairingLink.make(
+            baseURL: browserURL,
+            code: environment.browserControlStatus.pairingCode
+        )
     }
 
     private var isRunning: Bool {

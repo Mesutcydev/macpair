@@ -111,7 +111,14 @@ extension VampAgentProvider {
     }
 
     var startupCommand: String {
-        "tmux new-session -A -s \(sessionName) -- \(executable)"
+        let shellExecutable = Self.shellQuote(executable)
+        let shellSession = Self.shellQuote(sessionName)
+        let shellDisplayName = Self.shellQuote(displayName)
+        return "if ! command -v tmux >/dev/null 2>&1; then printf '\\nVamp Terminal: tmux is not installed or not on PATH.\\n'; elif ! command -v \(shellExecutable) >/dev/null 2>&1; then printf '\\nVamp Terminal: \(shellDisplayName) CLI (\(shellExecutable)) is not installed or not on PATH.\\n'; else tmux new-session -A -s \(shellSession) -- \(shellExecutable); fi"
+    }
+
+    private static func shellQuote(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     var assetName: String? {

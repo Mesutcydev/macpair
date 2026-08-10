@@ -25,6 +25,54 @@ struct HostBrowserControlStatus: Equatable, Sendable {
     }
 }
 
+/// Normalizes the six-digit code shown by the host. Pairing codes can be
+/// pasted with spaces or hyphens, and whole-number digits from another locale
+/// should behave the same as ASCII digits.
+enum HostBrowserPairingCode {
+    static let length = 6
+
+    static func normalize(_ raw: String) -> String? {
+        var digits = ""
+        digits.reserveCapacity(length)
+
+        for character in raw {
+            if character.isWhitespace || character == "-" || character == "·" {
+                continue
+            }
+            guard let value = character.wholeNumberValue, (0...9).contains(value) else {
+                return nil
+            }
+            digits.append(String(value))
+        }
+
+        return digits.count == length ? digits : nil
+    }
+
+    static func generate() -> String {
+        String(format: "%06d", Int.random(in: 0...999_999))
+    }
+}
+
+/// Builds the private URL encoded in the host QR card. The authenticated
+/// browser token is still issued by POST /api/pair and is never placed in the
+/// QR code or URL.
+enum HostBrowserPairingLink {
+    static func make(baseURL: String, code: String) -> String? {
+        guard let normalizedCode = HostBrowserPairingCode.normalize(code),
+              var components = URLComponents(string: baseURL),
+              let scheme = components.scheme, !scheme.isEmpty,
+              let host = components.host, !host.isEmpty else {
+            return nil
+        }
+
+        var queryItems = components.queryItems ?? []
+        queryItems.removeAll { $0.name == "pair" }
+        queryItems.append(URLQueryItem(name: "pair", value: normalizedCode))
+        components.queryItems = queryItems
+        return components.url?.absoluteString
+    }
+}
+
 /// A small, dependency-free browser gateway for terminal-only control.
 ///
 /// The browser protocol is intentionally separate from the WebRTC media
@@ -42,9 +90,10 @@ final class HostBrowserControlService: @unchecked Sendable {
     private let logger = Logger(subsystem: "com.remotedesktop.host", category: "BrowserControl")
     private let queue = DispatchQueue(label: "com.remotedesktop.host.browser-control", qos: .userInitiated)
     private var listener: NWListener?
+    private var listenerReady = false
     private var tailscaleListenerHost: String?
     private var clients: [UUID: BrowserClient] = [:]
-    private var pairingCode = HostBrowserControlService.makePairingCode()
+    private var pairingCode = HostBrowserPairingCode.generate()
     private var pairingCodeIssuedAt = Date()
     private var browserToken: String?
     private var browserTokenExpiresAt: Date?
@@ -79,21 +128,20 @@ final class HostBrowserControlService: @unchecked Sendable {
         }
     }
 
-    func rotatePairingCode() {
-        queue.async { [weak self] in
-            guard let self else { return }
-            self.pairingCode = Self.makePairingCode()
-            self.pairingCodeIssuedAt = Date()
-            self.browserToken = nil
-            self.browserTokenExpiresAt = nil
-            self.publishStatus()
+    @discardableResult
+    func rotatePairingCode() -> HostBrowserControlStatus {
+        queue.sync {
+            issuePairingCode()
+            revokeBrowserSessions(reason: "pairing-code-rotated")
+            publishStatus()
+            return currentStatusOnQueue()
         }
     }
 
     func currentStatus() -> HostBrowserControlStatus {
         queue.sync {
             HostBrowserControlStatus(
-                running: listener != nil,
+                running: listener != nil && listenerReady,
                 port: listener?.port?.rawValue,
                 tailscaleHost: tailscaleListenerHost,
                 pairingCode: pairingCode,
@@ -118,6 +166,7 @@ final class HostBrowserControlService: @unchecked Sendable {
            tailscaleListenerHost == nil {
             listener?.cancel()
             listener = nil
+            listenerReady = false
         } else if listener != nil {
             publishStatus()
             return
@@ -126,16 +175,24 @@ final class HostBrowserControlService: @unchecked Sendable {
         let bindHost = hasTailscaleHost ? NWEndpoint.Host("0.0.0.0") : .ipv4(.loopback)
         let label = hasTailscaleHost ? "loopback + Tailscale" : "loopback"
         do {
-            let newListener = try makeListener(port: port, host: bindHost, label: label) { [weak self] in
-                self?.listener = nil
-                self?.tailscaleListenerHost = nil
+            let newListener = try makeListener(port: port, host: bindHost, label: label) { [weak self] stoppedListener in
+                // A loopback listener can be replaced by the all-interface
+                // listener once Tailscale wakes up. Its cancellation callback
+                // may arrive after the replacement is installed, so it must
+                // never clear a newer listener.
+                guard let self, self.listener === stoppedListener else { return }
+                self.listenerReady = false
+                self.listener = nil
+                self.tailscaleListenerHost = nil
             }
             listener = newListener
+            listenerReady = false
             tailscaleListenerHost = hasTailscaleHost ? tailscaleHost : nil
             newListener.start(queue: queue)
         } catch {
             logger.error("Could not create browser control listener: \(error.localizedDescription, privacy: .public)")
             listener = nil
+            listenerReady = false
             tailscaleListenerHost = nil
             publishStatus(error: error.localizedDescription)
         }
@@ -146,7 +203,7 @@ final class HostBrowserControlService: @unchecked Sendable {
         port: UInt16,
         host: NWEndpoint.Host,
         label: String,
-        onStopped: @escaping @Sendable () -> Void
+        onStopped: @escaping @Sendable (NWListener) -> Void
     ) throws -> NWListener {
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = .hostPort(
@@ -159,13 +216,20 @@ final class HostBrowserControlService: @unchecked Sendable {
             switch state {
             case .ready:
                 self.logger.info("Browser control \(label, privacy: .public) listener ready on port \(newListener?.port?.rawValue ?? 0)")
+                if let newListener, self.listener === newListener {
+                    self.listenerReady = true
+                    // Issue the code only after the active listener is ready.
+                    // A code shown while a replacement socket is still
+                    // binding can otherwise look valid but hit the old host.
+                    self.issuePairingCode()
+                }
                 self.publishStatus()
             case .failed(let error):
                 self.logger.error("Browser control \(label, privacy: .public) listener failed: \(error.localizedDescription, privacy: .public)")
-                onStopped()
+                if let newListener { onStopped(newListener) }
                 self.publishStatus(error: error.localizedDescription)
             case .cancelled:
-                onStopped()
+                if let newListener { onStopped(newListener) }
                 self.publishStatus()
             default:
                 break
@@ -180,13 +244,9 @@ final class HostBrowserControlService: @unchecked Sendable {
     private func _stop() {
         listener?.cancel()
         listener = nil
+        listenerReady = false
         tailscaleListenerHost = nil
-        let currentClients = Array(clients.values)
-        clients.removeAll()
-        for client in currentClients {
-            client.terminalService?.sessionDidEnd(reason: "browser-server-stopped")
-            client.connection.cancel()
-        }
+        revokeBrowserSessions(reason: "browser-server-stopped")
         browserToken = nil
         browserTokenExpiresAt = nil
         publishStatus()
@@ -337,8 +397,7 @@ final class HostBrowserControlService: @unchecked Sendable {
             return
         }
         guard let payload = try? JSONDecoder().decode(BrowserPairRequest.self, from: body),
-              let code = payload.code?.trimmingCharacters(in: .whitespacesAndNewlines),
-              code.count == 6,
+              let code = payload.code.flatMap(HostBrowserPairingCode.normalize),
               Self.constantTimeEqual(code, pairingCode),
               Date().timeIntervalSince(pairingCodeIssuedAt) < Self.pairingCodeLifetime else {
             recordPairFailure()
@@ -620,7 +679,7 @@ final class HostBrowserControlService: @unchecked Sendable {
 
     private func publishStatus(error: String? = nil) {
         let status = HostBrowserControlStatus(
-            running: listener != nil,
+            running: listener != nil && listenerReady,
             port: listener?.port?.rawValue,
             tailscaleHost: tailscaleListenerHost,
             pairingCode: pairingCode,
@@ -632,7 +691,7 @@ final class HostBrowserControlService: @unchecked Sendable {
 
     private func currentStatusOnQueue() -> HostBrowserControlStatus {
         HostBrowserControlStatus(
-            running: listener != nil,
+            running: listener != nil && listenerReady,
             port: listener?.port?.rawValue,
             tailscaleHost: tailscaleListenerHost,
             pairingCode: pairingCode,
@@ -711,8 +770,22 @@ final class HostBrowserControlService: @unchecked Sendable {
         return BrowserWebSocketFrame(opcode: opcode, payload: payload)
     }
 
-    private static func makePairingCode() -> String {
-        String(format: "%06d", Int.random(in: 0...999_999))
+    private func issuePairingCode() {
+        pairingCode = HostBrowserPairingCode.generate()
+        pairingCodeIssuedAt = Date()
+        browserToken = nil
+        browserTokenExpiresAt = nil
+        failedPairAttempts = 0
+        firstFailedPairAttemptAt = nil
+    }
+
+    private func revokeBrowserSessions(reason: String) {
+        let currentClients = Array(clients.values)
+        clients.removeAll()
+        for client in currentClients {
+            client.terminalService?.sessionDidEnd(reason: reason)
+            client.connection.cancel()
+        }
     }
 
     private static func makeToken() -> String {
@@ -918,7 +991,7 @@ private enum BrowserControlWebAssets {
 </main>
 <div class="composer" id="composer"><div class="clipboard-wrap"><button id="clipboard" class="clipboard-trigger" type="button" title="Clipboard actions" aria-label="Clipboard actions" aria-expanded="false">▣ <span class="clipboard-label">Clipboard</span></button><div id="clipboard-menu" class="clipboard-menu hidden" role="menu" aria-label="Clipboard actions"><button id="paste" type="button" role="menuitem">Paste into terminal</button><button id="copyhost" type="button" role="menuitem">Copy Mac clipboard to Safari</button><button id="sethost" type="button" role="menuitem">Send Safari clipboard to Mac</button></div></div><input id="input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command…"><button id="more" type="button" title="More controls" aria-label="More controls">•••</button><button class="send" id="send" type="button" title="Review command" aria-label="Review command">↑</button></div>
 </div>
-<div class="modal" id="pair"><div class="modal-card"><h2>Open this workspace</h2><p>Enter the six-digit code shown in Vamp Host → Settings → Browser control. The code expires after ten minutes.</p><input id="code" inputmode="numeric" maxlength="6" placeholder="000000" aria-label="Pairing code"><div class="error" id="pair-error"></div><button id="pair-button">Pair browser</button></div></div>
+<div class="modal" id="pair"><div class="modal-card"><h2>Open this workspace</h2><p>Scan the QR code from Vamp Host, or enter the six-digit code shown in Settings → Browser control. The code expires after ten minutes.</p><input id="code" inputmode="numeric" maxlength="6" placeholder="000000" aria-label="Pairing code" autocomplete="one-time-code"><div class="error" id="pair-error"></div><button id="pair-button">Pair browser</button></div></div>
 <div class="modal hidden" id="more-modal"><div class="modal-card more-card"><div class="more-kicker">Terminal actions</div><h2>Open a session</h2><p>Start a fresh shell, attach a persistent tmux or screen session, or open a coding agent in a new tab.</p><div class="more-actions"><button id="more-shell" type="button"><span class="provider-mark" style="--provider:#e8e8e8">›_</span><span><b>New shell</b><br><small>Open an independent terminal tab</small></span></button><button id="more-tmux" type="button" class="secondary"><span class="provider-mark" style="--provider:#9dd6ff">▣</span><span><b>Attach / create tmux</b><br><small>Resume a named workspace</small></span></button><button id="more-screen" type="button" class="secondary"><span class="provider-mark" style="--provider:#b8a6ff">▤</span><span><b>Attach screen</b><br><small>Resume a GNU screen session</small></span></button></div><div class="provider-title">Agent launchers</div><div class="provider-grid"><button type="button" data-provider="opencode" style="--provider:#00c8ce"><span class="provider-mark">◈</span><span>OpenCode</span></button><button type="button" data-provider="pi" style="--provider:#f57a48"><span class="provider-mark">π</span><span>Pi</span></button><button type="button" data-provider="commandcode" style="--provider:#b883ff"><span class="provider-mark">⌘</span><span>CommandCode</span></button><button type="button" data-provider="chatgpt" style="--provider:#10a37f"><span class="provider-mark">◌</span><span>ChatGPT CLI</span></button><button type="button" data-provider="claude" style="--provider:#dc6a42"><span class="provider-mark">✦</span><span>Claude Code</span></button><button type="button" data-provider="kimi" style="--provider:#4c8dff"><span class="provider-mark">K</span><span>Kimi</span></button><button type="button" data-provider="qwen" style="--provider:#4678f2"><span class="provider-mark">Q</span><span>Qwen Code</span></button><button type="button" data-provider="codex" style="--provider:#10a37f"><span class="provider-mark">⌘</span><span>Codex CLI</span></button><button type="button" data-provider="aider" style="--provider:#66c28c"><span class="provider-mark">A</span><span>Aider</span></button><button type="button" data-provider="grok" style="--provider:#e6a94f"><span class="provider-mark">G</span><span>Grok CLI</span></button></div><label class="more-command">Custom command or session<input id="more-command" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tmux attach -t work"></label><div class="more-footer"><button id="more-cancel" class="secondary" type="button">Cancel</button><button id="more-open" type="button">Open tab</button></div></div></div>
 <script>
 const $=id=>document.getElementById(id);let ws=null,token=null,sessionId=null,active=null,order=[],tabs=new Map(),approved=new Set();
@@ -1517,6 +1590,7 @@ createTab = (startup = null, title = null) => {
     outputCard: null,
     outputText: '',
     pendingCommand: null,
+    pendingInput: null,
     unread: false,
     opened: false,
     readyNotified: false,
@@ -1634,8 +1708,14 @@ const vampAppendOutputChunk = (id, encoded) => {
 
 sendInput = (id, text) => {
   const tab = tabs.get(id);
-  if (!tab || !tab.opened || !ws || ws.readyState !== WebSocket.OPEN) return false;
+  if (!tab || !ws || ws.readyState !== WebSocket.OPEN) return false;
   const bytes = new TextEncoder().encode(text);
+  if (!tab.opened) {
+    const queued = tab.pendingInput || '';
+    if (new TextEncoder().encode(queued).length + bytes.length > 16 * 1024) return false;
+    tab.pendingInput = queued + text;
+    return true;
+  }
   let binary = '';
   bytes.forEach((value) => { binary += String.fromCharCode(value); });
   return send({ type: 'input', terminalID: id, data: btoa(binary) });
@@ -1660,8 +1740,19 @@ reviewCommand = () => {
   const tabID = active;
   const tab = tabs.get(tabID);
   if (!value || !tabID) return;
-  if (!tab || !tab.opened || !ws || ws.readyState !== WebSocket.OPEN) {
+  if (!tab || !ws || ws.readyState !== WebSocket.OPEN) {
     addMessage('<div class="badge">This terminal is still opening. Your command is still in the composer.</div>', tabID);
+    return;
+  }
+  if (!tab.opened) {
+    if (tab.pendingInput) {
+      addMessage('<div class="badge">One command is already queued. It will run when this terminal is ready.</div>', tabID);
+      return;
+    }
+    tab.pendingInput = value + '\n';
+    $('input').value = '';
+    appendCommand(value, 'Queued · starting', tabID);
+    vampScrollChatToLatest();
     return;
   }
   tab.approvals ||= new Set();
@@ -1750,12 +1841,30 @@ const vampRefreshStatus = async () => {
   }
 };
 
+const vampNormalizePairingCode = (raw) => {
+  const value = String(raw || '').normalize('NFKC');
+  let digits = '';
+  for (const character of Array.from(value)) {
+    if (/\s/.test(character) || character === '-' || character === '·') continue;
+    if (/^[0-9]$/.test(character)) {
+      digits += character;
+      continue;
+    }
+    const codePoint = character.codePointAt(0);
+    if (codePoint >= 0x660 && codePoint <= 0x669) digits += String(codePoint - 0x660);
+    else if (codePoint >= 0x6f0 && codePoint <= 0x6f9) digits += String(codePoint - 0x6f0);
+    else return '';
+  }
+  return digits.length === 6 ? digits : '';
+};
+
 pair = async () => {
-  const code = $('code').value.trim();
-  if (!/^\d{6}$/.test(code)) {
+  const code = vampNormalizePairingCode($('code').value);
+  if (!code) {
     $('pair-error').textContent = 'Enter the six-digit code from Vamp Host.';
     return;
   }
+  $('code').value = code;
   const button = $('pair-button');
   button.disabled = true;
   try {
@@ -1811,6 +1920,7 @@ connect = () => {
       tab.outputCard = null;
       tab.outputText = '';
       tab.pendingCommand = null;
+      tab.pendingInput = null;
       tab.commandCount = 0;
       tab.followOutput = false;
       tab.startupSeen = false;
@@ -1842,6 +1952,7 @@ connect = () => {
       tab.terminal = new VampBrowserTerminal();
       tab.lastSize = null;
       tab.readyNotified = false;
+      tab.pendingInput = null;
       tab.followOutput = false;
       tab.startupSeen = false;
     });
@@ -1867,6 +1978,8 @@ connect = () => {
         // same terminal. Keep the session state idempotent and do not duplicate
         // the visible system card in the task stream.
         if (tab.readyNotified || chat.querySelector('.ready-message[data-tab-id="' + terminalID + '"]')) return;
+        const queuedInput = tab.pendingInput;
+        tab.pendingInput = null;
         tab.readyNotified = true;
         tab.opened = true;
         tab.state = 'open';
@@ -1878,6 +1991,10 @@ connect = () => {
         const readyMessage = addMessage('<span class="check" aria-hidden="true">✓</span><span>' +
           esc(tab.title) + ' ready</span>', terminalID);
         readyMessage.classList.add('status-chip', 'ready-message');
+        if (queuedInput && !sendInput(terminalID, queuedInput)) {
+          tab.pendingInput = queuedInput;
+          addMessage('<div class="badge">The host connection closed before the queued input was sent. Try again.</div>', terminalID);
+        }
       }
     } else if (value.type === 'output') {
       vampAppendOutputChunk(vampTerminalKey(value.terminalID), value.data);
@@ -2004,17 +2121,24 @@ $('more-open').onclick = () => {
   const command = moreCommand.value.trim();
   openMoreTab(command || null, command ? 'Session ' + (order.length + 1) : null);
 };
+const vampShellQuote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
+const vampProviderCommand = (executable, session, label) => {
+  const quotedExecutable = vampShellQuote(executable);
+  const quotedSession = vampShellQuote(session);
+  const quotedLabel = vampShellQuote(label);
+  return [`if ! command -v tmux >/dev/null 2>&1; then printf '\\nVamp Terminal: tmux is not installed or not on PATH.\\n'; elif ! command -v ${quotedExecutable} >/dev/null 2>&1; then printf '\\nVamp Terminal: ${quotedLabel} CLI (${quotedExecutable}) is not installed or not on PATH.\\n'; else tmux new-session -A -s ${quotedSession} -- ${quotedExecutable}; fi`, label];
+};
 const providerCommands = {
-  opencode: ['tmux new-session -A -s opencode -- opencode', 'OpenCode'],
-  pi: ['tmux new-session -A -s pi -- pi', 'Pi'],
-  commandcode: ['tmux new-session -A -s commandcode -- commandcode', 'CommandCode'],
-  chatgpt: ['tmux new-session -A -s chatgpt -- chatgpt', 'ChatGPT CLI'],
-  claude: ['tmux new-session -A -s claude -- claude', 'Claude Code'],
-  kimi: ['tmux new-session -A -s kimi -- kimi', 'Kimi'],
-  qwen: ['tmux new-session -A -s qwen -- qwen', 'Qwen Code'],
-  codex: ['tmux new-session -A -s codex -- codex', 'Codex CLI'],
-  aider: ['tmux new-session -A -s aider -- aider', 'Aider'],
-  grok: ['tmux new-session -A -s grok -- grok', 'Grok CLI']
+  opencode: vampProviderCommand('opencode', 'opencode', 'OpenCode'),
+  pi: vampProviderCommand('pi', 'pi', 'Pi'),
+  commandcode: vampProviderCommand('commandcode', 'commandcode', 'CommandCode'),
+  chatgpt: vampProviderCommand('chatgpt', 'chatgpt', 'ChatGPT CLI'),
+  claude: vampProviderCommand('claude', 'claude', 'Claude Code'),
+  kimi: vampProviderCommand('kimi', 'kimi', 'Kimi'),
+  qwen: vampProviderCommand('qwen', 'qwen', 'Qwen Code'),
+  codex: vampProviderCommand('codex', 'codex', 'Codex CLI'),
+  aider: vampProviderCommand('aider', 'aider', 'Aider'),
+  grok: vampProviderCommand('grok', 'grok', 'Grok CLI')
 };
 document.querySelectorAll('[data-provider]').forEach((button) => {
   button.onclick = () => {
@@ -2043,6 +2167,13 @@ if (!$('pair').classList.contains('hidden')) $('composer').classList.add('hidden
 renderDashboard();
 window.addEventListener('beforeunload', () => ws?.close());
 vampRefreshStatus();
+const vampPairFromURL = vampNormalizePairingCode(new URLSearchParams(location.search).get('pair'));
+if (vampPairFromURL) {
+  $('code').value = vampPairFromURL;
+  // Keep the one-time code out of browser history after it has been read.
+  history.replaceState(null, '', location.pathname + location.hash);
+  setTimeout(() => pair(), 350);
+}
 </script>
 <script>
 // The browser client is a task stream, not a miniature terminal window. Keep
@@ -2692,8 +2823,19 @@ vampRefreshStatus();
     const tabID = active;
     const tab = tabs.get(tabID);
     if (!value || !tabID) return;
-    if (!tab || !tab.opened || !ws || ws.readyState !== WebSocket.OPEN) {
+    if (!tab || !ws || ws.readyState !== WebSocket.OPEN) {
       addMessage('<div class="badge">This terminal is still opening. The command stays in the composer.</div>', tabID);
+      return;
+    }
+    if (!tab.opened) {
+      if (tab.pendingInput) {
+        addMessage('<div class="badge">One command is already queued. It will run when this terminal is ready.</div>', tabID);
+        return;
+      }
+      tab.pendingInput = value + '\n';
+      $('input').value = '';
+      appendCommand(value, 'Queued · starting', tabID);
+      vampScrollChatToLatest();
       return;
     }
     tab.approvals ||= new Set();

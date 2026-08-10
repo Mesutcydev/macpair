@@ -652,7 +652,8 @@ private struct TerminalChatFeedView: View {
             TerminalChatComposer(
                 draft: $draft,
                 composerFocused: $composerFocused,
-                isEnabled: session.state == .open,
+                isEnabled: session.canEditInput,
+                canSend: session.canSendInput,
                 onSend: sendDraft,
                 onOpenTerminal: onOpenTerminal,
                 onPaste: pasteFromPhone,
@@ -689,7 +690,7 @@ private struct TerminalChatFeedView: View {
 
     private func sendDraft() {
         let command = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty, session.state == .open else { return }
+        guard !command.isEmpty, session.canSendInput else { return }
         onSendCommand(command)
         draft = ""
         composerFocused = true
@@ -900,6 +901,7 @@ private struct TerminalChatComposer: View {
     @Binding var draft: String
     var composerFocused: FocusState<Bool>.Binding
     let isEnabled: Bool
+    let canSend: Bool
     let onSend: () -> Void
     let onOpenTerminal: () -> Void
     let onPaste: () -> Void
@@ -951,17 +953,17 @@ private struct TerminalChatComposer: View {
             Button(action: onSend) {
                 Image(systemName: "arrow.up")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(isEnabled && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.black : VampGlassPalette.inkSubtle)
+                    .foregroundStyle(canSend && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.black : VampGlassPalette.inkSubtle)
                     .frame(width: VampTerminalDesign.minTapTarget, height: VampTerminalDesign.minTapTarget)
                     .background(
-                        isEnabled && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        canSend && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             ? VampGlassPalette.ink
                             : Color.primary.opacity(0.10),
                         in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous)
                     )
             }
             .buttonStyle(VampGlassPressStyle())
-            .disabled(!isEnabled || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!canSend || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .accessibilityLabel("Send command")
         }
         .padding(.horizontal, VampTerminalDesign.space2)

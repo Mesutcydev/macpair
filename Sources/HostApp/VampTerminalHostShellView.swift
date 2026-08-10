@@ -1,6 +1,58 @@
 #if os(macOS)
 import AppKit
+import CoreImage
+import CoreImage.CIFilterBuiltins
 import SwiftUI
+
+/// Generates the one-time private browser pairing link shown by both host
+/// products. The QR contains only the host URL and current six-digit code;
+/// the browser still exchanges that code for a short-lived token over HTTPS
+/// or the direct Tailscale path.
+struct HostBrowserPairingQRCode: View {
+    let pairingURL: String
+
+    @State private var image: NSImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.none)
+                    .scaledToFit()
+                    .padding(10)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+            }
+        }
+        .frame(width: 156, height: 156)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("QR code for Safari pairing")
+        .task(id: pairingURL) {
+            image = Self.makeImage(from: pairingURL)
+        }
+    }
+
+    private static let context = CIContext()
+
+    private static func makeImage(from value: String) -> NSImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(value.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage else { return nil }
+
+        let extent = output.extent.integral
+        let scale = 512 / max(extent.width, extent.height)
+        let scaled = output.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        guard let cgImage = context.createCGImage(scaled, from: scaled.extent) else { return nil }
+        return NSImage(
+            cgImage: cgImage,
+            size: NSSize(width: scaled.extent.width, height: scaled.extent.height)
+        )
+    }
+}
 
 /// Shared host-side Tailscale status surface used by both Vamp Host products.
 /// The activation action opens the official Tailscale app, then refreshes the
@@ -346,7 +398,7 @@ struct VampTerminalHostShellView: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Use Safari without the iOS app")
                         .font(.headline)
-                    Text("The Mac keeps the service private to loopback and Tailscale. Use the HTTPS link through Tailscale Serve, or the direct 100.x address as a fallback.")
+                    Text("The Mac keeps the service private to loopback and Tailscale. Use the direct 100.x address on your phone; HTTPS Serve is optional.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -360,6 +412,35 @@ struct VampTerminalHostShellView: View {
             }
 
             if environment.browserControlStatus.running {
+                if let pairingURL = browserPairingURL {
+                    HStack(alignment: .top, spacing: 14) {
+                        HostBrowserPairingQRCode(pairingURL: pairingURL)
+
+                        VStack(alignment: .leading, spacing: 7) {
+                            Label("Scan to pair Safari", systemImage: "qrcode")
+                                .font(.headline)
+                            Text("Scan this code with an iPhone or iPad. Safari opens the private host address and submits the current pairing code automatically.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text(pairingURL)
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                                .lineLimit(2)
+                                .truncationMode(.middle)
+                            Button(copiedValue == pairingURL ? "Copied" : "Copy pairing link") {
+                                copy(pairingURL)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(10)
+                    .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Pairing code")
@@ -381,11 +462,32 @@ struct VampTerminalHostShellView: View {
                     }
                 }
 
-                if let tailscaleInfo {
-                    if let browserURL = tailscaleInfo.browserControlURL {
+                if let tailscaleInfo,
+                   let port = environment.browserControlStatus.port {
+                    let directURL = tailscaleInfo.browserControlURL(port: port)
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Direct Tailscale · use this on iPhone")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(directURL)
+                                .font(.caption.monospaced())
+                                .textSelection(.enabled)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        Spacer(minLength: 0)
+                        Button(copiedValue == directURL ? "Copied" : "Copy link") {
+                            copy(directURL)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+
+                    if let browserURL = tailscaleInfo.browserServeURL {
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("Serve HTTPS · recommended")
+                                Text("Optional HTTPS Serve")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                 Text(browserURL)
@@ -402,29 +504,8 @@ struct VampTerminalHostShellView: View {
                             .controlSize(.small)
                         }
                     }
-                    if let port = environment.browserControlStatus.port {
-                        let directURL = "http://\(tailscaleInfo.ipAddress):\(port)"
-                        HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Direct Tailscale fallback")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Text(directURL)
-                                    .font(.caption.monospaced())
-                                    .textSelection(.enabled)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                            }
-                            Spacer(minLength: 0)
-                            Button(copiedValue == directURL ? "Copied" : "Copy link") {
-                                copy(directURL)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-                    }
                 } else {
-                    Text("On a phone or tablet, do not open 127.0.0.1 — that address points to the phone itself. Enable Tailscale to receive a private HTTPS link or direct 100.x fallback.")
+                    Text("On a phone or tablet, do not open 127.0.0.1 — that address points to the phone itself. Enable Tailscale to receive a direct 100.x Safari address.")
                         .font(.caption)
                         .foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
@@ -500,6 +581,23 @@ struct VampTerminalHostShellView: View {
             Label("Safari access stays private to loopback and Tailscale; no public port forwarding is used.", systemImage: "lock")
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var browserPairingURL: String? {
+        guard environment.browserControlStatus.running,
+              let port = environment.browserControlStatus.port,
+              !environment.browserControlStatus.pairingCode.isEmpty else { return nil }
+
+        let baseURL: String
+        if let tailscaleInfo {
+            baseURL = tailscaleInfo.browserControlURL(port: port)
+        } else {
+            baseURL = "http://127.0.0.1:\(port)"
+        }
+        return HostBrowserPairingLink.make(
+            baseURL: baseURL,
+            code: environment.browserControlStatus.pairingCode
+        )
     }
 
     private var statusTitle: String {

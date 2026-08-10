@@ -85,6 +85,56 @@ final class TerminalSessionManagerTests: XCTestCase {
         XCTAssertEqual(retry.terminalID, first.terminalID)
     }
 
+    func testInputEnteredBeforeReadyIsQueuedAndFlushedOnce() throws {
+        let sessionID = UUID()
+        let manager = ClientTerminalSessionManager()
+        var sent: [DataChannelEnvelope] = []
+        manager.activate(sessionID: sessionID) { sent.append($0) }
+        XCTAssertTrue(manager.open(cols: 80, rows: 24))
+        guard let terminalID = manager.terminalID else {
+            return XCTFail("Opening a terminal should allocate a terminal ID")
+        }
+
+        manager.sendInput(Data("echo queued\n".utf8))
+        XCTAssertEqual(sent.count, 1, "Input should wait behind terminal-ready")
+        XCTAssertTrue(manager.canEditInput)
+
+        XCTAssertTrue(manager.receiveReady(TerminalReadyMessage(
+            sessionID: sessionID,
+            terminalID: terminalID,
+            cols: 80,
+            rows: 24
+        )))
+        XCTAssertEqual(sent.count, 2)
+        XCTAssertEqual(try sent[1].decodeTerminalInput().data, Data("echo queued\n".utf8))
+    }
+
+    func testInputEnteredBeforeOpenIsQueuedUntilTheFirstReady() throws {
+        let sessionID = UUID()
+        let manager = ClientTerminalSessionManager()
+        var sent: [DataChannelEnvelope] = []
+        manager.activate(sessionID: sessionID) { sent.append($0) }
+
+        XCTAssertTrue(manager.canEditInput)
+        manager.sendInput(Data("printf 'typed-first'\n".utf8))
+        XCTAssertTrue(sent.isEmpty, "There is no terminal ID until open, so input must stay local")
+
+        XCTAssertTrue(manager.open(cols: 80, rows: 24))
+        guard let terminalID = manager.terminalID else {
+            return XCTFail("Opening a terminal should allocate a stable terminal ID")
+        }
+        XCTAssertEqual(sent.count, 1)
+
+        XCTAssertTrue(manager.receiveReady(TerminalReadyMessage(
+            sessionID: sessionID,
+            terminalID: terminalID,
+            cols: 80,
+            rows: 24
+        )))
+        XCTAssertEqual(sent.count, 2)
+        XCTAssertEqual(try sent[1].decodeTerminalInput().data, Data("printf 'typed-first'\n".utf8))
+    }
+
     func testOpeningTimeoutCanBeRetriedWithTheOriginalStartupCommand() throws {
         let sessionID = UUID()
         let manager = ClientTerminalSessionManager()

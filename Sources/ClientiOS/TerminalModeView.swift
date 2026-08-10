@@ -408,8 +408,8 @@ struct TerminalModeView: View {
                     .frame(width: 40, height: 40)
                     .background(Color.white, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             }
-            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.state != .open)
-            .opacity(session.state == .open ? 1 : 0.45)
+            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !session.canSendInput)
+            .opacity(session.canSendInput ? 1 : 0.45)
             .accessibilityLabel("Send command")
         }
         .foregroundStyle(.white)
@@ -506,7 +506,7 @@ struct TerminalModeView: View {
 
     private func sendDraft() {
         let command = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty, session.state == .open else { return }
+        guard !command.isEmpty, session.canSendInput else { return }
         transcript.submitCommand(command)
         session.sendInput(Data((command + "\n").utf8))
         draft = ""
