@@ -84,8 +84,16 @@ extension VampAgentProvider {
         switch self {
         case .openCode: return "opencode"
         case .pi: return "pi"
-        case .commandCode: return "commandcode"
-        case .chatGPT: return "chatgpt"
+        // Command Code's installed package is `command-code`, but its actual
+        // launcher is the short `cmd` executable. Keeping the package name in
+        // the UI while using the real binary prevents a tab from opening only
+        // to print "commandcode: command not found".
+        case .commandCode: return "cmd"
+        // There is no separate supported `chatgpt` executable. OpenAI's
+        // supported terminal client is Codex CLI; keep this legacy profile as
+        // an alias so the ChatGPT entry remains useful on hosts that have
+        // Codex installed.
+        case .chatGPT: return "codex"
         case .claude: return "claude"
         case .kimi: return "kimi"
         case .qwen: return "qwen"
@@ -99,7 +107,7 @@ extension VampAgentProvider {
         switch self {
         case .openCode: return "opencode"
         case .pi: return "pi"
-        case .commandCode: return "commandcode"
+        case .commandCode: return "command-code"
         case .chatGPT: return "chatgpt"
         case .claude: return "claude"
         case .kimi: return "kimi"

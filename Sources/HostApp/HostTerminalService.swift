@@ -160,6 +160,13 @@ final class HostTerminalService: @unchecked Sendable {
         activeTerminals[session.terminalID] = session
         logger.info("Spawned PTY shell pid=\(pid) for terminal \(message.terminalID.uuidString)")
 
+        // Start consuming the PTY before acknowledging it. A login shell can
+        // emit bytes immediately (and a launcher can be sent immediately by
+        // the client); installing the read source first prevents that first
+        // burst from racing the ready message and makes the shell lifecycle
+        // deterministic on slow Tailscale connections.
+        startReadPump(for: session)
+        startReaperTask(for: session)
         sendReady(for: session)
 
         // Feed an optional one-line launcher after the shell is created. PTY
@@ -170,8 +177,6 @@ final class HostTerminalService: @unchecked Sendable {
             writeStartupCommand(startupCommand, to: session)
         }
 
-        startReadPump(for: session)
-        startReaperTask(for: session)
     }
 
     private func _handleClose(_ message: TerminalCloseMessage) {
@@ -457,15 +462,42 @@ final class HostTerminalService: @unchecked Sendable {
         envDict["LANG"] = envDict["LANG"] ?? "en_US.UTF-8"
         envDict["LC_ALL"] = envDict["LC_ALL"] ?? "en_US.UTF-8"
 
+        // GUI-launched macOS apps do not inherit the interactive shell's
+        // PATH. Agent CLIs installed by Homebrew, npm, pipx, or a user's
+        // local bin directory therefore appear to be missing even though the
+        // same command works in Terminal.app. Preserve the inherited value,
+        // then add the conventional locations once, in a deterministic order.
+        // This also makes provider launchers and tmux handoff behave the same
+        // from the native client and Safari.
+        let inheritedPath = envDict["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
+        let commonPaths = [
+            "/opt/homebrew/bin",
+            "/opt/homebrew/sbin",
+            "/usr/local/bin",
+            "/usr/local/sbin",
+            "\(home)/.local/bin",
+            "\(home)/.npm-global/bin",
+            "\(home)/bin"
+        ]
+        var pathEntries = inheritedPath.split(separator: ":").map(String.init)
+        for path in commonPaths where !pathEntries.contains(path) {
+            pathEntries.append(path)
+        }
+        envDict["PATH"] = pathEntries.joined(separator: ":")
+
         var envStrings = envDict.map { "\($0.key)=\($0.value)" }
         envStrings.sort()
         var envCPtrs = envStrings.map { strdup($0) } as [UnsafeMutablePointer<CChar>?]
         envCPtrs.append(nil)
 
-        // Argv: pass `-l` so the shell runs as a login shell and sources the
-        // user's profile (.zprofile / .zshrc, .bash_profile / .bashrc, etc.).
+        // Argv: explicitly pass login + interactive flags. Relying only on a
+        // dash-prefixed argv[0] is shell-specific; bash and zsh launched from
+        // a GUI host can otherwise skip interactive setup or exit before the
+        // client ever gets a usable prompt.
         let argv0 = strdup("-" + (URL(fileURLWithPath: shell).lastPathComponent))
-        let argvArr: [UnsafeMutablePointer<CChar>?] = [argv0, nil]
+        let loginFlag = strdup("-l")
+        let interactiveFlag = strdup("-i")
+        let argvArr: [UnsafeMutablePointer<CChar>?] = [argv0, loginFlag, interactiveFlag, nil]
 
         // chdir to $HOME so the shell opens in a sensible place.
         _ = chdir(home)

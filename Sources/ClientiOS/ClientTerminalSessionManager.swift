@@ -302,6 +302,7 @@ final class ClientTerminalSessionManager: ObservableObject {
             || reason == "terminal-disabled"
             || reason == "terminal-capacity"
             || reason == "shell-exited"
+            || reason == "eof"
             || reason.hasPrefix("forkpty failed")
             || reason.hasPrefix("read-error")
     }

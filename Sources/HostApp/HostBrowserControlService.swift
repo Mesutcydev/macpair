@@ -528,7 +528,7 @@ final class HostBrowserControlService: @unchecked Sendable {
             return
         }
         guard terminalModeProvider() else {
-            sendError("terminal-disabled", to: client)
+            sendError("terminal-disabled", terminalID: command.terminalID, to: client)
             return
         }
 
@@ -537,11 +537,11 @@ final class HostBrowserControlService: @unchecked Sendable {
             guard let terminalID = command.terminalID,
                   let cols = command.cols, let rows = command.rows,
                   cols > 0, rows > 0, cols <= 1000, rows <= 1000 else {
-                sendError("invalid-terminal-size", to: client)
+                sendError("invalid-terminal-size", terminalID: command.terminalID, to: client)
                 return
             }
             if let startupCommand = command.startupCommand, startupCommand.utf8.count > TerminalOpenMessage.maxStartupCommandLength {
-                sendError("startup-command-too-large", to: client)
+                sendError("startup-command-too-large", terminalID: command.terminalID, to: client)
                 return
             }
             terminalService.handleOpen(TerminalOpenMessage(
@@ -558,7 +558,7 @@ final class HostBrowserControlService: @unchecked Sendable {
                   let input = Data(base64Encoded: encoded),
                   !input.isEmpty,
                   input.count <= TerminalInputMessage.maxChunkBytes else {
-                sendError("invalid-input", to: client)
+                sendError("invalid-input", terminalID: command.terminalID, to: client)
                 return
             }
             terminalService.handleInput(TerminalInputMessage(sessionID: sessionID, terminalID: terminalID, data: input))
@@ -566,7 +566,7 @@ final class HostBrowserControlService: @unchecked Sendable {
             guard let terminalID = command.terminalID,
                   let cols = command.cols, let rows = command.rows,
                   cols > 0, rows > 0, cols <= 1000, rows <= 1000 else {
-                sendError("invalid-terminal-size", to: client)
+                sendError("invalid-terminal-size", terminalID: command.terminalID, to: client)
                 return
             }
             terminalService.handleResize(TerminalResizeMessage(sessionID: sessionID, terminalID: terminalID, cols: cols, rows: rows))
@@ -578,7 +578,7 @@ final class HostBrowserControlService: @unchecked Sendable {
             sendJSON(BrowserClipboardEvent(text: text), to: client)
         case "clipboardset":
             guard let text = command.text, text.utf8.count <= ClipboardSyncMessage.maxContentLength else {
-                sendError("clipboard-too-large", to: client)
+                sendError("clipboard-too-large", terminalID: command.terminalID, to: client)
                 return
             }
             writeClipboard(text)
@@ -586,7 +586,7 @@ final class HostBrowserControlService: @unchecked Sendable {
         case "ping":
             sendJSON(BrowserPongEvent(), to: client)
         default:
-            sendError("unknown-command", to: client)
+            sendError("unknown-command", terminalID: command.terminalID, to: client)
         }
     }
 
@@ -619,8 +619,8 @@ final class HostBrowserControlService: @unchecked Sendable {
         }
     }
 
-    private func sendError(_ code: String, to client: BrowserClient) {
-        sendJSON(BrowserErrorEvent(code: code), to: client)
+    private func sendError(_ code: String, terminalID: UUID? = nil, to client: BrowserClient) {
+        sendJSON(BrowserErrorEvent(code: code, terminalID: terminalID), to: client)
     }
 
     // MARK: Wire helpers
@@ -920,6 +920,7 @@ private struct BrowserCloseEvent: Encodable {
 private struct BrowserErrorEvent: Encodable {
     let type = "error"
     let code: String
+    let terminalID: UUID?
 }
 
 private struct BrowserClipboardEvent: Encodable {
@@ -1441,14 +1442,18 @@ const vampOpenTerminal = (id) => {
   tab.lastSize = size;
   tab.terminal ||= new VampBrowserTerminal(size.cols, size.rows);
   tab.terminal.resize(size.cols, size.rows);
-  send({
+  const sent = send({
     type: 'open',
     terminalID: id,
     cols: size.cols,
     rows: size.rows,
     startupCommand: tab.startupCommand || null
   });
-  return true;
+  if (!sent) {
+    tab.state = 'error';
+    addMessage('<div class="badge">The host connection is not ready. Reconnect and retry this terminal.</div>', id);
+  }
+  return sent;
 };
 
 const vampResizeTerminal = (id) => {
@@ -1708,7 +1713,7 @@ const vampAppendOutputChunk = (id, encoded) => {
 
 sendInput = (id, text) => {
   const tab = tabs.get(id);
-  if (!tab || !ws || ws.readyState !== WebSocket.OPEN) return false;
+  if (!tab || !ws || ws.readyState !== WebSocket.OPEN || tab.state === 'error' || tab.state === 'closed' || tab.state === 'offline') return false;
   const bytes = new TextEncoder().encode(text);
   if (!tab.opened) {
     const queued = tab.pendingInput || '';
@@ -1967,6 +1972,25 @@ connect = () => {
   connection.onmessage = (event) => {
     let value;
     try { value = JSON.parse(event.data); } catch (_) { return; }
+    const terminalErrorText = (code) => {
+      const messages = {
+        'terminal-disabled': 'Terminal Mode is disabled on the host. Enable it in Vamp Host, then retry this tab.',
+        'terminal-capacity': 'This host already has 8 terminal tabs. Close one, then retry.',
+        'terminal-start-timeout': 'The shell did not start in time. Check Terminal Mode and retry.',
+        'shell-exited': 'The shell exited. Retry this tab to open a fresh shell.',
+        'eof': 'The host closed the shell. Retry this tab to open a fresh shell.',
+        'user-closed': 'This terminal was closed.',
+        'invalid-terminal-size': 'The terminal size was rejected. Resize the browser and retry.',
+        'invalid-input': 'That input was rejected by the host.',
+        'startup-command-too-large': 'The launcher command is too long.',
+        'unknown-command': 'The browser sent an unsupported terminal action.',
+        'browser-capacity': 'The host already has another browser connected.'
+      };
+      if (messages[code]) return messages[code];
+      if (String(code || '').startsWith('forkpty failed')) return 'The host could not create a shell. Check macOS permissions and retry.';
+      if (String(code || '').startsWith('read-error')) return 'The host shell stopped reading. Retry this tab.';
+      return code ? 'Host rejected this terminal action: ' + code : 'The host rejected this terminal action.';
+    };
     if (value.type === 'hello') {
       sessionId = value.sessionID;
       setState('Connected');
@@ -2005,13 +2029,14 @@ connect = () => {
         const remainder = tab.decoder?.decode() || '';
         if (remainder) appendOutput(terminalID, remainder);
         tab.opened = false;
-        tab.state = 'closed';
+        tab.state = String(value.reason || '').startsWith('terminal-') ? 'error' : 'closed';
         tab.readyNotified = false;
+        tab.pendingInput = null;
         tab.unread = active !== terminalID;
         renderTabs();
       }
-      addMessage('<div class="meta">System · terminal closed</div><div class="body">' +
-        esc(value.reason || 'closed') + '</div>');
+      addMessage('<div class="meta">System · ' + (String(value.reason || '').startsWith('terminal-') ? 'terminal unavailable' : 'terminal closed') +
+        '</div><div class="body">' + esc(terminalErrorText(value.reason || 'closed')) + '</div>', terminalID || active);
     } else if (value.type === 'clipboard') {
       void (async () => {
         try {
@@ -2029,11 +2054,12 @@ connect = () => {
         tab.opened = false;
         tab.state = 'error';
         tab.readyNotified = false;
+        tab.pendingInput = null;
         tab.unread = active !== terminalID;
         renderTabs();
       }
       if (value.code === 'terminal-disabled') setState('Disabled');
-      addMessage('<div class="badge">' + esc(value.code) + '</div>');
+      addMessage('<div class="badge">' + esc(terminalErrorText(value.code)) + '</div>', terminalID || active);
     }
   };
 };
@@ -2131,8 +2157,8 @@ const vampProviderCommand = (executable, session, label) => {
 const providerCommands = {
   opencode: vampProviderCommand('opencode', 'opencode', 'OpenCode'),
   pi: vampProviderCommand('pi', 'pi', 'Pi'),
-  commandcode: vampProviderCommand('commandcode', 'commandcode', 'CommandCode'),
-  chatgpt: vampProviderCommand('chatgpt', 'chatgpt', 'ChatGPT CLI'),
+  commandcode: vampProviderCommand('cmd', 'command-code', 'CommandCode'),
+  chatgpt: vampProviderCommand('codex', 'chatgpt', 'ChatGPT / Codex CLI'),
   claude: vampProviderCommand('claude', 'claude', 'Claude Code'),
   kimi: vampProviderCommand('kimi', 'kimi', 'Kimi'),
   qwen: vampProviderCommand('qwen', 'qwen', 'Qwen Code'),

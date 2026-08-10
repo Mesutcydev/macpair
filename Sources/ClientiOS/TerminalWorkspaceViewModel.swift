@@ -168,14 +168,19 @@ final class TerminalChatStore: ObservableObject {
 
     func markClosed(reason: String?) {
         guard !didMarkClosed else { return }
+        let hadReady = didMarkReady
         didMarkClosed = true
         finishOpeningMessage()
         flushOutputBuffer()
         finishStreamingOutput()
         let normalizedReason = reason?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let isFailure = normalizedReason == "terminal-start-timeout"
+        let isFailure = !hadReady || normalizedReason == "terminal-start-timeout"
             || normalizedReason == "terminal-disabled"
             || normalizedReason == "terminal-capacity"
+            || normalizedReason == "eof"
+            || normalizedReason == "shell-exited"
+            || normalizedReason?.hasPrefix("forkpty failed") == true
+            || normalizedReason?.hasPrefix("read-error") == true
         let text: String
         if normalizedReason == "terminal-disabled" {
             text = "Terminal Mode is disabled on the host. Enable it in Vamp Host settings and retry."
@@ -183,6 +188,12 @@ final class TerminalChatStore: ObservableObject {
             text = "The host has reached its 8-terminal limit. Close another tab before opening one."
         } else if normalizedReason == "terminal-start-timeout" {
             text = "The shell did not start. Check Terminal Mode on the host, then retry this tab."
+        } else if !hadReady && (normalizedReason == "eof" || normalizedReason == "shell-exited") {
+            text = "The host shell exited before it became ready. Check Terminal Mode and retry this tab."
+        } else if normalizedReason?.hasPrefix("forkpty failed") == true {
+            text = "The host could not create a shell. Check macOS permissions, then retry this tab."
+        } else if normalizedReason?.hasPrefix("read-error") == true {
+            text = "The host shell stopped reading before it became ready. Retry this tab."
         } else if let normalizedReason, !normalizedReason.isEmpty {
             text = "\(tabTitle) closed · \(normalizedReason)"
         } else {
@@ -754,7 +765,14 @@ final class TerminalWorkspaceViewModel: ObservableObject {
     }
 
     private func receiveClose(_ message: TerminalCloseMessage) {
-        for tab in tabs where tab.session.receiveClose(message) {
+        for tab in tabs {
+            let wasOpening: Bool
+            if case .opening = tab.session.state {
+                wasOpening = true
+            } else {
+                wasOpening = false
+            }
+            guard tab.session.receiveClose(message) else { continue }
             tab.chat.markClosed(reason: message.reason)
             cancelOpeningRetry(for: tab.id)
             if let reason = message.reason {
@@ -764,9 +782,15 @@ final class TerminalWorkspaceViewModel: ObservableObject {
                 case "terminal-capacity":
                     lastTerminalError = "The Mac has reached its 8-terminal limit. Close a tab on the Mac, then retry."
                 case "shell-exited":
-                    lastTerminalError = "\(tab.title) exited before it could stay open. Retry the tab or choose a different launcher."
+                    lastTerminalError = wasOpening
+                        ? "\(tab.title) exited before it became ready. Check Terminal Mode and retry."
+                        : "\(tab.title) exited. Retry the tab if you want a new shell."
+                case "eof":
+                    lastTerminalError = "\(tab.title) closed before it became ready. Check Terminal Mode and retry."
                 default:
-                    if reason.hasPrefix("forkpty failed") || reason.hasPrefix("read-error") {
+                    if reason.hasPrefix("forkpty failed") {
+                        lastTerminalError = "\(tab.title) could not create a shell on the Mac. Check permissions, then retry."
+                    } else if reason.hasPrefix("read-error") {
                         lastTerminalError = "\(tab.title) could not start on the Mac: \(reason)."
                     }
                 }
@@ -853,6 +877,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
             || reason == "terminal-disabled"
             || reason == "terminal-capacity"
             || reason == "shell-exited"
+            || reason == "eof"
             || reason.hasPrefix("forkpty failed")
             || reason.hasPrefix("read-error")
     }

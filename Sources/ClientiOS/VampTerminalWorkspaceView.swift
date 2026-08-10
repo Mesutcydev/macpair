@@ -587,8 +587,7 @@ private struct TerminalChatFeedView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollViewReader { proxy in
+        ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     LazyVStack(alignment: .leading, spacing: VampTerminalDesign.space4) {
                         ForEach(chat.blocks) { block in
@@ -648,7 +647,12 @@ private struct TerminalChatFeedView: View {
                     isNearLatest = nearLatest
                 }
             }
-
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // The conversation owns the scrolling region. Keeping the
+            // composer in the safe-area inset prevents the keyboard from
+            // changing the feed's measured height and stops the input card
+            // from colliding with the latest streamed response.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
             TerminalChatComposer(
                 draft: $draft,
                 composerFocused: $composerFocused,
@@ -662,6 +666,15 @@ private struct TerminalChatFeedView: View {
             )
         }
         .background(provider?.terminalBackground ?? Color.black)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    composerFocused = false
+                }
+                .font(.subheadline.weight(.semibold))
+            }
+        }
     }
 
     private func scrollToLatest(_ proxy: ScrollViewProxy, animated: Bool) {
