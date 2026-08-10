@@ -172,8 +172,8 @@ with open(os.environ["MANIFEST"], "w", encoding="utf-8") as handle:
     handle.write("\n")
 PY
 
-if [[ -x "$ROOT/scripts/generate-screenharbor-sbom.sh" ]]; then
-"$ROOT/scripts/generate-screenharbor-sbom.sh" \
+if [[ -x "$ROOT/scripts/generate-vamp-sbom.sh" ]]; then
+"$ROOT/scripts/generate-vamp-sbom.sh" \
     "$IPA" vamp-terminal "$VERSION" "$BUILD" "$COMMIT" "$SBOM"
 fi
 

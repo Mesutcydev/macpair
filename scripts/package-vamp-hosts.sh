@@ -192,7 +192,7 @@ with open(os.environ["MANIFEST"], "w", encoding="utf-8") as handle:
     handle.write("\n")
 PY
 
-  "$ROOT/scripts/generate-screenharbor-sbom.sh" \
+  "$ROOT/scripts/generate-vamp-sbom.sh" \
     "$artifact" "$([[ "$scheme" == "MacHost" ]] && printf vamp-host || printf vamp-terminal-host)" \
     "$version" "$build" "$COMMIT" "$sbom"
 

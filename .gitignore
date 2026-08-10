@@ -122,6 +122,7 @@ scripts/*
 !scripts/publish-screenharbor.sh
 !scripts/generate-screenharbor-sbom.sh
 !scripts/package-screenharbor-ios.sh
+!scripts/generate-vamp-sbom.sh
 
 # Vamp Terminal is the account-independent open-source sideload target. Keep
 # only the active hand-maintained project inputs visible; stale project copies

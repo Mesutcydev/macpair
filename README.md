@@ -45,15 +45,20 @@ xcodebuild \
 ```
 
 Build the terminal-only macOS host by changing the scheme to `VampTerminalHost`.
-Build the iPhone/iPad client with:
+Build the current iPhone/iPad and macOS host artifacts with:
 
 ```bash
-scripts/package-vamp-terminal-ios.sh --clean --allow-dirty
+scripts/package-vamp-terminal-ios.sh --clean
+scripts/package-vamp-hosts.sh --clean
 ```
 
 No Apple account, certificate, provisioning profile, or notarization credential is
 required to build the unsigned IPA. AltStore or another sideloading tool must
 re-sign it with the installing user's Apple ID/team.
+
+The generated files are written to `dist/VampTerminal/` and
+`dist/VampTerminalHosts/`. See [docs/INSTALL.md](docs/INSTALL.md) for the
+separate iOS, macOS, Safari, and Linux install paths.
 
 Run the Linux host with:
 

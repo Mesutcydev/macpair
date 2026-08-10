@@ -1,4 +1,4 @@
-# Vamp Terminal AltStore build
+# Vamp Terminal install guide
 
 Vamp Terminal is distributed as an open-source, device-only unsigned IPA. The
 IPA is intentionally not signed by the project. AltStore re-signs it with the
@@ -11,22 +11,28 @@ Apple ID/team used on the installing device.
 - [Vamp Terminal Host build 13](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-13/VampTerminalHost-macOS-1.0.0-build-13-adhoc.zip)
 - [All checksums and manifests](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-13)
 
-## Build
+## Build the current Vamp artifacts
 
 From the repository root:
 
 ```bash
-scripts/package-vamp-terminal-ios.sh --clean --allow-dirty
+scripts/package-vamp-terminal-ios.sh --clean
+scripts/package-vamp-hosts.sh --clean
 ```
 
-The script uses the active `RemoteDesktopToolApps.xcodeproj`, builds the
-`VampTerminalApp` scheme for `iphoneos`, verifies arm64, confirms the current
-existing `_screenharbor._tcp` Bonjour contract, and writes these files to
-`dist/VampTerminal/`:
+The scripts use the active `RemoteDesktopToolApps.xcodeproj`, never the retired
+`screenharbor-project.yml`. They build the `VampTerminalApp`, `MacHost`, and
+`VampTerminalHost` schemes, verify arm64, preserve the existing
+`_screenharbor._tcp` Bonjour compatibility contract, and write:
 
 - `VampTerminal-iOS-…-altstore-unsigned.ipa`
 - its `.sha256` checksum
 - its `.manifest.json` and SBOM
+
+Host ZIPs and their metadata are written to `dist/VampTerminalHosts/`.
+
+For a local development tree only, `--allow-dirty` may be added. Do not use it
+for a release artifact.
 
 ## Install with AltStore
 
