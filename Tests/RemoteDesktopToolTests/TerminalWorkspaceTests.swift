@@ -4,20 +4,30 @@ import SharedProtocol
 
 @MainActor
 final class TerminalWorkspaceTests: XCTestCase {
-    func testChatTranscriptUsesTabNameAndClassifiesStreamingOutput() {
+    func testChatSubmissionIsCanonicalAndRawOutputNeverBecomesChatText() {
         let chat = TerminalChatStore(tabTitle: "Build")
 
         XCTAssertEqual(chat.blocks.first?.text, "Build is opening a shell…")
-        chat.recordInput(Data("echo café\n".utf8))
+        chat.recordChatSubmission("echo café", provider: nil)
         chat.appendOutput(Data("running build…\n✓ clean\n".utf8))
         chat.appendOutput(Data("\u{1B}[32m✓ verified\u{1B}[0m\r".utf8))
 
         XCTAssertTrue(chat.blocks.contains {
-            $0.role == .command && $0.title == "You · Build" && $0.text == "echo café"
+            $0.role == .command && $0.title == "You · Shell" && $0.text == "$ echo café"
         })
-        XCTAssertTrue(chat.blocks.contains { $0.role == .progress && $0.text.contains("running build") })
-        XCTAssertTrue(chat.blocks.contains { $0.role == .success && $0.text.contains("✓ clean") })
-        XCTAssertTrue(chat.blocks.contains { $0.role == .success && $0.text.contains("✓ verified") })
+        XCTAssertFalse(chat.blocks.contains { $0.text.contains("running build") || $0.text.contains("verified") })
+        XCTAssertFalse(chat.blocks.contains { $0.text.contains("38;5") || $0.text.contains("\u{1B}") })
+    }
+
+    func testChatSubmissionPreservesSubmittedWhitespaceAndAgentIdentity() {
+        let chat = TerminalChatStore(tabTitle: "Grok")
+        let submitted = "  keep this spacing  "
+
+        chat.recordChatSubmission(submitted, provider: .grok)
+
+        XCTAssertTrue(chat.blocks.contains {
+            $0.role == .command && $0.title == "You · Grok" && $0.text == submitted
+        })
     }
 
     func testChatReadyAndCloseCardsAreIdempotentAndRetryIsVisible() {
@@ -25,7 +35,8 @@ final class TerminalWorkspaceTests: XCTestCase {
 
         chat.markReady()
         chat.markReady()
-        XCTAssertEqual(chat.blocks.filter { $0.text == "Terminal 1 is connected." }.count, 1)
+        XCTAssertEqual(chat.blocks.filter { $0.text == "Terminal 1 is connected." }.count, 0)
+        XCTAssertEqual(chat.activityEvents.filter { $0.text == "PTY ready" }.count, 1)
 
         chat.markClosed(reason: "terminal-start-timeout")
         chat.markClosed(reason: "terminal-start-timeout")
@@ -34,22 +45,21 @@ final class TerminalWorkspaceTests: XCTestCase {
         chat.prepareForRetry()
         XCTAssertTrue(chat.blocks.contains { $0.text == "Terminal 1 is trying again…" && $0.isStreaming })
         chat.markReady()
-        XCTAssertEqual(chat.blocks.filter { $0.text == "Terminal 1 is connected." }.count, 2)
+        XCTAssertEqual(chat.activityEvents.filter { $0.text == "PTY ready" }.count, 2)
     }
 
-    func testChatHidesShellPromptNoiseButKeepsCommandResults() {
+    func testRawInputAndOutputDoNotBecomeChatText() {
         let chat = TerminalChatStore(tabTitle: "Terminal 1")
         chat.markReady()
         chat.recordInput(Data("echo ready\n".utf8))
         chat.appendOutput(Data("%\n~❯\n❯ echo ready\nready\n%\n~❯ ".utf8))
 
-        XCTAssertTrue(chat.blocks.contains { $0.role == .command && $0.text == "echo ready" })
-        XCTAssertTrue(chat.blocks.contains { $0.role == .output && $0.text == "ready" })
-        XCTAssertFalse(chat.blocks.contains { $0.text.contains("~❯") || $0.text == "%" })
-        XCTAssertFalse(chat.blocks.contains { $0.isStreaming && $0.role == .output })
+        XCTAssertFalse(chat.blocks.contains { $0.role == .command })
+        XCTAssertFalse(chat.blocks.contains { $0.role == .output })
+        XCTAssertTrue(chat.activityEvents.contains { $0.text.contains("bytes") })
     }
 
-    func testChatBoundsTUIRepaintOutputAndRemovesTerminalControlArtifacts() {
+    func testChatDoesNotAttemptToRenderTUIRepaintOutput() {
         let chat = TerminalChatStore(tabTitle: "OpenCode")
         chat.markReady()
         chat.recordInput(Data("opencode\n".utf8))
@@ -58,13 +68,9 @@ final class TerminalWorkspaceTests: XCTestCase {
             .joined(separator: "\n")
         chat.appendOutput(Data(repaint.utf8))
 
-        let output = try? XCTUnwrap(chat.blocks.first { $0.role == .output })
-        XCTAssertNotNil(output)
-        XCTAssertLessThanOrEqual(output?.text.count ?? .max, 4_000)
-        XCTAssertLessThanOrEqual(output?.text.split(whereSeparator: \.isNewline).count ?? .max, 71)
-        XCTAssertFalse(output?.text.contains("(B") == true)
-        XCTAssertFalse(output?.text.contains("\u{1B}") == true)
-        XCTAssertTrue(output?.text.contains("Raw Terminal") == true)
+        XCTAssertFalse(chat.blocks.contains { $0.role == .output })
+        XCTAssertFalse(chat.blocks.contains { $0.text.contains("OpenCode") })
+        XCTAssertTrue(chat.activityEvents.contains { $0.text.contains("bytes") })
     }
 
     func testTabsKeepStableIdentityAndRenameCloseImmediately() {

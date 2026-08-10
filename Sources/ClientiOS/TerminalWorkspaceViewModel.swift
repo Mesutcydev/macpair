@@ -20,14 +20,37 @@ enum VampAgentProvider: String, CaseIterable, Identifiable {
     case grok
 
     var id: String { rawValue }
+
+    var sessionDisplayName: String {
+        switch self {
+        case .openCode: return "OpenCode"
+        case .pi: return "Pi"
+        case .commandCode: return "CommandCode"
+        case .chatGPT: return "ChatGPT"
+        case .claude: return "Claude"
+        case .kimi: return "Kimi"
+        case .qwen: return "Qwen"
+        case .codex: return "Codex"
+        case .aider: return "Aider"
+        case .grok: return "Grok"
+        }
+    }
 }
 
-/// A small, local presentation model for PTY traffic. It is intentionally not
-/// an LLM or a second execution path: the host still owns the real shell and
-/// the raw bytes still flow through SwiftTerm. This model gives those bytes a
-/// stable task-chat presentation so a phone user can follow commands,
-/// progress, results, and errors without reading one constantly resizing
-/// terminal rectangle.
+/// Input origins keep semantic chat events separate from raw terminal bytes.
+/// A VT screen can echo, repaint, and reorder bytes; it is never a source of
+/// truth for what the user submitted in Chat.
+enum TerminalInputOrigin {
+    case chatComposer
+    case rawTerminalKeyboard
+    case launcher
+    case system
+    case permissionResponse
+}
+
+/// The task-chat projection of one terminal session. It deliberately stores
+/// only events Vamp knows semantically. PTY output belongs to SwiftTerm's VT
+/// screen buffer and must never be scraped back into this transcript.
 @MainActor
 final class TerminalChatStore: ObservableObject {
     enum Role: Equatable {
@@ -62,23 +85,26 @@ final class TerminalChatStore: ObservableObject {
         }
     }
 
+    struct ActivityEvent: Identifiable, Equatable {
+        let id: UUID
+        let date: Date
+        let text: String
+
+        init(id: UUID = UUID(), date: Date = .now, text: String) {
+            self.id = id
+            self.date = date
+            self.text = text
+        }
+    }
+
     @Published private(set) var blocks: [Block]
+    @Published private(set) var activityEvents: [ActivityEvent] = []
 
     private let tabTitle: String
-    private var inputBuffer = Data()
-    private var outputBuffer = ""
-    private var activeOutputID: UUID?
-    private var activeOutputTruncated = false
-    private var lastSubmittedCommand: String?
     private var didMarkReady = false
     private var didMarkClosed = false
     private let maxBlocks = 180
-    /// Chat is a readable activity feed, not a second terminal viewport. A
-    /// full-screen TUI can repaint continuously, so cap one result card and
-    /// direct the user to Raw Terminal for the complete byte stream.
-    private let maxBlockCharacters = 4_000
-    private let maxBlockLines = 70
-    private let outputTruncationNotice = "… output continues in Raw Terminal"
+    private let maxActivityEvents = 120
 
     init(tabTitle: String) {
         self.tabTitle = tabTitle
@@ -93,78 +119,29 @@ final class TerminalChatStore: ObservableObject {
     }
 
     func recordStartupCommand(_ command: String) {
-        submitCommand(command)
+        recordActivity("Launcher started · \(command)")
     }
 
-    /// Records actual PTY input, including input coming from the SwiftTerm
-    /// keyboard, the accessory row, and paste. Only a submitted line becomes a
-    /// command card; ordinary typing never floods the transcript.
+    /// Compatibility hook for raw-terminal input. Raw key events are sent to
+    /// the PTY only; they are intentionally not reconstructed as Chat cards.
     func recordInput(_ data: Data) {
-        let bytes = [UInt8](data)
-        var index = 0
-        while index < bytes.count {
-            let byte = bytes[index]
-            if byte == 0x0D || byte == 0x0A {
-                submitCommand(String(decoding: inputBuffer, as: UTF8.self))
-                inputBuffer.removeAll(keepingCapacity: true)
-            } else if byte == 0x08 || byte == 0x7F {
-                removeLastInputScalar()
-            } else if byte == 0x1B {
-                // Arrow keys and function keys are terminal control sequences,
-                // not command text. Skip the CSI sequence through its final
-                // byte so it cannot appear as a fake command card.
-                index += 1
-                while index < bytes.count {
-                    let next = bytes[index]
-                    if (0x40...0x7E).contains(next) { break }
-                    index += 1
-                }
-            } else if byte >= 0x20 {
-                // Keep UTF-8 bytes intact so commands containing non-ASCII
-                // paths, names, or provider prompts are rendered correctly.
-                inputBuffer.append(byte)
-            }
-            index += 1
-        }
+        guard !data.isEmpty else { return }
+        recordActivity("Terminal input · \(data.count) bytes")
     }
 
+    /// Kept as a no-op compatibility surface for older callers. Terminal
+    /// bytes are rendered only by the mounted VT emulator, never as Chat text.
     func appendOutput(_ data: Data) {
+        // Do not even decode the bytes here. A packet may end halfway through
+        // UTF-8 or an ANSI sequence, and a terminal screen is not a log.
         guard !data.isEmpty else { return }
-        let cleaned = TerminalChatTextSanitizer.clean(data)
-        guard !cleaned.isEmpty else { return }
-
-        // A carriage return is commonly used for progress indicators. Treat
-        // it as a line boundary in the chat view so progress remains readable
-        // instead of overwriting a card with terminal cursor semantics.
-        outputBuffer += cleaned
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-
-        while let newline = outputBuffer.firstIndex(of: "\n") {
-            let line = String(outputBuffer[..<newline])
-            outputBuffer.removeSubrange(...newline)
-            appendOutputLine(line)
-        }
-
-        if !outputBuffer.isEmpty {
-            updateStreamingOutput(outputBuffer)
-        }
     }
 
     func markReady() {
         guard !didMarkReady, !didMarkClosed else { return }
         didMarkReady = true
         finishOpeningMessage()
-        flushOutputBuffer()
-        finishStreamingOutput()
-        append(
-            Block(
-                role: .system,
-                title: "System · terminal ready",
-                text: "\(tabTitle) is connected.",
-                isStreaming: false
-            )
-        )
+        recordActivity("PTY ready")
     }
 
     func markClosed(reason: String?) {
@@ -172,8 +149,6 @@ final class TerminalChatStore: ObservableObject {
         let hadReady = didMarkReady
         didMarkClosed = true
         finishOpeningMessage()
-        flushOutputBuffer()
-        finishStreamingOutput()
         let normalizedReason = reason?.trimmingCharacters(in: .whitespacesAndNewlines)
         let isFailure = !hadReady || normalizedReason == "terminal-start-timeout"
             || normalizedReason == "terminal-disabled"
@@ -206,23 +181,16 @@ final class TerminalChatStore: ObservableObject {
         } else {
             text = "\(tabTitle) closed."
         }
-        append(
-            Block(
-                role: isFailure ? .error : .system,
-                title: isFailure ? "Terminal unavailable" : "System",
-                text: text,
-                isStreaming: false
-            )
-        )
+        recordActivity(text)
+        if isFailure {
+            append(Block(role: .error, title: "Terminal unavailable", text: text))
+        }
     }
 
     func prepareForRetry() {
         guard didMarkClosed else { return }
         didMarkClosed = false
         didMarkReady = false
-        outputBuffer.removeAll(keepingCapacity: true)
-        activeOutputID = nil
-        activeOutputTruncated = false
         append(
             Block(
                 role: .system,
@@ -233,132 +201,24 @@ final class TerminalChatStore: ObservableObject {
         )
     }
 
-    private func submitCommand(_ rawCommand: String) {
-        let command = rawCommand
-            .replacingOccurrences(of: "\u{0}", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty else { return }
+    /// Records the exact immutable value submitted by the Chat composer.
+    /// Whitespace inside the message is preserved; only an empty outer value
+    /// is rejected. The same value is then sent to the PTY by the workspace.
+    func recordChatSubmission(_ rawCommand: String, provider: VampAgentProvider?) {
+        let command = rawCommand.replacingOccurrences(of: "\u{0}", with: "")
+        guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
-        lastSubmittedCommand = command
         finishOpeningMessage()
+        let identity = provider?.sessionDisplayName ?? "Shell"
         append(
             Block(
                 role: .command,
-                title: "You · \(tabTitle)",
-                text: command,
+                title: "You · \(identity)",
+                text: provider == nil ? "$ \(command)" : command,
                 isStreaming: false
             )
         )
-        activeOutputID = nil
-        activeOutputTruncated = false
-    }
-
-    private func removeLastInputScalar() {
-        guard !inputBuffer.isEmpty else { return }
-        var string = String(decoding: inputBuffer, as: UTF8.self)
-        string.removeLast()
-        inputBuffer = Data(string.utf8)
-    }
-
-    private func appendOutputLine(_ line: String) {
-        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        guard !activeOutputTruncated else { return }
-        if isShellPromptNoise(trimmed) {
-            // The prompt is the PTY's completion boundary. It is hidden from
-            // chat, but it should still end the visible output card so a
-            // completed command does not remain labelled STREAMING forever.
-            finishStreamingOutput()
-            return
-        }
-
-        let role = role(for: trimmed)
-        if let activeOutputID,
-           let index = blocks.firstIndex(where: { $0.id == activeOutputID }),
-           blocks[index].role == role,
-           !activeOutputTruncated {
-            let separator = blocks[index].text.isEmpty ? "" : "\n"
-            let candidate = blocks[index].text + separator + trimmed
-            guard !exceedsOutputLimit(candidate) else {
-                markActiveOutputTruncated(at: index)
-                return
-            }
-            blocks[index].text = candidate
-            blocks[index].isStreaming = true
-            return
-        }
-
-        let block = Block(role: role, title: title(for: role), text: trimmed, isStreaming: true)
-        activeOutputID = block.id
-        activeOutputTruncated = false
-        append(block)
-    }
-
-    private func updateStreamingOutput(_ text: String) {
-        guard !activeOutputTruncated else { return }
-        let filtered = text
-            .split(whereSeparator: \.isNewline)
-            .map(String.init)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .filter { !isShellPromptNoise($0) }
-            .joined(separator: "\n")
-        guard !filtered.isEmpty else { return }
-        if let activeOutputID,
-           let index = blocks.firstIndex(where: { $0.id == activeOutputID }),
-           !activeOutputTruncated {
-            let separator = blocks[index].text.isEmpty || blocks[index].text.hasSuffix("\n") ? "" : "\n"
-            let candidate = blocks[index].text + separator + filtered
-            guard !exceedsOutputLimit(candidate) else {
-                markActiveOutputTruncated(at: index)
-                return
-            }
-            blocks[index].text = candidate
-            blocks[index].isStreaming = true
-            return
-        }
-        let outputRole = role(for: filtered)
-        let block = Block(role: outputRole, title: title(for: outputRole), text: filtered, isStreaming: true)
-        activeOutputID = block.id
-        activeOutputTruncated = false
-        append(block)
-    }
-
-    private func exceedsOutputLimit(_ text: String) -> Bool {
-        text.count > maxBlockCharacters
-            || text.split(whereSeparator: \.isNewline).count > maxBlockLines
-    }
-
-    private func markActiveOutputTruncated(at index: Int) {
-        guard !activeOutputTruncated else { return }
-        let block = blocks[index]
-        let separator = block.text.isEmpty ? "" : "\n"
-        let budget = max(0, maxBlockCharacters - separator.count - outputTruncationNotice.count)
-        blocks[index].text = String(block.text.prefix(budget)) + separator + outputTruncationNotice
-        blocks[index].isStreaming = true
-        activeOutputTruncated = true
-    }
-
-    /// PTYs emit their prompt and a local echo around every command. Those
-    /// bytes are useful in Raw PTY mode but are visual noise in the task-chat
-    /// stream, where the command already has its own card. Keep real output,
-    /// warnings, and errors while suppressing only recognizable shell noise.
-    private func isShellPromptNoise(_ line: String) -> Bool {
-        let normalized = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else { return true }
-
-        let prompts = ["%", "~", "❯", "~❯", "$", "➜", "➜ ~"]
-        if prompts.contains(normalized) { return true }
-        if normalized.hasPrefix("❯") || normalized.hasPrefix("~❯") {
-            return true
-        }
-
-        if normalized.hasPrefix("% "),
-           let lastSubmittedCommand,
-           normalized.dropFirst(2).trimmingCharacters(in: .whitespaces) == lastSubmittedCommand {
-            return true
-        }
-        return false
+        recordActivity("Input submitted · \(identity)")
     }
 
     private func finishOpeningMessage() {
@@ -371,19 +231,19 @@ final class TerminalChatStore: ObservableObject {
         }
     }
 
-    private func finishStreamingOutput() {
-        guard let activeOutputID,
-              let index = blocks.firstIndex(where: { $0.id == activeOutputID }) else { return }
-        blocks[index].isStreaming = false
-        self.activeOutputID = nil
-        activeOutputTruncated = false
+    func markWorking(provider: VampAgentProvider?) {
+        let identity = provider?.sessionDisplayName ?? tabTitle
+        if !blocks.contains(where: { $0.role == .progress && $0.text == "\(identity) is working…" }) {
+            append(Block(role: .progress, title: identity, text: "\(identity) is working…", isStreaming: true))
+        }
     }
 
-    private func flushOutputBuffer() {
-        guard !outputBuffer.isEmpty else { return }
-        let pending = outputBuffer
-        outputBuffer.removeAll(keepingCapacity: true)
-        updateStreamingOutput(pending)
+    func recordActivity(_ text: String) {
+        guard !text.isEmpty else { return }
+        activityEvents.append(ActivityEvent(text: text))
+        if activityEvents.count > maxActivityEvents {
+            activityEvents.removeFirst(activityEvents.count - maxActivityEvents)
+        }
     }
 
     private func append(_ block: Block) {
@@ -393,98 +253,6 @@ final class TerminalChatStore: ObservableObject {
         }
     }
 
-    private func role(for line: String) -> Role {
-        let lowercased = line.lowercased()
-        if line.hasPrefix("✓") || line.hasPrefix("✔") || lowercased.hasPrefix("success") || lowercased.contains("verified") {
-            return .success
-        }
-        if line.hasPrefix("⚠") || line.hasPrefix("!") || lowercased.hasPrefix("warning") {
-            return .warning
-        }
-        if line.hasPrefix("✗") || line.hasPrefix("✕") || lowercased.hasPrefix("error") || lowercased.contains("failed") {
-            return .error
-        }
-        if lowercased.hasPrefix("running") || lowercased.hasPrefix("explore") || lowercased.contains("building") || lowercased.contains("progress") {
-            return .progress
-        }
-        return .output
-    }
-
-    private func title(for role: Role) -> String {
-        switch role {
-        case .output: return "Terminal output"
-        case .success: return "Completed"
-        case .warning: return "Attention"
-        case .error: return "Error"
-        case .progress: return "Running"
-        case .system, .command: return "System"
-        }
-    }
-}
-
-private enum TerminalChatTextSanitizer {
-    static func clean(_ data: Data) -> String {
-        let scalars = String(decoding: data, as: UTF8.self).unicodeScalars
-        var result = String.UnicodeScalarView()
-        var index = scalars.startIndex
-        var skippingCSI = false
-        var skippingOSC = false
-
-        while index < scalars.endIndex {
-            let scalar = scalars[index]
-            if skippingOSC {
-                if scalar.value == 7 { skippingOSC = false }
-                index = scalars.index(after: index)
-                continue
-            }
-            if skippingCSI {
-                if (0x40...0x7E).contains(scalar.value) { skippingCSI = false }
-                index = scalars.index(after: index)
-                continue
-            }
-            if scalar.value == 0x1B {
-                let next = scalars.index(after: index)
-                if next < scalars.endIndex {
-                    switch scalars[next].value {
-                    case 0x5B: // CSI: skip the '[' introducer as well.
-                        skippingCSI = true
-                        index = scalars.index(after: next)
-                        continue
-                    case 0x5D: // OSC: skip the ']' introducer as well.
-                        skippingOSC = true
-                        index = scalars.index(after: next)
-                        continue
-                    case 0x28, 0x29, 0x2A, 0x2B, 0x2D, 0x2E, 0x2F:
-                        // Character-set designators such as ESC(B are common
-                        // in tmux/TUI output. Drop both the introducer and
-                        // its designator; leaving "(B" in chat looks corrupt.
-                        let designator = scalars.index(after: next)
-                        index = designator < scalars.endIndex
-                            ? scalars.index(after: designator)
-                            : designator
-                        continue
-                    default:
-                        // Other two-byte terminal commands (save/restore
-                        // cursor, keypad mode, reset, and friends) are
-                        // control bytes, not user-visible chat content.
-                        index = scalars.index(after: next)
-                        continue
-                    }
-                }
-                index = next
-                continue
-            }
-            if scalar.value == 0x08 || scalar.value == 0x7F {
-                index = scalars.index(after: index)
-                continue
-            }
-            if scalar.value == 0x09 || scalar.value == 0x0A || scalar.value == 0x0D || scalar.value >= 0x20 {
-                result.append(scalar)
-            }
-            index = scalars.index(after: index)
-        }
-        return String(result).replacingOccurrences(of: "\u{FFFD}", with: "")
-    }
 }
 
 /// Keeps the host-backed workspace catalog separate from live PTY tabs. The
@@ -705,6 +473,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         var workingDirectory: String?
         var launchRequest: SessionLaunchRequest?
         var hasUnreadOutput = false
+        var draft = ""
 
         @MainActor var state: ClientTerminalSessionManager.State { session.state }
     }
@@ -842,7 +611,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
             }
             try coordinator.sendTerminalEnvelope(envelope)
         }
-        let tabTitle = title ?? nextDefaultTabTitle()
+        let tabTitle = title ?? provider?.sessionDisplayName ?? nextDefaultTabTitle()
         let launchRequest: SessionLaunchRequest? = if let workspace, let provider {
             SessionLaunchRequest(
                 hostID: workspace.hostID,
@@ -870,9 +639,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         // routable in the workspace collection.
         tabs.append(tab)
         observe(session: session, tabID: tabID)
-        if let startupCommand {
-            tab.chat.recordStartupCommand(startupCommand)
-        }
+        if let startupCommand { tab.chat.recordStartupCommand(startupCommand) }
         _ = session.open(
             cols: 80,
             rows: 24,
@@ -930,6 +697,11 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         tabs[index].title = trimmed
     }
 
+    func updateDraft(tabID: UUID, value: String) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        tabs[index].draft = value
+    }
+
     func retryStalledTabs() {
         lastTerminalError = nil
         for index in tabs.indices {
@@ -959,21 +731,21 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         return sent
     }
 
-    /// Sends a complete command from the chat composer. The trailing newline
-    /// is deliberate: tapping Send has the same semantics as pressing Return
-    /// in the raw terminal, while the transcript gets a single stable command
-    /// card instead of one card per keystroke.
+    /// Sends the exact immutable Chat composer value once. The transcript is
+    /// written before transport and never reconstructed from PTY echo.
     func sendCommand(tabID: UUID, text: String) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
-        let command = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty, tabs[index].session.canSendInput else { return }
+        let command = text.replacingOccurrences(of: "\u{0}", with: "")
+        guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              tabs[index].session.canSendInput else { return }
         let data = Data((command + "\n").utf8)
-        tabs[index].chat.recordInput(data)
+        tabs[index].chat.recordChatSubmission(command, provider: tabs[index].provider)
+        tabs[index].chat.markWorking(provider: tabs[index].provider)
         tabs[index].session.sendInput(data)
     }
 
-    /// Forwards keyboard and accessory-row input into the local transcript
-    /// without changing the bytes sent to the host.
+    /// Raw Terminal input is intentionally not added to Chat. It remains a
+    /// byte-accurate PTY interaction and is visible in Terminal mode only.
     func recordInput(tabID: UUID, data: Data) {
         guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
         tab.chat.recordInput(data)
@@ -1002,7 +774,9 @@ final class TerminalWorkspaceViewModel: ObservableObject {
 
     private func receiveOutput(_ message: TerminalOutputMessage) {
         for index in tabs.indices where tabs[index].session.receiveOutput(message) {
-            tabs[index].chat.appendOutput(message.data)
+            // The VT emulator is the only consumer of PTY bytes. Chat must
+            // not infer prompts, commands, or assistant text from a repaint.
+            tabs[index].chat.recordActivity("Terminal output received")
             if tabs[index].id != selectedTabID {
                 tabs[index].hasUnreadOutput = true
             }

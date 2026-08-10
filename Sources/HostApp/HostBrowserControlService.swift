@@ -981,6 +981,7 @@ private enum BrowserControlWebAssets {
 <body><div class="shell">
 <header class="top"><button class="back" id="back" aria-label="Open sessions dashboard" title="Open sessions dashboard" onclick="vampToggleDashboard()">‹</button><div class="title" id="page-title">Task chat</div><div class="state"><span class="dot"></span><span id="state">Pairing</span></div></header>
 <nav class="tabs" id="tabs" aria-label="Terminal tabs"><button class="newtab" id="newtab" aria-label="New terminal">＋</button></nav>
+<nav class="mode-switch" id="mode-switch" aria-label="Session mode"><button id="mode-chat" type="button" aria-pressed="true"><span aria-hidden="true">▤</span> Chat</button><button id="mode-terminal" type="button" aria-pressed="false"><span aria-hidden="true">›_</span> Terminal</button></nav>
 <main class="content">
 <section class="dashboard hidden" id="dashboard" aria-labelledby="dashboard-title">
   <div class="dashboard-heading"><div><div class="dashboard-kicker">VAMP TERMINAL</div><h1 id="dashboard-title">Sessions</h1><p>Choose a live shell or return to the task stream. Tabs stay independent while you switch.</p></div><button class="dashboard-open" id="dashboard-open" type="button">Open task chat</button></div>
@@ -990,6 +991,7 @@ private enum BrowserControlWebAssets {
 </section>
 <section class="chat" id="chat"><div class="empty" id="empty">Pair this browser to start a terminal task.</div></section>
 </main>
+<div class="terminal-keybar" id="terminal-keybar" aria-label="Terminal controls"><button type="button" data-terminal-key="\u001b">Esc</button><button type="button" data-terminal-key="\u0003">Ctrl-C</button><button type="button" data-terminal-key="\u0009">Tab</button><button type="button" data-terminal-key="\u001b[A">↑</button><button type="button" data-terminal-key="\u001b[B">↓</button><button type="button" data-terminal-key="\u001b[D">←</button><button type="button" data-terminal-key="\u001b[C">→</button></div>
 <div class="composer" id="composer"><div class="clipboard-wrap"><button id="clipboard" class="clipboard-trigger" type="button" title="Clipboard actions" aria-label="Clipboard actions" aria-expanded="false">▣ <span class="clipboard-label">Clipboard</span></button><div id="clipboard-menu" class="clipboard-menu hidden" role="menu" aria-label="Clipboard actions"><button id="paste" type="button" role="menuitem">Paste into terminal</button><button id="copyhost" type="button" role="menuitem">Copy Mac clipboard to Safari</button><button id="sethost" type="button" role="menuitem">Send Safari clipboard to Mac</button></div></div><input id="input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command…"><button id="more" type="button" title="More controls" aria-label="More controls">•••</button><button class="send" id="send" type="button" title="Review command" aria-label="Review command">↑</button></div>
 </div>
 <div class="modal" id="pair"><div class="modal-card"><h2>Open this workspace</h2><p>Scan the QR code from Vamp Host, or enter the six-digit code shown in Settings → Browser control. The code expires after ten minutes.</p><input id="code" inputmode="numeric" maxlength="18" placeholder="000000" aria-label="Pairing code" autocomplete="one-time-code"><div class="error" id="pair-error"></div><button id="pair-button">Pair browser</button></div></div>
@@ -1039,15 +1041,17 @@ const vampTerminalSize = (id = active) => {
   // toolbar height. The card is a projection of the same terminal state, so
   // its monospace grid and the host's TIOCSWINSZ dimensions stay aligned.
   const content = document.querySelector('.content');
-  const width = Math.max(320, Math.floor(content?.clientWidth || innerWidth - 28));
+  const surface = tabs.get(id)?.outputCard?.querySelector('.rich-body');
+  const width = Math.max(220, Math.floor(surface?.clientWidth || content?.clientWidth || innerWidth - 28));
   const viewport = window.visualViewport;
   const measuredHeight = content?.clientHeight || viewport?.height || innerHeight;
-  const height = Math.max(220, Math.min(640, Math.floor(measuredHeight * 0.62)));
+  const terminalMode = document.body.classList.contains('vamp-terminal-mode');
+  const height = Math.max(120, Math.min(760, Math.floor(surface?.clientHeight || (terminalMode ? measuredHeight * 0.62 : 148))));
   const cellWidth = 8.4;
   const cellHeight = 19.6;
   return {
-    cols: Math.max(40, Math.min(160, Math.floor((width - 28) / cellWidth))),
-    rows: Math.max(12, Math.min(40, Math.floor((height - 28) / cellHeight)))
+    cols: Math.max(24, Math.min(160, Math.floor((width - 20) / cellWidth))),
+    rows: Math.max(6, Math.min(48, Math.floor((height - 20) / cellHeight)))
   };
 };
 
@@ -1070,85 +1074,6 @@ addMessage = (html, tabID = active) => {
   $('chat').appendChild(element);
   vampScrollChatToLatest();
   return element;
-};
-
-const vampNormalizeChatOutput = (text, tab) => {
-  let value = String(text || '')
-    .replace(/\u001b\][\s\S]*?(?:\u0007|\u001b\\)/g, '')
-    .replace(/\u001b(?:\[[0-?]*[ -\/]*[@-~]|[()][0-2A-Z0-9]|.)/g, '')
-    .replace(/\u009b[0-?]*[ -\/]*[@-~]/g, '')
-    .replace(/\r/g, '')
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '');
-  const pending = String(tab?.pendingCommand || '').trim();
-  const lines = value.split('\n').map((line) => line.trimEnd()).filter((line) => {
-    const normalized = line.trim();
-    if (!normalized) return false;
-    if (/^(?:~|[$%❯>#]|~\s*[%$#❯>])\s*$/.test(normalized)) return false;
-    if (pending && (normalized === pending || normalized === '$ ' + pending || normalized === '% ' + pending || normalized === '❯ ' + pending)) return false;
-    if (pending && normalized.endsWith(pending) && /(?:^|[\s~\/])[%$#❯>]\s/.test(normalized)) return false;
-    if (/^(?:~|\/[^ ]*|[\w.-]+@[\w.-]+).*[%$#❯>]\s*$/.test(normalized)) return false;
-    return true;
-  });
-  return lines.join('\n').trim();
-};
-
-// PTYs echo input with cursor movement and may split that echo across several
-// WebSocket frames. Normalising each raw frame independently can turn a clean
-// command such as `date` into `ddate` or `eec\nho`. The browser terminal already
-// applies carriage returns, backspaces, and ANSI cursor movement, so use its
-// rendered screen to locate the command echo and expose only the response.
-const vampRenderedCommandResponse = (tab) => {
-  const pending = String(tab?.pendingCommand || '').trim();
-  const rendered = tab?.terminal?.render?.() || '';
-  if (!pending || !rendered) return { found: false, text: '' };
-  const lines = rendered.split('\n');
-  let commandIndex = -1;
-  lines.forEach((line, index) => {
-    const normalized = line.trim();
-    if (!normalized) return;
-    if (normalized === pending || normalized.endsWith(pending)) commandIndex = index;
-  });
-  if (commandIndex < 0) return { found: false, text: '' };
-  return {
-    found: true,
-    text: vampNormalizeChatOutput(lines.slice(commandIndex + 1).join('\n'), { pendingCommand: null })
-  };
-};
-
-const vampSetChatOutput = (id, text) => {
-  const tab = tabs.get(id);
-  if (!tab || !text) return;
-  if (!tab.outputCard || !tab.outputCard.isConnected) {
-    const card = document.createElement('article');
-    card.className = 'message output-message';
-    card.dataset.tabId = id;
-    card.innerHTML = '<div class="meta"><span>Vamp · ' + esc(tab.title) + '</span><span class="live-label">Live</span></div><div class="body"></div>';
-    $('chat').appendChild(card);
-    tab.outputCard = card;
-    tab.outputText = '';
-  }
-  const next = String(text).slice(-24000);
-  if (tab.outputText === next) return;
-  tab.outputText = next;
-  tab.outputCard.querySelector('.body').textContent = next;
-  if (id === active) vampScrollChatToLatest();
-};
-
-const vampAppendChatOutput = (id, text) => {
-  const tab = tabs.get(id);
-  if (!tab || !text) return;
-  if (!tab.outputCard || !tab.outputCard.isConnected) {
-    const card = document.createElement('article');
-    card.className = 'message output-message';
-    card.dataset.tabId = id;
-    card.innerHTML = '<div class="meta"><span>Vamp · ' + esc(tab.title) + '</span><span class="live-label">Live</span></div><div class="body"></div>';
-    $('chat').appendChild(card);
-    tab.outputCard = card;
-    tab.outputText = '';
-  }
-  tab.outputText = ((tab.outputText || '') + (tab.outputText ? '\n' : '') + text).slice(-24000);
-  tab.outputCard.querySelector('.body').textContent = tab.outputText;
-  if (id === active) vampScrollChatToLatest();
 };
 
 const vampMoreStyle = document.createElement('style');
@@ -1737,7 +1662,7 @@ function vampToggleDashboard(force) {
 
 $('dashboard-open').onclick = () => vampToggleDashboard(false);
 
-createTab = (startup = null, title = null) => {
+createTab = (startup = null, title = null, agent = null) => {
   if (order.length >= 8) {
     addMessage('<div class="badge">Terminal capacity reached (8 tabs).</div>');
     return null;
@@ -1746,6 +1671,7 @@ createTab = (startup = null, title = null) => {
   const tab = {
     id,
     title: title || vampNextTerminalTitle(),
+    agent: agent || null,
     startupCommand: startup,
     out: '',
     outputCard: null,
@@ -2118,7 +2044,7 @@ connect = () => {
         // A reconnect or host-side PTY notification can repeat ready for the
         // same terminal. Keep the session state idempotent and do not duplicate
         // the visible system card in the task stream.
-        if (tab.readyNotified || chat.querySelector('.ready-message[data-tab-id="' + terminalID + '"]')) return;
+        if (tab.readyNotified) return;
         const queuedInput = tab.pendingInput;
         tab.pendingInput = null;
         tab.readyNotified = true;
@@ -2127,11 +2053,9 @@ connect = () => {
         tab.terminal ||= new VampBrowserVT(value.cols, value.rows);
         tab.terminal.resize(value.cols, value.rows);
         ensureStream(terminalID);
+        if (typeof window.vampEnsureTerminalPreview === 'function') window.vampEnsureTerminalPreview(terminalID);
         vampResizeTerminal(terminalID);
         renderTabs();
-        const readyMessage = addMessage('<span class="check" aria-hidden="true">✓</span><span>' +
-          esc(tab.title) + ' ready</span>', terminalID);
-        readyMessage.classList.add('status-chip', 'ready-message');
         if (queuedInput && !sendInput(terminalID, queuedInput)) {
           tab.pendingInput = queuedInput;
           addMessage('<div class="badge">The host connection closed before the queued input was sent. Try again.</div>', terminalID);
@@ -2199,7 +2123,10 @@ document.addEventListener('keydown', (event) => {
 });
 
 $('newtab').onclick = () => createTab();
-$('send').onclick = reviewCommand;
+// Resolve the handler at click time. The presentation layer below replaces
+// `reviewCommand` with the Chat/Terminal-aware implementation after this boot
+// block runs; capturing the old function here would bypass Terminal mode.
+$('send').onclick = () => reviewCommand();
 $('pair-button').onclick = pair;
 $('paste').title = 'Paste browser clipboard into the active terminal';
 $('paste').setAttribute('aria-label', 'Paste browser clipboard into the active terminal');
@@ -2247,13 +2174,13 @@ const openMoreModal = () => {
   moreModal.classList.remove('hidden');
   moreCommand.focus();
 };
-const openMoreTab = (command, title) => {
+const openMoreTab = (command, title, agent = null) => {
   closeMoreModal();
   if (order.length >= 8) {
     addMessage('<div class="badge">Terminal capacity reached (8 tabs).</div>');
     return;
   }
-  createTab(command || null, title || null);
+  createTab(command || null, title || null, agent);
 };
 $('more').onclick = openMoreModal;
 $('more-cancel').onclick = closeMoreModal;
@@ -2286,7 +2213,7 @@ const providerCommands = {
 document.querySelectorAll('[data-provider]').forEach((button) => {
   button.onclick = () => {
     const value = providerCommands[button.dataset.provider];
-    if (value) openMoreTab(value[0], value[1]);
+    if (value) openMoreTab(value[0], value[1], button.dataset.provider || null);
   };
 });
 moreModal.addEventListener('click', (event) => { if (event.target === moreModal) closeMoreModal(); });
@@ -2371,6 +2298,7 @@ if (vampPairFromURL) {
     .status-chip .check { color: var(--good); }
     .stream-card { margin-top: 12px; margin-bottom: 24px; padding: 14px; border: 1px solid var(--vamp-border); border-radius: 18px; background: linear-gradient(145deg, rgba(45,45,45,.78), rgba(25,25,25,.88)); box-shadow: 0 16px 44px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.045); }
     .stream-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+    .stream-card-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
     .stream-card-title { display: flex; align-items: center; gap: 9px; min-width: 0; color: #f3f3f3; font-weight: 700; }
     .stream-card-title span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .card-glyph { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; border-radius: 9px; background: rgba(255,255,255,.10); color: #e9e9e9; font-size: 17px; }
@@ -2703,6 +2631,180 @@ if (vampPairFromURL) {
   `;
   document.head.appendChild(style);
 
+  const modeStyle = document.createElement('style');
+  modeStyle.textContent = `
+    .mode-switch {
+      flex: 0 0 46px;
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 2px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .mode-switch button {
+      min-height: 34px;
+      padding: 0 13px;
+      border-radius: 11px;
+      background: transparent;
+      color: #8e8e8e;
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .mode-switch button[aria-pressed="true"] {
+      background: rgba(255,255,255,.13);
+      color: #f4f4f4;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    .mode-switch button:focus-visible,
+    .terminal-keybar button:focus-visible,
+    .open-terminal-preview:focus-visible {
+      outline: 2px solid rgba(255,255,255,.72);
+      outline-offset: 2px;
+    }
+    .terminal-keybar {
+      display: none;
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 76px;
+      z-index: 29;
+      gap: 7px;
+      overflow-x: auto;
+      padding: 5px 0;
+      scrollbar-width: none;
+    }
+    .terminal-keybar::-webkit-scrollbar { display: none; }
+    .terminal-keybar button {
+      flex: 0 0 auto;
+      min-width: 44px;
+      min-height: 38px;
+      padding: 0 11px;
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: 11px;
+      background: rgba(48,48,48,.94);
+      color: #e7e7e7;
+      font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    body.vamp-terminal-mode .terminal-keybar { display: flex; }
+    body.vamp-terminal-mode .chat {
+      display: flex !important;
+      flex-direction: column;
+      height: 100% !important;
+      min-height: 0 !important;
+      padding: 12px 0 96px !important;
+    }
+    body.vamp-terminal-mode .chat > .message:not(.stream-card),
+    body.vamp-terminal-mode .chat > .command-card,
+    body.vamp-terminal-mode .chat > .explore-row {
+      display: none !important;
+    }
+    body.vamp-terminal-mode .stream-card.output-message {
+      display: flex !important;
+      flex: 1 1 auto;
+      flex-direction: column;
+      width: 100%;
+      max-width: none;
+      min-height: 0;
+      margin: 0;
+      padding: 12px;
+      border-color: rgba(255,255,255,.14);
+      border-radius: 16px;
+      background: #080808;
+      box-shadow: none;
+    }
+    body.vamp-terminal-mode .stream-card.output-message .rich-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none !important;
+      overflow: auto;
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 11px;
+      background: #080808;
+      padding: 10px;
+    }
+    body.vamp-terminal-mode .stream-card.output-message .terminal-row {
+      min-height: 1.4em;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    body.vamp-terminal-mode .stream-card.output-message .stream-caption { margin-bottom: 9px; }
+    body:not(.vamp-terminal-mode) .stream-card.output-message {
+      max-height: 174px;
+      overflow: hidden;
+    }
+    body:not(.vamp-terminal-mode) .stream-card.output-message .rich-body {
+      max-height: 112px;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .open-terminal-preview {
+      flex: 0 0 auto;
+      min-height: 30px;
+      padding: 0 9px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 9px;
+      background: rgba(255,255,255,.08);
+      color: #d8d8d8;
+      font-size: 11px;
+      font-weight: 650;
+    }
+    @media (max-width: 520px) {
+      .mode-switch { flex-basis: 44px; min-height: 44px; }
+      .mode-switch button { padding: 0 10px; font-size: 12px; }
+      .terminal-keybar { left: 12px; right: 12px; }
+    }
+  `;
+  document.head.appendChild(modeStyle);
+
+  let vampPresentation = 'chat';
+  const modeSwitch = $('mode-switch');
+  const modeChat = $('mode-chat');
+  const modeTerminal = $('mode-terminal');
+  const terminalKeybar = $('terminal-keybar');
+  const updateComposerForMode = () => {
+    const tab = tabs.get(active);
+    const agentName = tab?.agent || tab?.title;
+    const terminalMode = vampPresentation === 'terminal';
+    $('input').placeholder = terminalMode
+      ? 'Type terminal input…'
+      : agentName && !/^Terminal(?: \\d+)?$/.test(agentName)
+        ? 'Message ' + agentName + '…'
+        : 'Type a shell command…';
+    $('input').setAttribute('aria-label', terminalMode ? 'Terminal input' : (agentName ? 'Message ' + agentName : 'Shell command'));
+    $('send').title = terminalMode ? 'Send terminal input' : 'Review command';
+    $('send').setAttribute('aria-label', terminalMode ? 'Send terminal input' : 'Review command');
+  };
+  const setVampPresentation = (mode) => {
+    vampPresentation = mode === 'terminal' ? 'terminal' : 'chat';
+    document.body.classList.toggle('vamp-terminal-mode', vampPresentation === 'terminal');
+    modeChat?.setAttribute('aria-pressed', String(vampPresentation === 'chat'));
+    modeTerminal?.setAttribute('aria-pressed', String(vampPresentation === 'terminal'));
+    updateComposerForMode();
+    requestAnimationFrame(() => {
+      if (active) {
+        vampResizeTerminal(active);
+        if (vampPresentation === 'chat') vampScrollChatToLatest();
+      }
+    });
+  };
+  window.vampSetPresentation = setVampPresentation;
+  modeChat?.addEventListener('click', () => setVampPresentation('chat'));
+  modeTerminal?.addEventListener('click', () => setVampPresentation('terminal'));
+  terminalKeybar?.querySelectorAll('[data-terminal-key]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (active) sendInput(active, button.dataset.terminalKey || '');
+    });
+  });
+  setVampPresentation('chat');
+  const originalCreateTabForPresentation = createTab;
+  createTab = (startup = null, title = null, agent = null) => {
+    const id = originalCreateTabForPresentation(startup, title, agent);
+    if (id) setVampPresentation(agent ? 'chat' : 'terminal');
+    return id;
+  };
+
   const context = document.createElement('div');
   context.className = 'task-context';
   context.id = 'task-context';
@@ -2870,12 +2972,14 @@ if (vampPairFromURL) {
       const card = document.createElement('article');
       card.className = 'message stream-card output-message';
       card.dataset.tabId = id;
-      card.innerHTML = '<div class="stream-card-head"><div class="stream-card-title"><span class="card-glyph">⌁</span><span>' + esc(tab.title) + '</span></div><span class="stream-state">Streaming</span></div><div class="stream-caption">Terminal output · live</div><div class="rich-body" role="log" aria-live="polite"></div>';
+      card.innerHTML = '<div class="stream-card-head"><div class="stream-card-title"><span class="card-glyph">⌁</span><span>' + esc(tab.title) + '</span></div><div class="stream-card-actions"><span class="stream-state">Live</span><button type="button" class="open-terminal-preview">Open Terminal</button></div></div><div class="stream-caption">Read-only terminal preview</div><div class="rich-body" role="log" aria-live="polite"></div>';
+      card.querySelector('.open-terminal-preview')?.addEventListener('click', () => window.vampSetPresentation?.('terminal'));
       chat.appendChild(card);
       tab.outputCard = card;
     }
     return tab.outputCard;
   };
+  window.vampEnsureTerminalPreview = (id) => ensureOutputCard(id);
   const updateOutputCard = (id, text, replace = true) => {
     const tab = tabs.get(id);
     if (!tab) return;
@@ -2987,17 +3091,31 @@ if (vampPairFromURL) {
       tab.commandCount = (tab.commandCount || 0) + 1;
     }
     const title = tab?.title || 'Terminal';
-    const element = addMessage('<div class="meta">You · ' + esc(title) + ' · ' + esc(status) + '</div><div class="body"><span style="color:#aaa">$ </span>' + esc(value) + '</div>', tabID);
+    const body = tab?.agent
+      ? esc(value)
+      : '<span style="color:#aaa">$ </span>' + esc(value);
+    const element = addMessage('<div class="meta">You · ' + esc(title) + ' · ' + esc(status) + '</div><div class="body">' + body + '</div>', tabID);
     element.classList.add('user-message');
     addExplore(tabID, 'Running ' + value);
     return element;
   };
 
   reviewCommand = () => {
-    const value = $('input').value.trim();
+    // Preserve the exact submitted composer value. Only use a trimmed copy
+    // for the empty check; never make Chat infer or rewrite it from PTY echo.
+    const value = $('input').value.replace(/\u0000/g, '');
     const tabID = active;
     const tab = tabs.get(tabID);
-    if (!value || !tabID) return;
+    if (!value.trim() || !tabID) return;
+    if (document.body.classList.contains('vamp-terminal-mode')) {
+      // Terminal mode is a raw PTY surface. The input is sent once as a line
+      // and is never reconstructed as a Chat item from terminal echo.
+      if (sendInput(tabID, value + '\n')) {
+        $('input').value = '';
+        if (tab) tab.pendingCommand = null;
+      }
+      return;
+    }
     if (!tab || !ws || ws.readyState !== WebSocket.OPEN) {
       addMessage('<div class="badge">This terminal is still opening. The command stays in the composer.</div>', tabID);
       return;
@@ -3021,7 +3139,8 @@ if (vampPairFromURL) {
     const card = document.createElement('article');
     card.className = 'command-card';
     card.dataset.tabId = tabID;
-    card.innerHTML = '<div class="eyebrow">⌁ Permission required</div><div class="approval">Awaiting approval · ' + esc(tab.title) + '</div><div class="command"><span class="prompt">$ </span>' + esc(value) + '<br><span style="color:#888">No output.</span></div><div class="approval-actions"><button type="button" class="approval-choice selected" data-choice="once"><span class="choice-number">1.</span><span><strong>Allow</strong><small>Allow only this time</small></span></button><button type="button" class="approval-choice" data-choice="always"><span class="choice-number">2.</span><span><strong>Always allow</strong><small>Do not ask again for this command</small></span></button><button type="button" class="approval-choice" data-choice="deny"><span class="choice-number">3.</span><span><strong>Deny</strong><small>Reject it for now</small></span></button></div><div class="approval-footer"><p class="hint">Choose an action, then press Confirm.</p><button type="button" class="confirm">Confirm</button></div>';
+    const commandPreview = tab.agent ? esc(value) : '<span class="prompt">$ </span>' + esc(value);
+    card.innerHTML = '<div class="eyebrow">⌁ Permission required</div><div class="approval">Awaiting approval · ' + esc(tab.title) + '</div><div class="command">' + commandPreview + '<br><span style="color:#888">No output.</span></div><div class="approval-actions"><button type="button" class="approval-choice selected" data-choice="once"><span class="choice-number">1.</span><span><strong>Allow</strong><small>Allow only this time</small></span></button><button type="button" class="approval-choice" data-choice="always"><span class="choice-number">2.</span><span><strong>Always allow</strong><small>Do not ask again for this command</small></span></button><button type="button" class="approval-choice" data-choice="deny"><span class="choice-number">3.</span><span><strong>Deny</strong><small>Reject it for now</small></span></button></div><div class="approval-footer"><p class="hint">Choose an action, then press Confirm.</p><button type="button" class="confirm">Confirm</button></div>';
     let choice = 'once';
     card.querySelectorAll('[data-choice]').forEach((button) => {
       button.onclick = () => { choice = button.dataset.choice || 'once'; card.querySelectorAll('[data-choice]').forEach((candidate) => candidate.classList.toggle('selected', candidate === button)); };
@@ -3031,7 +3150,8 @@ if (vampPairFromURL) {
       const current = tabs.get(tabID);
       if (choice === 'deny') {
         $('input').value = '';
-        const denied = addMessage('<div class="meta">You · ' + esc(current?.title || 'Terminal') + ' · Denied</div><div class="body"><span style="color:#aaa">$ </span>' + esc(value) + '</div>', tabID);
+        const deniedBody = current?.agent ? esc(value) : '<span style="color:#aaa">$ </span>' + esc(value);
+        const denied = addMessage('<div class="meta">You · ' + esc(current?.title || 'Terminal') + ' · Denied</div><div class="body">' + deniedBody + '</div>', tabID);
         denied.classList.add('user-message');
         return;
       }
@@ -3056,7 +3176,12 @@ if (vampPairFromURL) {
     document.querySelectorAll('.stream').forEach((element) => element.classList.toggle('active', element.dataset.id === id));
     filterTabContent();
     renderTabs();
-    requestAnimationFrame(() => { if (tab.outputCard?.isConnected) scrollLatest(true); else content.scrollTop = 0; });
+    updateComposerForMode();
+    requestAnimationFrame(() => {
+      if (tab.outputCard?.isConnected) scrollLatest(true);
+      else content.scrollTop = 0;
+      vampResizeTerminal(id);
+    });
   };
 
   closeTab = (id) => {
@@ -3079,8 +3204,10 @@ if (vampPairFromURL) {
     originalDashboardToggle(force);
     const showing = !$('dashboard').classList.contains('hidden');
     context.classList.toggle('hidden', showing);
+    modeSwitch?.classList.toggle('hidden', showing);
+    terminalKeybar?.classList.toggle('hidden', showing);
     shell.classList.toggle('dashboard-mode', showing);
-    if (!showing) { filterTabContent(); resetPagePosition(); requestAnimationFrame(() => { if (active) selectTab(active); }); }
+    if (!showing) { filterTabContent(); resetPagePosition(); updateComposerForMode(); requestAnimationFrame(() => { if (active) selectTab(active); }); }
   };
   $('context-panel').onclick = () => vampToggleDashboard(true);
   $('context-more').onclick = () => { $('more-modal').classList.remove('hidden'); $('more-command').focus(); };

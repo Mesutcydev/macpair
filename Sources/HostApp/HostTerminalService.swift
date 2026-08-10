@@ -542,14 +542,24 @@ final class HostTerminalService: @unchecked Sendable {
         var envCPtrs = envStrings.map { strdup($0) } as [UnsafeMutablePointer<CChar>?]
         envCPtrs.append(nil)
 
-        // Argv: explicitly pass login + interactive flags. Relying only on a
-        // dash-prefixed argv[0] is shell-specific; bash and zsh launched from
-        // a GUI host can otherwise skip interactive setup or exit before the
-        // client ever gets a usable prompt.
-        let argv0 = strdup("-" + (URL(fileURLWithPath: shell).lastPathComponent))
-        let loginFlag = strdup("-l")
-        let interactiveFlag = strdup("-i")
-        let argvArr: [UnsafeMutablePointer<CChar>?] = [argv0, loginFlag, interactiveFlag, nil]
+        // Do not source the user's login files for a remote PTY. GUI-launched
+        // hosts frequently inherit a zsh `$SHELL` while a dotfile sources a
+        // bash completion script, producing `complete: command not found`
+        // before the first prompt. We still respect the configured shell
+        // binary, but use a clean interactive invocation so the PTY starts
+        // deterministically. Environment and cwd are supplied above.
+        let shellName = URL(fileURLWithPath: shell).lastPathComponent.lowercased()
+        let shellFlags: [String]
+        if shellName == "zsh" {
+            shellFlags = ["-f", "-i"]
+        } else if shellName == "bash" {
+            shellFlags = ["--noprofile", "--norc", "-i"]
+        } else {
+            shellFlags = ["-i"]
+        }
+        var argvArr: [UnsafeMutablePointer<CChar>?] = [strdup("-" + shellName)]
+        argvArr.append(contentsOf: shellFlags.map { strdup($0) })
+        argvArr.append(nil)
 
         // Set the process cwd before the shell is exec'd. This keeps the
         // selected workspace out of the visible transcript and means the

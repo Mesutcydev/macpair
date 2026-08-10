@@ -17,7 +17,7 @@ private enum VampTerminalPresentation: String, CaseIterable, Identifiable {
     var compactTitle: String {
         switch self {
         case .chat: return "Chat"
-        case .terminal: return "Raw"
+        case .terminal: return "Terminal"
         }
     }
 
@@ -44,6 +44,7 @@ struct VampTerminalWorkspaceView: View {
     @State private var showingDisconnectConfirmation = false
     @State private var selectedAgentForWorkspace: VampAgentProvider?
     @State private var showingWorkspaces = false
+    @State private var showingActivity = false
     @State private var presentation: VampTerminalPresentation = .chat
 
     var body: some View {
@@ -53,67 +54,68 @@ struct VampTerminalWorkspaceView: View {
             presentationBar
 
             ZStack {
-                (workspace.selectedTab?.provider?.terminalBackground ?? Color.black)
-                if workspace.tabs.isEmpty {
-                    emptyWorkspaceState
-                }
-                ForEach(workspace.tabs) { tab in
-                    VampTerminalPaneView(
-                        session: tab.session,
-                        isActive: presentation == .terminal && workspace.selectedTabID == tab.id,
-                        provider: tab.provider,
-                        onSendClipboardToHost: { _ = workspace.sendClipboardToHost() },
-                        onRequestClipboardFromHost: { _ = workspace.requestClipboardFromHost() },
-                        onTerminalClipboard: { text in
-                            _ = workspace.sendClipboardTextToHost(text)
-                        },
-                        onTerminalInput: { data in
-                            workspace.recordInput(tabID: tab.id, data: data)
+                VStack(spacing: 0) {
+                    // Every tab remains mounted in this one stable ZStack. In
+                    // Chat the selected pane is a compact read-only preview;
+                    // Terminal expands the same SwiftTerm view in place.
+                    ZStack {
+                        (workspace.selectedTab?.provider?.terminalBackground ?? Color.black)
+                        if workspace.tabs.isEmpty {
+                            emptyWorkspaceState
                         }
-                    )
-                    .id(tab.id)
+                        ForEach(workspace.tabs) { tab in
+                            VampTerminalPaneView(
+                                session: tab.session,
+                                isActive: workspace.selectedTabID == tab.id,
+                                isPreview: presentation == .chat,
+                                provider: tab.provider,
+                                onOpenTerminal: { presentation = .terminal },
+                                onSendClipboardToHost: { _ = workspace.sendClipboardToHost() },
+                                onRequestClipboardFromHost: { _ = workspace.requestClipboardFromHost() },
+                                onTerminalClipboard: { text in
+                                    _ = workspace.sendClipboardTextToHost(text)
+                                },
+                                onTerminalInput: { data in
+                                    workspace.recordInput(tabID: tab.id, data: data)
+                                }
+                            )
+                            .opacity(workspace.selectedTabID == tab.id ? 1 : 0.001)
+                            .id(tab.id)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: presentation == .chat ? 148 : .infinity)
+                    .clipped()
+
+                    if presentation == .chat, let tab = workspace.selectedTab {
+                        TerminalChatFeedView(
+                            chat: tab.chat,
+                            session: tab.session,
+                            provider: tab.provider,
+                            draft: Binding(
+                                get: { workspace.tabs.first(where: { $0.id == tab.id })?.draft ?? "" },
+                                set: { workspace.updateDraft(tabID: tab.id, value: $0) }
+                            ),
+                            onSendCommand: { command in
+                                workspace.sendCommand(tabID: tab.id, text: command)
+                            },
+                            onOpenTerminal: { presentation = .terminal },
+                            onSendClipboardToHost: { _ = workspace.sendClipboardToHost() },
+                            onRequestClipboardFromHost: { _ = workspace.requestClipboardFromHost() }
+                        )
+                        .id(tab.id)
+                    }
                 }
 
-                if presentation == .chat, let tab = workspace.selectedTab {
-                    TerminalChatFeedView(
-                        chat: tab.chat,
-                        session: tab.session,
-                        provider: tab.provider,
-                        onSendCommand: { command in
-                            workspace.sendCommand(tabID: tab.id, text: command)
-                        },
-                        onOpenTerminal: {
-                            presentation = .terminal
-                        },
-                        onTerminalInput: { data in
-                            workspace.recordInput(tabID: tab.id, data: data)
-                        },
-                        onSendClipboardToHost: { _ = workspace.sendClipboardToHost() },
-                        onRequestClipboardFromHost: { _ = workspace.requestClipboardFromHost() }
-                    )
-                    // The chat surface is disposable presentation state. The
-                    // terminal panes above remain mounted by their stable tab
-                    // IDs, so changing this identity never restarts a PTY.
-                    .id(tab.id)
-                    .transition(.opacity)
-                }
-
-                // Keep transient diagnostics out of the measured workspace
-                // height. A late terminal error or clipboard acknowledgement
-                // should not move the composer, keyboard, or PTY viewport.
+                // Diagnostics never participate in the terminal's measured
+                // geometry, so errors cannot move the viewport or composer.
                 VStack(spacing: VampTerminalDesign.space2) {
-                    if let message = workspace.lastTerminalError {
-                        terminalErrorBanner(message)
-                    }
-                    if let message = workspace.clipboardStatusMessage {
-                        clipboardToast(message)
-                    }
+                    if let message = workspace.lastTerminalError { terminalErrorBanner(message) }
+                    if let message = workspace.clipboardStatusMessage { clipboardToast(message) }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.horizontal, VampTerminalDesign.space3)
                 .padding(.top, VampTerminalDesign.space3)
                 .allowsHitTesting(false)
-                .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(2)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -129,6 +131,16 @@ struct VampTerminalWorkspaceView: View {
         .onAppear {
             if let sessionID = coordinator.activeSessionID {
                 workspace.activate(sessionID: sessionID)
+            }
+            // A plain shell is an interactive terminal first. Agent tabs use
+            // the semantic Chat projection until the user switches modes.
+            if workspace.selectedTab?.provider == nil {
+                presentation = .terminal
+            }
+        }
+        .onChange(of: workspace.selectedTabID) { _, _ in
+            if workspace.selectedTab?.provider == nil {
+                presentation = .terminal
             }
         }
         .onChange(of: coordinator.activeSessionID) { _, sessionID in
@@ -153,7 +165,7 @@ struct VampTerminalWorkspaceView: View {
                     workspaceID: chosenWorkspace.id
                 )
                 _ = workspace.createTab(
-                    title: provider.displayName,
+                    title: provider.sessionDisplayName,
                     provider: provider,
                     workspace: chosenWorkspace,
                     resumeMode: resumeMode,
@@ -161,6 +173,7 @@ struct VampTerminalWorkspaceView: View {
                     launchExecutable: launch.executable,
                     launchArguments: launch.arguments
                 )
+                presentation = .chat
                 selectedAgentForWorkspace = nil
             }
         }
@@ -171,6 +184,11 @@ struct VampTerminalWorkspaceView: View {
                 hostName: coordinator.connectedHostName ?? "Connected Mac",
                 connectionLabel: coordinator.connectionMode.label
             )
+        }
+        .sheet(isPresented: $showingActivity) {
+            if let tab = workspace.selectedTab {
+                TerminalSessionActivityView(chat: tab.chat, title: tab.title)
+            }
         }
         .alert("Disconnect from Mac?", isPresented: $showingDisconnectConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -296,7 +314,12 @@ struct VampTerminalWorkspaceView: View {
                         presentation = .terminal
                     }
                 } label: {
-                    Label("Open raw terminal", systemImage: "terminal")
+                    Label("Open Terminal", systemImage: "terminal")
+                }
+                Button {
+                    showingActivity = true
+                } label: {
+                    Label("Session Activity", systemImage: "clock.arrow.circlepath")
                 }
                 Button {
                     showingWorkspaces = true
@@ -337,8 +360,8 @@ struct VampTerminalWorkspaceView: View {
     private var presentationBar: some View {
         HStack(spacing: VampTerminalDesign.space2) {
             Label(
-                presentation == .chat ? "Stream" : "Raw PTY",
-                systemImage: presentation.systemImage
+                "Mode",
+                systemImage: "rectangle.split.2x1"
             )
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
                 .foregroundStyle(VampGlassPalette.inkTertiary)
@@ -624,14 +647,12 @@ private struct TerminalChatFeedView: View {
     @ObservedObject var chat: TerminalChatStore
     @ObservedObject var session: ClientTerminalSessionManager
     let provider: VampAgentProvider?
+    @Binding var draft: String
     let onSendCommand: (String) -> Void
     let onOpenTerminal: () -> Void
-    let onTerminalInput: (Data) -> Void
     let onSendClipboardToHost: () -> Void
     let onRequestClipboardFromHost: () -> Void
 
-    @State private var draft = ""
-    @StateObject private var terminalInput = VampTerminalInputController()
     @FocusState private var composerFocused: Bool
     @State private var isNearLatest = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -640,12 +661,9 @@ private struct TerminalChatFeedView: View {
         ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     LazyVStack(alignment: .leading, spacing: VampTerminalDesign.space4) {
-                        terminalScreenCard
                         ForEach(chat.blocks) { block in
-                            if block.role != .output {
-                                TerminalChatBlockView(block: block, provider: provider)
-                                    .id(block.id)
-                            }
+                            TerminalChatBlockView(block: block, provider: provider)
+                                .id(block.id)
                         }
                         Color.clear
                             .frame(height: 1)
@@ -709,6 +727,7 @@ private struct TerminalChatFeedView: View {
             TerminalChatComposer(
                 draft: $draft,
                 composerFocused: $composerFocused,
+                provider: provider,
                 isEnabled: session.canEditInput,
                 canSend: session.canSendInput,
                 onSend: sendDraft,
@@ -719,45 +738,6 @@ private struct TerminalChatFeedView: View {
             )
         }
         .background(provider?.terminalBackground ?? Color.black)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") {
-                    composerFocused = false
-                }
-                .font(.subheadline.weight(.semibold))
-            }
-        }
-    }
-
-    private var terminalScreenCard: some View {
-        VStack(alignment: .leading, spacing: VampTerminalDesign.space2) {
-            HStack(spacing: VampTerminalDesign.space2) {
-                Image(systemName: "terminal")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(provider?.accent ?? VampGlassPalette.good)
-                Text("Live terminal screen")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(VampGlassPalette.inkSecondary)
-                Spacer(minLength: 0)
-                Text("VT")
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundStyle(VampGlassPalette.inkTertiary)
-            }
-            VampSwiftTermContainer(
-                session: session,
-                controller: terminalInput,
-                provider: provider,
-                onTerminalClipboard: { _ in },
-                onTerminalInput: onTerminalInput
-            )
-            .frame(minHeight: 220, idealHeight: 300, maxHeight: 380)
-            .clipShape(RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
-        }
-        .padding(VampTerminalDesign.space3)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(provider?.terminalBackground ?? Color.black, in: RoundedRectangle(cornerRadius: VampTerminalDesign.cardRadius, style: .continuous))
-        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: provider?.accent.opacity(0.24) ?? VampGlassPalette.ruleStrong)
     }
 
     private func scrollToLatest(_ proxy: ScrollViewProxy, animated: Bool) {
@@ -800,6 +780,35 @@ private struct TerminalChatFeedView: View {
             draft += text
         }
         composerFocused = true
+    }
+}
+
+private struct TerminalSessionActivityView: View {
+    @ObservedObject var chat: TerminalChatStore
+    let title: String
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if chat.activityEvents.isEmpty {
+                    ContentUnavailableView("No activity yet", systemImage: "clock")
+                } else {
+                    List(chat.activityEvents.reversed()) { event in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(event.text)
+                                .font(.system(.body, design: .rounded))
+                            Text(event.date, style: .time)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 3)
+                    }
+                    .listStyle(.plain)
+                }
+            }
+            .navigationTitle("Activity · \(title)")
+            .navigationBarTitleDisplayMode(.inline)
+        }
     }
 }
 
@@ -1229,7 +1238,7 @@ private struct VampWorkspaceDetailView: View {
                     workspaceID: chosen.id
                 )
                 _ = terminalWorkspace.createTab(
-                    title: provider.displayName,
+                    title: provider.sessionDisplayName,
                     provider: provider,
                     workspace: chosen,
                     resumeMode: resumeMode,
@@ -1392,7 +1401,7 @@ private struct TerminalChatBlockView: View {
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(VampGlassPalette.inkSubtle)
             }
-            Text("$ \(block.text)")
+            Text(block.text)
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
                 .foregroundStyle(VampGlassPalette.ink)
                 .textSelection(.enabled)
@@ -1534,6 +1543,7 @@ private struct TerminalChatContentView: View {
 private struct TerminalChatComposer: View {
     @Binding var draft: String
     var composerFocused: FocusState<Bool>.Binding
+    let provider: VampAgentProvider?
     let isEnabled: Bool
     let canSend: Bool
     let onSend: () -> Void
@@ -1551,9 +1561,13 @@ private struct TerminalChatComposer: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(VampGlassPalette.inkSecondary)
-            .accessibilityLabel("Open raw terminal")
+            .accessibilityLabel("Open Terminal")
 
-            TextField("Type a command…", text: $draft, axis: .vertical)
+            TextField(
+                provider.map { "Message \($0.sessionDisplayName)…" } ?? "Type a shell command…",
+                text: $draft,
+                axis: .vertical
+            )
                 .focused(composerFocused)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()

@@ -10,7 +10,9 @@ import SharedProtocol
 struct VampTerminalPaneView: View {
     @ObservedObject var session: ClientTerminalSessionManager
     let isActive: Bool
+    var isPreview = false
     var provider: VampAgentProvider?
+    var onOpenTerminal: () -> Void = {}
     var onSendClipboardToHost: () -> Void = {}
     var onRequestClipboardFromHost: () -> Void = {}
     var onTerminalClipboard: (String) -> Void = { _ in }
@@ -20,13 +22,18 @@ struct VampTerminalPaneView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            paneStatusBar
+            if isPreview {
+                previewStatusBar
+            } else {
+                paneStatusBar
+            }
             VampSwiftTermContainer(
                 session: session,
                 controller: input,
                 provider: provider,
                 onTerminalClipboard: onTerminalClipboard,
-                onTerminalInput: onTerminalInput
+                onTerminalInput: onTerminalInput,
+                sendsResize: isActive
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
@@ -37,18 +44,20 @@ struct VampTerminalPaneView: View {
         // above the software keyboard instead of repeatedly squeezing the
         // whole pane during keyboard/browser-safe-area changes.
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            specialKeysBar
-                .fixedSize(horizontal: false, vertical: true)
+            if !isPreview {
+                specialKeysBar
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .background(provider?.terminalBackground ?? Color.black)
         .opacity(isActive ? 1 : 0.001)
-        .allowsHitTesting(isActive)
+        .allowsHitTesting(isActive && !isPreview)
         .accessibilityHidden(!isActive)
         .onAppear {
-            if isActive { input.focus() }
+            if isActive && !isPreview { input.focus() }
         }
         .onChange(of: isActive) { _, active in
-            if active {
+            if active && !isPreview {
                 input.focus()
             } else {
                 input.blur()
@@ -57,6 +66,28 @@ struct VampTerminalPaneView: View {
         .onDisappear {
             input.resetModifiers()
         }
+    }
+
+    private var previewStatusBar: some View {
+        HStack(spacing: VampTerminalDesign.space2) {
+            Image(systemName: "terminal")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(provider?.accent ?? VampGlassPalette.good)
+            Text("\(provider?.sessionDisplayName ?? "Shell") · Live")
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundStyle(VampGlassPalette.inkSecondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            Button("Open Terminal", action: onOpenTerminal)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(VampGlassPalette.ink)
+                .padding(.horizontal, VampTerminalDesign.space2)
+                .frame(minHeight: VampTerminalDesign.compactControlHeight)
+                .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.smallRadius)
+        }
+        .padding(.horizontal, VampTerminalDesign.space3)
+        .padding(.vertical, VampTerminalDesign.space2)
+        .background(provider?.terminalBackground ?? Color.black)
     }
 
     private var paneStatusBar: some View {
@@ -351,12 +382,14 @@ struct VampSwiftTermContainer: UIViewRepresentable {
     let provider: VampAgentProvider?
     let onTerminalClipboard: (String) -> Void
     let onTerminalInput: (Data) -> Void
+    var sendsResize = true
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
             session: session,
             onTerminalClipboard: onTerminalClipboard,
-            onTerminalInput: onTerminalInput
+            onTerminalInput: onTerminalInput,
+            sendsResize: sendsResize
         )
     }
 
@@ -400,6 +433,7 @@ struct VampSwiftTermContainer: UIViewRepresentable {
         uiView.backgroundColor = provider?.terminalBackgroundUIColor ?? .black
         uiView.nativeForegroundColor = provider?.terminalTextUIColor ?? .white
         uiView.nativeBackgroundColor = provider?.terminalBackgroundUIColor ?? .black
+        context.coordinator.sendsResize = sendsResize
         context.coordinator.deliverPendingOutput(to: uiView)
     }
 
@@ -421,15 +455,18 @@ struct VampSwiftTermContainer: UIViewRepresentable {
         private weak var view: TerminalView?
         private var pinchStartFontSize: CGFloat = 14
         private var resizeTask: Task<Void, Never>?
+        var sendsResize: Bool
 
         init(
             session: ClientTerminalSessionManager,
             onTerminalClipboard: @escaping (String) -> Void,
-            onTerminalInput: @escaping (Data) -> Void
+            onTerminalInput: @escaping (Data) -> Void,
+            sendsResize: Bool
         ) {
             self.session = session
             self.onTerminalClipboard = onTerminalClipboard
             self.onTerminalInput = onTerminalInput
+            self.sendsResize = sendsResize
         }
 
         @MainActor
@@ -470,6 +507,7 @@ struct VampSwiftTermContainer: UIViewRepresentable {
         func setTerminalTitle(source: TerminalView, title: String) {}
 
         func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
+            guard sendsResize else { return }
             let cols = UInt16(clamping: newCols)
             let rows = UInt16(clamping: newRows)
             // SwiftTerm can report several intermediate sizes while the iOS

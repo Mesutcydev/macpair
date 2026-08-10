@@ -42,6 +42,8 @@ final class ClientTerminalSessionManager: ObservableObject {
     private var pendingInput = Data()
     private let pendingInputLimit = TerminalInputMessage.maxChunkBytes
     private var pendingInputRetryTask: Task<Void, Never>?
+    private var lastRequestedResize: (cols: UInt16, rows: UInt16)?
+    private(set) var currentTerminalSize: (cols: UInt16, rows: UInt16)?
     /// Drops chunks older than this once `outputBacklogCap` is reached so a
     /// long-lived session doesn't grow memory unboundedly.
     private let outputBacklogCap = 256
@@ -64,6 +66,8 @@ final class ClientTerminalSessionManager: ObservableObject {
         self.launchExecutable = nil
         self.launchArguments = []
         self.pendingInput.removeAll(keepingCapacity: true)
+        self.lastRequestedResize = nil
+        self.currentTerminalSize = nil
     }
 
     func deactivate() {
@@ -88,6 +92,8 @@ final class ClientTerminalSessionManager: ObservableObject {
         launchExecutable = nil
         launchArguments = []
         pendingInput.removeAll(keepingCapacity: true)
+        lastRequestedResize = nil
+        currentTerminalSize = nil
     }
 
     // MARK: - Outgoing
@@ -114,6 +120,8 @@ final class ClientTerminalSessionManager: ObservableObject {
         state = .opening
         output.removeAll()
         lastObservedSequence = 0
+        lastRequestedResize = nil
+        currentTerminalSize = nil
         // Keep anything typed in the first frame of the workspace. SwiftUI
         // can render the composer before the data channel has accepted the
         // open request; dropping that input is indistinguishable from a dead
@@ -253,9 +261,17 @@ final class ClientTerminalSessionManager: ObservableObject {
 
     func requestResize(cols: UInt16, rows: UInt16) {
         guard let sessionID, let terminalID, let sendEnvelope, cols > 0, rows > 0 else { return }
+        guard lastRequestedResize?.cols != cols || lastRequestedResize?.rows != rows else { return }
         let message = TerminalResizeMessage(sessionID: sessionID, terminalID: terminalID, cols: cols, rows: rows)
         if let envelope = try? DataChannelEnvelope.terminalResize(message) {
-            try? sendEnvelope(envelope)
+            do {
+                try sendEnvelope(envelope)
+                lastRequestedResize = (cols, rows)
+                currentTerminalSize = (cols, rows)
+            } catch {
+                // Keep the old geometry so the next settled layout callback
+                // retries after a temporarily unwritable data channel.
+            }
         }
     }
 
@@ -273,6 +289,8 @@ final class ClientTerminalSessionManager: ObservableObject {
         launchExecutable = nil
         launchArguments = []
         pendingInput.removeAll(keepingCapacity: true)
+        lastRequestedResize = nil
+        currentTerminalSize = nil
     }
 
     // MARK: - Incoming (called by ClientSessionCoordinator)
