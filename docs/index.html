@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/png" href="assets/vamp-terminal-icon.png">
   <meta name="theme-color" content="#0b0b0b">
-  <meta name="description" content="Vamp Terminal — a focused, open-source multi-tab terminal for iPhone and iPad, powered by Vamp Host and Tailscale.">
+  <meta name="description" content="Vamp Suite — open-source remote desktop, multi-tab terminal, Safari control, and Linux browser access over your LAN or Tailscale network.">
+  <meta name="vamp-suite-release" content="1.0.0-build-13">
   <meta name="vamp-terminal-release" content="1.0.0-build-13">
-  <meta property="og:title" content="Vamp Terminal — your Mac, in tabs">
-  <meta property="og:description" content="Eight independent shells, Safari task-chat control, clipboard sync, and tmux handoff for iPhone and iPad.">
+  <meta property="og:title" content="Vamp Suite — one private workspace">
+  <meta property="og:description" content="Vamp Host, Vamp Terminal Host, Vamp Terminal, the remote-control client, and the Linux browser host in one product family.">
   <meta property="og:type" content="website">
-  <title>Vamp Terminal · Your Mac, in tabs</title>
+  <title>Vamp Suite · One private workspace</title>
   <style>
     :root {
       color-scheme: dark;
@@ -167,7 +168,7 @@
     .feature-icon svg { width: 18px; height: 18px; }
     .feature-card h3 { margin: 0 0 8px; font-size: 20px; letter-spacing: -.04em; }
     .feature-card p { margin: 0; color: var(--text-soft); font-size: 14px; }
-    .host-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .host-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
     .host-card { min-height: 250px; padding: 24px; border-radius: 21px; }
     .host-card h3 { margin: 0 0 8px; font-size: 21px; letter-spacing: -.04em; }
     .host-card p { margin: 0; color: var(--text-soft); font-size: 14px; }
@@ -257,7 +258,7 @@
     .terminal-demo-body .dim { color: #74746e; }
     .install { margin-top: 110px; }
     .install-intro { max-width: 640px; }
-    .install-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 24px; }
+    .install-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 24px; }
     .install-track { display: flex; flex-direction: column; min-height: 100%; padding: 24px; border-radius: 22px; }
     .install-track.featured { border-color: rgba(255,255,255,.28); background: linear-gradient(145deg, rgba(255,255,255,.105), rgba(255,255,255,.035)); }
     .install-track-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
@@ -282,6 +283,10 @@
     .source-code code { white-space: pre; }
     .source-code .copy-button { position: absolute; top: 10px; right: 10px; }
     .install-note { margin-top: 13px !important; color: var(--text-faint) !important; font-size: 12px !important; }
+    .version-panel { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 14px; padding: 24px; border-radius: 22px; }
+    .version-panel h3 { margin: 10px 0 8px; font-size: 24px; letter-spacing: -.045em; }
+    .version-panel p { max-width: 760px; margin: 0; color: var(--text-soft); font-size: 13px; }
+    .version-panel p strong { color: var(--text); }
     .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; counter-reset: step; }
     .step { position: relative; min-height: 230px; padding: 22px; border-radius: 19px; }
     .step::before { display: grid; place-items: center; width: 27px; height: 27px; margin-bottom: 32px; border: 1px solid var(--line); border-radius: 50%; color: var(--text-soft); content: counter(step); counter-increment: step; font: 12px var(--mono); }
@@ -316,7 +321,7 @@
       .hero { grid-template-columns: 1fr; gap: 30px; padding-top: 70px; }
       .hero-visual { min-height: 500px; }
       .signal-strip { grid-template-columns: repeat(2, 1fr); }
-      .feature-grid, .host-grid, .steps, .resource-grid { grid-template-columns: repeat(2, 1fr); }
+      .feature-grid, .host-grid, .steps, .resource-grid, .install-grid { grid-template-columns: repeat(2, 1fr); }
       .split, .compat, .preview-grid, .stream-grid { grid-template-columns: 1fr; }
       .split-copy { padding-right: 0; }
       .preview-grid { align-items: stretch; }
@@ -349,6 +354,8 @@
       .agent-list { grid-template-columns: 1fr; }
       .code-panel { grid-template-columns: 1fr; }
       .code-panel .copy-button { justify-self: start; }
+      .version-panel { display: block; }
+      .version-panel .install-actions { margin-top: 18px; }
       .footer-row { display: block; }
       .footer-links { margin-top: 15px; }
     }
@@ -369,16 +376,16 @@
 <body>
   <header class="site-header">
     <nav class="nav wrap" aria-label="Primary navigation">
-      <a class="brand" href="#top" aria-label="Vamp Terminal home">
+      <a class="brand" href="#top" aria-label="Vamp Suite home">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5h14v9H5z"/><path d="m8 10 2 2-2 2m4 0h3"/></svg>
         </span>
-        <span>Vamp Terminal <small>for Vamp Host</small></span>
+        <span>Vamp Suite <small>repository: macpair</small></span>
       </a>
       <div class="nav-links">
-        <a href="#features">Features</a>
+        <a href="#features">Suite</a>
         <a href="#safari">Safari</a>
-        <a href="#hosts">Hosts</a>
+        <a href="#hosts">Apps</a>
         <a href="#cli">CLI</a>
         <a href="#stream">Stream</a>
         <a href="#install">Install</a>
@@ -396,25 +403,26 @@
   <main id="top">
     <section class="hero wrap">
       <div>
-        <div class="eyebrow">Open source · Tailscale native · AltStore ready</div>
-        <h1>Your Mac,<br><em>in tabs.</em></h1>
-        <p class="hero-copy">Vamp Terminal is a focused iPhone and iPad terminal for Vamp Host. Keep eight independent shells alive, switch instantly, and take your command line with you.</p>
+        <div class="eyebrow">Vamp Suite · macOS · iOS · iPadOS · Linux</div>
+        <h1>One private<br><em>workspace.</em></h1>
+        <p class="hero-copy">Vamp Suite is the current product family in the <code>macpair</code> repository: full remote control, a terminal-only Mac host, multi-tab iPhone and iPad access, Safari task chat, and a dependency-free Linux browser host.</p>
         <div class="hero-actions">
-          <a class="button primary" href="https://github.com/Mesutcydev/macpair/releases" target="_blank" rel="noreferrer">Get the latest build ↗</a>
-          <a class="button quiet" href="#install">How to install</a>
+          <a class="button primary" href="#hosts">Explore the suite ↓</a>
+          <a class="button quiet" href="#install">Install current builds</a>
         </div>
         <div class="hero-meta" aria-label="Product compatibility">
-          <span class="pill"><i class="dot"></i> iOS / iPadOS 18+</span>
+          <span class="pill"><i class="dot"></i> 4 native apps</span>
+          <span class="pill">Linux browser host</span>
           <span class="pill">8 concurrent PTYs</span>
           <span class="pill">No hosted relay</span>
         </div>
       </div>
-      <div class="hero-visual" aria-label="Vamp Terminal preview">
+      <div class="hero-visual" aria-label="Vamp Suite preview">
         <div class="phone" aria-hidden="true">
           <div class="phone-screen">
             <div class="phone-status"><span>1:53</span><span>◼︎ ◼︎ ◼︎</span></div>
-            <div class="phone-title">Vamp Terminal</div>
-            <div class="mini-tabs"><span class="mini-tab active">work</span><span class="mini-tab">agent</span><span class="mini-tab">logs</span></div>
+            <div class="phone-title">Vamp Suite</div>
+            <div class="mini-tabs"><span class="mini-tab active">terminal</span><span class="mini-tab">remote</span><span class="mini-tab">safari</span></div>
             <div class="mini-terminal">
               <div class="muted">~/Projects/vamp-terminal</div>
               <div><span class="prompt">$</span> git status</div>
@@ -430,17 +438,17 @@
       </div>
     </section>
 
-    <section class="signal-strip wrap" aria-label="Vamp Terminal facts">
+    <section class="signal-strip wrap" aria-label="Vamp Suite facts">
+      <div class="signal"><strong>4</strong><span>native apps in one suite</span></div>
+      <div class="signal"><strong>1</strong><span>Linux browser companion</span></div>
       <div class="signal"><strong>8</strong><span>independent terminal tabs</span></div>
-      <div class="signal"><strong>0</strong><span>public ports or hosted relays</span></div>
-      <div class="signal"><strong>2-way</strong><span>clipboard sync with the Mac</span></div>
-      <div class="signal"><strong>1 tap</strong><span>to switch without reopening a shell</span></div>
+      <div class="signal"><strong>2-way</strong><span>clipboard sync with the host</span></div>
     </section>
 
     <section class="wrap" id="features">
       <div class="section-head">
-        <div><div class="eyebrow">A mobile terminal with desktop habits</div><h2>Everything stays in its place.</h2></div>
-        <p>Vamp Terminal is designed around the moments that usually make an iPhone terminal frustrating: tiny controls, lost sessions, and tabs that secretly restart.</p>
+        <div><div class="eyebrow">One suite, every surface</div><h2>Everything stays in its place.</h2></div>
+        <p>Vamp Suite keeps remote desktop, terminal tabs, Safari control, and Linux access in one understandable product family, with private LAN or Tailscale transport.</p>
       </div>
       <div class="feature-grid">
         <article class="feature-card glass"><div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4m-4 3h7m-7 3h3"/></svg></div><h3>Live tabs, real shells</h3><p>Each tab owns an independent PTY. Switching visibility never closes and reopens the process underneath.</p></article>
@@ -483,13 +491,14 @@ No output yet.</pre>
 
     <section class="wrap" id="hosts" style="margin-top:110px">
       <div class="section-head">
-        <div><div class="eyebrow">Choose the host surface</div><h2>One terminal protocol. Three ways to run it.</h2></div>
-        <p>Use the original Vamp Host when you want remote desktop plus terminal access, or install the smaller terminal-only host when that is all the Mac should expose.</p>
+        <div><div class="eyebrow">Choose the right surface</div><h2>One suite. Four apps and a Linux companion.</h2></div>
+        <p>The GitHub repository is still named <code>macpair</code>; the current product family is Vamp Suite. Use the full Vamp Host for remote control, the light host for terminal/Safari only, or choose the client that matches the device in your hand.</p>
       </div>
       <div class="host-grid">
         <article class="host-card glass"><span class="host-label">macOS · full host</span><h3>Vamp Host</h3><p>Remote display, input, and Terminal Mode in one host. Terminal Mode is explicit and supports up to eight tabs for the Vamp Terminal client.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-13/VampHost-macOS-3.2.0-build-13-adhoc.zip" target="_blank" rel="noreferrer">Download full host · build 13 ↗</a></article>
         <article class="host-card glass"><span class="host-label">macOS · light host</span><h3>Vamp Terminal Host</h3><p>A focused companion with terminal sessions, Safari control, pairing, Tailscale discovery, and no screen-capture or remote-input surface.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-13/VampTerminalHost-macOS-1.0.0-build-13-adhoc.zip" target="_blank" rel="noreferrer">Download light host · build 13 ↗</a></article>
         <article class="host-card glass"><span class="host-label">Linux · browser host</span><h3>Vamp Terminal Linux Host</h3><p>Dependency-free Python host with eight PTYs per browser connection. Keep it on loopback and expose it with Tailscale Serve for Safari access.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/blob/agent/vamp-terminal/linux-host/README.md" target="_blank" rel="noreferrer">Run on Linux ↗</a></article>
+        <article class="host-card glass"><span class="host-label">iOS · iPadOS 18+</span><h3>Vamp Remote Control Client</h3><p>The original client for Vamp Host remote display, pointer, keyboard, clipboard, and file workflows. The current source target remains available for building.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/tree/agent/vamp-terminal/Sources/ClientiOS" target="_blank" rel="noreferrer">Open client source ↗</a></article>
       </div>
     </section>
 
@@ -589,8 +598,8 @@ No output yet.</pre>
 
     <section class="install wrap" id="install">
       <div class="section-head">
-        <div class="install-intro"><div class="eyebrow">Download & install · build 13</div><h2>Bring Vamp Terminal to the device you own.</h2></div>
-        <p>The iOS client is an unsigned AltStore IPA. macOS hosts are ad-hoc signed ZIPs. Linux runs from source. No legacy project, DMG, hosted relay, or public port is involved.</p>
+        <div class="install-intro"><div class="eyebrow">Download & install · current line</div><h2>Bring the Vamp Suite to the devices you own.</h2></div>
+        <p>The current public line is Vamp Terminal 1.0.0 · build 13: an unsigned AltStore IPA, two ad-hoc signed macOS hosts, and a Linux host that runs from source. The older MacPair release remains archived below for compatibility; it is not the current product line.</p>
       </div>
       <div class="install-grid">
         <article class="install-track glass featured">
@@ -606,6 +615,17 @@ No output yet.</pre>
           <div class="install-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-13/VampTerminal-iOS-1.0.0-build-13-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download IPA ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/agent/vamp-terminal/docs/VAMP_TERMINAL_SIDELOAD.md" target="_blank" rel="noreferrer">AltStore guide ↗</a></div>
         </article>
         <article class="install-track glass">
+          <div class="install-track-top"><span class="install-kicker">iPhone & iPad</span><span class="build-pill">source target</span></div>
+          <h3>Vamp Remote Control Client</h3>
+          <p>Build the original remote-control client from the current iOS source target for Vamp Host display and input sessions.</p>
+          <ol class="install-list">
+            <li><span><strong>Open</strong> the ClientiOS source target.</span></li>
+            <li><span><strong>Build</strong> for your own device or simulator.</span></li>
+            <li><span><strong>Pair</strong> with a Vamp Host after approval.</span></li>
+          </ol>
+          <div class="install-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/tree/agent/vamp-terminal/Sources/ClientiOS" target="_blank" rel="noreferrer">Open source ↗</a></div>
+        </article>
+        <article class="install-track glass">
           <div class="install-track-top"><span class="install-kicker">macOS host</span><span class="build-pill">build 13</span></div>
           <h3>Choose your host</h3>
           <p>Install one host on the Mac. Both expose the same signed pairing and terminal protocol.</p>
@@ -617,9 +637,13 @@ No output yet.</pre>
         </article>
       </div>
       <div class="source-panel glass">
-        <div><div class="eyebrow">Build from source</div><h3>The active Vamp project.</h3><p>These are the current commands. They use <code>RemoteDesktopToolApps.xcodeproj</code> and produce only Vamp Terminal artifacts.</p><p class="install-note">Output: <code>dist/VampTerminal/</code> and <code>dist/VampTerminalHosts/</code>.</p></div>
+        <div><div class="eyebrow">Build from source</div><h3>The active Vamp project.</h3><p>These are the current commands. They use <code>RemoteDesktopToolApps.xcodeproj</code> and produce the current Vamp Suite artifacts.</p><p class="install-note">Output: <code>dist/VampTerminal/</code> and <code>dist/VampTerminalHosts/</code>.</p></div>
         <pre class="source-code"><button class="copy-button" type="button" data-copy="scripts/package-vamp-terminal-ios.sh --clean\nscripts/package-vamp-hosts.sh --clean">Copy</button><code>scripts/package-vamp-terminal-ios.sh --clean
 scripts/package-vamp-hosts.sh --clean</code></pre>
+      </div>
+      <div class="version-panel glass">
+        <div><div class="eyebrow">Version map</div><h3>One current line. One historical archive.</h3><p><strong>Current:</strong> Vamp Terminal 1.0.0 · build 13, with Vamp Host 3.2.0 and Vamp Terminal Host 1.0.0 host archives. <strong>Legacy:</strong> MacPair 1.0.10 is kept only for older installs and is not the recommended suite.</p></div>
+        <div class="install-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-13" target="_blank" rel="noreferrer">Current release ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/releases/tag/v1.0.10" target="_blank" rel="noreferrer">Legacy archive ↗</a></div>
       </div>
       <div class="install-grid">
         <article class="install-track glass">
@@ -663,7 +687,7 @@ scripts/package-vamp-hosts.sh --clean</code></pre>
     </section>
 
     <section class="resources wrap" id="resources">
-      <div class="section-head"><div><div class="eyebrow">Everything you need next</div><h2>Bring your own workflow.</h2></div><p>Vamp Terminal is a focused client. The rest of the project stays open for inspection, automation, and contribution.</p></div>
+      <div class="section-head"><div><div class="eyebrow">Everything you need next</div><h2>Bring your own workflow.</h2></div><p>Vamp Suite is the product family. The macpair repository stays open for inspection, automation, and contribution.</p></div>
       <div class="resource-grid">
         <article class="resource glass"><div><h3>Source & issues</h3><p>Read the code, report a bug, or propose a better terminal workflow.</p></div><a href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">Open repository</a></article>
         <article class="resource glass"><div><h3>Safari control</h3><p>Pair the browser workspace and expose it through Tailscale Serve.</p></div><a href="https://github.com/Mesutcydev/macpair/blob/agent/vamp-terminal/docs/VAMP_TERMINAL_SIDELOAD.md#control-from-safari-without-the-ios-app" target="_blank" rel="noreferrer">Follow the steps</a></article>
@@ -673,7 +697,7 @@ scripts/package-vamp-hosts.sh --clean</code></pre>
   </main>
 
   <footer class="site-footer">
-      <div class="footer-row wrap"><span>© <span id="year"></span> Vamp Terminal · build 13 · Apache 2.0</span><div class="footer-links"><a href="https://github.com/Mesutcydev/macpair/blob/main/LICENSE" target="_blank" rel="noreferrer">License</a><a href="https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md" target="_blank" rel="noreferrer">Security</a><a href="https://github.com/Mesutcydev/macpair/issues" target="_blank" rel="noreferrer">Issues</a><a href="https://github.com/Mesutcydev/macpair/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer">Contribute</a></div></div>
+      <div class="footer-row wrap"><span>© <span id="year"></span> Vamp Suite · current build 13 · repository: macpair · Apache 2.0</span><div class="footer-links"><a href="https://github.com/Mesutcydev/macpair/blob/main/LICENSE" target="_blank" rel="noreferrer">License</a><a href="https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md" target="_blank" rel="noreferrer">Security</a><a href="https://github.com/Mesutcydev/macpair/issues" target="_blank" rel="noreferrer">Issues</a><a href="https://github.com/Mesutcydev/macpair/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer">Contribute</a></div></div>
   </footer>
 
   <script>
