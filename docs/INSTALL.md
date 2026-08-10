@@ -6,6 +6,8 @@ four separate install surfaces:
 | Surface | Artifact | Use it for |
 | --- | --- | --- |
 | iPhone / iPad | `VampTerminal-iOS-1.0.0-build-16-altstore-unsigned.ipa` | Multi-tab terminal client |
+| iPhone / iPad | `VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa` | Vamp Host remote-control client |
+| macOS | `VampRemote-macOS-1.3.15-build-32-unsigned.zip` | Vamp Host remote-control client |
 | macOS | `VampHost-macOS-3.2.0-build-16-adhoc.zip` | Full Vamp Host: remote clients plus optional Terminal Mode |
 | macOS | `VampTerminalHost-macOS-1.0.0-build-16-adhoc.zip` | Terminal-only host with Safari control and Tailscale |
 | Linux | `linux-host/vamp_terminal_host.py` | Browser-only terminal host |
@@ -29,6 +31,15 @@ The current downloads are in the [build 16 GitHub release](https://github.com/Me
 The IPA is intentionally unsigned. AltStore signs it with the Apple ID/team
 configured on the installing device. No project certificate or provisioning
 profile is distributed.
+
+## Remote-control client downloads
+
+The current Vamp Remote builds are attached to the [Vamp Terminal build 16 release](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-16):
+
+- [iOS IPA](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-16/VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa) — unsigned; import with AltStore or another compatible sideloader.
+- [iOS checksum](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-16/VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa.sha256)
+- [macOS ZIP](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-16/VampRemote-macOS-1.3.15-build-32-unsigned.zip) — unzip and move Vamp Remote to Applications.
+- [macOS checksum](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-16/VampRemote-macOS-1.3.15-build-32-unsigned.zip.sha256)
 
 ## 2. Install a macOS host
 
