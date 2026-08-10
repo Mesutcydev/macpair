@@ -151,23 +151,31 @@ public enum HostWidgetAction: String, Codable, Sendable {
 public enum HostWidgetStore {
     /// Signed widget builds use their App Group. The account-independent website
     /// build has no Apple team entitlement and uses an ordinary app support folder.
-    private static var containerURL: URL? {
+    private static func containerURL(namespace: String? = nil) -> URL? {
         // An unsigned direct-download build can still see an old on-disk App Group
         // container even though it has no application-groups entitlement. Use the
         // shared container only for sandboxed builds; otherwise keep state isolated
         // in the Vamp Host Application Support directory.
         if ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil,
-           let url = FileManager.default
+           var url = FileManager.default
                 .containerURL(forSecurityApplicationGroupIdentifier: HostWidgetConstants.appGroup) {
+            if let namespace, !namespace.isEmpty {
+                url.appendPathComponent(namespace, isDirectory: true)
+            }
             return url
         }
-        return FileManager.default.homeDirectoryForCurrentUser
+        var url = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support", isDirectory: true)
-            .appendingPathComponent("Vamp Host", isDirectory: true)
+        if let namespace, !namespace.isEmpty {
+            url.appendPathComponent(namespace, isDirectory: true)
+        } else {
+            url.appendPathComponent("Vamp Host", isDirectory: true)
+        }
+        return url
     }
 
-    private static func fileURL(_ name: String) -> URL? {
-        guard let dir = containerURL else { return nil }
+    private static func fileURL(_ name: String, namespace: String? = nil) -> URL? {
+        guard let dir = containerURL(namespace: namespace) else { return nil }
         if !FileManager.default.fileExists(atPath: dir.path) {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         }
@@ -176,14 +184,14 @@ public enum HostWidgetStore {
 
     // MARK: Snapshot
 
-    public static func save(_ snapshot: HostWidgetSnapshot) {
-        guard let url = fileURL(HostWidgetConstants.snapshotKey + ".json"),
+    public static func save(_ snapshot: HostWidgetSnapshot, namespace: String? = nil) {
+        guard let url = fileURL(HostWidgetConstants.snapshotKey + ".json", namespace: namespace),
               let data = try? JSONEncoder().encode(snapshot) else { return }
         try? data.write(to: url, options: .atomic)
     }
 
-    public static func loadSnapshot() -> HostWidgetSnapshot? {
-        guard let url = fileURL(HostWidgetConstants.snapshotKey + ".json"),
+    public static func loadSnapshot(namespace: String? = nil) -> HostWidgetSnapshot? {
+        guard let url = fileURL(HostWidgetConstants.snapshotKey + ".json", namespace: namespace),
               let data = try? Data(contentsOf: url),
               let snapshot = try? JSONDecoder().decode(HostWidgetSnapshot.self, from: data)
         else { return nil }
@@ -192,14 +200,14 @@ public enum HostWidgetStore {
 
     // MARK: Pending action (widget -> app)
 
-    public static func setPendingAction(_ action: HostWidgetAction) {
-        guard let url = fileURL(HostWidgetConstants.pendingActionKey + ".json") else { return }
+    public static func setPendingAction(_ action: HostWidgetAction, namespace: String? = nil) {
+        guard let url = fileURL(HostWidgetConstants.pendingActionKey + ".json", namespace: namespace) else { return }
         try? Data(action.rawValue.utf8).write(to: url, options: .atomic)
     }
 
     /// Returns and clears the pending action, if any.
-    public static func consumePendingAction() -> HostWidgetAction? {
-        guard let url = fileURL(HostWidgetConstants.pendingActionKey + ".json"),
+    public static func consumePendingAction(namespace: String? = nil) -> HostWidgetAction? {
+        guard let url = fileURL(HostWidgetConstants.pendingActionKey + ".json", namespace: namespace),
               let data = try? Data(contentsOf: url),
               let raw = String(data: data, encoding: .utf8),
               let action = HostWidgetAction(rawValue: raw)

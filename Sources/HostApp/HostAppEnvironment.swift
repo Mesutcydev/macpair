@@ -569,9 +569,13 @@ final class HostAppEnvironment: ObservableObject {
     #if os(macOS)
     /// Start the desktop-widget bridge (status publishing + action handling).
     /// Called from the app delegate so it runs regardless of window/scene state.
-    func activateWidgetBridge() {
+    func activateWidgetBridge(hostName: String? = nil, snapshotNamespace: String? = nil) {
         guard widgetBridge == nil else { return }
-        let bridge = HostWidgetBridge(environment: self)
+        let bridge = HostWidgetBridge(
+            environment: self,
+            hostName: hostName,
+            snapshotNamespace: snapshotNamespace
+        )
         widgetBridge = bridge
         bridge.start()
         refreshWidgetInstallSuppression()
@@ -602,17 +606,17 @@ final class HostAppEnvironment: ObservableObject {
 
     /// Write an "offline" snapshot so the widget reflects that the host app is no
     /// longer running (instead of showing a stale "ready").
-    func publishWidgetOffline() {
+    func publishWidgetOffline(snapshotNamespace: String? = nil) {
         let snapshot = HostWidgetSnapshot(
             phase: .idle,
             statusTitle: "host app closed",
-            hostName: "vamp host",
+            hostName: hostIdentity.displayName,
             primaryAddress: nil,
             addressLabel: nil,
             connectedClient: nil,
             updatedAt: Date()
         )
-        HostWidgetStore.save(snapshot)
+        HostWidgetStore.save(snapshot, namespace: snapshotNamespace)
         WidgetCenter.shared.reloadTimelines(ofKind: HostWidgetConstants.widgetKind)
     }
     #endif

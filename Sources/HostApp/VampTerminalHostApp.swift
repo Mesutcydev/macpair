@@ -51,8 +51,20 @@ final class VampTerminalHostAppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        HostAppEnvironment.shared?.publishWidgetOffline(snapshotNamespace: "Vamp Terminal Host")
+    }
+
     private func startRuntimeWhenReady(attempt: Int) {
         if let environment = HostAppEnvironment.shared {
+            // Keep the terminal-only host's trust request and status isolated
+            // from the full Vamp Host when both apps are installed. This is
+            // also the file consumed by the light host's bundled `vamp` CLI,
+            // so pairing approval does not silently target the wrong product.
+            environment.activateWidgetBridge(
+                hostName: environment.hostIdentity.displayName,
+                snapshotNamespace: "Vamp Terminal Host"
+            )
             Task { @MainActor in
                 await environment.startRuntimeIfNeeded()
             }

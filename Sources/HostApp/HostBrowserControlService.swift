@@ -2811,6 +2811,16 @@ if (vampPairFromURL) {
       return;
     }
     if (tab.pendingCommand) {
+      // A shell or agent is allowed to suppress/transform PTY echo. Waiting
+      // forever for an exact rendered copy of the command made the Chat view
+      // look frozen even though the host was producing a real response. Once
+      // this frame contains visible non-prompt text, promote it immediately;
+      // the terminal buffer remains the source of truth for Raw mode.
+      const visible = vampNormalizeChatOutput(text, tab);
+      if (visible) {
+        tab.pendingCommand = null;
+        updateOutputCard(id, visible, false);
+      }
       if (active !== id) { tab.unread = true; renderTabs(); }
       return;
     }
@@ -2832,6 +2842,7 @@ if (vampPairFromURL) {
     const tab = tabs.get(tabID);
     if (tab) {
       tab.pendingCommand = value;
+      tab.pendingOutputFrames = 0;
       tab.followOutput = true;
       tab.outputCard = null;
       tab.outputText = '';

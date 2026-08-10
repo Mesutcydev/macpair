@@ -1,7 +1,7 @@
 # Vamp host products
 
-[Download Vamp Host build 9](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-11/VampHost-macOS-3.2.0-build-9-adhoc.zip) ·
-[Download Vamp Terminal Host build 9](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-11/VampTerminalHost-macOS-1.0.0-build-9-adhoc.zip)
+[Download Vamp Host build 9](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-12/VampHost-macOS-3.2.0-build-9-adhoc.zip) ·
+[Download Vamp Terminal Host build 9](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-12/VampTerminalHost-macOS-1.0.0-build-9-adhoc.zip)
 
 Vamp Terminal is the iPhone/iPad client. It can connect to either of these
 macOS host products:

@@ -18,14 +18,18 @@ import WidgetKit
 @MainActor
 final class HostWidgetBridge {
     private weak var environment: HostAppEnvironment?
+    private let hostNameOverride: String?
+    private let snapshotNamespace: String?
     private var cancellables = Set<AnyCancellable>()
     private var publishWorkItem: DispatchWorkItem?
     private var darwinRegistered = false
     private var pollTimer: Timer?
     private var pollTick = 0
 
-    init(environment: HostAppEnvironment) {
+    init(environment: HostAppEnvironment, hostName: String? = nil, snapshotNamespace: String? = nil) {
         self.environment = environment
+        self.hostNameOverride = hostName
+        self.snapshotNamespace = snapshotNamespace
     }
 
     deinit {
@@ -143,14 +147,14 @@ final class HostWidgetBridge {
         let snapshot = HostWidgetSnapshot(
             phase: widgetPhase,
             statusTitle: statusTitle,
-            hostName: "vamp host",
+            hostName: hostNameOverride ?? environment.hostIdentity.displayName,
             primaryAddress: address,
             addressLabel: address == nil ? nil : "lan",
             connectedClient: environment.sessionCoordinator.connectedClientName,
             pendingPairingRequest: pendingPairingRequest,
             updatedAt: Date()
         )
-        HostWidgetStore.save(snapshot)
+        HostWidgetStore.save(snapshot, namespace: snapshotNamespace)
         reloadWidget()
     }
 
@@ -208,7 +212,7 @@ final class HostWidgetBridge {
     }
 
     private func applyPendingAction() {
-        guard let environment, let action = HostWidgetStore.consumePendingAction() else { return }
+        guard let environment, let action = HostWidgetStore.consumePendingAction(namespace: snapshotNamespace) else { return }
         Task { @MainActor in
             switch action {
             case .start:

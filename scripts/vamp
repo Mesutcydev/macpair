@@ -28,7 +28,13 @@ HOST_DISPLAY_OVERRIDE="${VAMP_HOST_DISPLAY_NAME:-}"
 URL_SCHEME_OVERRIDE="${VAMP_HOST_URL_SCHEME:-}"
 BUNDLE_ID="${HOST_BUNDLE_ID_OVERRIDE:-$FULL_BUNDLE_ID}"
 URL_SCHEME="${URL_SCHEME_OVERRIDE:-vamphost}"
-SNAPSHOT_FILE="${VAMP_HOST_SNAPSHOT_FILE:-${HOME}/Library/Application Support/Vamp Host/host.widget.snapshot.json}"
+if [[ -n "${VAMP_HOST_SNAPSHOT_FILE:-}" ]]; then
+  SNAPSHOT_FILE="$VAMP_HOST_SNAPSHOT_FILE"
+elif [[ "$HOST_BUNDLE_ID_OVERRIDE" == "$LIGHT_BUNDLE_ID" || "$0" == *"/Vamp Terminal Host.app/Contents/Resources/vamp" ]]; then
+  SNAPSHOT_FILE="${HOME}/Library/Application Support/Vamp Terminal Host/host.widget.snapshot.json"
+else
+  SNAPSHOT_FILE="${HOME}/Library/Application Support/Vamp Host/host.widget.snapshot.json"
+fi
 APP_DISPLAY_NAME="${HOST_DISPLAY_OVERRIDE:-Vamp Host}"
 SIGNALING_PORT=9471
 JSON=0
@@ -71,7 +77,36 @@ log() { [[ "$JSON" -eq 1 ]] || printf '%s\n' "$*"; }
 err() { printf '%s\n' "$*" >&2; }
 
 resolve_app_path() {
-  local candidate
+  local candidate candidate_bundle
+
+  # When both products are installed, an explicit bundle selection must win
+  # over the conventional-path order. The old implementation always returned
+  # Vamp Host first, so `VAMP_HOST_BUNDLE_ID=...terminalhost vamp pending`
+  # silently inspected the wrong app and could never approve the light host.
+  if [[ -n "$HOST_BUNDLE_ID_OVERRIDE" ]]; then
+    for candidate in "/Applications/Vamp Host.app" "/Applications/Vamp Terminal Host.app" "/Applications/MacPair Host.app" "/Applications/ScreenHarbor Host.app"; do
+      if [[ -d "$candidate" ]]; then
+        candidate_bundle=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$candidate/Contents/Info.plist" 2>/dev/null || true)
+        if [[ "$candidate_bundle" == "$HOST_BUNDLE_ID_OVERRIDE" ]]; then
+          printf '%s' "$candidate"
+          return 0
+        fi
+      fi
+    done
+  fi
+
+  # A CLI launched from inside the light app should address that app even when
+  # the full Vamp Host is installed alongside it. This keeps the shipped
+  # terminal-only host self-contained while preserving the full-host default
+  # for a standalone `/usr/local/bin/vamp` install.
+  if [[ "$0" == *"/Vamp Terminal Host.app/Contents/Resources/vamp" && -d "/Applications/Vamp Terminal Host.app" ]]; then
+    BUNDLE_ID="$LIGHT_BUNDLE_ID"
+    [[ -n "$URL_SCHEME_OVERRIDE" ]] || URL_SCHEME="vampterminalhost"
+    [[ -n "$HOST_DISPLAY_OVERRIDE" ]] || APP_DISPLAY_NAME="Vamp Terminal Host"
+    printf '%s' "/Applications/Vamp Terminal Host.app"
+    return 0
+  fi
+
   # Direct-download installs are often not indexed by Spotlight yet. Prefer the
   # conventional app locations before falling back to metadata search.
   for candidate in "/Applications/Vamp Host.app" "/Applications/Vamp Terminal Host.app" "/Applications/MacPair Host.app" "/Applications/ScreenHarbor Host.app"; do

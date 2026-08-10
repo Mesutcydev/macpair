@@ -720,7 +720,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
     func sendCommand(tabID: UUID, text: String) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
         let command = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty else { return }
+        guard !command.isEmpty, tabs[index].session.canSendInput else { return }
         let data = Data((command + "\n").utf8)
         tabs[index].chat.recordInput(data)
         tabs[index].session.sendInput(data)

@@ -37,6 +37,7 @@ final class ClientTerminalSessionManager: ObservableObject {
     /// without racing bytes into a PTY that does not exist yet.
     private var pendingInput = Data()
     private let pendingInputLimit = TerminalInputMessage.maxChunkBytes
+    private var pendingInputRetryTask: Task<Void, Never>?
     /// Drops chunks older than this once `outputBacklogCap` is reached so a
     /// long-lived session doesn't grow memory unboundedly.
     private let outputBacklogCap = 256
@@ -45,6 +46,8 @@ final class ClientTerminalSessionManager: ObservableObject {
     // MARK: - Session lifecycle
 
     func activate(sessionID: UUID, send: @escaping (DataChannelEnvelope) throws -> Void) {
+        pendingInputRetryTask?.cancel()
+        pendingInputRetryTask = nil
         self.sessionID = sessionID
         self.sendEnvelope = send
         self.state = .idle
@@ -56,6 +59,8 @@ final class ClientTerminalSessionManager: ObservableObject {
     }
 
     func deactivate() {
+        pendingInputRetryTask?.cancel()
+        pendingInputRetryTask = nil
         if let terminalID, let sessionID, (state == .open || state == .opening) {
             // Best-effort polite close so the host can teardown the shell.
             let message = TerminalCloseMessage(sessionID: sessionID, terminalID: terminalID, reason: "client-disconnect")
@@ -187,7 +192,15 @@ final class ClientTerminalSessionManager: ObservableObject {
             pendingInput.append(data)
             return
         }
-        _ = sendRawInput(data, sessionID: sessionID, terminalID: terminalID, sendEnvelope: sendEnvelope)
+        if !sendRawInput(data, sessionID: sessionID, terminalID: terminalID, sendEnvelope: sendEnvelope) {
+            // A data channel can report open before its SCTP transport is
+            // writable on a Tailscale wake/reconnect. Keep the bytes local and
+            // retry briefly instead of making a tap, paste, or Return appear
+            // to do nothing.
+            guard pendingInput.count + data.count <= pendingInputLimit else { return }
+            pendingInput.append(data)
+            schedulePendingInputRetry()
+        }
     }
 
     func requestResize(cols: UInt16, rows: UInt16) {
@@ -277,6 +290,27 @@ final class ClientTerminalSessionManager: ObservableObject {
         var retry = data
         retry.append(pendingInput)
         pendingInput = Data(retry.prefix(pendingInputLimit))
+        schedulePendingInputRetry()
+    }
+
+    private func schedulePendingInputRetry() {
+        guard pendingInputRetryTask == nil else { return }
+        pendingInputRetryTask = Task { [weak self] in
+            for _ in 0..<12 {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                guard !Task.isCancelled, let self else { return }
+                guard self.state == .open, !self.pendingInput.isEmpty else {
+                    self.pendingInputRetryTask = nil
+                    return
+                }
+                self.flushPendingInput()
+                if self.pendingInput.isEmpty {
+                    self.pendingInputRetryTask = nil
+                    return
+                }
+            }
+            self?.pendingInputRetryTask = nil
+        }
     }
 
     @discardableResult
