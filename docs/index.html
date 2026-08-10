@@ -497,8 +497,8 @@ No output yet.</pre>
       <div class="host-grid">
         <article class="host-card glass"><span class="host-label">macOS · full host</span><h3>Vamp Host</h3><p>Remote display, input, and Terminal Mode in one host. Terminal Mode is explicit and supports up to eight tabs for the Vamp Terminal client.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-15/VampHost-macOS-3.2.0-build-15-adhoc.zip" target="_blank" rel="noreferrer">Download full host · build 15 ↗</a></article>
         <article class="host-card glass"><span class="host-label">macOS · light host</span><h3>Vamp Terminal Host</h3><p>A focused companion with terminal sessions, Safari control, pairing, Tailscale discovery, and no screen-capture or remote-input surface.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-15/VampTerminalHost-macOS-1.0.0-build-15-adhoc.zip" target="_blank" rel="noreferrer">Download light host · build 15 ↗</a></article>
-        <article class="host-card glass"><span class="host-label">Linux · browser host</span><h3>Vamp Terminal Linux Host</h3><p>Dependency-free Python host with eight PTYs per browser connection. Keep it on loopback and expose it with Tailscale Serve for Safari access.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/blob/agent/vamp-terminal/linux-host/README.md" target="_blank" rel="noreferrer">Run on Linux ↗</a></article>
-        <article class="host-card glass"><span class="host-label">iOS · iPadOS 18+</span><h3>Vamp Remote Control Client</h3><p>The original client for Vamp Host remote display, pointer, keyboard, clipboard, and file workflows. The current source target remains available for building.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/tree/agent/vamp-terminal/Sources/ClientiOS" target="_blank" rel="noreferrer">Open client source ↗</a></article>
+        <article class="host-card glass"><span class="host-label">Linux · browser host</span><h3>Vamp Terminal Linux Host</h3><p>Dependency-free Python host with eight PTYs per browser connection. Keep it on loopback and expose it with Tailscale Serve for Safari access.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/blob/main/linux-host/README.md" target="_blank" rel="noreferrer">Run on Linux ↗</a></article>
+        <article class="host-card glass"><span class="host-label">iOS · iPadOS 18+</span><h3>Vamp Remote Control Client</h3><p>The original client for Vamp Host remote display, pointer, keyboard, clipboard, and file workflows. The current source target remains available for building.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/tree/main/Sources/ClientiOS" target="_blank" rel="noreferrer">Open client source ↗</a></article>
       </div>
     </section>
 
@@ -612,7 +612,7 @@ No output yet.</pre>
             <li><span><strong>Import</strong> with AltStore → + → Sideload IPA.</span></li>
             <li><span><strong>Allow Local Network</strong>, then pair with a host.</span></li>
           </ol>
-          <div class="install-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-15/VampTerminal-iOS-1.0.0-build-15-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download IPA ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/agent/vamp-terminal/docs/VAMP_TERMINAL_SIDELOAD.md" target="_blank" rel="noreferrer">AltStore guide ↗</a></div>
+          <div class="install-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-15/VampTerminal-iOS-1.0.0-build-15-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download IPA ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_SIDELOAD.md" target="_blank" rel="noreferrer">AltStore guide ↗</a></div>
         </article>
         <article class="install-track glass">
           <div class="install-track-top"><span class="install-kicker">iPhone & iPad</span><span class="build-pill">source target</span></div>
@@ -623,7 +623,7 @@ No output yet.</pre>
             <li><span><strong>Build</strong> for your own device or simulator.</span></li>
             <li><span><strong>Pair</strong> with a Vamp Host after approval.</span></li>
           </ol>
-          <div class="install-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/tree/agent/vamp-terminal/Sources/ClientiOS" target="_blank" rel="noreferrer">Open source ↗</a></div>
+          <div class="install-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/tree/main/Sources/ClientiOS" target="_blank" rel="noreferrer">Open source ↗</a></div>
         </article>
         <article class="install-track glass">
           <div class="install-track-top"><span class="install-kicker">macOS host</span><span class="build-pill">build 15</span></div>
@@ -652,16 +652,16 @@ scripts/package-vamp-hosts.sh --clean</code></pre>
           <p>Run the dependency-light Python host on loopback, then optionally publish it through Tailscale Serve.</p>
           <pre class="source-code" style="margin-top:20px"><code>scripts/vamp-linux-host \
   --listen 127.0.0.1 --port 9475</code></pre>
-          <div class="install-actions"><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/agent/vamp-terminal/linux-host/README.md" target="_blank" rel="noreferrer">Linux guide ↗</a></div>
+          <div class="install-actions"><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/main/linux-host/README.md" target="_blank" rel="noreferrer">Linux guide ↗</a></div>
         </article>
         <article class="install-track glass">
           <div class="install-track-top"><span class="install-kicker">After install</span><span class="build-pill">LAN or Tailscale</span></div>
           <h3>Pair once, then open tabs.</h3>
           <p>Open the host dashboard, approve the signed request, and use the displayed Tailscale address from Safari or the iOS app. On iPhone, <code>127.0.0.1</code> points to the phone—not the Mac.</p>
-          <div class="install-actions"><a class="button quiet" href="#hosts">Compare hosts</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/agent/vamp-terminal/docs/VAMP_TERMINAL_HOST.md" target="_blank" rel="noreferrer">Host setup ↗</a></div>
+        <div class="install-actions"><a class="button quiet" href="#hosts">Compare hosts</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_HOST.md" target="_blank" rel="noreferrer">Host setup ↗</a></div>
         </article>
       </div>
-      <div class="hero-actions"><a class="button quiet" href="https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-15" target="_blank" rel="noreferrer">Open build 15 release ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/agent/vamp-terminal/docs/INSTALL.md" target="_blank" rel="noreferrer">Read install reference ↗</a></div>
+      <div class="hero-actions"><a class="button quiet" href="https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-15" target="_blank" rel="noreferrer">Open build 15 release ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/main/docs/INSTALL.md" target="_blank" rel="noreferrer">Read install reference ↗</a></div>
     </section>
 
     <section class="compat wrap" id="security">
@@ -682,7 +682,7 @@ scripts/package-vamp-hosts.sh --clean</code></pre>
           <li>Session IDs and terminal IDs route every tab independently.</li>
           <li>No account backend, public port forwarding, or hosted relay is required.</li>
         </ul>
-        <div class="hero-actions"><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/agent/vamp-terminal/docs/xcode-security-settings.md" target="_blank" rel="noreferrer">Read the security audit ↗</a></div>
+        <div class="hero-actions"><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/main/docs/xcode-security-settings.md" target="_blank" rel="noreferrer">Read the security audit ↗</a></div>
       </div>
     </section>
 
@@ -690,8 +690,8 @@ scripts/package-vamp-hosts.sh --clean</code></pre>
       <div class="section-head"><div><div class="eyebrow">Everything you need next</div><h2>Bring your own workflow.</h2></div><p>Vamp Suite is the product family. The macpair repository stays open for inspection, automation, and contribution.</p></div>
       <div class="resource-grid">
         <article class="resource glass"><div><h3>Source & issues</h3><p>Read the code, report a bug, or propose a better terminal workflow.</p></div><a href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">Open repository</a></article>
-        <article class="resource glass"><div><h3>Safari control</h3><p>Pair the browser workspace and expose it through Tailscale Serve.</p></div><a href="https://github.com/Mesutcydev/macpair/blob/agent/vamp-terminal/docs/VAMP_TERMINAL_SIDELOAD.md#control-from-safari-without-the-ios-app" target="_blank" rel="noreferrer">Follow the steps</a></article>
-        <article class="resource glass"><div><h3>Agent integration</h3><p>Use the host CLI safely with tmux-backed agents and approval boundaries.</p></div><a href="https://github.com/Mesutcydev/macpair/blob/agent/vamp-terminal/docs/AGENT_INTEGRATION.md" target="_blank" rel="noreferrer">Read agent docs</a></article>
+        <article class="resource glass"><div><h3>Safari control</h3><p>Pair the browser workspace and expose it through Tailscale Serve.</p></div><a href="https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_SIDELOAD.md#control-from-safari-without-the-ios-app" target="_blank" rel="noreferrer">Follow the steps</a></article>
+        <article class="resource glass"><div><h3>Agent integration</h3><p>Use the host CLI safely with tmux-backed agents and approval boundaries.</p></div><a href="https://github.com/Mesutcydev/macpair/blob/main/docs/AGENT_INTEGRATION.md" target="_blank" rel="noreferrer">Read agent docs</a></article>
       </div>
     </section>
   </main>
