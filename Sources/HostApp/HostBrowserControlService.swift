@@ -51,6 +51,14 @@ enum HostBrowserPairingCode {
     static func generate() -> String {
         String(format: "%06d", Int.random(in: 0...999_999))
     }
+
+    static func isExpired(
+        issuedAt: Date,
+        at now: Date = Date(),
+        lifetime: TimeInterval
+    ) -> Bool {
+        now.timeIntervalSince(issuedAt) >= lifetime
+    }
 }
 
 /// Builds the private URL encoded in the host QR card. The authenticated
@@ -95,6 +103,10 @@ final class HostBrowserControlService: @unchecked Sendable {
     private var clients: [UUID: BrowserClient] = [:]
     private var pairingCode = HostBrowserPairingCode.generate()
     private var pairingCodeIssuedAt = Date()
+    /// Keeps the code shown in the host UI from becoming a permanently stale
+    /// value after the ten-minute window. The work item runs on `queue`, the
+    /// same serial queue that owns all pairing state.
+    private var pairingCodeExpiryWorkItem: DispatchWorkItem?
     private var browserToken: String?
     private var browserTokenExpiresAt: Date?
     private var failedPairAttempts = 0
@@ -140,7 +152,10 @@ final class HostBrowserControlService: @unchecked Sendable {
 
     func currentStatus() -> HostBrowserControlStatus {
         queue.sync {
-            HostBrowserControlStatus(
+            if refreshExpiredPairingCodeIfNeeded() {
+                publishStatus()
+            }
+            return HostBrowserControlStatus(
                 running: listener != nil && listenerReady,
                 port: listener?.port?.rawValue,
                 tailscaleHost: tailscaleListenerHost,
@@ -242,6 +257,8 @@ final class HostBrowserControlService: @unchecked Sendable {
     }
 
     private func _stop() {
+        pairingCodeExpiryWorkItem?.cancel()
+        pairingCodeExpiryWorkItem = nil
         listener?.cancel()
         listener = nil
         listenerReady = false
@@ -388,6 +405,13 @@ final class HostBrowserControlService: @unchecked Sendable {
     }
 
     private func handlePair(body: Data, client: BrowserClient) {
+        // The expiry work item normally rotates the code exactly at the
+        // deadline. Refresh synchronously as well so a delayed serial-queue
+        // callback can never leave the listener accepting stale state or
+        // reporting an expired code as if it were still current.
+        if refreshExpiredPairingCodeIfNeeded() {
+            publishStatus()
+        }
         guard terminalModeProvider() else {
             sendHTTP(.forbidden, contentType: "application/json", body: "{\"error\":\"terminal-disabled\"}", to: client)
             return
@@ -399,7 +423,10 @@ final class HostBrowserControlService: @unchecked Sendable {
         guard let payload = try? JSONDecoder().decode(BrowserPairRequest.self, from: body),
               let code = payload.code.flatMap(HostBrowserPairingCode.normalize),
               Self.constantTimeEqual(code, pairingCode),
-              Date().timeIntervalSince(pairingCodeIssuedAt) < Self.pairingCodeLifetime else {
+              !HostBrowserPairingCode.isExpired(
+                  issuedAt: pairingCodeIssuedAt,
+                  lifetime: Self.pairingCodeLifetime
+              ) else {
             recordPairFailure()
             sendHTTP(.unauthorized, contentType: "application/json", body: "{\"error\":\"invalid-code\"}", to: client)
             return
@@ -429,6 +456,9 @@ final class HostBrowserControlService: @unchecked Sendable {
     }
 
     private func statusJSON() -> String {
+        if refreshExpiredPairingCodeIfNeeded() {
+            publishStatus()
+        }
         let status = currentStatusOnQueue()
         let response = BrowserStatusResponse(
             terminalModeEnabled: terminalModeProvider(),
@@ -771,12 +801,54 @@ final class HostBrowserControlService: @unchecked Sendable {
     }
 
     private func issuePairingCode() {
+        pairingCodeExpiryWorkItem?.cancel()
         pairingCode = HostBrowserPairingCode.generate()
         pairingCodeIssuedAt = Date()
         browserToken = nil
         browserTokenExpiresAt = nil
         failedPairAttempts = 0
         firstFailedPairAttemptAt = nil
+
+        // Keep the host's displayed code and the listener's accepted code in
+        // lockstep. Previously the code simply stayed on screen forever after
+        // expiry, which made Safari show the misleading "invalid or expired"
+        // error until the operator manually rotated it.
+        let expiryWorkItem = DispatchWorkItem { [weak self] in
+            guard let self,
+                  self.listener != nil,
+                  self.listenerReady,
+                  HostBrowserPairingCode.isExpired(
+                      issuedAt: self.pairingCodeIssuedAt,
+                      lifetime: Self.pairingCodeLifetime
+                  ) else {
+                return
+            }
+            self.issuePairingCode()
+            self.publishStatus()
+        }
+        pairingCodeExpiryWorkItem = expiryWorkItem
+        queue.asyncAfter(
+            deadline: .now() + Self.pairingCodeLifetime,
+            execute: expiryWorkItem
+        )
+    }
+
+    /// Returns true when a live listener had an expired code and a fresh one
+    /// was issued. Callers use the result to publish the new code to the host
+    /// UI immediately, including when the expiry callback was delayed by other
+    /// work on the serial queue.
+    @discardableResult
+    private func refreshExpiredPairingCodeIfNeeded() -> Bool {
+        guard listener != nil,
+              listenerReady,
+              HostBrowserPairingCode.isExpired(
+                  issuedAt: pairingCodeIssuedAt,
+                  lifetime: Self.pairingCodeLifetime
+              ) else {
+            return false
+        }
+        issuePairingCode()
+        return true
     }
 
     private func revokeBrowserSessions(reason: String) {

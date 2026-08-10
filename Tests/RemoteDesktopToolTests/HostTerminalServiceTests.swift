@@ -12,6 +12,20 @@ final class HostTerminalServiceTests: XCTestCase {
         XCTAssertNil(HostBrowserPairingCode.normalize("12a456"))
     }
 
+    func testBrowserPairingCodeExpiryUsesTheExactLifetimeBoundary() {
+        let issuedAt = Date(timeIntervalSince1970: 1_000)
+        XCTAssertFalse(HostBrowserPairingCode.isExpired(
+            issuedAt: issuedAt,
+            at: Date(timeIntervalSince1970: 1_599),
+            lifetime: 600
+        ))
+        XCTAssertTrue(HostBrowserPairingCode.isExpired(
+            issuedAt: issuedAt,
+            at: Date(timeIntervalSince1970: 1_600),
+            lifetime: 600
+        ))
+    }
+
     func testBrowserPairingLinkReplacesPairCodeWithoutDroppingOtherQueryItems() {
         let link = HostBrowserPairingLink.make(
             baseURL: "https://mac.example.test/workspace?source=qr&pair=000000",

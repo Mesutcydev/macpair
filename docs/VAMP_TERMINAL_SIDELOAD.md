@@ -6,10 +6,10 @@ Apple ID/team used on the installing device.
 
 ## Latest published build
 
-- [Vamp Terminal IPA build 16](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-16/VampTerminal-iOS-1.0.0-build-16-altstore-unsigned.ipa)
-- [Vamp Host build 16](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-16/VampHost-macOS-3.2.0-build-16-adhoc.zip)
-- [Vamp Terminal Host build 16](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-16/VampTerminalHost-macOS-1.0.0-build-16-adhoc.zip)
-- [All checksums and manifests](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-16)
+- [Vamp Terminal IPA build 17](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-17/VampTerminal-iOS-1.0.0-build-17-altstore-unsigned.ipa)
+- [Vamp Host build 17](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-17/VampHost-macOS-3.2.0-build-17-adhoc.zip)
+- [Vamp Terminal Host build 17](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-17/VampTerminalHost-macOS-1.0.0-build-17-adhoc.zip)
+- [All checksums and manifests](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-17)
 
 ## Build the current Vamp artifacts
 
