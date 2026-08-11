@@ -3126,6 +3126,38 @@ if (vampPairFromURL) {
       }
     }
     @media (max-width: 719px) {
+      /* The software keyboard leaves too little room for four persistent
+         chrome rows plus a conversation. Collapse secondary navigation while
+         typing and let the card participate in the single .content scroller.
+         This prevents a 46dvh nested body from painting beneath the composer. */
+      body:not(.vamp-terminal-mode) .shell.vamp-keyboard-open .task-context,
+      body:not(.vamp-terminal-mode) .shell.vamp-keyboard-open .tabs {
+        display: none !important;
+      }
+      body:not(.vamp-terminal-mode) .shell.vamp-keyboard-open .top {
+        flex: 0 0 46px !important;
+        height: 46px !important;
+        min-height: 46px !important;
+      }
+      body:not(.vamp-terminal-mode) .shell.vamp-keyboard-open .mode-switch {
+        flex: 0 0 42px !important;
+        min-height: 42px !important;
+        padding-block: 4px !important;
+      }
+      body:not(.vamp-terminal-mode) .shell.vamp-keyboard-open .content {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        contain: layout paint;
+      }
+      body:not(.vamp-terminal-mode) .shell.vamp-keyboard-open .chat {
+        padding-top: 6px !important;
+        padding-bottom: 8px !important;
+      }
+      body:not(.vamp-terminal-mode) .shell.vamp-keyboard-open .stream-card.output-message,
+      body:not(.vamp-terminal-mode) .shell.vamp-keyboard-open .stream-card.output-message .rich-body {
+        max-height: none !important;
+        overflow: visible !important;
+      }
       /* When the software keyboard is present, project chrome must yield to
          the active terminal. Keeping the context and tab rows visible leaves
          no usable VT rows and makes Safari appear to clip the terminal behind

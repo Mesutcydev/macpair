@@ -35,6 +35,9 @@ assert.match(source, /body\.vamp-terminal-mode \.content \{[\s\S]*?display: flex
 assert.match(source, /body\.vamp-terminal-mode \.chat \{[\s\S]*?flex: 1 1 auto !important;[\s\S]*?min-height: 0 !important;/);
 assert.match(source, /\.shell\.vamp-keyboard-open \.composer \{[\s\S]*?position: static !important;/);
 assert.match(source, /body\.vamp-terminal-mode \.shell\.vamp-keyboard-open \.task-context,[\s\S]*?display: none !important;/);
+assert.match(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-open \.task-context,[\s\S]*?display: none !important;/);
+assert.match(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-open \.content \{[\s\S]*?overflow-y: auto !important;[\s\S]*?contain: layout paint;/);
+assert.match(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-open \.stream-card\.output-message \.rich-body \{[\s\S]*?max-height: none !important;[\s\S]*?overflow: visible !important;/);
 assert.match(source, /body\.vamp-terminal-mode \.stream-card-head,[\s\S]*?body\.vamp-terminal-mode \.open-terminal-preview \{[\s\S]*?display: none !important;/);
 assert.match(source, /const selected = navigation\.querySelector\('\.tab\.active'\)/);
 assert.match(source, /navigation\.scrollLeft = Math\.min\(/);
