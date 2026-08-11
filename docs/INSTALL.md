@@ -1,26 +1,26 @@
 # Vamp Terminal install reference
 
-This is the current install path for Vamp Terminal build 18. The project has
+This is the current install path for Vamp Terminal build 19. The project has
 four separate install surfaces:
 
 | Surface | Artifact | Use it for |
 | --- | --- | --- |
-| iPhone / iPad | `VampTerminal-iOS-1.0.0-build-18-altstore-unsigned.ipa` | Multi-tab terminal client |
+| iPhone / iPad | `VampTerminal-iOS-1.0.0-build-19-altstore-unsigned.ipa` | Multi-tab terminal client |
 | iPhone / iPad | `VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa` | Vamp Host remote-control client |
 | macOS | `VampRemote-macOS-1.3.15-build-32-unsigned.zip` | Vamp Host remote-control client |
-| macOS | `VampHost-macOS-3.2.0-build-18-adhoc.zip` | Full Vamp Host: remote clients plus optional Terminal Mode |
-| macOS | `VampTerminalHost-macOS-1.0.0-build-18-adhoc.zip` | Terminal-only host with Safari control and Tailscale |
+| macOS | `VampHost-macOS-3.2.0-build-19-adhoc.zip` | Full Vamp Host: remote clients plus optional Terminal Mode |
+| macOS | `VampTerminalHost-macOS-1.0.0-build-19-adhoc.zip` | Terminal-only host with Safari control and Tailscale |
 | Linux | `linux-host/vamp_terminal_host.py` | Browser-only terminal host |
 
-The current downloads are in the [build 18 GitHub release](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-18).
+The current downloads are in the [build 19 GitHub release](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-19).
 
 ## 1. Install the iPhone or iPad client
 
-1. Download the [Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-18/VampTerminal-iOS-1.0.0-build-18-altstore-unsigned.ipa) and its `.sha256` file.
+1. Download the [Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-19/VampTerminal-iOS-1.0.0-build-19-altstore-unsigned.ipa) and its `.sha256` file.
 2. Verify the download:
 
    ```sh
-   shasum -a 256 -c VampTerminal-iOS-1.0.0-build-18-altstore-unsigned.ipa.sha256
+   shasum -a 256 -c VampTerminal-iOS-1.0.0-build-19-altstore-unsigned.ipa.sha256
    ```
 
 3. Import the IPA in AltStore with **+ → Sideload IPA**.
@@ -34,19 +34,19 @@ profile is distributed.
 
 ## Remote-control client downloads
 
-The current Vamp Remote builds are attached to the [Vamp Terminal build 18 release](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-18):
+The current Vamp Remote builds are attached to the [Vamp Terminal build 19 release](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-19):
 
-- [iOS IPA](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-18/VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa) — unsigned; import with AltStore or another compatible sideloader.
-- [iOS checksum](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-18/VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa.sha256)
-- [macOS ZIP](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-18/VampRemote-macOS-1.3.15-build-32-unsigned.zip) — unzip and move Vamp Remote to Applications.
-- [macOS checksum](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-18/VampRemote-macOS-1.3.15-build-32-unsigned.zip.sha256)
+- [iOS IPA](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-19/VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa) — unsigned; import with AltStore or another compatible sideloader.
+- [iOS checksum](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-19/VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa.sha256)
+- [macOS ZIP](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-19/VampRemote-macOS-1.3.15-build-32-unsigned.zip) — unzip and move Vamp Remote to Applications.
+- [macOS checksum](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-19/VampRemote-macOS-1.3.15-build-32-unsigned.zip.sha256)
 
 ## 2. Install a macOS host
 
 Download one of the ad-hoc signed ZIPs:
 
-- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-18/VampHost-macOS-3.2.0-build-18-adhoc.zip) for remote display, remote input, remote clients, and optional Terminal Mode.
-- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-18/VampTerminalHost-macOS-1.0.0-build-18-adhoc.zip) for terminal tabs, Safari control, pairing, and Tailscale only.
+- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-19/VampHost-macOS-3.2.0-build-19-adhoc.zip) for remote display, remote input, remote clients, and optional Terminal Mode.
+- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-19/VampTerminalHost-macOS-1.0.0-build-19-adhoc.zip) for terminal tabs, Safari control, pairing, and Tailscale only.
 
 Then:
 
