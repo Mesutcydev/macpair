@@ -153,6 +153,9 @@ final class TerminalChatStore: ObservableObject {
     private let maxActivityEvents = 120
     private var alwaysAllowedCommands: Set<String> = []
     private var semanticStream = TerminalSemanticStreamDecoder()
+    private var latestSemanticText = ""
+    private var semanticBaseline = ""
+    private var hasChatSubmission = false
 
     init(tabTitle: String, sessionID: UUID? = nil) {
         self.tabTitle = tabTitle
@@ -194,14 +197,33 @@ final class TerminalChatStore: ObservableObject {
     /// packets cannot leak escape fragments into cards.
     func appendOutput(_ data: Data, provider: VampAgentProvider? = nil) {
         guard !data.isEmpty, let text = semanticStream.consume(data), !text.isEmpty else { return }
+        latestSemanticText = text
         finishOpeningMessage()
+        // A PTY startup banner or alternate-screen repaint is not an agent
+        // message. Keep it in the mounted VT terminal and start Chat output
+        // only at the exact boundary created by a composer submission.
+        guard hasChatSubmission else {
+            if taskPlan == nil, let semanticSessionID {
+                consumeSemanticAgentOutput(
+                    text,
+                    provider: provider,
+                    sessionID: semanticSessionID,
+                    terminalID: semanticSessionID
+                )
+            }
+            return
+        }
+        let response = text.hasPrefix(semanticBaseline)
+            ? String(text.dropFirst(semanticBaseline.count))
+            : text
+        guard !response.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         blocks.removeAll { $0.role == .progress && $0.isStreaming }
         let identity = provider?.sessionDisplayName ?? tabTitle
         if let index = blocks.lastIndex(where: { $0.role == .output && $0.isStreaming }) {
             blocks[index].title = identity
-            blocks[index].text = text
+            blocks[index].text = response
         } else {
-            append(Block(role: .output, title: identity, text: text, isStreaming: true))
+            append(Block(role: .output, title: identity, text: response, isStreaming: true))
         }
         if taskPlan == nil, let semanticSessionID {
             consumeSemanticAgentOutput(
@@ -312,6 +334,9 @@ final class TerminalChatStore: ObservableObject {
         guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
         finishOpeningMessage()
+        semanticBaseline = latestSemanticText
+        hasChatSubmission = true
+        blocks.removeAll { $0.role == .output && $0.isStreaming }
         let identity = provider?.sessionDisplayName ?? "Shell"
         append(
             Block(
@@ -401,6 +426,7 @@ private struct TerminalSemanticStreamDecoder {
     private var state: ControlState = .text
     private var utf8Remainder = Data()
     private var rendered = ""
+    private var pendingCarriageReturn = false
 
     mutating func consume(_ data: Data) -> String? {
         utf8Remainder.append(data)
@@ -422,13 +448,23 @@ private struct TerminalSemanticStreamDecoder {
         utf8Remainder = retained == 0 ? Data() : Data(utf8Remainder.suffix(retained))
 
         for scalar in decoded.unicodeScalars {
+            if pendingCarriageReturn {
+                pendingCarriageReturn = false
+                if scalar.value == 0x0A {
+                    rendered.append("\n")
+                    continue
+                }
+                if let newline = rendered.lastIndex(of: "\n") {
+                    rendered.removeSubrange(rendered.index(after: newline)..<rendered.endIndex)
+                } else {
+                    rendered.removeAll(keepingCapacity: true)
+                }
+            }
             switch state {
             case .text:
                 switch scalar.value {
                 case 0x1B: state = .escape
-                case 0x0D:
-                    if let newline = rendered.lastIndex(of: "\n") { rendered.removeSubrange(rendered.index(after: newline)..<rendered.endIndex) }
-                    else { rendered.removeAll(keepingCapacity: true) }
+                case 0x0D: pendingCarriageReturn = true
                 case 0x0A: rendered.append("\n")
                 case 0x08: if !rendered.isEmpty { rendered.removeLast() }
                 case 0x09: rendered.append("    ")

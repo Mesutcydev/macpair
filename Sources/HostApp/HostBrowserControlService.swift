@@ -1761,6 +1761,58 @@ class VampBrowserVT {
   }
 }
 
+// Chat is a semantic projection of the process byte stream, not a rendering
+// of the mutable VT screen. This incremental consumer preserves packet-split
+// UTF-8/control sequences while discarding cursor/style commands. The full VT
+// parser above remains authoritative for Terminal mode.
+class VampSemanticStream {
+  constructor() {
+    this.decoder = new TextDecoder();
+    this.state = 'text';
+    this.text = '';
+    this.pendingCarriageReturn = false;
+  }
+  feedBytes(bytes) {
+    const value = this.decoder.decode(bytes, {stream:true});
+    for (const character of value) {
+      const code = character.codePointAt(0);
+      if (this.pendingCarriageReturn) {
+        this.pendingCarriageReturn = false;
+        if (character === '\n') { this.text += '\n'; continue; }
+        const newline = this.text.lastIndexOf('\n');
+        this.text = newline >= 0 ? this.text.slice(0, newline + 1) : '';
+      }
+      if (this.state === 'text') {
+        if (code === 0x1b) { this.state = 'escape'; continue; }
+        if (code === 0x9b) { this.state = 'csi'; continue; }
+        if (character === '\r') { this.pendingCarriageReturn = true; continue; }
+        if (character === '\b') { this.text = this.text.slice(0, -1); continue; }
+        if (character === '\t') { this.text += '    '; continue; }
+        if (character === '\n' || code >= 0x20) this.text += character;
+        continue;
+      }
+      if (this.state === 'escape') {
+        if (character === '[') this.state = 'csi';
+        else if (character === ']') this.state = 'osc';
+        else this.state = 'text';
+        continue;
+      }
+      if (this.state === 'csi') {
+        if (code >= 0x40 && code <= 0x7e) this.state = 'text';
+        continue;
+      }
+      if (this.state === 'osc') {
+        if (code === 0x07) this.state = 'text';
+        else if (code === 0x1b) this.state = 'oscEscape';
+        continue;
+      }
+      if (this.state === 'oscEscape') this.state = character === '\\' ? 'text' : 'osc';
+    }
+    if (this.text.length > 24000) this.text = this.text.slice(-24000);
+    return this.text.replace(/^\n+|\n+$/g, '');
+  }
+}
+
 const vampNextTerminalTitle = () => {
   const titles = new Set([...tabs.values()].map((tab) => tab.title));
   let number = 1;
@@ -1933,6 +1985,8 @@ createTab = (startup = null, title = null, agent = null) => {
     out: '',
     outputCard: null,
     outputText: '',
+    semanticBaseline: '',
+    lastSubmittedCommand: null,
     pendingCommand: null,
     pendingInput: null,
     unread: false,
@@ -1942,6 +1996,7 @@ createTab = (startup = null, title = null, agent = null) => {
     startupSeen: false,
     state: 'opening',
     decoder: new TextDecoder(),
+    semantic: new VampSemanticStream(),
     approvals: new Set(),
     terminal: new VampBrowserVT(),
     taskPlan: null
@@ -2008,6 +2063,8 @@ const vampAppendOutputChunk = (id, encoded) => {
   if (!tab) return;
   const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
   tab.terminal ||= new VampBrowserVT();
+  tab.semantic ||= new VampSemanticStream();
+  tab.semanticText = tab.semantic.feedBytes(bytes);
   tab.terminal.feedBytes(bytes);
   appendOutput(id);
 };
@@ -3143,8 +3200,12 @@ if (vampPairFromURL) {
          changes the shell's visual-viewport height; normal flex flow gives
          the remaining height to content and keeps the composer below it. */
       .shell.vamp-keyboard-open .top { flex-basis: 46px !important; min-height: 46px !important; }
-      .shell.vamp-keyboard-open .task-context { flex-basis: 46px !important; min-height: 46px !important; }
-      .shell.vamp-keyboard-open .tabs { flex-basis: 54px !important; min-height: 54px !important; }
+      /* The keyboard already consumes roughly half an iPhone. Keep the task
+         identity in the title bar and remove duplicated workspace/tab chrome
+         until editing ends. This gives the semantic response and approval
+         cards a useful viewport instead of squeezing them behind composer. */
+      .shell.vamp-keyboard-open .task-context,
+      .shell.vamp-keyboard-open .tabs { display: none !important; }
       .shell.vamp-keyboard-open .mode-switch { flex-basis: 42px !important; min-height: 42px !important; }
       .shell.vamp-keyboard-open .content { overflow-x: hidden !important; overflow-y: auto !important; }
       body:not(.vamp-terminal-mode) .shell.vamp-keyboard-open .stream-card.output-message .rich-body {
@@ -3454,7 +3515,7 @@ if (vampPairFromURL) {
         : tab.state === 'error' || tab.state === 'closed' || tab.state === 'offline'
           ? 'Terminal unavailable'
           : 'Waiting for terminal output…';
-      card.innerHTML = '<div class="stream-card-head"><div class="stream-card-title"><span class="card-glyph">⌁</span><span>' + esc(tab.title) + '</span></div><div class="stream-card-actions"><span class="stream-state">' + esc(tab.opened ? 'Ready' : 'Opening') + '</span><button type="button" class="open-terminal-preview">Open Terminal</button></div></div><div class="stream-caption">Streaming response</div><div class="rich-body" role="log" aria-live="polite"><div class="rich-empty">' + esc(initialState) + '</div></div>';
+      card.innerHTML = '<div class="stream-card-head"><div class="stream-card-title"><span class="card-glyph">⌁</span><span>' + esc(tab.title) + '</span></div><div class="stream-card-actions"><span class="stream-state">' + esc(tab.opened ? 'Ready' : 'Opening') + '</span><button type="button" class="open-terminal-preview">Open Terminal</button></div></div><div class="stream-caption">Response</div><div class="rich-body" role="log" aria-live="polite"><div class="rich-empty">' + esc(initialState) + '</div></div>';
       card.querySelector('.open-terminal-preview')?.addEventListener('click', () => window.vampSetPresentation?.('terminal'));
       chat.appendChild(card);
       tab.outputCard = card;
@@ -3510,7 +3571,20 @@ if (vampPairFromURL) {
     const bodyWasNearBottom = body ? body.scrollHeight - body.scrollTop - body.clientHeight < 28 : true;
     const previousBodyScrollTop = body?.scrollTop || 0;
     if (body) {
-      const semanticSnapshot = tab.terminal.render();
+      const fullSemanticText = tab.semanticText || '';
+      let semanticSnapshot = tab.semanticBaseline && fullSemanticText.startsWith(tab.semanticBaseline)
+        ? fullSemanticText.slice(tab.semanticBaseline.length)
+        : fullSemanticText;
+      // Startup banners, prompts and full-screen TUI repaints are terminal
+      // state, not a conversation. Chat begins only after an exact composer
+      // submission establishes a semantic response boundary.
+      if (!terminalMode && !tab.lastSubmittedCommand) semanticSnapshot = '';
+      if (!terminalMode && !tab.agent && tab.lastSubmittedCommand) {
+        const lines = semanticSnapshot.replace(/^\s*\n?/, '').split('\n');
+        if (lines[0]?.includes(tab.lastSubmittedCommand)) lines.shift();
+        if (lines.length > 1 && /^\s*(?:[^\n]*[%$#❯]|>)\s*$/.test(lines[lines.length - 1])) lines.pop();
+        semanticSnapshot = lines.join('\n').trimEnd();
+      }
       body.innerHTML = terminalMode
         ? (tab.terminal.renderHTML() || '<div class="rich-empty">Waiting for terminal output…</div>')
         : (renderBlocks(semanticSnapshot) || '<div class="rich-empty">Waiting for agent response…</div>');
@@ -3519,6 +3593,8 @@ if (vampPairFromURL) {
     }
     const state = card.querySelector('.stream-state');
     if (state) state.textContent = tab.pendingCommand ? 'Streaming' : (terminalMode ? 'Live' : 'Ready');
+    const caption = card.querySelector('.stream-caption');
+    if (caption) caption.textContent = tab.pendingCommand ? 'Streaming response' : 'Response';
     filterTabContent();
     if (stickToLatest) scrollLatest(true);
   };
@@ -3573,8 +3649,8 @@ if (vampPairFromURL) {
       tab.pendingCommand = value;
       tab.pendingOutputFrames = 0;
       tab.followOutput = true;
-      tab.outputCard = null;
-      tab.outputText = '';
+      tab.semanticBaseline = tab.semanticText || '';
+      tab.lastSubmittedCommand = value;
       tab.commandCount = (tab.commandCount || 0) + 1;
     }
     const title = tab?.title || 'Terminal';
@@ -3584,6 +3660,10 @@ if (vampPairFromURL) {
     const element = addMessage('<div class="meta">You · ' + esc(title) + ' · ' + esc(status) + '</div><div class="body">' + body + '</div>', tabID);
     element.classList.add('user-message');
     addExplore(tabID, 'Running ' + value);
+    // Keep one stable response card, but place it after the request it answers.
+    // appendChild moves the existing node; it never duplicates terminal state.
+    if (tab?.outputCard?.isConnected) chat.appendChild(tab.outputCard);
+    filterTabContent();
     return element;
   };
 
@@ -3663,9 +3743,17 @@ if (vampPairFromURL) {
         // Approval tables can be taller than the available conversation
         // viewport. Align their heading, not their bottom, so the decision
         // context is never hidden beneath the mode switch.
-        content.scrollTop = Math.max(0, card.offsetTop - chat.offsetTop - 8);
+        content.scrollTop = Math.max(0, card.offsetTop - 12);
         requestAnimationFrame(() => { delete content.dataset.vampProgrammatic; });
       });
+      // Safari restores the visual viewport after blur in two phases. Reapply
+      // the card's top anchor after each phase so its heading cannot be left
+      // clipped by the former keyboard-sized viewport.
+      [90, 220].forEach((delay) => setTimeout(() => {
+        content.dataset.vampProgrammatic = '1';
+        content.scrollTop = Math.max(0, card.offsetTop - 12);
+        requestAnimationFrame(() => { delete content.dataset.vampProgrammatic; });
+      }, delay));
     }
   };
 

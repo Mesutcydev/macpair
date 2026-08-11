@@ -21,6 +21,8 @@ assert.match(source, /window\.vampInferTaskPlan = \(tabID, semanticText\)/);
 assert.match(source, /vampTaskPlanEventIsBound\(value\.event, sessionId, terminalID\)/);
 assert.match(source, /task-plan-resume/);
 assert.equal(source.includes('vampInferTaskPlan(tabID, tab.terminal'), false, 'task inference is not fed VT screen state');
+assert.match(source, /const fullSemanticText = tab\.semanticText \|\| '';/, 'Chat renders the byte-stream semantic projection');
+assert.doesNotMatch(source, /const semanticSnapshot = tab\.terminal\.render\(\)/, 'Chat never renders the mutable VT screen as prose');
 
 // A successful pairing must replace a stale browser socket before the new
 // page upgrades to WebSocket. Otherwise the one-browser capacity guard closes
@@ -37,11 +39,10 @@ assert.match(source, /\$\('input'\)\?\.blur\(\);[\s\S]*?composerHasFocus = false
 assert.match(source, /body\.vamp-terminal-mode \.content \{[\s\S]*?display: flex !important;[\s\S]*?overflow: hidden !important;/);
 assert.match(source, /body\.vamp-terminal-mode \.chat \{[\s\S]*?flex: 1 1 auto !important;[\s\S]*?min-height: 0 !important;/);
 assert.match(source, /\.shell\.vamp-keyboard-open \.composer \{[\s\S]*?position: static !important;/);
-assert.match(source, /\.shell\.vamp-keyboard-open \.task-context \{[\s\S]*?flex-basis: 46px !important;[\s\S]*?min-height: 46px !important;/);
-assert.match(source, /\.shell\.vamp-keyboard-open \.tabs \{[\s\S]*?flex-basis: 54px !important;[\s\S]*?min-height: 54px !important;/);
+assert.match(source, /\.shell\.vamp-keyboard-open \.task-context,[\s\S]*?\.shell\.vamp-keyboard-open \.tabs \{ display: none !important; \}/);
 assert.match(source, /\.shell\.vamp-keyboard-open \.content \{[\s\S]*?overflow-x: hidden !important;[\s\S]*?overflow-y: auto !important;/);
 assert.match(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-open \.stream-card\.output-message \.rich-body \{[\s\S]*?max-height: 132px !important;[\s\S]*?overflow: auto !important;/);
-assert.doesNotMatch(source, /\.shell\.vamp-keyboard-open \.task-context,[\s\S]{0,200}?display: none !important;/);
+assert.match(source, /if \(!terminalMode && !tab\.lastSubmittedCommand\) semanticSnapshot = '';/, 'unsolicited PTY startup output stays out of Chat');
 assert.match(source, /body\.vamp-terminal-mode \.stream-card-head,[\s\S]*?body\.vamp-terminal-mode \.open-terminal-preview \{[\s\S]*?display: none !important;/);
 assert.match(source, /const selected = navigation\.querySelector\('\.tab\.active'\)/);
 assert.match(source, /navigation\.scrollLeft = Math\.min\(/);
@@ -52,6 +53,12 @@ const reviewCommandStart = source.indexOf('\nreviewCommand = () =>', appendComma
 assert.ok(appendCommandStart >= 0 && reviewCommandStart > appendCommandStart, 'appendCommand boundary is present');
 const appendCommandSource = source.slice(appendCommandStart, reviewCommandStart);
 assert.equal(appendCommandSource.includes('tab.outputCard = null'), false, 'submitting a command preserves the tab stream card');
+const activeAppendCommandStart = source.lastIndexOf('appendCommand = (value, status, tabID = active) =>');
+const activeReviewCommandStart = source.indexOf('\n  reviewCommand = () =>', activeAppendCommandStart);
+assert.ok(activeAppendCommandStart >= 0 && activeReviewCommandStart > activeAppendCommandStart, 'active appendCommand override boundary is present');
+assert.equal(source.slice(activeAppendCommandStart, activeReviewCommandStart).includes('tab.outputCard = null'), false, 'active browser handler preserves the stable stream card');
+assert.match(source.slice(activeAppendCommandStart, activeReviewCommandStart), /tab\.semanticBaseline = tab\.semanticText \|\| '';/, 'each Chat submission starts a fresh semantic response segment');
+assert.match(source.slice(activeAppendCommandStart, activeReviewCommandStart), /chat\.appendChild\(tab\.outputCard\)/, 'the stable response card moves after its user request');
 
 const escapeHTML = (value) => String(value)
   .replaceAll('&', '&amp;')
@@ -60,7 +67,8 @@ const escapeHTML = (value) => String(value)
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&#39;');
 
-const VampBrowserVT = new Function('esc', `${source.slice(classStart, classEnd)}\nreturn VampBrowserVT;`)(escapeHTML);
+const browserModels = new Function('esc', `${source.slice(classStart, classEnd)}\nreturn {VampBrowserVT, VampSemanticStream};`)(escapeHTML);
+const { VampBrowserVT, VampSemanticStream } = browserModels;
 const textEncoder = new TextEncoder();
 const terminal = (cols = 80, rows = 24) => new VampBrowserVT(cols, rows);
 
@@ -72,6 +80,25 @@ const terminal = (cols = 80, rows = 24) => new VampBrowserVT(cols, rows);
   assert.equal(vt.render().includes('38;5;255m'), false, 'fragmented SGR is not rendered as text');
   assert.equal(vt.render().includes('Hello'), true, 'text after fragmented SGR is rendered');
   assert.match(vt.renderHTML(), /rgb\(238,238,238\)/, '256-color SGR reaches the cell renderer');
+}
+
+{
+  const semantic = new VampSemanticStream();
+  const bytes = textEncoder.encode('\u001b[38;5;255mPlan:\n1. Audit terminal\n2. Fix layout\n3. Run tests\u001b[0m');
+  let rendered = '';
+  for (const byte of bytes) rendered = semantic.feedBytes(Uint8Array.of(byte));
+  assert.equal(rendered.includes('38;5;255m'), false, 'semantic Chat output consumes fragmented ANSI');
+  assert.match(rendered, /Plan:\n1\. Audit terminal\n2\. Fix layout\n3\. Run tests/, 'semantic Chat output preserves task prose');
+}
+
+{
+  const semantic = new VampSemanticStream();
+  const encoder = new TextEncoder();
+  let rendered = semantic.feedBytes(encoder.encode('prompt% echo hello\r'));
+  rendered = semantic.feedBytes(encoder.encode('\nhello\r\n'));
+  assert.match(rendered, /prompt% echo hello\nhello/, 'packet-split CRLF preserves completed Chat lines');
+  rendered = semantic.feedBytes(encoder.encode('Downloading 10%\rDownloading 50%'));
+  assert.match(rendered, /Downloading 50%$/, 'standalone carriage return rewrites only the active semantic line');
 }
 
 {

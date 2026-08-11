@@ -48,14 +48,14 @@ final class TerminalWorkspaceTests: XCTestCase {
         XCTAssertEqual(chat.activityEvents.filter { $0.text == "PTY ready" }.count, 2)
     }
 
-    func testRawInputDoesNotBecomeAUserMessageButOutputCanStream() {
+    func testRawTerminalInputAndOutputStayOutOfSemanticChat() {
         let chat = TerminalChatStore(tabTitle: "Terminal 1")
         chat.markReady()
         chat.recordInput(Data("echo ready\n".utf8))
         chat.appendOutput(Data("%\n~❯\n❯ echo ready\nready\n%\n~❯ ".utf8))
 
         XCTAssertFalse(chat.blocks.contains { $0.role == .command })
-        XCTAssertTrue(chat.blocks.contains { $0.role == .output && $0.text.contains("ready") })
+        XCTAssertFalse(chat.blocks.contains { $0.role == .output })
         XCTAssertTrue(chat.activityEvents.contains { $0.text.contains("bytes") })
     }
 
@@ -63,6 +63,7 @@ final class TerminalWorkspaceTests: XCTestCase {
         let chat = TerminalChatStore(tabTitle: "OpenCode")
         chat.markReady()
         chat.recordInput(Data("opencode\n".utf8))
+        chat.recordChatSubmission("inspect the project", provider: .openCode)
 
         let repaint = Array(repeating: "\u{1B}(B\u{1B}[2K\u{1B}(B" + String(repeating: " ", count: 180) + "OpenCode", count: 120)
             .joined(separator: "\n")
@@ -72,6 +73,23 @@ final class TerminalWorkspaceTests: XCTestCase {
         XCTAssertFalse(chat.blocks.contains { $0.text.contains("\u{1B}") || $0.text.contains("[2K") })
         XCTAssertLessThanOrEqual(chat.blocks.first(where: { $0.role == .output })?.text.count ?? .max, 16_000)
         XCTAssertTrue(chat.activityEvents.contains { $0.text.contains("bytes") })
+    }
+
+    func testSemanticChatPreservesPacketSplitCRLFAndRewritesStandaloneCarriageReturn() {
+        let chat = TerminalChatStore(tabTitle: "Shell")
+        chat.markReady()
+        chat.recordChatSubmission("echo hello", provider: nil)
+
+        chat.appendOutput(Data("prompt% echo hello\r".utf8))
+        chat.appendOutput(Data("\nhello\r\n".utf8))
+        XCTAssertTrue(chat.blocks.contains {
+            $0.role == .output && $0.text.contains("prompt% echo hello\nhello")
+        })
+
+        chat.appendOutput(Data("Downloading 10%\rDownloading 50%".utf8))
+        XCTAssertTrue(chat.blocks.contains {
+            $0.role == .output && $0.text.hasSuffix("Downloading 50%")
+        })
     }
 
     func testTaskPlanTransitionsStaySemanticAndKeepProgressOrdinal() {

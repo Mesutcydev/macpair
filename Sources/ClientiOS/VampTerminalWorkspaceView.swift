@@ -46,12 +46,15 @@ struct VampTerminalWorkspaceView: View {
     @State private var showingWorkspaces = false
     @State private var showingActivity = false
     @State private var presentation: VampTerminalPresentation = .chat
+    @State private var keyboardPresented = false
 
     var body: some View {
         VStack(spacing: 0) {
             header
-            tabBar
-            presentationBar
+            if !keyboardPresented {
+                tabBar
+                presentationBar
+            }
 
             ZStack {
                 VStack(spacing: 0) {
@@ -160,6 +163,16 @@ struct VampTerminalWorkspaceView: View {
         }
         .onDisappear {
             workspace.stop()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
+                keyboardPresented = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
+                keyboardPresented = false
+            }
         }
         .sheet(item: $selectedAgentForWorkspace) { provider in
             VampWorkspaceChooserView(
