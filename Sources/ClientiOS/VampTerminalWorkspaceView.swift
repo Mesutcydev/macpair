@@ -757,8 +757,16 @@ private struct TerminalChatFeedView: View {
                     scrollToLatestAfterLayout(proxy, animated: true)
                 }
                 .onChange(of: chat.pendingApproval) { _, _ in
-                    guard isNearLatest else { return }
-                    scrollToLatestAfterLayout(proxy, animated: true)
+                    guard let approval = chat.pendingApproval else { return }
+                    // A permission decision is more important than preserving
+                    // composer focus. Keeping the keyboard up forced the tall
+                    // card beneath the fixed workspace header on iPhone.
+                    composerFocused = false
+                    DispatchQueue.main.async {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
+                            proxy.scrollTo(approval.id, anchor: .top)
+                        }
+                    }
                 }
                 .onScrollGeometryChange(for: Bool.self) { geometry in
                     let distanceFromLatest = geometry.contentSize.height

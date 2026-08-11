@@ -5,6 +5,7 @@ import SharedModels
 struct VampTerminalHomeView: View {
     @ObservedObject var environment: ClientAppEnvironment
     @ObservedObject private var hosts: HostsListViewModel
+    @ObservedObject private var coordinator: ClientSessionCoordinator
     @StateObject private var workspace: TerminalWorkspaceViewModel
     @Environment(\.scenePhase) private var scenePhase
 
@@ -18,6 +19,7 @@ struct VampTerminalHomeView: View {
     init(environment: ClientAppEnvironment) {
         self.environment = environment
         _hosts = ObservedObject(wrappedValue: environment.sharedHostsViewModel)
+        _coordinator = ObservedObject(wrappedValue: environment.sessionCoordinator)
         _workspace = StateObject(
             wrappedValue: TerminalWorkspaceViewModel(coordinator: environment.sessionCoordinator)
         )
@@ -28,7 +30,7 @@ struct VampTerminalHomeView: View {
             if isWorkspaceVisible {
                 VampTerminalWorkspaceView(
                     workspace: workspace,
-                    coordinator: environment.sessionCoordinator
+                    coordinator: coordinator
                 )
             } else {
                 homeContent
@@ -44,9 +46,9 @@ struct VampTerminalHomeView: View {
     }
 
     private var isWorkspaceVisible: Bool {
-        switch environment.sessionCoordinator.phase {
+        switch coordinator.phase {
         case .waitingForMedia, .receiving:
-            guard let capabilities = environment.sessionCoordinator.negotiatedCapabilities else {
+            guard let capabilities = coordinator.negotiatedCapabilities else {
                 return false
             }
             return capabilities.supportsTerminal && capabilities.supportsMultipleTerminals
@@ -56,11 +58,11 @@ struct VampTerminalHomeView: View {
     }
 
     private var terminalUnavailableMessage: (title: String, message: String, icon: String)? {
-        guard environment.sessionCoordinator.phase == .waitingForMedia
-                || environment.sessionCoordinator.phase == .receiving else {
+        guard coordinator.phase == .waitingForMedia
+                || coordinator.phase == .receiving else {
             return nil
         }
-        guard let capabilities = environment.sessionCoordinator.negotiatedCapabilities else {
+        guard let capabilities = coordinator.negotiatedCapabilities else {
             return (
                 "Terminal capability not reported",
                 "This host did not report multi-terminal support. Update Vamp Host on the Mac before using Vamp Terminal.",
@@ -108,15 +110,15 @@ struct VampTerminalHomeView: View {
                                 connectionProgressCard
                             }
 
-                            if let blocked = environment.sessionCoordinator.blockedState {
+                            if let blocked = coordinator.blockedState {
                                 messageCard(
                                     title: blocked.title,
                                     message: blocked.message,
                                     icon: "lock.shield",
                                     tint: VampGlassPalette.warning
                                 )
-                            } else if let error = environment.sessionCoordinator.errorMessage,
-                                      environment.sessionCoordinator.phase == .error {
+                            } else if let error = coordinator.errorMessage,
+                                      coordinator.phase == .error {
                                 connectionAttentionCard(error)
                             } else if let unavailable = terminalUnavailableMessage {
                                 terminalUnavailableCard(

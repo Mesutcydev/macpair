@@ -27,6 +27,9 @@ assert.equal(source.includes('vampInferTaskPlan(tabID, tab.terminal'), false, 't
 // the freshly paired page and QR/manual pairing looks like a bad code.
 assert.match(source, /revokeWebSocketSessions\(reason: "browser-replaced"\)/);
 assert.match(source, /private func revokeWebSocketSessions\(reason: String\)/);
+assert.match(source, /\/\\p\{Cf\}\/u\.test\(character\)/, 'browser pairing ignores invisible iOS direction marks');
+assert.match(source, /\$\('pair-button'\)\.onclick = \(\) => pair\(\);/, 'manual pairing does not pass MouseEvent as the code');
+assert.match(source, /\$\('input'\)\?\.blur\(\);[\s\S]*?composerHasFocus = false;[\s\S]*?keyboardViewportUpdate\(\);/, 'approval cards release the mobile keyboard');
 
 // Terminal mode is a real flex viewport, not the compact Chat preview with a
 // fixed control overlay. Keep the iPhone keyboard layout in normal flow and
@@ -41,6 +44,13 @@ assert.match(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-op
 assert.match(source, /body\.vamp-terminal-mode \.stream-card-head,[\s\S]*?body\.vamp-terminal-mode \.open-terminal-preview \{[\s\S]*?display: none !important;/);
 assert.match(source, /const selected = navigation\.querySelector\('\.tab\.active'\)/);
 assert.match(source, /navigation\.scrollLeft = Math\.min\(/);
+assert.match(source, /const keyboardOpen = composerHasFocus \|\| viewportContracted/);
+assert.match(source, /event\.target === \$\('input'\)[\s\S]*?composerHasFocus = true;[\s\S]*?keyboardViewportUpdate\(\)/);
+const appendCommandStart = source.indexOf('appendCommand = (value, status, tabID = active) =>');
+const reviewCommandStart = source.indexOf('\nreviewCommand = () =>', appendCommandStart);
+assert.ok(appendCommandStart >= 0 && reviewCommandStart > appendCommandStart, 'appendCommand boundary is present');
+const appendCommandSource = source.slice(appendCommandStart, reviewCommandStart);
+assert.equal(appendCommandSource.includes('tab.outputCard = null'), false, 'submitting a command preserves the tab stream card');
 
 const escapeHTML = (value) => String(value)
   .replaceAll('&', '&amp;')

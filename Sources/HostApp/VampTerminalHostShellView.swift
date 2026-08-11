@@ -197,6 +197,14 @@ struct VampTerminalHostShellView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
+                if let prompt = environment.pendingTrustPrompt {
+                    VampTerminalTrustApprovalCard(
+                        prompt: prompt,
+                        onReject: { environment.resolveTrustPrompt(approved: false) },
+                        onApprove: { environment.resolveTrustPrompt(approved: true) }
+                    )
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
                 VampTerminalHostConnectionCard(
                     environment: environment,
                     tailscaleInfo: $tailscaleInfo,
@@ -275,27 +283,7 @@ struct VampTerminalHostShellView: View {
                 .help("Host actions")
             }
         }
-        .alert(
-            environment.pendingTrustPrompt.map { "Allow \($0.displayName)?" } ?? "Allow Vamp Terminal?",
-            isPresented: Binding(
-                get: { environment.pendingTrustPrompt != nil },
-                set: { isPresented in
-                    if !isPresented, environment.pendingTrustPrompt != nil {
-                        environment.resolveTrustPrompt(approved: false)
-                    }
-                }
-            ),
-            presenting: environment.pendingTrustPrompt
-        ) { _ in
-            Button("Reject", role: .destructive) {
-                environment.resolveTrustPrompt(approved: false)
-            }
-            Button("Approve") {
-                environment.resolveTrustPrompt(approved: true)
-            }
-        } message: { prompt in
-            Text("Approve the signed terminal pairing for \(prompt.displayName). Fingerprint: \(prompt.fingerprint)")
-        }
+        .animation(.snappy(duration: 0.22), value: environment.pendingTrustPrompt?.id)
     }
 
     private var header: some View {
@@ -359,6 +347,50 @@ struct VampTerminalHostShellView: View {
         }
     }
 
+}
+
+private struct VampTerminalTrustApprovalCard: View {
+    let prompt: HostAppEnvironment.TrustPrompt
+    let onReject: () -> Void
+    let onApprove: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Image(systemName: "iphone.and.arrow.forward.inward")
+                .font(.title2.weight(.medium))
+                .foregroundStyle(.orange)
+                .frame(width: 40, height: 40)
+                .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Allow \(prompt.displayName)?")
+                    .font(.headline)
+                Text("A new signed device wants to use terminal sessions.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Text(prompt.fingerprint)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            Spacer(minLength: 8)
+
+            Button("Reject", role: .destructive, action: onReject)
+                .buttonStyle(.bordered)
+            Button("Allow", action: onApprove)
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hostGlassSurface(
+            in: RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous),
+            tint: .orange
+        )
+        .accessibilityElement(children: .contain)
+    }
 }
 
 private struct VampTerminalHostConnectionCard: View {

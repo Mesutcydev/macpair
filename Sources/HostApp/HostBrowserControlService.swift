@@ -36,7 +36,10 @@ enum HostBrowserPairingCode {
         digits.reserveCapacity(length)
 
         for character in raw {
-            if character.isWhitespace || character == "-" || character == "·" {
+            let isFormatMark = character.unicodeScalars.allSatisfy {
+                $0.properties.generalCategory == .format
+            }
+            if character.isWhitespace || character == "-" || character == "·" || isFormatMark {
                 continue
             }
             guard let value = character.wholeNumberValue, (0...9).contains(value) else {
@@ -2028,8 +2031,11 @@ appendCommand = (value, status, tabID = active) => {
   const tab = tabs.get(tabID);
   if (tab) {
     tab.pendingCommand = value;
-    tab.outputCard = null;
-    tab.outputText = '';
+    // A tab owns one stable semantic stream card for its entire lifetime.
+    // Clearing only the JavaScript reference left the previous card mounted
+    // in the DOM, so the next PTY chunk created a duplicate Terminal card and
+    // split one session's output across two scrolling surfaces. Keep the
+    // existing reference; the later presentation layer updates it in place.
   }
   const title = tab?.title || 'Terminal';
   const element = addMessage('<div class="meta">You · ' + esc(title) + ' · ' + esc(status) +
@@ -2148,7 +2154,10 @@ const vampNormalizePairingCode = (raw) => {
   const value = String(raw || '').normalize('NFKC');
   let digits = '';
   for (const character of Array.from(value)) {
-    if (/\s/.test(character) || character === '-' || character === '·') continue;
+    // iOS Safari may insert LRM/RLM or directional-isolate marks into a
+    // numeric one-time-code field. They are invisible in the UI but used to
+    // make a visibly correct six-digit code fail local validation.
+    if (/\s/u.test(character) || /\p{Cf}/u.test(character) || character === '-' || character === '·') continue;
     if (/^[0-9]$/.test(character)) {
       digits += character;
       continue;
@@ -2402,7 +2411,7 @@ $('newtab').onclick = () => createTab();
 // `reviewCommand` with the Chat/Terminal-aware implementation after this boot
 // block runs; capturing the old function here would bypass Terminal mode.
 $('send').onclick = () => reviewCommand();
-$('pair-button').onclick = pair;
+$('pair-button').onclick = () => pair();
 $('paste').title = 'Paste browser clipboard into the active terminal';
 $('paste').setAttribute('aria-label', 'Paste browser clipboard into the active terminal');
 $('paste').onclick = async () => {
@@ -3066,6 +3075,10 @@ if (vampPairFromURL) {
       flex: 0 0 auto !important;
       width: calc(100% - 24px) !important;
       margin: 0 12px max(8px, env(safe-area-inset-bottom)) !important;
+      left: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      transform: none !important;
       z-index: auto !important;
     }
     /* A legacy keyboard rule targets the more-specific
@@ -3276,12 +3289,14 @@ if (vampPairFromURL) {
 
   let keyboardWasOpen = false;
   let keyboardScrollAnchor = 0;
+  let keyboardWasNearLatest = true;
+  let composerHasFocus = false;
   let keyboardAnchorTimers = [];
   const restoreKeyboardScrollAnchor = () => {
     keyboardAnchorTimers.splice(0).forEach(clearTimeout);
     const restore = () => {
       content.dataset.vampProgrammatic = '1';
-      content.scrollTop = keyboardScrollAnchor;
+      content.scrollTop = keyboardWasNearLatest ? content.scrollHeight : keyboardScrollAnchor;
       requestAnimationFrame(() => { delete content.dataset.vampProgrammatic; });
     };
     requestAnimationFrame(restore);
@@ -3304,13 +3319,21 @@ if (vampPairFromURL) {
     const offsetLeft = Number.isFinite(viewport?.offsetLeft) ? viewport.offsetLeft : 0;
     const offsetTop = Number.isFinite(viewport?.offsetTop) ? viewport.offsetTop : 0;
     const inset = Math.max(0, Math.round(layoutHeight - visibleHeight - Math.max(0, offsetTop)));
-    const keyboardOpen = visibleHeight < layoutHeight - 80 || inset > 100;
+    // Focus is the earliest reliable keyboard signal on iOS. visualViewport
+    // catches interactive dismissal and browser-chrome changes, but it can
+    // lag the focus event by several frames (and sometimes never crosses a
+    // fixed height threshold). Enter the compact keyboard layout immediately
+    // on composer focus, then let viewport geometry decide when it is safe to
+    // leave that layout.
+    const viewportContracted = visibleHeight < layoutHeight - 80 || inset > 100;
+    const keyboardOpen = composerHasFocus || viewportContracted;
     document.documentElement.style.setProperty('--vamp-visual-width', Math.max(280, Math.round(visibleWidth)) + 'px');
     document.documentElement.style.setProperty('--vamp-visual-height', Math.max(240, Math.round(visibleHeight)) + 'px');
     document.documentElement.style.setProperty('--vamp-vv-left', Math.round(offsetLeft) + 'px');
     document.documentElement.style.setProperty('--vamp-vv-top', Math.round(offsetTop) + 'px');
     if (keyboardOpen && !keyboardWasOpen) {
       keyboardScrollAnchor = content.scrollTop;
+      keyboardWasNearLatest = content.scrollHeight - content.scrollTop - content.clientHeight < 96;
     }
     shell.classList.toggle('vamp-keyboard-open', keyboardOpen);
     document.documentElement.classList.toggle('vamp-keyboard-open', keyboardOpen);
@@ -3350,8 +3373,22 @@ if (vampPairFromURL) {
   window.visualViewport?.addEventListener('scroll', keyboardViewportUpdate, { passive: true });
   window.addEventListener('orientationchange', () => { keyboardViewportUpdate(); resetPagePosition(); }, { passive: true });
   document.addEventListener('focusin', (event) => {
-    if (event.target === $('input')) keyboardScrollAnchor = content.scrollTop;
-    setTimeout(keyboardViewportUpdate, 60);
+    if (event.target === $('input')) {
+      composerHasFocus = true;
+      keyboardScrollAnchor = content.scrollTop;
+      keyboardWasNearLatest = content.scrollHeight - content.scrollTop - content.clientHeight < 96;
+      keyboardViewportUpdate();
+      requestAnimationFrame(keyboardViewportUpdate);
+    }
+  }, { passive: true });
+  document.addEventListener('focusout', (event) => {
+    if (event.target !== $('input')) return;
+    composerHasFocus = false;
+    // Interactive keyboard dismissal can briefly blur before Safari restores
+    // the full visual viewport. Reconcile after both phases without moving the
+    // conversation away from the user's reading position.
+    setTimeout(keyboardViewportUpdate, 80);
+    setTimeout(keyboardViewportUpdate, 240);
   }, { passive: true });
   document.addEventListener('visibilitychange', keyboardViewportUpdate, { passive: true });
   keyboardViewportUpdate();
@@ -3663,6 +3700,13 @@ if (vampPairFromURL) {
     chat.appendChild(card);
     filterTabContent();
     setActiveDraft('');
+    // Permission cards are decision surfaces, not background transcript.
+    // Release composer focus so iOS Safari restores the full visual viewport
+    // before the card is anchored. Otherwise the keyboard can leave the card
+    // title and first choice hidden beneath the fixed workspace chrome.
+    $('input')?.blur();
+    composerHasFocus = false;
+    keyboardViewportUpdate();
     if (stick) {
       requestAnimationFrame(() => {
         content.dataset.vampProgrammatic = '1';

@@ -8,6 +8,7 @@ final class HostTerminalServiceTests: XCTestCase {
     func testBrowserPairingCodeAcceptsFormattedAndLocalizedDigits() {
         XCTAssertEqual(HostBrowserPairingCode.normalize(" 12-34·56 "), "123456")
         XCTAssertEqual(HostBrowserPairingCode.normalize("١٢٣٤٥٦"), "123456")
+        XCTAssertEqual(HostBrowserPairingCode.normalize("\u{200E}123456\u{2069}"), "123456")
         XCTAssertNil(HostBrowserPairingCode.normalize("12345"))
         XCTAssertNil(HostBrowserPairingCode.normalize("12a456"))
     }
