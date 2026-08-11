@@ -355,26 +355,6 @@ struct VampTerminalHostShellView: View {
         }
     }
 
-    private func activateTailscale() {
-        isActivatingTailscale = true
-        let didOpen = openTailscaleApplication()
-        tailscaleMessage = didOpen
-            ? "Waiting for the tailnet…"
-            : "Install Tailscale, then try again."
-
-        Task {
-            for _ in 0..<12 {
-                let snapshot = await Task.detached(priority: .utility) {
-                    getTailscaleDetectionSnapshot()
-                }.value
-                tailscaleInfo = snapshot.info
-                tailscaleInstalled = snapshot.installed
-                if tailscaleInfo != nil { break }
-                try? await Task.sleep(for: .seconds(1))
-            }
-            isActivatingTailscale = false
-        }
-    }
 }
 
 private struct VampTerminalHostConnectionCard: View {
