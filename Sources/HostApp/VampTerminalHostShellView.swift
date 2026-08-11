@@ -193,6 +193,7 @@ struct VampTerminalHostShellView: View {
     @State private var tailscaleInstalled = false
     @State private var copiedValue: String?
     @State private var showingGuide = false
+    @State private var showingAdvanced = false
     @State private var isActivatingTailscale = false
     @State private var tailscaleMessage: String?
 
@@ -200,10 +201,9 @@ struct VampTerminalHostShellView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                statusCard
-                browserCard
-                commandCard
-                safetyCard
+                pairingCard
+                connectionCard
+                advancedCard
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 18)
@@ -272,34 +272,46 @@ struct VampTerminalHostShellView: View {
         )
     }
 
-    private var statusCard: some View {
-        VampTerminalHostSection(title: "Connection") {
+    private var pairingCard: some View {
+        VampTerminalHostPairingCard(
+            environment: environment,
+            tailscaleInfo: tailscaleInfo,
+            copiedValue: copiedValue,
+            browserPairingURL: browserPairingURL,
+            onCopy: copy,
+            onRotate: { environment.rotateBrowserPairingCode() }
+        )
+    }
+
+    private var connectionCard: some View {
+        VampTerminalHostSection(title: "Mac connection") {
             HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 7) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(environment.hostIdentity.displayName)
                         .font(.headline)
-                    Text("Advertised as a Vamp Terminal-only host")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
                     Text(environment.discoveryAdvertiserViewModel.endpointText)
-                        .font(.system(.caption, design: .monospaced))
+                        .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
+                    Label("Terminal Mode · up to 8 tabs", systemImage: "checkmark.shield.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
                 }
 
                 Spacer(minLength: 0)
 
-                VStack(alignment: .trailing, spacing: 7) {
-                    Text("Terminal Mode")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Label("Always on", systemImage: "checkmark.shield.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.green)
-                    Text("Up to 8 independent PTYs")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                VampTerminalHostStatusPill(
+                    text: statusTitle,
+                    color: statusColor,
+                    systemImage: statusIcon
+                )
+            }
+
+            if let error = environment.sessionCoordinator.errorMessage, !error.isEmpty {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Divider()
@@ -307,46 +319,43 @@ struct VampTerminalHostShellView: View {
             HStack(spacing: 10) {
                 if let tailscaleInfo {
                     VampTerminalHostAddress(
-                        title: "Tailscale",
+                        title: "Tailscale connected",
                         value: tailscaleInfo.connectAddress,
                         systemImage: "network",
                         onCopy: { copy(tailscaleInfo.connectAddress) }
                     )
                 } else {
-                    HStack(spacing: 8) {
-                        Label(
-                            tailscaleInstalled ? "Tailscale is installed but offline" : "Tailscale required for Safari",
-                            systemImage: tailscaleInstalled ? "network.slash" : "network"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(tailscaleInstalled ? .orange : .secondary)
-                        if let tailscaleMessage {
-                            Text(tailscaleMessage)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
+                    Label(
+                        tailscaleInstalled ? "Tailscale installed · offline" : "Tailscale required for remote Safari",
+                        systemImage: tailscaleInstalled ? "network.slash" : "network"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(tailscaleInstalled ? .orange : .secondary)
+                    if let tailscaleMessage {
+                        Text(tailscaleMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
-                    Spacer(minLength: 0)
-                    Button {
-                        activateTailscale()
-                    } label: {
-                        if isActivatingTailscale {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Label(
-                                tailscaleInstalled ? "Activate" : "Open Tailscale",
-                                systemImage: tailscaleInstalled ? "power" : "arrow.up.forward.app"
-                            )
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(isActivatingTailscale)
                 }
 
                 Spacer(minLength: 0)
+
+                Button {
+                    activateTailscale()
+                } label: {
+                    if isActivatingTailscale {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Label(
+                            tailscaleInfo == nil ? "Activate" : "Open Tailscale",
+                            systemImage: tailscaleInfo == nil ? "power" : "arrow.up.forward.app"
+                        )
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(isActivatingTailscale)
 
                 Button {
                     Task {
@@ -354,33 +363,80 @@ struct VampTerminalHostShellView: View {
                         await environment.startRuntimeIfNeeded()
                     }
                 } label: {
-                    Label("Restart host", systemImage: "arrow.clockwise")
+                    Label("Restart", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
             }
+        }
+    }
 
-            Divider()
+    private var advancedCard: some View {
+        DisclosureGroup(isExpanded: $showingAdvanced) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Label("Start at Login", systemImage: "power.circle")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer(minLength: 10)
+                    Toggle("", isOn: Binding(
+                        get: { environment.startAtLoginEnabled },
+                        set: { environment.setStartAtLogin($0) }
+                    ))
+                    .labelsHidden()
+                }
 
-            HStack(alignment: .top, spacing: 10) {
-                Label("Start at Login", systemImage: "power.circle")
-                    .font(.subheadline.weight(.semibold))
-                Spacer(minLength: 10)
-                Toggle("", isOn: Binding(
-                    get: { environment.startAtLoginEnabled },
-                    set: { environment.setStartAtLogin($0) }
-                ))
-                .labelsHidden()
+                if let loginMessage = environment.startAtLoginErrorMessage {
+                    HStack(alignment: .top, spacing: 10) {
+                        Text(loginMessage)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                        Button("Open Login Items") {
+                            environment.openStartAtLoginSettings()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+
+                Divider()
+                commandCardContent
+                Divider()
+                safetyCardContent
             }
+            .padding(.top, 12)
+        } label: {
+            Label("Advanced host controls", systemImage: "slider.horizontal.3")
+                .font(.subheadline.weight(.semibold))
+        }
+        .padding(16)
+        .vampTerminalHostGlass(.card, cornerRadius: 18)
+    }
 
-            if let loginMessage = environment.startAtLoginErrorMessage {
-                HStack(alignment: .top, spacing: 10) {
-                    Text(loginMessage)
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
+    private var commandCardContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("CLI and agent handoff")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text("Use the Vamp CLI to prepare sessions before opening the app. tmux and screen keep an agent alive while the phone changes network or the app is backgrounded.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(VampTerminalHostCommands.all) { command in
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(command.command)
+                            .font(.callout.monospaced())
+                            .textSelection(.enabled)
+                        Text(command.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer(minLength: 0)
-                    Button("Open Login Items") {
-                        environment.openStartAtLoginSettings()
+                    Button(copiedValue == command.command ? "Copied" : "Copy") {
+                        copy(command.command)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
@@ -389,198 +445,17 @@ struct VampTerminalHostShellView: View {
         }
     }
 
-    private var browserCard: some View {
-        VampTerminalHostSection(title: "Safari control") {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "safari")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Use Safari without the iOS app")
-                        .font(.headline)
-                    Text("The Mac keeps the service private to loopback and Tailscale. Use the direct 100.x address on your phone; HTTPS Serve is optional.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-                VampTerminalHostStatusPill(
-                    text: environment.browserControlStatus.running ? "READY" : "OFFLINE",
-                    color: environment.browserControlStatus.running ? .green : .secondary,
-                    systemImage: "circle.fill"
-                )
-            }
-
-            if environment.browserControlStatus.running {
-                if let pairingURL = browserPairingURL {
-                    HStack(alignment: .top, spacing: 14) {
-                        HostBrowserPairingQRCode(pairingURL: pairingURL)
-
-                        VStack(alignment: .leading, spacing: 7) {
-                            Label("Scan to pair Safari", systemImage: "qrcode")
-                                .font(.headline)
-                            Text("Scan this code with an iPhone or iPad. Safari opens the private host address and submits the current pairing code automatically.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Text(pairingURL)
-                                .font(.caption2.monospaced())
-                                .foregroundStyle(.secondary)
-                                .textSelection(.enabled)
-                                .lineLimit(2)
-                                .truncationMode(.middle)
-                            Button(copiedValue == pairingURL ? "Copied" : "Copy pairing link") {
-                                copy(pairingURL)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(10)
-                    .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Pairing code")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(environment.browserControlStatus.pairingCode.isEmpty ? "Starting…" : environment.browserControlStatus.pairingCode)
-                            .font(.system(size: 23, weight: .semibold, design: .monospaced))
-                            .textSelection(.enabled)
-                    }
-                    Spacer(minLength: 0)
-                    Button("Rotate code") {
-                        environment.rotateBrowserPairingCode()
-                    }
-                    .buttonStyle(.bordered)
-                    if let port = environment.browserControlStatus.port {
-                        Text("Mac local · 127.0.0.1:\(port)")
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                if let tailscaleInfo,
-                   let port = environment.browserControlStatus.port {
-                    let directURL = tailscaleInfo.browserControlURL(port: port)
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Direct Tailscale · use this on iPhone")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text(directURL)
-                                .font(.caption.monospaced())
-                                .textSelection(.enabled)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-                        Spacer(minLength: 0)
-                        Button(copiedValue == directURL ? "Copied" : "Copy link") {
-                            copy(directURL)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
-
-                    if let browserURL = tailscaleInfo.browserServeURL {
-                        HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Optional HTTPS Serve")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Text(browserURL)
-                                    .font(.caption.monospaced())
-                                    .textSelection(.enabled)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                            }
-                            Spacer(minLength: 0)
-                            Button(copiedValue == browserURL ? "Copied" : "Copy link") {
-                                copy(browserURL)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-                    }
-                } else {
-                    Text("On a phone or tablet, do not open 127.0.0.1 — that address points to the phone itself. Enable Tailscale to receive a direct 100.x Safari address.")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                if let serveCommand = environment.browserControlStatus.serveCommand {
-                    HStack(spacing: 10) {
-                        Text(serveCommand)
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer(minLength: 0)
-                        Button(copiedValue == serveCommand ? "Copied" : "Copy") {
-                            copy(serveCommand)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
-                }
-            } else if let error = environment.browserControlStatus.lastError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            } else {
-                Text("Starting the host will create the private browser endpoint.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var commandCard: some View {
-        VampTerminalHostSection(title: "CLI and agent handoff") {
-            Text("Use the Vamp CLI to prepare sessions before opening the app. tmux and screen keep an agent alive while the phone changes network or the app is backgrounded.")
-                .font(.caption)
+    private var safetyCardContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Safety boundary")
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            VStack(spacing: 0) {
-                ForEach(VampTerminalHostCommands.all) { command in
-                    HStack(spacing: 10) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(command.command)
-                                .font(.system(.callout, design: .monospaced))
-                                .textSelection(.enabled)
-                            Text(command.detail)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 0)
-                        Button(copiedValue == command.command ? "Copied" : "Copy") {
-                            copy(command.command)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
-                    .padding(.vertical, 9)
-                    if command.id != VampTerminalHostCommands.all.last?.id {
-                        Divider()
-                    }
-                }
-            }
-        }
-    }
-
-    private var safetyCard: some View {
-        VampTerminalHostSection(title: "Safety boundary") {
             Label("Only authenticated Vamp Terminal clients are accepted.", systemImage: "checkmark.shield")
             Label("The host never starts ScreenCaptureKit or remote input.", systemImage: "rectangle.slash")
-            Label("Terminal Mode is always enabled; disabling the runtime closes every PTY.", systemImage: "power")
-            Label("Safari access stays private to loopback and Tailscale; no public port forwarding is used.", systemImage: "lock")
-                .fixedSize(horizontal: false, vertical: true)
+            Label("Safari stays private to loopback and Tailscale.", systemImage: "lock")
         }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 
     private var browserPairingURL: String? {
@@ -601,10 +476,6 @@ struct VampTerminalHostShellView: View {
     }
 
     private var statusTitle: String {
-        if environment.browserControlStatus.running,
-           environment.sessionCoordinator.phase == .error {
-            return "READY"
-        }
         switch environment.sessionCoordinator.phase {
         case .streaming: return "CONNECTED"
         case .advertising, .awaitingClient: return "READY"
@@ -624,10 +495,6 @@ struct VampTerminalHostShellView: View {
     }
 
     private var statusColor: Color {
-        if environment.browserControlStatus.running,
-           environment.sessionCoordinator.phase == .error {
-            return .green
-        }
         switch statusTitle {
         case "CONNECTED", "READY": return .green
         case "ERROR": return .orange
@@ -663,6 +530,140 @@ struct VampTerminalHostShellView: View {
             }
             isActivatingTailscale = false
         }
+    }
+}
+
+private struct VampTerminalHostPairingCard: View {
+    @ObservedObject var environment: HostAppEnvironment
+    let tailscaleInfo: TailscaleConnectionInfo?
+    let copiedValue: String?
+    let browserPairingURL: String?
+    let onCopy: (String) -> Void
+    let onRotate: () -> Void
+
+    var body: some View {
+        VampTerminalHostSection(title: "Pair Safari") {
+            HStack(alignment: .center, spacing: 18) {
+                pairingDetails
+                Spacer(minLength: 0)
+                if let browserPairingURL {
+                    HostBrowserPairingQRCode(pairingURL: browserPairingURL)
+                        .frame(width: 176, height: 176)
+                        .accessibilityHint("Scan this code with the iPhone or iPad camera")
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(.quaternary.opacity(0.35))
+                        VStack(spacing: 8) {
+                            Image(systemName: "qrcode")
+                                .font(.system(size: 30, weight: .medium))
+                                .foregroundStyle(.secondary)
+                            Text("Starting…")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(width: 176, height: 176)
+                    .accessibilityLabel("Pairing QR code is starting")
+                }
+            }
+        }
+    }
+
+    private var pairingDetails: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            HStack(spacing: 8) {
+                Image(systemName: "safari")
+                    .foregroundStyle(.secondary)
+                Text("Use Safari without the iOS app")
+                    .font(.headline)
+                VampTerminalHostStatusPill(
+                    text: environment.browserControlStatus.running ? "READY" : "STARTING",
+                    color: environment.browserControlStatus.running ? .green : .orange,
+                    systemImage: "circle.fill"
+                )
+            }
+
+            Text("Scan the QR code or enter the six-digit code in Safari. The code rotates when you ask it to and expires automatically.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("PAIRING CODE")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .tracking(0.7)
+                        .foregroundStyle(.secondary)
+                    Text(environment.browserControlStatus.pairingCode.isEmpty ? "Starting…" : environment.browserControlStatus.pairingCode)
+                        .font(.system(size: 27, weight: .semibold, design: .monospaced))
+                        .textSelection(.enabled)
+                }
+
+                if !environment.browserControlStatus.pairingCode.isEmpty {
+                    Button {
+                        onCopy(environment.browserControlStatus.pairingCode)
+                    } label: {
+                        Image(systemName: copiedValue == environment.browserControlStatus.pairingCode ? "checkmark" : "doc.on.doc")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("Copy pairing code")
+                }
+
+                Spacer(minLength: 0)
+
+                Button("Rotate") {
+                    onRotate()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+
+            if let directURL {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "network")
+                        .foregroundStyle(.green)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Open on your iPhone")
+                            .font(.caption.weight(.semibold))
+                        Text(directURL)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    Spacer(minLength: 0)
+                    Button(copiedValue == directURL ? "Copied" : "Copy") {
+                        onCopy(directURL)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            } else {
+                Label("Activate Tailscale below to get a remote Safari address.", systemImage: "network.slash")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let error = environment.browserControlStatus.lastError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var directURL: String? {
+        guard let port = environment.browserControlStatus.port else { return nil }
+        if let tailscaleInfo {
+            return tailscaleInfo.browserControlURL(port: port)
+        }
+        return "http://127.0.0.1:\(port) · local Mac only"
     }
 }
 
