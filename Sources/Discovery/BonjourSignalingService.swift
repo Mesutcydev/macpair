@@ -49,6 +49,7 @@ public final class BonjourSignalingService: @unchecked Sendable {
     private var pendingMessages: [VersionedSignalingMessage] = []
     private var _isListening = false
     private var _isConnected = false
+    private var _tlsListeningPort: UInt16?
 
     // Identity
     /// The local peer identity to use in signaling envelopes.
@@ -66,6 +67,13 @@ public final class BonjourSignalingService: @unchecked Sendable {
     public var identityService: CryptoIdentityService?
     /// Reject unsigned signaling messages by default.
     public var enforceSignedMessages: Bool = true
+
+    /// The TLS listener is deliberately exposed as state rather than inferred from
+    /// the host fingerprint. A fingerprint can exist while the TLS socket failed to
+    /// bind (for example while another host product owns the port).
+    public var tlsListeningPort: UInt16? {
+        lock.withLock { _tlsListeningPort }
+    }
     /// Recently seen signaling envelope IDs for replay protection.
     private var seenEnvelopeIDs: [UUID: Date] = [:]
     private let maxSignalingMessageBytes = 16 * 1024
@@ -203,6 +211,7 @@ public final class BonjourSignalingService: @unchecked Sendable {
 
         lock.lock()
         tlsListener = l
+        _tlsListeningPort = p
         _isListening = true
         lock.unlock()
 
@@ -475,6 +484,7 @@ public final class BonjourSignalingService: @unchecked Sendable {
         let sc = serverConnection
         listener = nil
         tlsListener = nil
+        _tlsListeningPort = nil
         serverConnection = nil
         _isListening = false
         _isConnected = false

@@ -87,6 +87,56 @@ final class HostTerminalService: @unchecked Sendable {
         }
     }
 
+    /// Publishes a semantic task-plan mutation for one authenticated terminal.
+    /// Agent adapters call this with structured events; it is deliberately
+    /// separate from PTY output so a VT repaint can never become a task card.
+    func publishTaskPlanEvent(_ message: SessionTaskEventMessage) {
+        queue.async { [weak self] in
+            guard let self,
+                  let session = self.activeTerminals[message.terminalID],
+                  session.sessionID == message.sessionID,
+                  session.terminalID == message.terminalID,
+                  message.event.isBound(toSessionID: message.sessionID, terminalID: message.terminalID) else {
+                self?.logger.debug("Ignoring task-plan event for unknown or mismatched terminal")
+                return
+            }
+            self.sendTaskPlanEvent(message)
+        }
+    }
+
+    /// Conservative fallback hook for an agent integration that has already
+    /// produced a stable semantic block. This method never receives PTY
+    /// bytes or VT screen rows. Providers with native event APIs should call
+    /// `publishTaskPlanEvent` directly instead.
+    func consumeSemanticAgentOutput(
+        _ semanticText: String,
+        sessionID: UUID,
+        terminalID: UUID,
+        title: String? = nil
+    ) {
+        queue.async { [weak self] in
+            guard let self,
+                  let session = self.activeTerminals[terminalID],
+                  session.sessionID == sessionID,
+                  session.terminalID == terminalID,
+                  let plan = SessionTaskPlanDetector.infer(
+                    from: semanticText,
+                    sessionID: sessionID,
+                    terminalID: terminalID,
+                    title: title
+                  ) else {
+                return
+            }
+            self.sendTaskPlanEvent(
+                SessionTaskEventMessage(
+                    sessionID: sessionID,
+                    terminalID: terminalID,
+                    event: .planCreated(plan)
+                )
+            )
+        }
+    }
+
     /// Called by the coordinator when the session ends, the data channel
     /// drops, or the host pipeline resets. Kills the shell and cleans up.
     ///
@@ -476,6 +526,14 @@ final class HostTerminalService: @unchecked Sendable {
         if let envelope = try? DataChannelEnvelope.terminalClose(message) {
             sendEnvelope?(envelope)
         }
+    }
+
+    private func sendTaskPlanEvent(_ message: SessionTaskEventMessage) {
+        guard let envelope = try? DataChannelEnvelope.taskPlanEvent(message) else {
+            logger.error("Could not encode task-plan event")
+            return
+        }
+        sendEnvelope?(envelope)
     }
 
     // MARK: - Child exec

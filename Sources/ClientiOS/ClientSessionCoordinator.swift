@@ -120,6 +120,10 @@ final class ClientSessionCoordinator: ObservableObject {
     var onWorkspaceListResponse: ((WorkspaceListResponseMessage) -> Void)?
     /// Called on MainActor when the host returns a validated directory listing.
     var onWorkspaceDirectoryResponse: ((WorkspaceDirectoryResponseMessage) -> Void)?
+    /// Called on MainActor for semantic agent task-plan mutations. This path
+    /// is intentionally distinct from terminal output and is routed by the
+    /// authenticated session plus terminal ID.
+    var onTaskPlanEvent: ((SessionTaskEventMessage) -> Void)?
     var refreshEndpoint: ((ResolvedHostEndpoint) -> ResolvedHostEndpoint?)?
     /// Returns every distinct address we know for the physical host behind an endpoint
     /// (LAN + Tailscale relay sibling), ordered best-first. Used so reconnect can sweep
@@ -342,6 +346,26 @@ final class ClientSessionCoordinator: ObservableObject {
         lastLoggedQuality = nil
         chatMessages = []
 
+        // The terminal-only product intentionally rejects remote-control offers.
+        // Do this preflight before TLS/WebRTC so a stale saved host or a Tailscale
+        // sibling cannot turn a product mismatch into the generic secure-handshake
+        // error. The same check is used by iOS and the Mac remote-control client.
+        if clientProductRole == .remoteControl,
+           endpoint.metadata.capabilities.isTerminalOnlyHost {
+            // A product mismatch is deterministic, not a transient network failure.
+            // Suppress wake/network auto-reconnect until the user deliberately chooses
+            // another host or taps Connect again.
+            autoReconnectSuppressed = true
+            blockedState = ClientHostBlockedState(terminalOnlyHostNamed: endpoint.metadata.displayName)
+            phase = .error
+            await eventLogStore.append(EventLogItem(
+                severity: .warning,
+                category: "Session",
+                message: "Remote-control client cannot connect to terminal-only host \(endpoint.metadata.displayName)"
+            ))
+            return
+        }
+
         do {
             // Set the remote host on the provider so the peer connection knows where to connect
             peerConnectionProvider.setRemoteHost(target.host)
@@ -377,7 +401,16 @@ final class ClientSessionCoordinator: ObservableObject {
 
             if let bonjourSig = sigSvc as? BonjourSignalingService,
                let tlsPort = endpoint.metadata.secureTLSPort,
-               let fingerprint = endpoint.metadata.publicKeyFingerprint, !fingerprint.isEmpty {
+               let advertisedFingerprint = endpoint.metadata.publicKeyFingerprint {
+                let fingerprint = normalizedFingerprint(advertisedFingerprint)
+                guard isValidNormalizedFingerprint(fingerprint) else {
+                    logger.warning("Ignoring malformed advertised TLS fingerprint for \(endpoint.metadata.displayName)")
+                    bonjourSig.requireTLS = false
+                    bonjourSig.connectionPIN = nil
+                    throw RemoteDesktopError.connectionFailed(
+                        "The Mac advertised an invalid secure identity. Update the matching Vamp host, then try again."
+                    )
+                }
                 bonjourSig.requireTLS = true
                 bonjourSig.connectionPIN = fingerprint
                 do {
@@ -396,7 +429,9 @@ final class ClientSessionCoordinator: ObservableObject {
                     bonjourSig.requireTLS = false
                     bonjourSig.connectionPIN = nil
                     sigSvc.disconnect()
-                    throw RemoteDesktopError.connectionFailed("Secure connection to the Mac failed. Update Vamp Host on the Mac, then try again.")
+                    throw RemoteDesktopError.connectionFailed(
+                        "Secure connection to the Mac failed. Make sure the matching host is running: Vamp Host for remote control or Vamp Terminal Host for terminal tabs. Update it, then try again."
+                    )
                 }
             }
 
@@ -529,7 +564,7 @@ final class ClientSessionCoordinator: ObservableObject {
         let isTLS = lower.contains("tls") || lower.contains("handshake") || lower.contains("certificate")
 
         if isTLS {
-            return "Secure handshake with the Mac failed. The host may be running an older version — update Vamp Host on the Mac and try again."
+            return "Secure handshake with the Mac failed. Make sure the matching host is running: Vamp Host for remote control or Vamp Terminal Host for terminal tabs. Update it, then try again."
         }
         if isRefused {
             return "The Mac refused the connection. Open Vamp Host on the Mac, then try again."
@@ -1334,6 +1369,13 @@ final class ClientSessionCoordinator: ObservableObject {
                        envelope.sessionID == message.sessionID,
                        message.sessionID == self.activeSessionID {
                         self.onWorkspaceDirectoryResponse?(message)
+                    }
+                case .taskPlanEvent:
+                    guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
+                    if let message = try? envelope.decodeTaskPlanEvent(),
+                       envelope.sessionID == message.sessionID,
+                       message.sessionID == self.activeSessionID {
+                        self.onTaskPlanEvent?(message)
                     }
                 default:
                     break

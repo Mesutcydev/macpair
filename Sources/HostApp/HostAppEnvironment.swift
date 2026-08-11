@@ -84,6 +84,14 @@ final class HostAppEnvironment: ObservableObject {
 
     private let pathMonitor = NWPathMonitor()
     private let pathMonitorQueue = DispatchQueue(label: "com.remotedesktop.host.pathmonitor")
+    /// Both the app delegate and the SwiftUI scene request startup so the host
+    /// can run without a visible window. Their tasks can overlap while the
+    /// first listener bind is suspended. Serialize that transition; otherwise
+    /// a second in-process start races port 9471, publishes a false
+    /// address-in-use error, and leaves the browser UI displaying a pairing
+    /// code owned by the losing startup attempt.
+    private var runtimeStartInProgress = false
+    private var runtimeStarted = false
 
     @Published private(set) var pendingTrustPrompt: TrustPrompt?
     /// Deadline for the currently-pending trust prompt.  The dashboard banner
@@ -248,10 +256,14 @@ final class HostAppEnvironment: ObservableObject {
             eventLogStore: eventLogStore,
             modeProvider: self.sessionModeController
         )
+        self.inputCommandRouter.setTerminalModeEnabled(storedTerminalMode)
         self.discoveryAdvertiserViewModel = DiscoveryAdvertiserViewModel(
             hostIdentity: canonicalHostIdentity,
             advertiser: discoveryAdvertiser,
-            productMode: productMode
+            productMode: productMode,
+            secureTLSPortProvider: { [signalingService] in
+                (signalingService as? BonjourSignalingService)?.tlsListeningPort
+            }
         )
         self.sessionCoordinator = HostSessionCoordinator(
             hostIdentity: canonicalHostIdentity,
@@ -353,27 +365,13 @@ final class HostAppEnvironment: ObservableObject {
         self.terminalService.sendEnvelope = { [weak webRTCSessionManager = self.webRTCSessionManager] envelope in
             try? webRTCSessionManager?.sendDataMessage(envelope)
         }
-        self.inputCommandRouter.onTerminalOpen = { [weak self, weak terminalService = self.terminalService, weak webRTCSessionManager = self.webRTCSessionManager] message in
-            // Hard gate: even an authenticated client can't spawn a shell
-            // until the user explicitly toggles Terminal Mode on in host
-            // settings. We respond with a TerminalClose so the client UI can
-            // show a clear "feature disabled" state instead of hanging on
-            // "opening shell…".
-            Task { @MainActor [weak self, weak terminalService, weak webRTCSessionManager] in
-                guard let self else { return }
-                if !self.terminalModeEnabled {
-                    let close = TerminalCloseMessage(
-                        sessionID: message.sessionID,
-                        terminalID: message.terminalID,
-                        reason: "terminal-disabled"
-                    )
-                    if let envelope = try? DataChannelEnvelope.terminalClose(close) {
-                        try? webRTCSessionManager?.sendDataMessage(envelope)
-                    }
-                    return
-                }
-                terminalService?.handleOpen(message)
-            }
+        self.inputCommandRouter.onTerminalOpen = { [terminalService = self.terminalService] message in
+            // The router has already authenticated, routed, and feature-gated
+            // this packet. HostTerminalService is queue-isolated, so invoke it
+            // directly instead of bouncing through the main actor. A main-actor
+            // hop here could strand the client in "Opening shell…" while the
+            // retry loop kept sending duplicate terminalOpen packets.
+            terminalService.handleOpen(message)
         }
         self.inputCommandRouter.onTerminalInput = { [weak terminalService = self.terminalService] message in
             terminalService?.handleInput(message)
@@ -670,7 +668,24 @@ final class HostAppEnvironment: ObservableObject {
     #endif
 
     func startRuntimeIfNeeded() async {
+        guard !runtimeStartInProgress, !runtimeStarted else { return }
+        runtimeStartInProgress = true
+        runtimeStarted = true
+        defer { runtimeStartInProgress = false }
+
         await permissionsViewModel.refresh()
+        // Bind the signaling sockets before publishing Bonjour metadata. In particular,
+        // never advertise `stlsp=9473` merely because the identity exists: clients must
+        // only choose TLS after the actual listener has reached .ready.
+        await sessionCoordinator.startSession()
+        // Do not publish a discoverable or browser endpoint when the signaling listener
+        // failed to bind (most commonly because the other Vamp host product owns 9471).
+        // A stale advertisement makes clients attempt a secure connection to a host that
+        // cannot complete the session and hides the actionable port-conflict message.
+        guard sessionCoordinator.phase != .error else {
+            runtimeStarted = false
+            return
+        }
         await discoveryAdvertiserViewModel.startIfNeeded()
         #if os(macOS)
         // Keep the loopback path for Tailscale Serve and, when available,
@@ -681,10 +696,10 @@ final class HostAppEnvironment: ObservableObject {
         }.value
         browserControlService.start(tailscaleHost: tailscaleInfo?.ipAddress)
         #endif
-        await sessionCoordinator.startSession()
     }
 
     func stopRuntime() async {
+        runtimeStarted = false
         #if os(macOS)
         browserControlService.stop()
         #endif
@@ -826,6 +841,7 @@ final class HostAppEnvironment: ObservableObject {
             return
         }
         terminalModeEnabled = isEnabled
+        inputCommandRouter.setTerminalModeEnabled(isEnabled)
         UserDefaults.standard.set(isEnabled, forKey: Keys.terminalModeEnabled)
         #if os(macOS)
         // Turning the feature off mid-session must kill any live shell.

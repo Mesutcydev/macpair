@@ -24,6 +24,15 @@ public enum RemoteDesktopConstants {
     public static let maxBitrateKbps = 8000
     public static let stallDetectionInterval: TimeInterval = 3
     public static let heartbeatInterval: TimeInterval = 5
+
+    /// A host fingerprint is advertised as a lowercase SHA-256 hex digest. Keep this
+    /// validation in the shared layer so listener startup and Bonjour metadata cannot
+    /// disagree about whether TLS is available.
+    public static func isValidPublicKeyFingerprint(_ value: String) -> Bool {
+        guard value.count == 64 else { return false }
+        let validCharacters = CharacterSet(charactersIn: "0123456789abcdef")
+        return value.unicodeScalars.allSatisfy { validCharacters.contains($0) }
+    }
 }
 
 public enum RemoteDesktopError: Error, LocalizedError {

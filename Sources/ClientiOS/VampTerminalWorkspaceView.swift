@@ -99,6 +99,8 @@ struct VampTerminalWorkspaceView: View {
                                 workspace.sendCommand(tabID: tab.id, text: command)
                             },
                             onOpenTerminal: { presentation = .terminal },
+                            onInterrupt: { workspace.interrupt(tabID: tab.id) },
+                            onResume: { workspace.resumePlan(tabID: tab.id) },
                             onSendClipboardToHost: { _ = workspace.sendClipboardToHost() },
                             onRequestClipboardFromHost: { _ = workspace.requestClipboardFromHost() }
                         )
@@ -441,73 +443,96 @@ struct VampTerminalWorkspaceView: View {
     }
 
     private var tabBar: some View {
-        HStack(spacing: VampTerminalDesign.space2) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: VampTerminalDesign.space2) {
-                    ForEach(workspace.tabs) { tab in
-                        tabChip(tab)
+        ScrollViewReader { proxy in
+            HStack(spacing: VampTerminalDesign.space2) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: VampTerminalDesign.space2) {
+                        ForEach(workspace.tabs) { tab in
+                            tabChip(tab)
+                                .id(tab.id)
+                        }
                     }
+                    .padding(.horizontal, VampTerminalDesign.space3)
+                    .padding(.vertical, VampTerminalDesign.space2)
                 }
-                .padding(.horizontal, VampTerminalDesign.space3)
-                .padding(.vertical, VampTerminalDesign.space2)
-            }
+                .scrollClipDisabled()
 
-            Menu {
-                Button {
-                    _ = workspace.createTab()
+                Menu {
+                    Button {
+                        _ = workspace.createTab()
+                    } label: {
+                        Label("New shell", systemImage: "terminal")
+                    }
+
+                    Section("Resume a session") {
+                        Button {
+                            presentStartupCommand(
+                                title: "Attach tmux session",
+                                prefix: "tmux new-session -A -s "
+                            )
+                        } label: {
+                            Label("Attach / create tmux", systemImage: "rectangle.split.2x1")
+                        }
+                        Button {
+                            presentStartupCommand(
+                                title: "Attach GNU screen",
+                                prefix: "screen -r "
+                            )
+                        } label: {
+                            Label("Attach screen", systemImage: "rectangle.on.rectangle")
+                        }
+                    }
+                    Section("Agent launchers") {
+                        ForEach(VampAgentProvider.allCases) { provider in
+                            agentCommandButton(provider)
+                        }
+                    }
+                    Section("Project context") {
+                        Button {
+                            showingWorkspaces = true
+                        } label: {
+                            Label("Choose workspace", systemImage: "folder.badge.gearshape")
+                        }
+                    }
                 } label: {
-                    Label("New shell", systemImage: "terminal")
+                    Image(systemName: "plus")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(workspace.canCreateTab ? VampGlassPalette.ink : VampGlassPalette.inkSubtle)
+                        .frame(minWidth: VampTerminalDesign.minTapTarget, minHeight: VampTerminalDesign.minTapTarget)
+                        .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                        .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
                 }
-
-                Section("Resume a session") {
-                    Button {
-                        presentStartupCommand(
-                            title: "Attach tmux session",
-                            prefix: "tmux new-session -A -s "
-                        )
-                    } label: {
-                        Label("Attach / create tmux", systemImage: "rectangle.split.2x1")
-                    }
-                    Button {
-                        presentStartupCommand(
-                            title: "Attach GNU screen",
-                            prefix: "screen -r "
-                        )
-                    } label: {
-                        Label("Attach screen", systemImage: "rectangle.on.rectangle")
-                    }
-                }
-
-                Section("Agent launchers") {
-                    ForEach(VampAgentProvider.allCases) { provider in
-                        agentCommandButton(provider)
-                    }
-                }
-                Section("Project context") {
-                    Button {
-                        showingWorkspaces = true
-                    } label: {
-                        Label("Choose workspace", systemImage: "folder.badge.gearshape")
-                    }
-                }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(workspace.canCreateTab ? VampGlassPalette.ink : VampGlassPalette.inkSubtle)
-                    .frame(minWidth: VampTerminalDesign.minTapTarget, minHeight: VampTerminalDesign.minTapTarget)
-                    .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
-                    .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
+                .buttonStyle(VampGlassPressStyle())
+                .disabled(!workspace.canCreateTab)
+                .accessibilityLabel("New terminal tab")
+                .accessibilityValue(workspace.tabCountLabel)
+                .accessibilityHint(workspace.canCreateTab ? "Opens another independent shell" : "Terminal capacity reached")
+                .padding(.trailing, VampTerminalDesign.space3)
             }
-            .buttonStyle(VampGlassPressStyle())
-            .disabled(!workspace.canCreateTab)
-            .accessibilityLabel("New terminal tab")
-            .accessibilityValue(workspace.tabCountLabel)
-            .accessibilityHint(workspace.canCreateTab ? "Opens another independent shell" : "Terminal capacity reached")
-            .padding(.trailing, VampTerminalDesign.space3)
+            .onAppear {
+                scrollSelectedTabIntoView(proxy, animated: false)
+            }
+            .onChange(of: workspace.selectedTabID) { _, _ in
+                scrollSelectedTabIntoView(proxy, animated: true)
+            }
         }
         .vampGlassSurface(.toolbar, cornerRadius: 0)
         .overlay(alignment: .bottom) {
             Rectangle().fill(VampGlassPalette.ruleStrong).frame(height: 0.5)
+        }
+    }
+
+    private func scrollSelectedTabIntoView(_ proxy: ScrollViewProxy, animated: Bool) {
+        guard let selectedTabID = workspace.selectedTabID else { return }
+        let scroll = {
+            proxy.scrollTo(selectedTabID, anchor: .center)
+        }
+        if animated && !reduceMotion {
+            withAnimation(.easeOut(duration: 0.18), scroll)
+        } else {
+            var transaction = Transaction()
+            transaction.animation = nil
+            withTransaction(transaction, scroll)
         }
     }
 
@@ -530,6 +555,12 @@ struct VampTerminalWorkspaceView: View {
                             .fill(VampGlassPalette.ink)
                             .frame(width: 5, height: 5)
                             .accessibilityLabel("Unread output")
+                    }
+                    if let plan = tab.chat.taskPlan, plan.isActive {
+                        Text(plan.progressLabel)
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(VampGlassPalette.inkTertiary)
+                            .accessibilityLabel("Task progress \(plan.progressLabel)")
                     }
                 }
                 .padding(.leading, VampTerminalDesign.space3)
@@ -650,6 +681,8 @@ private struct TerminalChatFeedView: View {
     @Binding var draft: String
     let onSendCommand: (String) -> Void
     let onOpenTerminal: () -> Void
+    let onInterrupt: () -> Void
+    let onResume: () -> Void
     let onSendClipboardToHost: () -> Void
     let onRequestClipboardFromHost: () -> Void
 
@@ -664,6 +697,10 @@ private struct TerminalChatFeedView: View {
                         ForEach(chat.blocks) { block in
                             TerminalChatBlockView(block: block, provider: provider)
                                 .id(block.id)
+                        }
+                        if let taskPlan = chat.taskPlan {
+                            TaskPlanCard(plan: taskPlan, onInterrupt: onInterrupt, onResume: onResume)
+                                .id(taskPlan.id)
                         }
                         Color.clear
                             .frame(height: 1)
@@ -698,6 +735,10 @@ private struct TerminalChatFeedView: View {
                     scrollToLatestAfterLayout(proxy, animated: false)
                 }
                 .onChange(of: chat.blocks) { _, _ in
+                    guard isNearLatest else { return }
+                    scrollToLatestAfterLayout(proxy, animated: true)
+                }
+                .onChange(of: chat.taskPlan) { _, _ in
                     guard isNearLatest else { return }
                     scrollToLatestAfterLayout(proxy, animated: true)
                 }
@@ -780,6 +821,159 @@ private struct TerminalChatFeedView: View {
             draft += text
         }
         composerFocused = true
+    }
+}
+
+private struct TaskPlanCard: View {
+    let plan: SessionTaskPlan
+    let onInterrupt: () -> Void
+    let onResume: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isExpanded = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
+            Button {
+                if reduceMotion {
+                    isExpanded.toggle()
+                } else {
+                    withAnimation(.easeOut(duration: 0.18)) { isExpanded.toggle() }
+                }
+            } label: {
+                HStack(spacing: VampTerminalDesign.space2) {
+                    Image(systemName: statusSymbol)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(statusColor)
+                    Text(plan.title ?? "Plan")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .textCase(.uppercase)
+                        .tracking(1.1)
+                    Spacer(minLength: VampTerminalDesign.space2)
+                    Text(plan.progressLabel)
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(VampGlassPalette.inkSecondary)
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(VampGlassPalette.inkTertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isExpanded ? "Collapse task plan" : "Expand task plan")
+            .accessibilityValue(plan.progressLabel)
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: VampTerminalDesign.space2) {
+                    ForEach(plan.tasks) { task in
+                        taskRow(task)
+                    }
+                }
+                .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
+
+                HStack(spacing: VampTerminalDesign.space2) {
+                    Text(plan.source == .inferred ? "Inferred from agent plan" : "Agent task plan")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(VampGlassPalette.inkSubtle)
+                    Spacer(minLength: VampTerminalDesign.space2)
+                    if plan.state == .planning || plan.state == .running {
+                        Button(action: onInterrupt) {
+                            Label("Interrupt", systemImage: "stop.fill")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .padding(.horizontal, VampTerminalDesign.space3)
+                                .frame(minHeight: VampTerminalDesign.compactControlHeight)
+                                .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                        }
+                        .buttonStyle(VampGlassPressStyle())
+                        .accessibilityHint("Sends Control-C and pauses this plan")
+                    } else if plan.state == .paused {
+                        Button(action: onResume) {
+                            Label("Resume", systemImage: "play.fill")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .padding(.horizontal, VampTerminalDesign.space3)
+                                .frame(minHeight: VampTerminalDesign.compactControlHeight)
+                                .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                        }
+                        .buttonStyle(VampGlassPressStyle())
+                        .accessibilityHint("Resumes this plan without recreating the terminal")
+                    }
+                }
+            } else if let current = plan.tasks.first(where: { $0.status == .running }) {
+                Text(current.title)
+                    .font(.system(.subheadline, design: .rounded).weight(.medium))
+                    .foregroundStyle(VampGlassPalette.inkSecondary)
+                    .lineLimit(2)
+            }
+        }
+        .padding(VampTerminalDesign.space4)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.largeCardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.largeCardRadius, color: VampGlassPalette.ruleStrong)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func taskRow(_ task: SessionTask) -> some View {
+        HStack(alignment: .top, spacing: VampTerminalDesign.space3) {
+            Image(systemName: iconName(for: task.status))
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(color(for: task.status))
+                .frame(width: 18, height: 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(task.order). \(task.title)")
+                    .font(.system(.subheadline, design: .rounded).weight(task.status == .running ? .semibold : .regular))
+                    .foregroundStyle(task.status == .completed || task.status == .skipped ? VampGlassPalette.inkTertiary : VampGlassPalette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                if task.status == .running, let detail = task.detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.system(size: 12, design: .rounded))
+                        .foregroundStyle(VampGlassPalette.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if task.status == .failed, let reason = task.failureReason, !reason.isEmpty {
+                    Text(reason)
+                        .font(.system(size: 12, design: .rounded))
+                        .foregroundStyle(VampGlassPalette.bad)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private var statusSymbol: String {
+        switch plan.state {
+        case .completed: return "checkmark.circle.fill"
+        case .failed: return "exclamationmark.circle.fill"
+        case .paused: return "pause.circle.fill"
+        case .cancelled: return "xmark.circle.fill"
+        case .planning, .running: return "circle.dotted"
+        }
+    }
+
+    private var statusColor: Color {
+        switch plan.state {
+        case .completed: return VampGlassPalette.good
+        case .failed, .cancelled: return VampGlassPalette.bad
+        case .paused: return VampGlassPalette.warning
+        case .planning, .running: return VampGlassPalette.inkSecondary
+        }
+    }
+
+    private func iconName(for status: SessionTaskStatus) -> String {
+        switch status {
+        case .pending: return "circle"
+        case .running: return "circle.dotted"
+        case .completed: return "checkmark.circle.fill"
+        case .failed: return "exclamationmark.circle.fill"
+        case .skipped: return "minus.circle"
+        }
+    }
+
+    private func color(for status: SessionTaskStatus) -> Color {
+        switch status {
+        case .pending: return VampGlassPalette.inkTertiary
+        case .running: return VampGlassPalette.ink
+        case .completed: return VampGlassPalette.good
+        case .failed: return VampGlassPalette.bad
+        case .skipped: return VampGlassPalette.inkSubtle
+        }
     }
 }
 

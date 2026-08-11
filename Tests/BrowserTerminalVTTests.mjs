@@ -11,6 +11,34 @@ const classEnd = source.indexOf('\n\nconst vampNextTerminalTitle', classStart);
 assert.ok(classStart >= 0, 'VampBrowserVT class is present');
 assert.ok(classEnd > classStart, 'VampBrowserVT class boundary is present');
 
+// Task plans must have their own authenticated/session-routed projection. Keep
+// this guard close to the browser VT tests so a future UI refactor cannot
+// silently route plan state through terminal output or screen rows.
+assert.match(source, /BrowserTaskPlanEvent\(sessionID: message\.sessionID, terminalID: message\.terminalID/);
+assert.match(source, /value\.sessionID && value\.sessionID !== sessionId/);
+assert.match(source, /window\.vampApplyTaskPlanEvent\(terminalID, value\.event\)/);
+assert.match(source, /window\.vampInferTaskPlan = \(tabID, semanticText\)/);
+assert.match(source, /vampTaskPlanEventIsBound\(value\.event, sessionId, terminalID\)/);
+assert.match(source, /task-plan-resume/);
+assert.equal(source.includes('vampInferTaskPlan(tabID, tab.terminal'), false, 'task inference is not fed VT screen state');
+
+// A successful pairing must replace a stale browser socket before the new
+// page upgrades to WebSocket. Otherwise the one-browser capacity guard closes
+// the freshly paired page and QR/manual pairing looks like a bad code.
+assert.match(source, /revokeWebSocketSessions\(reason: "browser-replaced"\)/);
+assert.match(source, /private func revokeWebSocketSessions\(reason: String\)/);
+
+// Terminal mode is a real flex viewport, not the compact Chat preview with a
+// fixed control overlay. Keep the iPhone keyboard layout in normal flow and
+// make project chrome yield while the software keyboard is present.
+assert.match(source, /body\.vamp-terminal-mode \.content \{[\s\S]*?display: flex !important;[\s\S]*?overflow: hidden !important;/);
+assert.match(source, /body\.vamp-terminal-mode \.chat \{[\s\S]*?flex: 1 1 auto !important;[\s\S]*?min-height: 0 !important;/);
+assert.match(source, /\.shell\.vamp-keyboard-open \.composer \{[\s\S]*?position: static !important;/);
+assert.match(source, /body\.vamp-terminal-mode \.shell\.vamp-keyboard-open \.task-context,[\s\S]*?display: none !important;/);
+assert.match(source, /body\.vamp-terminal-mode \.stream-card-head,[\s\S]*?body\.vamp-terminal-mode \.open-terminal-preview \{[\s\S]*?display: none !important;/);
+assert.match(source, /const selected = navigation\.querySelector\('\.tab\.active'\)/);
+assert.match(source, /navigation\.scrollLeft = Math\.min\(/);
+
 const escapeHTML = (value) => String(value)
   .replaceAll('&', '&amp;')
   .replaceAll('<', '&lt;')

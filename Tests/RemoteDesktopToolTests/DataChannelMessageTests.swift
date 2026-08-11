@@ -85,6 +85,31 @@ final class DataChannelMessageTests: XCTestCase {
         XCTAssertEqual(closeDecoded, close)
     }
 
+    func testTaskPlanEventRoundTrip() throws {
+        let sessionID = UUID()
+        let terminalID = UUID()
+        let first = SessionTask(order: 1, title: "Audit PTY", detail: "Inspect the semantic boundary")
+        let second = SessionTask(order: 2, title: "Run tests")
+        let plan = SessionTaskPlan(
+            sessionID: sessionID,
+            terminalID: terminalID,
+            title: "Build pass",
+            tasks: [first, second],
+            source: .adapter
+        )
+        let message = SessionTaskEventMessage(
+            sessionID: sessionID,
+            terminalID: terminalID,
+            event: .planCreated(plan)
+        )
+        let decoded = try DataChannelEnvelope.wireDecode(
+            try DataChannelEnvelope.taskPlanEvent(message).wireEncode()
+        ).decodeTaskPlanEvent()
+
+        XCTAssertEqual(decoded, message)
+        XCTAssertEqual(decoded.event, message.event)
+    }
+
     func testHostStatusRoundTrip() throws {
         let status = HostStatusMessage(
             hostID: UUID(),
@@ -198,7 +223,7 @@ final class DataChannelMessageTests: XCTestCase {
             .fileTransfer, .error, .qualityAdjust, .setActiveDisplays, .requestKeyframe,
             .unlockPassword, .audioFrame, .clipboardSync, .clipboardRequest,
             .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
-            .terminalResize, .terminalClose
+            .terminalResize, .terminalClose, .taskPlanEvent
         ]
         for kind in allKinds {
             XCTAssertFalse(kind.rawValue.isEmpty, "\(kind) should have non-empty raw value")
@@ -211,7 +236,7 @@ final class DataChannelMessageTests: XCTestCase {
             .displaySwitch, .setActiveDisplays, .requestKeyframe,
             .unlockPassword, .clipboardSync, .clipboardRequest,
             .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
-            .terminalResize, .terminalClose
+            .terminalResize, .terminalClose, .taskPlanEvent
         ]
         let allKinds: [DataChannelMessageKind] = [
             .controlAuth, .inputCommand, .ping, .pong, .hostStatus, .displayLayout,
@@ -219,7 +244,7 @@ final class DataChannelMessageTests: XCTestCase {
             .fileTransfer, .error, .qualityAdjust, .setActiveDisplays, .requestKeyframe,
             .unlockPassword, .audioFrame, .clipboardSync, .clipboardRequest,
             .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
-            .terminalResize, .terminalClose
+            .terminalResize, .terminalClose, .taskPlanEvent
         ]
         for kind in allKinds {
             XCTAssertEqual(kind.requiresControlChannelAuthentication, authenticated.contains(kind), "Unexpected auth contract for \(kind)")

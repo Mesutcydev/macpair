@@ -11,6 +11,7 @@ final class DiscoveryAdvertiserViewModel: ObservableObject {
     private let hostIdentity: HostIdentity
     private let advertiser: any HostDiscoveryAdvertiserProtocol
     private let productMode: HostProductMode
+    private let secureTLSPortProvider: () -> UInt16?
     private var eventsTask: Task<Void, Never>?
     private var tailscaleHostname: String?
     private var tailscaleIP: String?
@@ -41,11 +42,13 @@ final class DiscoveryAdvertiserViewModel: ObservableObject {
     init(
         hostIdentity: HostIdentity,
         advertiser: any HostDiscoveryAdvertiserProtocol,
-        productMode: HostProductMode = .full
+        productMode: HostProductMode = .full,
+        secureTLSPortProvider: @escaping () -> UInt16? = { nil }
     ) {
         self.hostIdentity = hostIdentity
         self.advertiser = advertiser
         self.productMode = productMode
+        self.secureTLSPortProvider = secureTLSPortProvider
     }
 
     /// Update the Tailscale identity broadcast in the mDNS TXT record. Triggers a re-advertise
@@ -205,21 +208,13 @@ final class DiscoveryAdvertiserViewModel: ObservableObject {
             supportedCodecs: productMode.supportedCodecs,
             availability: availability,
             publicKeyFingerprint: hostIdentity.publicKeyFingerprint,
-            secureTLSPort: isValidFingerprint(hostIdentity.publicKeyFingerprint)
-                ? RemoteDesktopConstants.defaultTLSSignalingPort
-                : nil,
+            secureTLSPort: secureTLSPortProvider(),
             macAddress: primaryMACAddress(),
             wakeSupported: wakeSupported,
             magicWakeCapable: magicWakeCapable,
             tailscaleHostname: tailscaleHostname,
             tailscaleIP: tailscaleIP
         )
-    }
-
-    private func isValidFingerprint(_ fingerprint: String) -> Bool {
-        guard fingerprint.count == 64 else { return false }
-        let validChars = CharacterSet(charactersIn: "0123456789abcdef")
-        return fingerprint.unicodeScalars.allSatisfy { validChars.contains($0) }
     }
 
     /// Returns the MAC address of the primary network interface (en0 preferred, other en* as fallback).

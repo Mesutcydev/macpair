@@ -22,29 +22,46 @@ struct VampTerminalPaneView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if isPreview {
-                previewStatusBar
-            } else {
-                paneStatusBar
+            // Keep the PTY renderer mounted for every tab, but only build
+            // controls for the selected pane. SwiftUI can otherwise retain
+            // stale accessibility/focus nodes from an opacity-hidden pane.
+            if isActive {
+                if isPreview {
+                    previewStatusBar
+                } else {
+                    paneStatusBar
+                }
             }
-            VampSwiftTermContainer(
-                session: session,
-                controller: input,
-                provider: provider,
-                onTerminalClipboard: onTerminalClipboard,
-                onTerminalInput: onTerminalInput,
-                sendsResize: isActive
-            )
+            ZStack {
+                VampSwiftTermContainer(
+                    session: session,
+                    controller: input,
+                    provider: provider,
+                    onTerminalClipboard: onTerminalClipboard,
+                    onTerminalInput: onTerminalInput,
+                    sendsResize: isActive
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+                .background(provider?.terminalBackground ?? Color.black)
+
+                if session.output.isEmpty {
+                    VampTerminalEmptyState(
+                        state: session.state,
+                        foreground: provider?.terminalText ?? .white,
+                        accent: provider?.accent ?? VampGlassPalette.good
+                    )
+                    .allowsHitTesting(false)
+                }
+            }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
-            .background(provider?.terminalBackground ?? Color.black)
-        }
-        // Keep the accessory outside the terminal's measured frame. SwiftUI
-        // then gives the PTY one stable viewport and moves only this inset
-        // above the software keyboard instead of repeatedly squeezing the
-        // whole pane during keyboard/browser-safe-area changes.
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !isPreview {
+            .layoutPriority(1)
+
+            // The accessory is a normal sibling of the measured terminal
+            // surface. Hidden panes therefore cannot stack safe-area insets,
+            // and the keyboard can resize this one flex column without ever
+            // placing controls over terminal rows.
+            if isActive && !isPreview {
                 specialKeysBar
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -61,6 +78,14 @@ struct VampTerminalPaneView: View {
                 input.focus()
             } else {
                 input.blur()
+            }
+        }
+        .onChange(of: isPreview) { _, preview in
+            guard isActive else { return }
+            if preview {
+                input.blur()
+            } else {
+                input.focus()
             }
         }
         .onDisappear {
@@ -306,6 +331,53 @@ struct VampTerminalPaneView: View {
         let data = Data(text.utf8)
         onTerminalInput(data)
         session.sendInput(data)
+    }
+}
+
+private struct VampTerminalEmptyState: View {
+    let state: ClientTerminalSessionManager.State
+    let foreground: SwiftUI.Color
+    let accent: SwiftUI.Color
+
+    var body: some View {
+        VStack(spacing: VampTerminalDesign.space2) {
+            ProgressView()
+                .tint(accent)
+                .opacity(isWaiting ? 1 : 0)
+            Text(title)
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .foregroundStyle(foreground.opacity(0.82))
+            Text(detail)
+                .font(.system(size: 11, weight: .regular, design: .rounded))
+                .foregroundStyle(foreground.opacity(0.48))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(VampTerminalDesign.space4)
+        .frame(maxWidth: 300)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var isWaiting: Bool {
+        state == .idle || state == .opening
+    }
+
+    private var title: String {
+        switch state {
+        case .idle: return "Waiting for host"
+        case .opening: return "Opening terminal…"
+        case .open: return "Terminal ready"
+        case .closed: return "Terminal closed"
+        }
+    }
+
+    private var detail: String {
+        switch state {
+        case .idle: return "The shell will appear when the connection is ready."
+        case .opening: return "Creating an independent PTY on your Mac."
+        case .open: return "Waiting for the first prompt or command output."
+        case .closed: return "Retry this tab or open a new terminal."
+        }
     }
 }
 

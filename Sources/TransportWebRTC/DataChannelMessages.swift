@@ -55,6 +55,10 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
     case workspaceDirectoryRequest
     /// Host → client: directory entries for a validated browse path.
     case workspaceDirectoryResponse
+    /// Host → client: a semantic agent task-plan mutation. This is kept
+    /// separate from terminalOutput so VT repaint bytes cannot become Chat
+    /// tasks by accident.
+    case taskPlanEvent
 
     /// One source of truth for the control-channel authentication contract.
     /// Any kind that can inject input, change host state, read/write host data,
@@ -67,7 +71,7 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
              .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
              .terminalResize, .terminalClose, .workspaceListRequest,
              .workspaceListResponse, .workspaceDirectoryRequest,
-             .workspaceDirectoryResponse:
+             .workspaceDirectoryResponse, .taskPlanEvent:
             return true
         default:
             return false
@@ -345,6 +349,14 @@ extension DataChannelEnvelope {
             payload: try makeEncoder().encode(message)
         )
     }
+
+    public static func taskPlanEvent(_ message: SessionTaskEventMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .taskPlanEvent,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
 }
 
 // MARK: - Decoding Helpers
@@ -467,6 +479,10 @@ extension DataChannelEnvelope {
 
     public func decodeWorkspaceDirectoryResponse() throws -> WorkspaceDirectoryResponseMessage {
         try Self.makeDecoder().decode(WorkspaceDirectoryResponseMessage.self, from: payload)
+    }
+
+    public func decodeTaskPlanEvent() throws -> SessionTaskEventMessage {
+        try Self.makeDecoder().decode(SessionTaskEventMessage.self, from: payload)
     }
 }
 

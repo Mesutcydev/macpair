@@ -22,6 +22,7 @@ final class HostInputCommandRouter: @unchecked Sendable {
     private var _activeSessionID: UUID?
     private var _isEnabled: Bool = false
     private var _terminalOnly: Bool = false
+    private var _terminalModeEnabled: Bool = true
     private var _commandsProcessed: UInt64 = 0
     private var _commandsRejected: UInt64 = 0
     private var _lastQualityAdjustAt: Date?
@@ -175,6 +176,22 @@ final class HostInputCommandRouter: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return _commandsRejected
+    }
+
+    /// Terminal Mode is kept in the router because terminal-open packets are
+    /// handled off the main actor. This avoids making PTY creation depend on
+    /// SwiftUI/main-actor scheduling while still preserving the full-host
+    /// feature gate.
+    var terminalModeEnabled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _terminalModeEnabled
+    }
+
+    func setTerminalModeEnabled(_ enabled: Bool) {
+        lock.lock()
+        _terminalModeEnabled = enabled
+        lock.unlock()
     }
 
     // MARK: - Start / Stop
@@ -580,6 +597,21 @@ final class HostInputCommandRouter: @unchecked Sendable {
             rejectCommand(reason: "Terminal open rejected: \(rejection)")
             return
         }
+
+        guard terminalModeEnabled else {
+            logger.info("Rejecting terminal open because Terminal Mode is disabled")
+            rejectCommand(reason: "Terminal Mode is disabled")
+            let close = TerminalCloseMessage(
+                sessionID: message.sessionID,
+                terminalID: message.terminalID,
+                reason: "terminal-disabled"
+            )
+            if let response = try? DataChannelEnvelope.terminalClose(close) {
+                try? webRTCSessionManager.sendDataMessage(response)
+            }
+            return
+        }
+
         logger.notice("Routing terminal open to PTY service")
         onTerminalOpen?(message)
     }

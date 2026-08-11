@@ -7,11 +7,17 @@ struct ClientHostBlockedState: Equatable {
     var message: String
     var blockedPermissions: [PermissionState]
 
+    init(terminalOnlyHostNamed name: String) {
+        self.title = "Terminal-only host"
+        self.message = "\(name) is running Vamp Terminal Host. It provides terminal tabs, not screen sharing or remote control. Open Vamp Terminal for terminal access, or run Vamp Host on the Mac for this client."
+        self.blockedPermissions = []
+    }
+
     init(message: PermissionBlockedMessage) {
         self.blockedPermissions = message.blockedPermissions
         if message.reason == .terminalOnlyHost {
-            self.title = "Vamp Terminal Required"
-            self.message = "This is Vamp Terminal Host, which does not provide screen sharing or remote control. Open it with the Vamp Terminal app for terminal tabs, or connect this client to the full Vamp Host."
+            self.title = "Use Vamp Terminal"
+            self.message = "This Mac is running Vamp Terminal Host. It supports terminal tabs only. Open Vamp Terminal for the session, or start Vamp Host on the Mac to use screen sharing and remote control."
             return
         }
 

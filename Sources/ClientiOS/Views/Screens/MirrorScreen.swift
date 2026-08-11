@@ -289,7 +289,11 @@ struct MirrorScreen: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             if hostPickerHosts.isEmpty {
-                Text("Scan from the hosts tab if nothing appears here.")
+                if !terminalOnlyHosts.isEmpty {
+                    Text("No Vamp Host targets are available. This Mac is running Vamp Terminal Host; use Vamp Terminal for terminal tabs.")
+                } else {
+                    Text("Scan from the hosts tab if nothing appears here.")
+                }
             } else {
                 Text("Select a Mac without leaving mirror.")
             }
@@ -328,14 +332,17 @@ struct MirrorScreen: View {
         if isStreamActive || isConnecting {
             return isConnecting ? "connecting..." : "disconnect"
         }
-        return hostsVM.hosts.isEmpty ? "start stream (scan hosts first)" : "start stream"
+        if remoteControlHosts.isEmpty {
+            return terminalOnlyHosts.isEmpty ? "start stream (scan hosts first)" : "install Vamp Host to stream"
+        }
+        return "start stream"
     }
 
     private var primaryActionEnabled: Bool {
         if isDisconnectPending { return false }
         if isConnecting { return false }
         if isStreamActive { return true }
-        return !hostsVM.hosts.isEmpty
+        return !remoteControlHosts.isEmpty
     }
 
     private var streamHint: String {
@@ -415,7 +422,15 @@ struct MirrorScreen: View {
 
     private var hostPickerHosts: [DiscoveredHostRow] {
         // One entry per physical Mac (collapses old/new LAN IPs + the relay sibling).
-        hostsVM.displayHosts
+        remoteControlHosts
+    }
+
+    private var remoteControlHosts: [DiscoveredHostRow] {
+        hostsVM.displayHosts.filter { !$0.isTerminalOnlyHost }
+    }
+
+    private var terminalOnlyHosts: [DiscoveredHostRow] {
+        hostsVM.displayHosts.filter(\.isTerminalOnlyHost)
     }
 
     private func hostPickerTitle(for host: DiscoveredHostRow) -> String {
@@ -424,6 +439,11 @@ struct MirrorScreen: View {
     }
 
     private func connect(to host: DiscoveredHostRow) {
+        guard !host.isTerminalOnlyHost else {
+            // Keep the mirror flow deterministic even if a terminal-only row is
+            // supplied by a stale picker or a future entry point.
+            return
+        }
         pendingHostID = host.id
         hostsVM.connect(to: host)
         Task {
@@ -746,8 +766,15 @@ struct SimpleHomeView: View {
         if sessionCoordinator.phase == .receiving {
             return sessionCoordinator.connectedHostName ?? "live session"
         }
-        let online = hosts.filter(\.isAvailable).count
-        return "tap a laptop to connect · \(online) online"
+        let remoteCount = remoteControlHosts.filter(\.isAvailable).count
+        let terminalCount = terminalOnlyHosts.filter(\.isAvailable).count
+        if remoteCount == 0, terminalCount > 0 {
+            return "no remote-control hosts · \(terminalCount) terminal host"
+        }
+        if terminalCount > 0 {
+            return "tap a laptop to connect · \(remoteCount) remote · \(terminalCount) terminal"
+        }
+        return "tap a laptop to connect · \(remoteCount) online"
     }
 
     // MARK: Inline stream preview
@@ -833,69 +860,78 @@ struct SimpleHomeView: View {
 
     // MARK: Laptop tiles
 
+    @ViewBuilder
     private func laptopTile(_ host: DiscoveredHostRow) -> some View {
-        let online = host.isAvailable
-        let isConnecting = connectingHostID == host.id
-        let isWaking = wakingHostID == host.id
-        let wakeable = canWake(host)
-
-        return Button {
-            tapTile(host)
-        } label: {
-            VStack(spacing: 12) {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: "laptopcomputer")
-                        .font(.system(size: 48, weight: .regular))
-                        .foregroundColor(online ? PR.accent : PR.dim)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 4)
-
-                    if host.isSaved {
-                        Image(systemName: "checkmark.shield.fill")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(PR.accent)
-                    }
-                }
-
-                VStack(spacing: 3) {
-                    Text(host.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(HostNameColor.color(for: host.id))
-                        .lineLimit(1)
-                    Text(host.endpoint.hostname)
-                        .font(.caption2.monospaced())
-                        .foregroundColor(PR.dim)
-                        .lineLimit(1)
-                }
-
-                tileStatus(host, online: online, isConnecting: isConnecting, isWaking: isWaking, wakeable: wakeable)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 18)
-            .padding(.horizontal, 10)
-            .prGlassSurface(
-                in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous),
-                isInteractive: true
+        if host.isTerminalOnlyHost {
+            TerminalOnlyHostTile(
+                title: host.title,
+                hostname: host.endpoint.hostname,
+                isOnline: host.isAvailable
             )
-            .opacity(online || wakeable ? 1 : 0.6)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PRGlassPressButtonStyle())
-        .disabled(isConnecting || isWaking)
-        .contextMenu {
-            if wakeable {
-                Button(isWaking ? "Waking…" : "Wake Host") { wake(host) }
-                    .disabled(isWaking)
-            }
-            if host.isSaved {
-                Button(role: .destructive) {
-                    hostsVM.removeSavedHost(host.id)
-                } label: {
-                    Label("Remove Saved Host", systemImage: "trash")
+        } else {
+            let online = host.isAvailable
+            let isConnecting = connectingHostID == host.id
+            let isWaking = wakingHostID == host.id
+            let wakeable = canWake(host)
+
+            Button {
+                tapTile(host)
+            } label: {
+                VStack(spacing: 12) {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "laptopcomputer")
+                            .font(.system(size: 48, weight: .regular))
+                            .foregroundColor(online ? PR.accent : PR.dim)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 4)
+
+                        if host.isSaved {
+                            Image(systemName: "checkmark.shield.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(PR.accent)
+                        }
+                    }
+
+                    VStack(spacing: 3) {
+                        Text(host.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(HostNameColor.color(for: host.id))
+                            .lineLimit(1)
+                        Text(host.endpoint.hostname)
+                            .font(.caption2.monospaced())
+                            .foregroundColor(PR.dim)
+                            .lineLimit(1)
+                    }
+
+                    tileStatus(host, online: online, isConnecting: isConnecting, isWaking: isWaking, wakeable: wakeable)
                 }
-            } else {
-                Button { hostsVM.saveHost(host.id) } label: {
-                    Label("Save Host", systemImage: "star")
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .padding(.horizontal, 10)
+                .prGlassSurface(
+                    in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous),
+                    isInteractive: true
+                )
+                .opacity(online || wakeable ? 1 : 0.6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PRGlassPressButtonStyle())
+            .disabled(isConnecting || isWaking)
+            .contextMenu {
+                if wakeable {
+                    Button(isWaking ? "Waking…" : "Wake Host") { wake(host) }
+                        .disabled(isWaking)
+                }
+                if host.isSaved {
+                    Button(role: .destructive) {
+                        hostsVM.removeSavedHost(host.id)
+                    } label: {
+                        Label("Remove Saved Host", systemImage: "trash")
+                    }
+                } else {
+                    Button { hostsVM.saveHost(host.id) } label: {
+                        Label("Save Host", systemImage: "star")
+                    }
                 }
             }
         }
@@ -1171,12 +1207,27 @@ struct SimpleHomeView: View {
         hostsVM.displayHosts
     }
 
+    private var remoteControlHosts: [DiscoveredHostRow] {
+        hosts.filter { !$0.isTerminalOnlyHost }
+    }
+
+    private var terminalOnlyHosts: [DiscoveredHostRow] {
+        hosts.filter(\.isTerminalOnlyHost)
+    }
+
     private var connectingHost: DiscoveredHostRow? {
         guard let id = connectingHostID else { return nil }
         return hosts.first { $0.id == id }
     }
 
     private func tapTile(_ host: DiscoveredHostRow) {
+        guard !host.isTerminalOnlyHost else {
+            // A terminal-only host is intentionally visible so the user knows
+            // it is installed, but it is not a valid remote-control target.
+            // Do not start a doomed WebRTC attempt just to discover that fact.
+            AppHaptics.warning()
+            return
+        }
         if !host.isAvailable && canWake(host) {
             // The host told us a magic packet can't wake it (Apple-Silicon on Wi-Fi). Don't burn a
             // doomed 40s wake attempt — steer the user to "Keep Mac Awake" / Ethernet first, with a
@@ -1409,6 +1460,73 @@ struct SimpleHomeView: View {
     private func signalTint(for host: DiscoveredHostRow) -> Color {
         if !host.isAvailable { return PR.err }
         return signalLabel(for: host) == "RELAY" ? PR.warn : PR.accent
+    }
+}
+
+/// A discovered terminal-only host remains visible as an installed companion,
+/// but is deliberately not a remote-control button. This prevents a product
+/// mismatch from becoming a failed connection flow.
+@available(iOS 16.1, *)
+private struct TerminalOnlyHostTile: View {
+    let title: String
+    let hostname: String
+    let isOnline: Bool
+
+    private var statusColor: Color { isOnline ? PR.warn : PR.dim }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(statusColor.opacity(0.12))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "terminal.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(statusColor)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(PR.fg)
+                        .lineLimit(1)
+                    Text(hostname)
+                        .font(.caption2.monospaced())
+                        .foregroundColor(PR.dim)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 4)
+                Text("TERMINAL HOST")
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .foregroundColor(statusColor)
+                    .multilineTextAlignment(.trailing)
+            }
+
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 7, height: 7)
+                Text(isOnline ? "Use Vamp Terminal for terminal tabs" : "Terminal host offline")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundColor(PR.fg2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 154, alignment: .leading)
+        .padding(.vertical, 18)
+        .padding(.horizontal, 12)
+        .background(PR.bg2.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: PR.r12, style: .continuous)
+                .strokeBorder(statusColor.opacity(0.35), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), terminal-only host")
+        .accessibilityHint("Open Vamp Terminal to use terminal tabs")
     }
 }
 

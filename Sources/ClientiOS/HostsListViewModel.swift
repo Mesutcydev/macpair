@@ -25,6 +25,13 @@ struct DiscoveredHostRow: Identifiable, Hashable {
     var subtitle: String {
         "\(endpoint.hostname):\(endpoint.port)"
     }
+
+    /// Terminal-only hosts advertise the terminal capabilities without a display
+    /// stream. Remote Control can discover them, but it must not present them as
+    /// ordinary remote-control targets.
+    var isTerminalOnlyHost: Bool {
+        endpoint.metadata.capabilities.isTerminalOnlyHost
+    }
 }
 
 /// Lightweight record persisted to UserDefaults for manually-entered hosts.

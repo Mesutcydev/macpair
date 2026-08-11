@@ -48,6 +48,36 @@ enum TerminalInputOrigin {
     case permissionResponse
 }
 
+enum AgentSemanticEvent {
+    case message(String)
+    case thinking(String?)
+    case taskPlan(SessionTaskEvent)
+    case permissionRequested(String?)
+    case completed
+}
+
+/// Adapter input is a stable semantic block supplied by an agent integration,
+/// never a VT screen snapshot. Providers can replace this conservative
+/// fallback with a native protocol adapter without changing the UI.
+protocol AgentSessionAdapter {
+    var provider: VampAgentProvider? { get }
+    func consume(semanticText: String, sessionID: UUID, terminalID: UUID) -> [AgentSemanticEvent]
+}
+
+struct ConservativeAgentSessionAdapter: AgentSessionAdapter {
+    let provider: VampAgentProvider?
+
+    func consume(semanticText: String, sessionID: UUID, terminalID: UUID) -> [AgentSemanticEvent] {
+        guard let plan = SessionTaskPlanDetector.infer(
+            from: semanticText,
+            sessionID: sessionID,
+            terminalID: terminalID,
+            title: "Inferred plan"
+        ) else { return [] }
+        return [.taskPlan(.planCreated(plan))]
+    }
+}
+
 /// The task-chat projection of one terminal session. It deliberately stores
 /// only events Vamp knows semantically. PTY output belongs to SwiftTerm's VT
 /// screen buffer and must never be scraped back into this transcript.
@@ -99,15 +129,28 @@ final class TerminalChatStore: ObservableObject {
 
     @Published private(set) var blocks: [Block]
     @Published private(set) var activityEvents: [ActivityEvent] = []
+    @Published private(set) var taskPlan: SessionTaskPlan?
 
     private let tabTitle: String
+    private let taskPlanPersistenceKey: String?
+    private var taskPlanCoordinator: SessionTaskCoordinator
     private var didMarkReady = false
     private var didMarkClosed = false
     private let maxBlocks = 180
     private let maxActivityEvents = 120
 
-    init(tabTitle: String) {
+    init(tabTitle: String, sessionID: UUID? = nil) {
         self.tabTitle = tabTitle
+        self.taskPlanPersistenceKey = sessionID.map { "com.mesutcy.vamp-terminal.task-plan.\($0.uuidString)" }
+        if let key = self.taskPlanPersistenceKey,
+           let data = UserDefaults.standard.data(forKey: key),
+           let saved = try? JSONDecoder().decode(SessionTaskCoordinator.self, from: data) {
+            self.taskPlanCoordinator = saved
+            self.taskPlan = saved.plan
+        } else {
+            self.taskPlanCoordinator = SessionTaskCoordinator()
+            self.taskPlan = nil
+        }
         self.blocks = [
             Block(
                 role: .system,
@@ -235,6 +278,40 @@ final class TerminalChatStore: ObservableObject {
         let identity = provider?.sessionDisplayName ?? tabTitle
         if !blocks.contains(where: { $0.role == .progress && $0.text == "\(identity) is working…" }) {
             append(Block(role: .progress, title: identity, text: "\(identity) is working…", isStreaming: true))
+        }
+    }
+
+    /// Applies an authenticated semantic event to this tab. The reducer keeps
+    /// stable task IDs and persists the latest plan without involving VT.
+    func applyTaskPlanEvent(_ event: SessionTaskEvent) {
+        taskPlan = taskPlanCoordinator.apply(event)
+        persistTaskPlan()
+        if let taskPlan {
+            recordActivity("Task plan · \(taskPlan.progressLabel)")
+        }
+    }
+
+    /// Entry point for a future native provider adapter or the conservative
+    /// fallback. It accepts only a stable semantic block and is never called
+    /// from `appendOutput` or a terminal screen renderer.
+    func consumeSemanticAgentOutput(
+        _ semanticText: String,
+        provider: VampAgentProvider?,
+        sessionID: UUID,
+        terminalID: UUID
+    ) {
+        let adapter = ConservativeAgentSessionAdapter(provider: provider)
+        for event in adapter.consume(semanticText: semanticText, sessionID: sessionID, terminalID: terminalID) {
+            if case .taskPlan(let taskEvent) = event, taskPlan == nil {
+                applyTaskPlanEvent(taskEvent)
+            }
+        }
+    }
+
+    private func persistTaskPlan() {
+        guard let key = taskPlanPersistenceKey else { return }
+        if let data = try? JSONEncoder().encode(taskPlanCoordinator) {
+            UserDefaults.standard.set(data, forKey: key)
         }
     }
 
@@ -488,6 +565,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
     let workspaceStore: VampWorkspaceStore
     private let clipboardSync = ClientClipboardSyncManager()
     private var sessionObservations: [UUID: AnyCancellable] = [:]
+    private var chatObservations: [UUID: AnyCancellable] = [:]
     private var phaseObservation: AnyCancellable?
     private var dataChannelObservation: Task<Void, Never>?
     private var openingRetryTasks: [UUID: Task<Void, Never>] = [:]
@@ -505,6 +583,9 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         }
         coordinator.onTerminalClose = { [weak self] message in
             self?.receiveClose(message)
+        }
+        coordinator.onTaskPlanEvent = { [weak self] message in
+            self?.receiveTaskPlanEvent(message)
         }
         coordinator.onClipboardSync = { [weak self] message in
             self?.receiveClipboard(message)
@@ -528,6 +609,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         dataChannelObservation?.cancel()
         clipboardStatusTask?.cancel()
         sessionObservations.values.forEach { $0.cancel() }
+        chatObservations.values.forEach { $0.cancel() }
         openingRetryTasks.values.forEach { $0.cancel() }
         clipboardStatusTask?.cancel()
         clipboardStatusTask = nil
@@ -583,6 +665,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         }
         tabs.removeAll()
         sessionObservations.removeAll()
+        chatObservations.removeAll()
         selectedTabID = nil
         activeSessionID = nil
         clipboardSync.deactivate()
@@ -628,7 +711,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
             id: tabID,
             title: tabTitle,
             session: session,
-            chat: TerminalChatStore(tabTitle: tabTitle),
+            chat: TerminalChatStore(tabTitle: tabTitle, sessionID: tabID),
             provider: provider,
             workspaceID: workspace?.id,
             workingDirectory: workspace?.path,
@@ -639,6 +722,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         // routable in the workspace collection.
         tabs.append(tab)
         observe(session: session, tabID: tabID)
+        observe(chat: tab.chat, tabID: tabID)
         if let startupCommand { tab.chat.recordStartupCommand(startupCommand) }
         _ = session.open(
             cols: 80,
@@ -675,6 +759,8 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         tabs[index].session.deactivate()
         sessionObservations[tabID]?.cancel()
         sessionObservations.removeValue(forKey: tabID)
+        chatObservations[tabID]?.cancel()
+        chatObservations.removeValue(forKey: tabID)
         tabs.remove(at: index)
 
         guard !tabs.isEmpty else {
@@ -751,6 +837,45 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         tab.chat.recordInput(data)
     }
 
+    /// Sends a graceful interrupt to the active PTY and pauses an attached
+    /// plan. Terminating a session remains a separate close action.
+    func interrupt(tabID: UUID) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }),
+              tabs[index].session.canSendInput else { return }
+        tabs[index].session.sendInput(Data([0x03]))
+        tabs[index].chat.recordActivity("Interrupt requested")
+        if tabs[index].chat.taskPlan?.isActive == true {
+            tabs[index].chat.applyTaskPlanEvent(.planPaused)
+        }
+    }
+
+    /// Resumes a paused semantic plan without recreating its PTY or clearing
+    /// its terminal screen. The next Chat submission or terminal key can
+    /// continue the agent from the preserved session state.
+    func resumePlan(tabID: UUID) {
+        guard let tab = tabs.first(where: { $0.id == tabID }),
+              tab.chat.taskPlan?.state == .paused else { return }
+        tab.chat.applyTaskPlanEvent(.planResumed)
+        tab.chat.recordActivity("Task plan resumed")
+    }
+
+    /// Applies a task event received from the authenticated semantic channel.
+    /// Session and terminal IDs are both required so one agent can never
+    /// mutate another tab's plan.
+    func applyTaskPlanEvent(_ event: SessionTaskEvent, tabID: UUID) {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        tab.chat.applyTaskPlanEvent(event)
+    }
+
+    /// Test/provider hook for a stable semantic block. Raw PTY output must not
+    /// call this method; use an agent protocol adapter before VT rendering.
+    func consumeSemanticAgentOutput(tabID: UUID, text: String) {
+        guard let tab = tabs.first(where: { $0.id == tabID }),
+              let sessionID = activeSessionID,
+              let terminalID = tab.session.terminalID else { return }
+        tab.chat.consumeSemanticAgentOutput(text, provider: tab.provider, sessionID: sessionID, terminalID: terminalID)
+    }
+
     /// Requests the Mac clipboard. The response is placed in the phone
     /// clipboard by `ClientClipboardSyncManager`, ready for the terminal's
     /// Paste action or any other iOS app.
@@ -821,6 +946,13 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         }
     }
 
+    private func receiveTaskPlanEvent(_ message: SessionTaskEventMessage) {
+        guard message.sessionID == activeSessionID else { return }
+        guard let tab = tabs.first(where: { $0.session.terminalID == message.terminalID }) else { return }
+        guard message.event.isBound(toSessionID: message.sessionID, terminalID: message.terminalID) else { return }
+        tab.chat.applyTaskPlanEvent(message.event)
+    }
+
     private func receiveClipboard(_ message: ClipboardSyncMessage) {
         guard message.sessionID == activeSessionID,
               message.source == "host" else { return }
@@ -840,6 +972,12 @@ final class TerminalWorkspaceViewModel: ObservableObject {
 
     private func observe(session: ClientTerminalSessionManager, tabID: UUID) {
         sessionObservations[tabID] = session.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
+    }
+
+    private func observe(chat: TerminalChatStore, tabID: UUID) {
+        chatObservations[tabID] = chat.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }
     }

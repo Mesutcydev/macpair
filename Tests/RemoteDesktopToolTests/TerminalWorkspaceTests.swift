@@ -73,6 +73,78 @@ final class TerminalWorkspaceTests: XCTestCase {
         XCTAssertTrue(chat.activityEvents.contains { $0.text.contains("bytes") })
     }
 
+    func testTaskPlanTransitionsStaySemanticAndKeepProgressOrdinal() {
+        let sessionID = UUID()
+        let terminalID = UUID()
+        let first = SessionTask(order: 1, title: "Audit")
+        let second = SessionTask(order: 2, title: "Implement")
+        let third = SessionTask(order: 3, title: "Test")
+        let plan = SessionTaskPlan(
+            sessionID: sessionID,
+            terminalID: terminalID,
+            title: "Work plan",
+            tasks: [first, second, third],
+            source: .native
+        )
+        let chat = TerminalChatStore(tabTitle: "Claude", sessionID: UUID())
+
+        chat.applyTaskPlanEvent(.planCreated(plan))
+        XCTAssertEqual(chat.taskPlan?.progressLabel, "1 of 3")
+        chat.applyTaskPlanEvent(.taskStarted(first.id))
+        XCTAssertEqual(chat.taskPlan?.tasks.first?.status, .running)
+        chat.applyTaskPlanEvent(.taskCompleted(first.id))
+        chat.applyTaskPlanEvent(.taskStarted(second.id))
+        XCTAssertEqual(chat.taskPlan?.progressLabel, "2 of 3")
+        XCTAssertEqual(chat.taskPlan?.completedCount, 1)
+        XCTAssertEqual(chat.taskPlan?.tasks.map(\.id), [first.id, second.id, third.id])
+
+        chat.applyTaskPlanEvent(.taskFailed(id: second.id, reason: "provider stopped"))
+        XCTAssertEqual(chat.taskPlan?.tasks[1].failureReason, "provider stopped")
+        XCTAssertEqual(chat.taskPlan?.state, .failed)
+        chat.applyTaskPlanEvent(.taskStarted(second.id))
+        XCTAssertNil(chat.taskPlan?.tasks[1].failureReason)
+        chat.applyTaskPlanEvent(.planPaused)
+        XCTAssertEqual(chat.taskPlan?.state, .paused)
+        chat.applyTaskPlanEvent(.planResumed)
+        XCTAssertEqual(chat.taskPlan?.state, .running)
+    }
+
+    func testTaskPlanFullEventsRejectEmbeddedIdentityMismatch() {
+        let sessionID = UUID()
+        let terminalID = UUID()
+        let plan = SessionTaskPlan(
+            sessionID: UUID(),
+            terminalID: terminalID,
+            tasks: [SessionTask(order: 1, title: "Wrong session")],
+            source: .native
+        )
+
+        XCTAssertFalse(SessionTaskEvent.planCreated(plan).isBound(toSessionID: sessionID, terminalID: terminalID))
+        XCTAssertTrue(SessionTaskEvent.planPaused.isBound(toSessionID: sessionID, terminalID: terminalID))
+    }
+
+    func testTaskPlanInferenceRequiresAStableChecklistAndNeverAcceptsVTBytes() {
+        let sessionID = UUID()
+        let terminalID = UUID()
+        let inferred = SessionTaskPlanDetector.infer(
+            from: "Implementation plan:\n1. Audit terminal\n2. Implement reducer\n3. Run tests",
+            sessionID: sessionID,
+            terminalID: terminalID
+        )
+        XCTAssertEqual(inferred?.source, .inferred)
+        XCTAssertEqual(inferred?.tasks.count, 3)
+        XCTAssertNil(SessionTaskPlanDetector.infer(
+            from: "\u{1B}[38;5;255m1. Audit\u{1B}[0m\n2. Test",
+            sessionID: sessionID,
+            terminalID: terminalID
+        ))
+        XCTAssertNil(SessionTaskPlanDetector.infer(
+            from: "I have 1. thing and 2. another thing.",
+            sessionID: sessionID,
+            terminalID: terminalID
+        ))
+    }
+
     func testTabsKeepStableIdentityAndRenameCloseImmediately() {
         let environment = ClientAppEnvironment.makeDefault(clientName: "Workspace Test")
         let workspace = TerminalWorkspaceViewModel(coordinator: environment.sessionCoordinator)

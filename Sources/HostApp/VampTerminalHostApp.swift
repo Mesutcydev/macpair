@@ -7,7 +7,14 @@ import AppKit
 #if VAMP_TERMINAL_HOST && os(macOS)
 @main
 struct VampTerminalHostApp: App {
-    @StateObject private var environment = HostAppEnvironment.placeholder(mode: .terminalOnly)
+    /// SwiftUI may initialize the `App` value more than once while preserving
+    /// its state storage. Constructing the host environment inline therefore
+    /// created two independent signaling/browser runtimes in one process: the
+    /// app delegate started the most recently assigned static environment and
+    /// the window started the retained StateObject. Keep one process-wide
+    /// environment so the UI, pairing code, and listeners share one owner.
+    private static let terminalHostEnvironment = HostAppEnvironment.placeholder(mode: .terminalOnly)
+    @StateObject private var environment = terminalHostEnvironment
     @StateObject private var closeBehaviorController = HostWindowCloseBehaviorController.shared
     @NSApplicationDelegateAdaptor(VampTerminalHostAppDelegate.self) private var appDelegate
 
@@ -65,9 +72,11 @@ final class VampTerminalHostAppDelegate: NSObject, NSApplicationDelegate {
                 hostName: environment.hostIdentity.displayName,
                 snapshotNamespace: "Vamp Terminal Host"
             )
-            Task { @MainActor in
-                await environment.startRuntimeIfNeeded()
-            }
+            // The retained scene environment owns runtime startup from its
+            // `.task`. Starting through this static app-delegate lookup as
+            // well can target a transient environment created during SwiftUI
+            // app initialization, producing two pairing-code owners and a
+            // self-inflicted port conflict in one process.
             return
         }
 

@@ -557,10 +557,18 @@ struct HostsScreen: View {
         case .receiving:
             return sessionCoordinator.connectedHostName ?? "live session"
         case .connecting, .signalingConnected, .negotiating, .waitingForMedia:
-            return "trusted \(hostsVM.savedHosts.count) · online \(hostsVM.hosts.filter(\.isAvailable).count)"
+            return "trusted \(hostsVM.savedHosts.count) · \(hostAvailabilitySummary)"
         case .error, .idle:
-            return "trusted \(hostsVM.savedHosts.count) · online \(hostsVM.hosts.filter(\.isAvailable).count)"
+            return "trusted \(hostsVM.savedHosts.count) · \(hostAvailabilitySummary)"
         }
+    }
+
+    private var hostAvailabilitySummary: String {
+        let remote = hostsVM.displayHosts.filter { !$0.isTerminalOnlyHost && $0.isAvailable }.count
+        let terminal = hostsVM.displayHosts.filter { $0.isTerminalOnlyHost && $0.isAvailable }.count
+        if remote == 0, terminal > 0 { return "no remote hosts · \(terminal) terminal" }
+        if terminal > 0 { return "online \(remote) · \(terminal) terminal" }
+        return "online \(remote)"
     }
 
     private func signalLabel(for host: DiscoveredHostRow) -> String {
@@ -653,7 +661,7 @@ struct HostsScreen: View {
                     Text("trusted \(hostsVM.savedHosts.count)")
                     Text("·")
                         .foregroundColor(PR.dim)
-                    Text("online \(hostsVM.hosts.filter(\.isAvailable).count)")
+                    Text(hostAvailabilitySummary)
                     if sessionCoordinator.phase != .idle && !latencyText.isEmpty {
                         Text("·")
                             .foregroundColor(PR.dim)

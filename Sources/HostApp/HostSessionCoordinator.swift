@@ -249,7 +249,7 @@ final class HostSessionCoordinator: ObservableObject {
             // a valid cryptographic identity.  Failure is non-fatal — older clients that
             // don't see the "stlsp" TXT key continue using the plain port.
             if let bonjourSig = signalingService as? BonjourSignalingService,
-               !hostIdentity.publicKeyFingerprint.isEmpty {
+               RemoteDesktopConstants.isValidPublicKeyFingerprint(hostIdentity.publicKeyFingerprint) {
                 do {
                     // Same rationale as above: this also blocks on a semaphore, so run it
                     // off the main actor to avoid stalling the UI for up to 5s.
@@ -276,9 +276,20 @@ final class HostSessionCoordinator: ObservableObject {
 
         } catch {
             phase = .error
-            errorMessage = error.localizedDescription
+            errorMessage = startFailureMessage(for: error)
             logger.error("Failed to start session: \(error.localizedDescription)")
         }
+    }
+
+    private func startFailureMessage(for error: Error) -> String {
+        let description = error.localizedDescription
+        if description.localizedCaseInsensitiveContains("listener")
+            || description.localizedCaseInsensitiveContains("address")
+            || description.localizedCaseInsensitiveContains("in use") {
+            let otherProduct = productMode.isTerminalOnly ? "Vamp Host" : "Vamp Terminal Host"
+            return "\(productMode.productTitle) could not open port \(RemoteDesktopConstants.defaultSignalingPort). Quit \(otherProduct) if it is running, then restart this host."
+        }
+        return description
     }
 
     /// Tear down the active session.

@@ -3030,6 +3030,136 @@ if (vampPairFromURL) {
       .mode-switch button { padding: 0 10px; font-size: 12px; }
       .terminal-keybar { left: 12px; right: 12px; }
     }
+
+    /* Mobile layout contract: the terminal surface owns the flexible middle
+       of the viewport. The key rail and composer are siblings in normal flow
+       so they can never paint over a terminal row when Safari changes the
+       visual viewport for its keyboard. */
+    .shell {
+      display: flex !important;
+      flex-direction: column !important;
+      height: var(--vamp-visual-height, 100dvh) !important;
+      min-height: 0 !important;
+      padding-bottom: 0 !important;
+    }
+    .content {
+      flex: 1 1 0 !important;
+      height: auto !important;
+      min-height: 0 !important;
+    }
+    .chat {
+      min-height: 0 !important;
+      height: auto !important;
+      padding-bottom: 18px !important;
+    }
+    .chat > [data-tab-id].vamp-tab-hidden {
+      display: none !important;
+    }
+    .terminal-keybar {
+      position: static !important;
+      flex: 0 0 auto !important;
+      width: 100% !important;
+      min-height: 48px;
+      margin: 0 !important;
+      padding: 5px 0 4px !important;
+      z-index: auto !important;
+    }
+    .composer {
+      position: static !important;
+      flex: 0 0 auto !important;
+      width: calc(100% - 24px) !important;
+      margin: 0 12px max(8px, env(safe-area-inset-bottom)) !important;
+      z-index: auto !important;
+    }
+    /* A legacy keyboard rule targets the more-specific
+       .shell.vamp-keyboard-open .composer selector. Match that specificity so
+       the composer remains the final normal-flow sibling of the key rail when
+       Safari presents the keyboard; otherwise it paints back over the VT
+       surface and the key rail. */
+    .shell.vamp-keyboard-open .composer {
+      position: static !important;
+      left: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      width: calc(100% - 24px) !important;
+      margin: 0 12px max(8px, env(safe-area-inset-bottom)) !important;
+      transform: none !important;
+    }
+    body.vamp-terminal-mode .chat {
+      display: flex !important;
+      flex: 1 1 auto !important;
+      height: 100% !important;
+      min-height: 0 !important;
+      padding: 10px 0 !important;
+    }
+    body.vamp-terminal-mode .content {
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+    }
+    body.vamp-terminal-mode .stream-card.output-message {
+      min-height: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+    }
+    /* The full Terminal projection must not keep presenting itself as the
+       compact read-only Chat preview. Session identity already lives in the
+       selected tab, so give the VT surface every remaining row. */
+    body.vamp-terminal-mode .stream-card-head,
+    body.vamp-terminal-mode .stream-caption,
+    body.vamp-terminal-mode .open-terminal-preview {
+      display: none !important;
+    }
+    body.vamp-terminal-mode .stream-card.output-message .rich-body {
+      border-radius: 12px !important;
+    }
+    body.vamp-terminal-mode .chat > [data-tab-id].vamp-tab-hidden {
+      display: none !important;
+    }
+    @media (min-width: 720px) {
+      .composer {
+        width: min(calc(100% - 56px), 952px) !important;
+        margin: 0 auto 12px !important;
+      }
+      .terminal-keybar {
+        width: min(calc(100% - 56px), 952px) !important;
+        margin: 0 auto !important;
+      }
+    }
+    @media (max-width: 719px) {
+      /* When the software keyboard is present, project chrome must yield to
+         the active terminal. Keeping the context and tab rows visible leaves
+         no usable VT rows and makes Safari appear to clip the terminal behind
+         its keyboard. The header and mode switch preserve orientation while
+         the selected session remains represented by its terminal header. */
+      body.vamp-terminal-mode .shell.vamp-keyboard-open .task-context,
+      body.vamp-terminal-mode .shell.vamp-keyboard-open .tabs {
+        display: none !important;
+      }
+      body.vamp-terminal-mode .shell.vamp-keyboard-open .top {
+        flex-basis: 46px !important;
+        height: 46px !important;
+        min-height: 46px !important;
+      }
+      body.vamp-terminal-mode .shell.vamp-keyboard-open .mode-switch {
+        flex-basis: 42px !important;
+        min-height: 42px !important;
+        padding-block: 4px !important;
+      }
+      body.vamp-terminal-mode .shell.vamp-keyboard-open .chat {
+        padding-top: 6px !important;
+      }
+      body.vamp-terminal-mode .shell.vamp-keyboard-open .stream-card-head,
+      body.vamp-terminal-mode .shell.vamp-keyboard-open .stream-caption {
+        display: none !important;
+      }
+      body.vamp-terminal-mode .shell.vamp-keyboard-open .stream-card.output-message {
+        padding: 0 !important;
+        border: 0 !important;
+      }
+    }
   `;
   document.head.appendChild(modeStyle);
 
@@ -3038,6 +3168,15 @@ if (vampPairFromURL) {
   const modeChat = $('mode-chat');
   const modeTerminal = $('mode-terminal');
   const terminalKeybar = $('terminal-keybar');
+  const setActiveDraft = (value) => {
+    const draft = String(value || '');
+    $('input').value = draft;
+    if (active && tabs.get(active)) tabs.get(active).draft = draft;
+  };
+  const saveActiveDraft = () => {
+    if (active && tabs.get(active)) tabs.get(active).draft = $('input').value;
+  };
+  $('input').addEventListener('input', saveActiveDraft);
   const updateComposerForMode = () => {
     const tab = tabs.get(active);
     const agentName = tab?.agent || tab?.title;
@@ -3069,14 +3208,30 @@ if (vampPairFromURL) {
   modeTerminal?.addEventListener('click', () => setVampPresentation('terminal'));
   terminalKeybar?.querySelectorAll('[data-terminal-key]').forEach((button) => {
     button.addEventListener('click', () => {
-      if (active) sendInput(active, button.dataset.terminalKey || '');
+      if (active) {
+        const raw = button.dataset.terminalKey || '';
+        const key = raw.replace(/\\u([0-9a-f]{4})/gi, (_, value) => String.fromCharCode(parseInt(value, 16)));
+        sendInput(active, key);
+      }
     });
   });
   setVampPresentation('chat');
   const originalCreateTabForPresentation = createTab;
   createTab = (startup = null, title = null, agent = null) => {
+    if (active && tabs.get(active)) tabs.get(active).draft = $('input').value;
     const id = originalCreateTabForPresentation(startup, title, agent);
-    if (id) setVampPresentation(agent ? 'chat' : 'terminal');
+    if (id) {
+      const tab = tabs.get(id);
+      if (tab) {
+        tab.draft = '';
+        // Mount an explicit opening card immediately. A new PTY should never
+        // look like a broken blank rectangle while the host is starting it.
+        ensureOutputCard?.(id);
+        filterTabContent?.();
+      }
+      setActiveDraft('');
+      setVampPresentation(agent ? 'chat' : 'terminal');
+    }
     return id;
   };
 
@@ -3156,7 +3311,11 @@ if (vampPairFromURL) {
 
   const filterTabContent = () => {
     chat.querySelectorAll('[data-tab-id]').forEach((element) => {
-      element.classList.toggle('vamp-tab-hidden', Boolean(active) && element.dataset.tabId !== active);
+      const hidden = Boolean(active) && element.dataset.tabId !== active;
+      element.classList.toggle('vamp-tab-hidden', hidden);
+      // Keep inactive cards out of layout and assistive technology. CSS alone
+      // is not enough here because Terminal mode promotes cards to flex items.
+      element.hidden = hidden;
     });
   };
 
@@ -3247,7 +3406,12 @@ if (vampPairFromURL) {
       const card = document.createElement('article');
       card.className = 'message stream-card output-message';
       card.dataset.tabId = id;
-      card.innerHTML = '<div class="stream-card-head"><div class="stream-card-title"><span class="card-glyph">⌁</span><span>' + esc(tab.title) + '</span></div><div class="stream-card-actions"><span class="stream-state">Live</span><button type="button" class="open-terminal-preview">Open Terminal</button></div></div><div class="stream-caption">Read-only terminal preview</div><div class="rich-body" role="log" aria-live="polite"></div>';
+      const initialState = tab.state === 'opening'
+        ? 'Opening terminal…'
+        : tab.state === 'error' || tab.state === 'closed' || tab.state === 'offline'
+          ? 'Terminal unavailable'
+          : 'Waiting for terminal output…';
+      card.innerHTML = '<div class="stream-card-head"><div class="stream-card-title"><span class="card-glyph">⌁</span><span>' + esc(tab.title) + '</span></div><div class="stream-card-actions"><span class="stream-state">' + esc(tab.opened ? 'Live' : 'Opening') + '</span><button type="button" class="open-terminal-preview">Open Terminal</button></div></div><div class="stream-caption">Read-only terminal preview</div><div class="rich-body" role="log" aria-live="polite"><div class="rich-empty">' + esc(initialState) + '</div></div>';
       card.querySelector('.open-terminal-preview')?.addEventListener('click', () => window.vampSetPresentation?.('terminal'));
       chat.appendChild(card);
       tab.outputCard = card;
@@ -3386,7 +3550,7 @@ if (vampPairFromURL) {
       // Terminal mode is a raw PTY surface. The input is sent once as a line
       // and is never reconstructed as a Chat item from terminal echo.
       if (sendInput(tabID, value + '\n')) {
-        $('input').value = '';
+        setActiveDraft('');
         if (tab) tab.pendingCommand = null;
       }
       return;
@@ -3401,14 +3565,14 @@ if (vampPairFromURL) {
         return;
       }
       tab.pendingInput = value + '\n';
-      $('input').value = '';
+      setActiveDraft('');
       appendCommand(value, 'Queued · starting', tabID);
       vampScrollChatToLatest();
       return;
     }
     tab.approvals ||= new Set();
     if (tab.approvals.has(value)) {
-      if (sendInput(tabID, value + '\n')) { $('input').value = ''; appendCommand(value, 'Running', tabID); }
+      if (sendInput(tabID, value + '\n')) { setActiveDraft(''); appendCommand(value, 'Running', tabID); }
       return;
     }
     const card = document.createElement('article');
@@ -3424,29 +3588,31 @@ if (vampPairFromURL) {
       card.remove();
       const current = tabs.get(tabID);
       if (choice === 'deny') {
-        $('input').value = '';
+        setActiveDraft('');
         const deniedBody = current?.agent ? esc(value) : '<span style="color:#aaa">$ </span>' + esc(value);
         const denied = addMessage('<div class="meta">You · ' + esc(current?.title || 'Terminal') + ' · Denied</div><div class="body">' + deniedBody + '</div>', tabID);
         denied.classList.add('user-message');
         return;
       }
       if (choice === 'always' && current) { current.approvals ||= new Set(); current.approvals.add(value); }
-      if (sendInput(tabID, value + '\n')) { $('input').value = ''; appendCommand(value, choice === 'always' ? 'Always allowed · running' : 'Running', tabID); }
-      else { if (choice === 'always' && current) current.approvals.delete(value); $('input').value = value; addMessage('<div class="badge">The host connection closed before the command was sent. Try again.</div>', tabID); }
+      if (sendInput(tabID, value + '\n')) { setActiveDraft(''); appendCommand(value, choice === 'always' ? 'Always allowed · running' : 'Running', tabID); }
+      else { if (choice === 'always' && current) current.approvals.delete(value); setActiveDraft(value); addMessage('<div class="badge">The host connection closed before the command was sent. Try again.</div>', tabID); }
     };
     const stick = isNearBottom();
     chat.appendChild(card);
     filterTabContent();
-    $('input').value = '';
+    setActiveDraft('');
     if (stick) scrollLatest(true);
   };
 
   selectTab = (id) => {
     const tab = tabs.get(id);
     if (!tab) return;
+    if (active && tabs.get(active)) tabs.get(active).draft = $('input').value;
     active = id;
     tab.unread = false;
     tab.followOutput = true;
+    setActiveDraft(tab.draft || '');
     if (tab.opened) ensureStream(id);
     document.querySelectorAll('.stream').forEach((element) => element.classList.toggle('active', element.dataset.id === id));
     filterTabContent();
