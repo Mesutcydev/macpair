@@ -204,7 +204,7 @@ struct VampTerminalHostShellView: View {
                     copiedValue: copiedValue,
                     onCopy: copy
                 )
-                VampTerminalHostPairingCard(
+                HostHomepagePairingCard(
                     environment: environment,
                     tailscaleInfo: tailscaleInfo,
                     copiedValue: copiedValue,
@@ -219,9 +219,9 @@ struct VampTerminalHostShellView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
-            .frame(minWidth: 520, idealWidth: 620, maxWidth: 680, alignment: .topLeading)
+            .frame(minWidth: 500, idealWidth: 560, maxWidth: 680, alignment: .topLeading)
         }
-        .frame(minWidth: 520, idealWidth: 620, minHeight: 420, idealHeight: 560)
+        .frame(minWidth: 500, idealWidth: 560, minHeight: 480, idealHeight: 620, maxHeight: 760)
         .background(VampTerminalHostBackdrop())
         .task {
             await environment.startRuntimeIfNeeded()
@@ -238,32 +238,36 @@ struct VampTerminalHostShellView: View {
         .toolbar {
             ToolbarItem {
                 Menu {
-                    Button {
-                        Task {
-                            await environment.stopRuntime()
-                            await environment.startRuntimeIfNeeded()
+                    Section("Host") {
+                        Button {
+                            Task {
+                                await environment.stopRuntime()
+                                await environment.startRuntimeIfNeeded()
+                            }
+                        } label: {
+                            Label("Restart host", systemImage: "arrow.clockwise")
                         }
-                    } label: {
-                        Label("Restart host", systemImage: "arrow.clockwise")
                     }
 
-                    Toggle("Start at Login", isOn: Binding(
-                        get: { environment.startAtLoginEnabled },
-                        set: { environment.setStartAtLogin($0) }
-                    ))
+                    Section("Startup") {
+                        Toggle("Start at Login", isOn: Binding(
+                            get: { environment.startAtLoginEnabled },
+                            set: { environment.setStartAtLogin($0) }
+                        ))
 
-                    Button {
-                        environment.openStartAtLoginSettings()
-                    } label: {
-                        Label("Open Login Items", systemImage: "gearshape")
+                        Button {
+                            environment.openStartAtLoginSettings()
+                        } label: {
+                            Label("Open Login Items", systemImage: "gearshape")
+                        }
                     }
 
-                    Divider()
-
-                    Button(role: .destructive) {
-                        NSApp.terminate(nil)
-                    } label: {
-                        Label("Quit Vamp Terminal Host", systemImage: "power")
+                    Section {
+                        Button(role: .destructive) {
+                            NSApp.terminate(nil)
+                        } label: {
+                            Label("Quit Vamp Terminal Host", systemImage: "power")
+                        }
                     }
                 } label: {
                     Label("Host menu", systemImage: "ellipsis.circle")
@@ -508,7 +512,13 @@ private struct VampTerminalHostConnectionCard: View {
     }
 }
 
-private struct VampTerminalHostPairingCard: View {
+/// Shared homepage pairing card used by both Vamp Host products. Keeping this
+/// in the common host source guarantees QR/code behavior and copy actions stay
+/// identical while each product can use its own surrounding dashboard.
+struct HostHomepagePairingCard: View {
+    let sectionTitle: String
+    let title: String
+    let subtitle: String
     @ObservedObject var environment: HostAppEnvironment
     let tailscaleInfo: TailscaleConnectionInfo?
     let copiedValue: String?
@@ -516,8 +526,30 @@ private struct VampTerminalHostPairingCard: View {
     let onCopy: (String) -> Void
     let onRotate: () -> Void
 
+    init(
+        sectionTitle: String = "Open Safari",
+        title: String = "Scan to open Safari",
+        subtitle: String = "Or enter this code in Safari. It expires after ten minutes.",
+        environment: HostAppEnvironment,
+        tailscaleInfo: TailscaleConnectionInfo?,
+        copiedValue: String?,
+        browserPairingURL: String?,
+        onCopy: @escaping (String) -> Void,
+        onRotate: @escaping () -> Void
+    ) {
+        self.sectionTitle = sectionTitle
+        self.title = title
+        self.subtitle = subtitle
+        self.environment = environment
+        self.tailscaleInfo = tailscaleInfo
+        self.copiedValue = copiedValue
+        self.browserPairingURL = browserPairingURL
+        self.onCopy = onCopy
+        self.onRotate = onRotate
+    }
+
     var body: some View {
-        VampTerminalHostSection(title: "Open Safari") {
+        VampTerminalHostSection(title: sectionTitle) {
             HStack(alignment: .top, spacing: 18) {
                 if let browserPairingURL {
                     HostBrowserPairingQRCode(pairingURL: browserPairingURL)
@@ -544,14 +576,14 @@ private struct VampTerminalHostPairingCard: View {
             HStack(spacing: 7) {
                 Image(systemName: "safari")
                     .foregroundStyle(.secondary)
-                Text("Scan to open Safari")
+                Text(title)
                     .font(.headline)
                 Circle()
                     .fill(environment.browserControlStatus.running ? .green : .orange)
                     .frame(width: 7, height: 7)
             }
 
-            Text("Or enter this code in Safari. It expires after ten minutes.")
+            Text(subtitle)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

@@ -4,12 +4,12 @@ Vamp Terminal is distributed as an open-source, device-only unsigned IPA. The
 IPA is intentionally not signed by the project. AltStore re-signs it with the
 Apple ID/team used on the installing device.
 
-## Latest published build
+## Latest published builds
 
-- [Vamp Terminal IPA build 21](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-21/VampTerminal-iOS-1.0.0-build-21-altstore-unsigned.ipa)
-- [Vamp Host build 21](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-21/VampHost-macOS-3.2.0-build-21-adhoc.zip)
-- [Vamp Terminal Host build 21](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-1.0.0-build-21/VampTerminalHost-macOS-1.0.0-build-21-adhoc.zip)
-- [All checksums and manifests](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-1.0.0-build-21)
+- [Vamp Terminal IPA build 21](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-22/VampTerminal-iOS-1.0.0-build-21-altstore-unsigned.ipa)
+- [Vamp Host 2.0.0 build 22](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-22/VampHost-macOS-2.0.0-build-22-adhoc.zip)
+- [Vamp Terminal Host 2.0.0 build 22](https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-22/VampTerminalHost-macOS-2.0.0-build-22-adhoc.zip)
+- [All checksums and manifests](https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-2.0.0-build-22)
 
 ## Build the current Vamp artifacts
 

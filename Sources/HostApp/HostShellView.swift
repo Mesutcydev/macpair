@@ -95,37 +95,52 @@ struct HostShellView: View {
                 }
             }
             .toolbar {
-                ToolbarItemGroup {
-                    Button { prefersDarkAppearance.toggle() } label: {
-                        if prefersDarkAppearance {
-                            Label("Use light appearance", systemImage: "sun.max")
-                        } else {
-                            Label("Use dark appearance", systemImage: "moon")
+                ToolbarItem {
+                    Menu {
+                        Section("Vamp Host") {
+                            Button {
+                                prefersDarkAppearance.toggle()
+                            } label: {
+                                Label(
+                                    prefersDarkAppearance ? "Use light appearance" : "Use dark appearance",
+                                    systemImage: prefersDarkAppearance ? "sun.max" : "moon"
+                                )
+                            }
                         }
+
+                        Section("Manage") {
+                            Button {
+                                showSettings = true
+                            } label: {
+                                Label("Settings", systemImage: "gearshape")
+                            }
+                            Button {
+                                showWidgetHelp = true
+                            } label: {
+                                Label("Desktop widget", systemImage: "square.grid.2x2")
+                            }
+                            Button {
+                                showOnboarding = true
+                            } label: {
+                                Label("Setup guide", systemImage: "questionmark.circle")
+                            }
+                        }
+                    } label: {
+                        Label("Host menu", systemImage: "ellipsis.circle")
                     }
-                    .help(prefersDarkAppearance ? "Switch to light appearance" : "Switch to dark appearance")
-                    Button { showSettings.toggle() } label: {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-                    .popover(isPresented: $showSettings) {
-                        HostSettingsView(environment: environment, showOnboarding: {
-                            showSettings = false
-                            showOnboarding = true
-                        })
-                        .frame(width: 340)
-                    }
-                    Button { showWidgetHelp.toggle() } label: {
-                        Label("Widget", systemImage: "square.grid.2x2")
-                    }
-                    .help("Control this host from a desktop widget")
-                    .popover(isPresented: $showWidgetHelp) {
-                        HostWidgetHelpView()
-                            .frame(width: 320)
-                    }
-                    Button { showOnboarding = true } label: {
-                        Label("Guide", systemImage: "questionmark.circle")
-                    }
+                    .help("Vamp Host menu")
                 }
+            }
+            .popover(isPresented: $showSettings) {
+                HostSettingsView(environment: environment, showOnboarding: {
+                    showSettings = false
+                    showOnboarding = true
+                })
+                .frame(width: 340)
+            }
+            .popover(isPresented: $showWidgetHelp) {
+                HostWidgetHelpView()
+                    .frame(width: 320)
             }
             .alert(
                 environment.pendingTrustPrompt.map { "Allow \($0.displayName)?" } ?? "Allow Client?",
@@ -291,62 +306,67 @@ private struct HostMinimalDashboard: View {
 
     private var fullDashboard: some View {
         ZStack(alignment: .topTrailing) {
-            VStack(spacing: 10) {
-                // Trust-prompt banner — top of stack so the host operator sees the
-                // pairing request. Auto-dismisses on resolve/timeout.
-                if let prompt = environment.pendingTrustPrompt {
-                    TrustPromptBanner(
-                        prompt: prompt,
-                        deadline: environment.pendingTrustPromptDeadline,
-                        onApprove: { environment.resolveTrustPrompt(approved: true) },
-                        onReject:  { environment.resolveTrustPrompt(approved: false) }
-                    )
-                }
-
-                statusHeroCard
-
-                HostTailscaleStatusView(
-                    info: $tailscaleInfo,
-                    installed: $tailscaleInstalled,
-                    compact: false
-                )
-
-                HostTerminalAccessCard(
-                    terminalModeEnabled: environment.terminalModeEnabled,
-                    connectedClientName: sessionCoordinator.connectedClientName,
-                    signalingAddresses: connectAddresses.map {
-                        HostTerminalAddressItem(label: $0.label, value: $0.value)
-                    },
-                    safariReady: environment.browserControlStatus.running,
-                    safariAddresses: safariAddresses.map {
-                        HostTerminalAddressItem(label: $0.label, value: $0.value)
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(spacing: 10) {
+                    // Trust-prompt banner — top of stack so the host operator sees the
+                    // pairing request. Auto-dismisses on resolve/timeout.
+                    if let prompt = environment.pendingTrustPrompt {
+                        TrustPromptBanner(
+                            prompt: prompt,
+                            deadline: environment.pendingTrustPromptDeadline,
+                            onApprove: { environment.resolveTrustPrompt(approved: true) },
+                            onReject:  { environment.resolveTrustPrompt(approved: false) }
+                        )
                     }
-                )
 
-                // Connect addresses — show LAN and (when on a tailnet) MagicDNS + TS IP.
-                if !connectAddresses.isEmpty {
-                    connectSection
-                }
+                    dashboardHeader
+                    statusHeroCard
 
-                if environment.browserControlStatus.running {
-                    safariConnectSection
-                }
+                    HostTailscaleStatusView(
+                        info: $tailscaleInfo,
+                        installed: $tailscaleInstalled,
+                        compact: false
+                    )
 
-                // Live metrics — only relevant once a session is up.
-                if sessionCoordinator.phase != .idle {
-                    metricsRow
-                }
+                    // Pairing is a first-class homepage action for both host products.
+                    // Advanced Safari settings remain available from Settings, but the
+                    // operator no longer has to search for the QR code or code.
+                    HostHomepagePairingCard(
+                        sectionTitle: "Pair a browser",
+                        title: "Open Safari control",
+                        subtitle: "Scan the QR code or enter the six-digit code on your phone.",
+                        environment: environment,
+                        tailscaleInfo: tailscaleInfo,
+                        copiedValue: copiedAddress,
+                        browserPairingURL: browserPairingURL,
+                        onCopy: copyHomepageValue,
+                        onRotate: { environment.rotateBrowserPairingCode() }
+                    )
 
-                // Inline permission banner — only when blockers exist.
-                if !permissionsViewModel.blockers.isEmpty {
-                    permissionBanner
-                        .popover(isPresented: $showPermissions) {
-                            HostPermissionsView(environment: environment)
-                                .frame(width: 460, height: 540)
-                        }
+                    // One concise address list is enough for Vamp Remote. Safari's
+                    // address is shown in the pairing card above, avoiding duplicate
+                    // LAN/Tailscale/Safari cards on the homepage.
+                    if !connectAddresses.isEmpty {
+                        connectSection
+                    }
+
+                    // Live metrics — only relevant once a session is up.
+                    if sessionCoordinator.phase != .idle {
+                        metricsRow
+                    }
+
+                    // Inline permission banner — only when blockers exist.
+                    if !permissionsViewModel.blockers.isEmpty {
+                        permissionBanner
+                            .popover(isPresented: $showPermissions) {
+                                HostPermissionsView(environment: environment)
+                                    .frame(width: 460, height: 540)
+                            }
+                    }
                 }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .top)
             }
-            .padding(16)
 
             if showLightNotification {
                 HostLightNotification(text: lightNotificationText)
@@ -356,12 +376,32 @@ private struct HostMinimalDashboard: View {
                     .zIndex(3)
             }
         }
-        // Compact panel that hugs its content — no empty space below. The window
-        // (windowResizability(.contentSize)) sizes itself to this.
-        .frame(width: 470)
-        .fixedSize(horizontal: false, vertical: true)
+        // Keep a stable, screen-safe dashboard frame. The content scrolls instead
+        // of forcing a window taller than a laptop display when permissions,
+        // pairing, or diagnostics become visible.
+        .frame(minWidth: 500, idealWidth: 580, maxWidth: 720,
+               minHeight: 520, idealHeight: 720, maxHeight: 860)
         .animation(.easeInOut(duration: 0.2), value: sessionCoordinator.phase)
         .animation(.easeInOut(duration: 0.2), value: permissionsViewModel.blockers.count)
+    }
+
+    private var dashboardHeader: some View {
+        HStack(spacing: 10) {
+            HostAppLogo(size: 34, cornerRadius: 9)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Vamp Host")
+                    .font(.headline.weight(.semibold))
+                Text("Remote control · terminal · Safari")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Text(appVersionLabel)
+                .font(.caption2.monospaced())
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 4)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: Dashboard sections
@@ -487,52 +527,6 @@ private struct HostMinimalDashboard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .hostGlassSurface(
             in: RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous)
-        )
-    }
-
-    /// Safari's browser-control URLs are intentionally separate from the
-    /// WebRTC signaling addresses above. The direct 100.x path works without
-    /// Tailscale Serve; 127.0.0.1 is shown only as a Mac-local diagnostic.
-    private var safariConnectSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 7) {
-                Label("Safari control", systemImage: "safari")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
-                Text("PRIVATE")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.green)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.green.opacity(0.12), in: Capsule())
-            }
-
-            ForEach(safariAddresses, id: \.value) { entry in
-                connectAddressRow(
-                    entry,
-                    valueColor: AppColor.textPrimary,
-                    accent: entry.label.contains("https") ? .green : AppColor.primaryAccent
-                )
-            }
-
-            if safariAddresses.isEmpty {
-                Text("Tailscale is not connected yet. Activate it above to receive the Safari link.")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text("Open the direct 100.x address in Safari while Tailscale is connected on both devices. Do not use 127.0.0.1 on the phone.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .hostGlassSurface(
-            in: RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous),
-            tint: .green
         )
     }
 
@@ -999,18 +993,26 @@ private struct HostMinimalDashboard: View {
         return entries.filter { seen.insert($0.value).inserted }
     }
 
-    private var safariAddresses: [ConnectAddressEntry] {
-        guard let port = environment.browserControlStatus.port else { return [] }
-        var entries: [ConnectAddressEntry] = []
-        if let info = tailscaleInfo {
-            entries.append(.init(label: "safari direct", value: "http://\(info.ipAddress):\(port)"))
-            if let dnsName = info.dnsName, !dnsName.isEmpty {
-                entries.append(.init(label: "safari https · optional Serve", value: "https://\(dnsName)"))
-            }
+    private var browserPairingURL: String? {
+        guard environment.browserControlStatus.running,
+              let port = environment.browserControlStatus.port,
+              !environment.browserControlStatus.pairingCode.isEmpty else { return nil }
+
+        let baseURL = tailscaleInfo?.browserControlURL(port: port) ?? "http://127.0.0.1:\(port)"
+        return HostBrowserPairingLink.make(
+            baseURL: baseURL,
+            code: environment.browserControlStatus.pairingCode
+        )
+    }
+
+    private func copyHomepageValue(_ value: String) {
+        copyToPasteboard(value)
+        copiedAddress = value
+        showTransientNotification("Copied to clipboard")
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            if copiedAddress == value { copiedAddress = nil }
         }
-        entries.append(.init(label: "mac only", value: "http://127.0.0.1:\(port)"))
-        var seen = Set<String>()
-        return entries.filter { seen.insert($0.value).inserted }
     }
 
     private func connectAddressRow(_ entry: ConnectAddressEntry, valueColor: Color = AppColor.textPrimary, accent: Color = AppColor.primaryAccent) -> some View {
@@ -1083,137 +1085,6 @@ private struct HostMinimalDashboard: View {
     }
 }
 
-
-
-/// The full Vamp Host and the terminal-only host advertise the same terminal
-/// capability. Keep that fact visible in the original host dashboard so a
-/// user never has to guess whether the remote client can open a shell or where
-/// Safari should connect.
-private struct HostTerminalAccessCard: View {
-    let terminalModeEnabled: Bool
-    let connectedClientName: String?
-    let signalingAddresses: [HostTerminalAddressItem]
-    let safariReady: Bool
-    let safariAddresses: [HostTerminalAddressItem]
-
-    @State private var copiedAddress: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            HStack(spacing: 8) {
-                Label("Terminal access", systemImage: "terminal.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
-                Text(terminalModeEnabled ? "ENABLED" : "OFF")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(terminalModeEnabled ? .green : .orange)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(
-                        (terminalModeEnabled ? Color.green : Color.orange).opacity(0.13),
-                        in: Capsule(style: .continuous)
-                    )
-            }
-
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: terminalModeEnabled ? "checkmark.shield.fill" : "pause.circle.fill")
-                    .foregroundStyle(terminalModeEnabled ? .green : .orange)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(terminalModeEnabled ? "Up to 8 independent terminal tabs" : "Terminal Mode is disabled")
-                        .font(.subheadline.weight(.semibold))
-                    Text(terminalModeEnabled
-                         ? "Vamp Terminal and the paired remote client can use separate PTYs. Switching tabs does not close a shell."
-                         : "Enable Terminal Mode in Settings before connecting a terminal client. Enabling it keeps this host terminal-capable without changing screen control.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
-            if let connectedClientName {
-                Label("Connected client · \(connectedClientName)", systemImage: "person.crop.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if !signalingAddresses.isEmpty {
-                Divider()
-                Text("Vamp Terminal / remote client")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                ForEach(signalingAddresses) { address in
-                    addressRow(address)
-                }
-            }
-
-            Divider()
-            HStack(spacing: 7) {
-                Label("Safari control", systemImage: "safari")
-                    .font(.caption2.weight(.semibold))
-                Spacer(minLength: 0)
-                Text(safariReady ? "READY" : "OFFLINE")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(safariReady ? .green : .secondary)
-            }
-            if safariReady, !safariAddresses.isEmpty {
-                ForEach(safariAddresses) { address in
-                    addressRow(address)
-                }
-            } else {
-                Text("Start the host runtime and connect Tailscale to show a private Safari link. Do not use 127.0.0.1 from an iPhone or iPad.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .hostGlassSurface(
-            in: RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous),
-            tint: terminalModeEnabled ? .green : .orange
-        )
-    }
-
-    private func addressRow(_ address: HostTerminalAddressItem) -> some View {
-        Button {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(address.value, forType: .string)
-            copiedAddress = address.value
-            Task {
-                try? await Task.sleep(for: .seconds(1.4))
-                if copiedAddress == address.value { copiedAddress = nil }
-            }
-        } label: {
-            HStack(spacing: 8) {
-                Text(address.label.uppercased())
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .overlay { Capsule().strokeBorder(AppColor.borderSubtle, lineWidth: 0.5) }
-                Text(address.value)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.68)
-                Spacer(minLength: 4)
-                Image(systemName: copiedAddress == address.value ? "checkmark" : "doc.on.doc")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(copiedAddress == address.value ? .green : .secondary)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help("Copy \(address.value)")
-    }
-}
-
-private struct HostTerminalAddressItem: Identifiable, Hashable {
-    let label: String
-    let value: String
-    var id: String { value }
-}
 
 /// A thin, static accent hairline around the window while a session is active.
 /// No animated glow — flat and native.
@@ -1540,49 +1411,9 @@ private struct HostSettingsView: View {
                             .foregroundStyle(.orange)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Pairing code")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        HStack(spacing: 10) {
-                            Text(environment.browserControlStatus.pairingCode.isEmpty ? "Starting…" : environment.browserControlStatus.pairingCode)
-                                .font(.title3.monospacedDigit().weight(.semibold))
-                                .textSelection(.enabled)
-                            Spacer()
-                            Button("Rotate") {
-                                environment.rotateBrowserPairingCode()
-                            }
-                            .controlSize(.small)
-                        }
-                    }
-
-                    if let pairingURL = browserPairingURL {
-                        HStack(alignment: .top, spacing: 12) {
-                            HostBrowserPairingQRCode(pairingURL: pairingURL)
-                            VStack(alignment: .leading, spacing: 6) {
-                                Label("Scan to pair Safari", systemImage: "qrcode")
-                                    .font(.callout.weight(.semibold))
-                                Text("The QR opens this private host address and fills the current one-time code. Rotate it if a code has been shared.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Text(pairingURL)
-                                    .font(.caption2.monospaced())
-                                    .foregroundStyle(.secondary)
-                                    .textSelection(.enabled)
-                                    .lineLimit(2)
-                                    .truncationMode(.middle)
-                                Button("Copy pairing link") {
-                                    NSPasteboard.general.clearContents()
-                                    NSPasteboard.general.setString(pairingURL, forType: .string)
-                                    browserLinkCopied = true
-                                }
-                                .controlSize(.small)
-                            }
-                        }
-                        .padding(8)
-                        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    }
+                    Label("QR code and pairing code are on the host homepage.", systemImage: "qrcode")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
                     if let serveCommand = environment.browserControlStatus.serveCommand {
                         Button {
@@ -1668,22 +1499,6 @@ private struct HostSettingsView: View {
         }
     }
 
-    private var browserPairingURL: String? {
-        guard environment.browserControlStatus.running,
-              let port = environment.browserControlStatus.port,
-              !environment.browserControlStatus.pairingCode.isEmpty else { return nil }
-
-        let baseURL: String
-        if let tailscaleInfo {
-            baseURL = tailscaleInfo.browserControlURL(port: port)
-        } else {
-            baseURL = "http://127.0.0.1:\(port)"
-        }
-        return HostBrowserPairingLink.make(
-            baseURL: baseURL,
-            code: environment.browserControlStatus.pairingCode
-        )
-    }
 }
 
 /// Quiet, dismissible promotion for the companion open-source iPhone/iPad

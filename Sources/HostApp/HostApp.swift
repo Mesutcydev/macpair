@@ -41,7 +41,9 @@ struct HostApp: App {
                     enabled: !UserDefaults.standard.bool(forKey: HostWidgetConstants.installedCacheKey)
                 )
         }
-        // Size the window to the compact dashboard content (no empty space below).
+        // Keep the Host 2.0 dashboard in a predictable desktop-sized range. The
+        // dashboard owns a scrollable content region, so extra settings or pairing
+        // state cannot push the window beyond a laptop display.
         #if os(macOS)
         .windowResizability(.contentSize)
         #endif
@@ -477,8 +479,8 @@ final class HostWindowCloseBehaviorController: NSObject, ObservableObject, NSWin
             setTrafficLights(hidden: false, in: window)
             window.isOpaque = false
             window.backgroundColor = .clear
-            window.contentMinSize = NSSize(width: 420, height: 480)
-            window.contentMaxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+            window.contentMinSize = NSSize(width: 500, height: 520)
+            window.contentMaxSize = NSSize(width: 760, height: 860)
             if let restore = savedFullFrame {
                 window.setFrame(restore, display: true, animate: animate)
                 savedFullFrame = nil
