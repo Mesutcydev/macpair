@@ -217,7 +217,7 @@ private enum DiagnosticsPivotTab: String, CaseIterable, Identifiable {
 // MARK: - Minimal Dashboard
 
 private struct HostMinimalDashboard: View {
-    let environment: HostAppEnvironment
+    @ObservedObject private var environment: HostAppEnvironment
     @Binding var isCompact: Bool
     @ObservedObject private var discoveryViewModel: DiscoveryAdvertiserViewModel
     @ObservedObject private var permissionsViewModel: HostPermissionsViewModel
@@ -235,7 +235,7 @@ private struct HostMinimalDashboard: View {
     @State private var showCompactSettings = false
 
     init(environment: HostAppEnvironment, isCompact: Binding<Bool>) {
-        self.environment = environment
+        self._environment = ObservedObject(wrappedValue: environment)
         self._isCompact = isCompact
         self.permissionsViewModel = environment.permissionsViewModel
         self.discoveryViewModel = environment.discoveryAdvertiserViewModel

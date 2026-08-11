@@ -125,6 +125,11 @@ final class HostSessionCoordinator: ObservableObject {
     private var requestedDynamicRange: StreamDynamicRange = .sdr
     private var hasPublishedInitialSessionState = false
     private var hasSentInitialDataChannelState = false
+    /// The full host can serve either a remote-desktop client or a terminal
+    /// client. Keep the negotiated session role separate from the host product
+    /// so a terminal client never inherits video capabilities or permission
+    /// requirements from Vamp Host.
+    private var activeSessionIsTerminalOnly = false
     private let startupFirstFrameTimeoutSeconds: Double = 10.0
     private let initialDataChannelRetryAttempts = 80
     private let initialDataChannelRetryDelayMs: UInt64 = 250
@@ -350,6 +355,7 @@ final class HostSessionCoordinator: ObservableObject {
 
         activeSessionID = nil
         activeClientID = nil
+        activeSessionIsTerminalOnly = false
         connectedClientName = nil
         latestObservedLayout = nil
         activeStreamDisplayRestartKey = nil
@@ -470,11 +476,11 @@ final class HostSessionCoordinator: ObservableObject {
         phase = .trustPending
         let clientID = sender.id
         let clientName = sender.displayName ?? "Unknown Client"
+        let isTerminalSession = offer.clientProductRole == .terminal
+            && offer.clientCapabilities?.contains(.supportsTerminal) == true
 
         if productMode.isTerminalOnly {
-            let isTerminalClient = offer.clientProductRole == .terminal
-                && offer.clientCapabilities?.contains(.supportsTerminal) == true
-            guard isTerminalClient else {
+            guard isTerminalSession else {
                 try? await sendSignalingEvent(
                     .permissionBlocked(
                         PermissionBlockedMessage(
@@ -564,11 +570,12 @@ final class HostSessionCoordinator: ObservableObject {
         let sessionID = offer.sessionID
         activeSessionID = sessionID
         activeClientID = sender.id
+        activeSessionIsTerminalOnly = isTerminalSession
         hasPublishedInitialSessionState = false
         hasSentInitialDataChannelState = false
 
         do {
-            let blockedPermissions = productMode.isTerminalOnly
+            let blockedPermissions = isTerminalSession
                 ? []
                 : await blockedRequiredPermissions()
             if !blockedPermissions.isEmpty {
@@ -605,14 +612,14 @@ final class HostSessionCoordinator: ObservableObject {
             streamingCoordinator.startCoordinating()
             observeConnectionState()
             observeDataChannelState()
-            if !productMode.isTerminalOnly {
+            if !isTerminalSession {
                 observeDisplayLayoutChanges()
             }
             lastClientActivityAt = nil
             captureFailureRestartAttempted = false
             observeClientActivity()
             startLivenessWatchdog()
-            if !productMode.isTerminalOnly {
+            if !isTerminalSession {
                 observeCaptureState()
             }
 
@@ -628,7 +635,7 @@ final class HostSessionCoordinator: ObservableObject {
             logger.info("SDP answer sent for session \(sessionID.uuidString)")
 
             // Start the capture → encode → transport pipeline
-            await startPipeline(sessionID: sessionID, offer: offer)
+            await startPipeline(sessionID: sessionID, offer: offer, terminalOnly: isTerminalSession)
 
         } catch {
             logger.error("Session negotiation failed: \(error.localizedDescription)")
@@ -645,6 +652,7 @@ final class HostSessionCoordinator: ObservableObject {
             await webRTCSessionManager.closeSession()
             activeSessionID = nil
             activeClientID = nil
+            activeSessionIsTerminalOnly = false
             connectedClientName = nil
             phase = .awaitingClient
         }
@@ -652,7 +660,11 @@ final class HostSessionCoordinator: ObservableObject {
 
     // MARK: - Pipeline
 
-    private func startPipeline(sessionID: UUID, offer: SessionOfferMessage) async {
+    private func startPipeline(
+        sessionID: UUID,
+        offer: SessionOfferMessage,
+        terminalOnly: Bool
+    ) async {
         phase = .pipelineStarting
 
         // Wire the lock state provider into the input router BEFORE startListening, so an input
@@ -665,7 +677,7 @@ final class HostSessionCoordinator: ObservableObject {
         inputCommandRouter.startListening(
             sessionID: sessionID,
             expectedSessionTokenHex: offer.sessionToken,
-            terminalOnly: productMode.isTerminalOnly
+            terminalOnly: terminalOnly
         )
         inputCommandRouter.onQualityAdjust = { [weak self] preset in
             guard let self else { return }
@@ -680,7 +692,7 @@ final class HostSessionCoordinator: ObservableObject {
             await self?.handleSetActiveDisplays(message)
         }
 
-        if productMode.isTerminalOnly {
+        if terminalOnly {
             // The terminal-only product still uses the authenticated WebRTC
             // data channel, but never starts ScreenCaptureKit, the encoder, or
             // the audio pipeline. The session-ready signal is enough for the
@@ -1391,6 +1403,7 @@ final class HostSessionCoordinator: ObservableObject {
 
         activeSessionID = nil
         activeClientID = nil
+        activeSessionIsTerminalOnly = false
         connectedClientName = nil
         hasPublishedInitialSessionState = false
         hasSentInitialDataChannelState = false
@@ -1454,8 +1467,8 @@ final class HostSessionCoordinator: ObservableObject {
     private var advertisedClientCapabilities: HostCapabilityFlags?
 
     private var hostCapabilityFlags: HostCapabilityFlags {
-        if productMode.isTerminalOnly {
-            return productMode.advertisedCapabilities
+        if productMode.isTerminalOnly || activeSessionIsTerminalOnly {
+            return HostProductMode.terminalOnly.advertisedCapabilities
         }
         return Self.fullHostCapabilityFlags
     }
@@ -1508,7 +1521,7 @@ final class HostSessionCoordinator: ObservableObject {
         hasPublishedInitialSessionState = true
 
         do {
-            if productMode.isTerminalOnly {
+            if productMode.isTerminalOnly || activeSessionIsTerminalOnly {
                 try await sendSignalingEvent(
                     .sessionReady(
                         SessionReadyMessage(

@@ -37,10 +37,11 @@ assert.match(source, /\$\('input'\)\?\.blur\(\);[\s\S]*?composerHasFocus = false
 assert.match(source, /body\.vamp-terminal-mode \.content \{[\s\S]*?display: flex !important;[\s\S]*?overflow: hidden !important;/);
 assert.match(source, /body\.vamp-terminal-mode \.chat \{[\s\S]*?flex: 1 1 auto !important;[\s\S]*?min-height: 0 !important;/);
 assert.match(source, /\.shell\.vamp-keyboard-open \.composer \{[\s\S]*?position: static !important;/);
-assert.match(source, /body\.vamp-terminal-mode \.shell\.vamp-keyboard-open \.task-context,[\s\S]*?display: none !important;/);
-assert.match(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-open \.task-context,[\s\S]*?display: none !important;/);
-assert.match(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-open \.content \{[\s\S]*?overflow-y: auto !important;[\s\S]*?contain: layout paint;/);
-assert.match(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-open \.stream-card\.output-message \.rich-body \{[\s\S]*?max-height: none !important;[\s\S]*?overflow: visible !important;/);
+assert.match(source, /\.shell\.vamp-keyboard-open \.task-context \{[\s\S]*?flex-basis: 46px !important;[\s\S]*?min-height: 46px !important;/);
+assert.match(source, /\.shell\.vamp-keyboard-open \.tabs \{[\s\S]*?flex-basis: 54px !important;[\s\S]*?min-height: 54px !important;/);
+assert.match(source, /\.shell\.vamp-keyboard-open \.content \{[\s\S]*?overflow-x: hidden !important;[\s\S]*?overflow-y: auto !important;/);
+assert.match(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-open \.stream-card\.output-message \.rich-body \{[\s\S]*?max-height: 132px !important;[\s\S]*?overflow: auto !important;/);
+assert.doesNotMatch(source, /\.shell\.vamp-keyboard-open \.task-context,[\s\S]{0,200}?display: none !important;/);
 assert.match(source, /body\.vamp-terminal-mode \.stream-card-head,[\s\S]*?body\.vamp-terminal-mode \.open-terminal-preview \{[\s\S]*?display: none !important;/);
 assert.match(source, /const selected = navigation\.querySelector\('\.tab\.active'\)/);
 assert.match(source, /navigation\.scrollLeft = Math\.min\(/);

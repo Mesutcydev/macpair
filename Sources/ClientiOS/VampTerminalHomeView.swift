@@ -775,7 +775,7 @@ struct VampTerminalHomeView: View {
         case .signalingConnected:
             return "Vamp Host is waiting for approval. Bring the host dashboard forward and tap Approve."
         case .negotiating:
-            return "The host approved pairing. Establishing the signed WebRTC channel…"
+            return "Waiting for host approval and the signed WebRTC channel…"
         default:
             return "Waiting for the signed WebRTC session to become ready…"
         }

@@ -6,9 +6,9 @@ Apple ID/team used on the installing device.
 
 ## Latest published builds
 
-- [Download latest Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.0.0-build-23-altstore-unsigned.ipa)
-- [Download latest Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.0.0-build-23-adhoc.zip)
-- [Download latest Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.0.0-build-23-adhoc.zip)
+- [Download latest Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.0.0-build-24-altstore-unsigned.ipa)
+- [Download latest Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.0.0-build-24-adhoc.zip)
+- [Download latest Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.0.0-build-24-adhoc.zip)
 - [Latest checksums and manifests](https://github.com/Mesutcydev/macpair/releases/latest)
 
 ## Build the current Vamp artifacts

@@ -1863,6 +1863,7 @@ private struct TerminalChatComposer: View {
                 text: $draft,
                 axis: .vertical
             )
+                .accessibilityIdentifier("vamp.chat.composer")
                 .focused(composerFocused)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -1871,6 +1872,13 @@ private struct TerminalChatComposer: View {
                 .font(.system(size: 14, weight: .regular, design: .monospaced))
                 .foregroundStyle(VampGlassPalette.ink)
                 .tint(VampGlassPalette.ink)
+                .contentShape(Rectangle())
+                .simultaneousGesture(
+                    TapGesture().onEnded {
+                        guard isEnabled else { return }
+                        composerFocused.wrappedValue = true
+                    }
+                )
                 .onSubmit(onSend)
                 .disabled(!isEnabled)
 
