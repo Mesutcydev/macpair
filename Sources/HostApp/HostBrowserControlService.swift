@@ -432,6 +432,13 @@ final class HostBrowserControlService: @unchecked Sendable {
             return
         }
 
+        // Pairing is an explicit handoff. If this browser, another tab, or a
+        // phone already owns the single browser slot, retire that old socket
+        // before issuing the new token. Previously the code was accepted and
+        // returned 200, but the follow-up WebSocket then hit the capacity
+        // guard and immediately closed, making QR/manual pairing appear to
+        // have failed.
+        revokeWebSocketSessions(reason: "browser-replaced")
         failedPairAttempts = 0
         firstFailedPairAttemptAt = nil
         let token = Self.makeToken()
@@ -855,6 +862,15 @@ final class HostBrowserControlService: @unchecked Sendable {
         let currentClients = Array(clients.values)
         clients.removeAll()
         for client in currentClients {
+            client.terminalService?.sessionDidEnd(reason: reason)
+            client.connection.cancel()
+        }
+    }
+
+    private func revokeWebSocketSessions(reason: String) {
+        let websocketClients = clients.values.filter { $0.mode == .webSocket }
+        for client in websocketClients {
+            clients.removeValue(forKey: client.id)
             client.terminalService?.sessionDidEnd(reason: reason)
             client.connection.cancel()
         }
