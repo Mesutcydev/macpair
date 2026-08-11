@@ -66,7 +66,17 @@ final class HostTerminalServiceTests: XCTestCase {
         let (body, response) = try await URLSession.shared.data(for: request)
         XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
         struct PairResponse: Decodable { let token: String }
-        _ = try JSONDecoder().decode(PairResponse.self, from: body)
+        let firstToken = try JSONDecoder().decode(PairResponse.self, from: body).token
+
+        // Keep the first browser session alive while pairing again. This is
+        // the race that previously made a valid QR/manual code appear broken:
+        // the second HTTP exchange succeeded, but its WebSocket was rejected
+        // because the old socket still occupied the single browser slot.
+        let firstSocket = URLSession.shared.webSocketTask(
+            with: URL(string: "ws://127.0.0.1:\(port)/socket?token=\(firstToken)")!
+        )
+        firstSocket.resume()
+        _ = try await firstSocket.receive()
 
         var manualRequest = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/api/pair")!)
         manualRequest.httpMethod = "POST"
@@ -93,6 +103,7 @@ final class HostTerminalServiceTests: XCTestCase {
         let helloMessage = try JSONDecoder().decode(HelloMessage.self, from: helloData)
         XCTAssertEqual(helloMessage.maxTerminals, HostTerminalService.maxActiveTerminals)
         XCTAssertTrue(helloMessage.capabilities.contains("multiple-terminals"))
+        firstSocket.cancel(with: .goingAway, reason: nil)
         socket.cancel(with: .goingAway, reason: nil)
     }
 
