@@ -398,13 +398,17 @@ final class HostBrowserControlService: @unchecked Sendable {
         case ("GET", "/api/status"):
             sendHTTP(.ok, contentType: "application/json", body: statusJSON(), to: client)
         case ("POST", "/api/pair"):
-            handlePair(body: body, client: client)
+            // Keep the QR handoff available even when a browser or proxy
+            // drops the JSON body. The URL code is still validated against
+            // the same one-time pairing secret below; this is not a second
+            // authentication path.
+            handlePair(body: body, pairingCodeFromURL: request.query["pair"], client: client)
         default:
             sendHTTP(.notFound, body: "Not found", to: client)
         }
     }
 
-    private func handlePair(body: Data, client: BrowserClient) {
+    private func handlePair(body: Data, pairingCodeFromURL: String?, client: BrowserClient) {
         // The expiry work item normally rotates the code exactly at the
         // deadline. Refresh synchronously as well so a delayed serial-queue
         // callback can never leave the listener accepting stale state or
@@ -420,13 +424,17 @@ final class HostBrowserControlService: @unchecked Sendable {
             sendHTTP(.tooManyRequests, body: "Too many pairing attempts", to: client)
             return
         }
-        guard let payload = try? JSONDecoder().decode(BrowserPairRequest.self, from: body),
-              let code = payload.code.flatMap(HostBrowserPairingCode.normalize),
-              Self.constantTimeEqual(code, pairingCode),
+        let payload = try? JSONDecoder().decode(BrowserPairRequest.self, from: body)
+        let submittedCodes = [
+            payload?.code.flatMap(HostBrowserPairingCode.normalize),
+            pairingCodeFromURL.flatMap(HostBrowserPairingCode.normalize)
+        ].compactMap { $0 }
+        guard submittedCodes.contains(where: { Self.constantTimeEqual($0, pairingCode) }),
               !HostBrowserPairingCode.isExpired(
                   issuedAt: pairingCodeIssuedAt,
                   lifetime: Self.pairingCodeLifetime
               ) else {
+            logger.warning("Browser pairing rejected: invalid or expired code")
             recordPairFailure()
             sendHTTP(.unauthorized, contentType: "application/json", body: "{\"error\":\"invalid-code\"}", to: client)
             return
@@ -444,6 +452,7 @@ final class HostBrowserControlService: @unchecked Sendable {
         let token = Self.makeToken()
         browserToken = token
         browserTokenExpiresAt = Date().addingTimeInterval(Self.browserTokenLifetime)
+        logger.info("Browser pairing accepted; issuing a fresh browser token")
         let response = BrowserPairResponse(token: token, expiresAt: browserTokenExpiresAt ?? Date())
         sendHTTP(.ok, contentType: "application/json", body: Self.jsonString(response), to: client)
     }
@@ -490,9 +499,12 @@ final class HostBrowserControlService: @unchecked Sendable {
             sendHTTP(.forbidden, contentType: "application/json", body: "{\"error\":\"terminal-disabled\"}", to: client)
             return
         }
-        guard clients.values.filter({ $0.mode == .webSocket }).count < Self.maxBrowserClients else {
-            sendHTTP(.conflict, contentType: "application/json", body: "{\"error\":\"browser-capacity\"}", to: client)
-            return
+        if clients.values.contains(where: { $0.mode == .webSocket }) {
+            // Pairing is an explicit handoff. A tab can finish the HTTP
+            // exchange and open its socket after an old tab is still present;
+            // replacing the old socket here closes that race as well as the
+            // earlier POST-side handoff.
+            revokeWebSocketSessions(reason: "browser-replaced")
         }
 
         let accept = Self.websocketAcceptValue(key: key)
@@ -651,6 +663,12 @@ final class HostBrowserControlService: @unchecked Sendable {
                 return
             }
             sendJSON(BrowserCloseEvent(terminalID: message.terminalID, reason: message.reason ?? "closed"), to: client)
+        case .taskPlanEvent:
+            guard let message = try? envelope.decodeTaskPlanEvent() else {
+                logger.error("Could not decode task-plan event for browser")
+                return
+            }
+            sendJSON(BrowserTaskPlanEvent(sessionID: message.sessionID, terminalID: message.terminalID, event: message.event), to: client)
         default:
             break
         }
@@ -1005,6 +1023,13 @@ private struct BrowserCloseEvent: Encodable {
     let reason: String
 }
 
+private struct BrowserTaskPlanEvent: Encodable {
+    let type = "taskPlanEvent"
+    let sessionID: UUID
+    let terminalID: UUID
+    let event: SessionTaskEvent
+}
+
 private struct BrowserErrorEvent: Encodable {
     let type = "error"
     let code: String
@@ -1088,6 +1113,127 @@ private enum BrowserControlWebAssets {
 const $=id=>document.getElementById(id);
 let ws=null,token=null,sessionId=null,active=null,order=[],tabs=new Map();
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+// Task plans are a semantic projection supplied by an agent adapter. They
+// never read `.terminal`, `.out`, or any VT screen rows.
+const vampTaskPlanProgress = (plan) => {
+  const tasks = Array.isArray(plan?.tasks) ? plan.tasks : [];
+  const running = tasks.find((task) => task.status === 'running');
+  const position = running ? Math.max(1, tasks.indexOf(running) + 1)
+    : plan?.state === 'completed' ? tasks.length : Math.min(tasks.length, Math.max(1, tasks.filter((task) => task.status === 'completed' || task.status === 'skipped').length + 1));
+  return position + ' of ' + tasks.length;
+};
+const vampTaskPlanIcon = (status) => ({pending:'○',running:'◌',completed:'✓',failed:'!',skipped:'—'}[status] || '○');
+const vampTaskPlanEventIsBound = (event, expectedSessionID, expectedTerminalID) => {
+  if (!event || !event.kind) return false;
+  if (event.kind === 'planCreated' || event.kind === 'planUpdated') {
+    return event.plan?.sessionID === expectedSessionID && event.plan?.terminalID === expectedTerminalID;
+  }
+  return true;
+};
+const vampNormalizeTaskPlan = (plan) => {
+  if (!plan || !Array.isArray(plan.tasks) || plan.tasks.length < 1) return null;
+  return {
+    id: plan.id || vampNewUUID(), sessionID: plan.sessionID || sessionId,
+    terminalID: plan.terminalID, title: plan.title || 'Plan',
+    state: plan.state || 'planning', source: plan.source || 'adapter',
+    tasks: plan.tasks.map((task, index) => ({
+      id: task.id || vampNewUUID(), order: Number(task.order || index + 1),
+      title: String(task.title || '').slice(0, 240), detail: task.detail || null,
+      status: task.status || 'pending', failureReason: task.failureReason || null,
+      startedAt: task.startedAt || null,
+      completedAt: task.completedAt || null
+    })), updatedAt: plan.updatedAt || new Date().toISOString()
+  };
+};
+const vampRenderTaskPlan = (tabID) => {
+  const tab = tabs.get(tabID);
+  if (!tab) return;
+  let card = document.querySelector('.task-plan-message[data-tab-id="' + tabID + '"]');
+  if (!tab.taskPlan) { card?.remove(); return; }
+  if (!card) {
+    card = document.createElement('article');
+    card.className = 'message task-plan-message';
+    card.dataset.tabId = tabID;
+    $('chat').appendChild(card);
+  }
+  // Keep an explicit collapse choice stable while incremental task events
+  // replace the card contents. A task transition must not reopen a plan the
+  // user intentionally collapsed.
+  const wasExpanded = card.querySelector('.task-plan-header')?.getAttribute('aria-expanded') !== 'false';
+  const plan = tab.taskPlan;
+  const rows = plan.tasks.slice().sort((a,b) => a.order - b.order).map((task) =>
+    '<div class="task-plan-row ' + esc(task.status) + '"><span class="task-plan-symbol">' + vampTaskPlanIcon(task.status) + '</span><div><div class="task-plan-title">' + esc(task.order + '. ' + task.title) + '</div>' +
+    (task.status === 'running' && task.detail ? '<div class="task-plan-detail">' + esc(task.detail) + '</div>' : task.status === 'failed' && task.failureReason ? '<div class="task-plan-detail failed">' + esc(task.failureReason) + '</div>' : '') + '</div></div>'
+  ).join('');
+  card.innerHTML = '<div class="task-plan-card"><button type="button" class="task-plan-header" aria-expanded="' + String(wasExpanded) + '"><span class="task-plan-status">' + (plan.state === 'completed' ? '✓' : plan.state === 'failed' ? '!' : '◌') + '</span><strong>' + esc(plan.title || 'Plan') + '</strong><span class="task-plan-progress">' + esc(vampTaskPlanProgress(plan)) + '</span><span class="task-plan-chevron">' + (wasExpanded ? '⌃' : '⌄') + '</span></button><div class="task-plan-body"' + (wasExpanded ? '' : ' hidden') + '>' + rows + '</div><div class="task-plan-footer"><span>' + esc(plan.source === 'inferred' ? 'Inferred from agent plan' : 'Agent task plan') + '</span>' + ((plan.state === 'planning' || plan.state === 'running') ? '<button type="button" class="task-plan-interrupt" aria-label="Interrupt task plan">■ Interrupt</button>' : plan.state === 'paused' ? '<button type="button" class="task-plan-resume" aria-label="Resume task plan">▶ Resume</button>' : '') + '</div></div>';
+  const header = card.querySelector('.task-plan-header');
+  header.onclick = () => {
+    const body = card.querySelector('.task-plan-body');
+    const expanded = header.getAttribute('aria-expanded') !== 'false';
+    header.setAttribute('aria-expanded', String(!expanded));
+    body.hidden = expanded;
+    card.querySelector('.task-plan-chevron').textContent = expanded ? '⌄' : '⌃';
+  };
+  card.querySelector('.task-plan-interrupt')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (sendInput(tabID, '\u0003')) window.vampApplyTaskPlanEvent(tabID, {kind: 'planPaused'});
+  });
+  card.querySelector('.task-plan-resume')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    window.vampApplyTaskPlanEvent(tabID, {kind: 'planResumed'});
+  });
+  if (typeof filterTabContent === 'function') filterTabContent();
+};
+window.vampApplyTaskPlanEvent = (tabID, event) => {
+  const tab = tabs.get(tabID);
+  if (!tab || !event?.kind) return false;
+  const tasks = () => tab.taskPlan?.tasks || [];
+  switch (event.kind) {
+    case 'planCreated': tab.taskPlan = vampNormalizeTaskPlan(event.plan); break;
+    case 'planUpdated': tab.taskPlan = vampNormalizeTaskPlan(event.plan); break;
+    case 'taskAdded': {
+      const task = event.task ? {id: event.task.id || vampNewUUID(), order: Number(event.task.order || tasks().length + 1), title: String(event.task.title || ''), detail: event.task.detail || null, status: event.task.status || 'pending', startedAt: event.task.startedAt || null, completedAt: event.task.completedAt || null} : null;
+      if (tab.taskPlan && task && !tasks().some((value) => value.id === task.id)) tab.taskPlan.tasks.push(task);
+      break;
+    }
+    case 'taskRemoved': if (tab.taskPlan) tab.taskPlan.tasks = tasks().filter((task) => task.id !== event.id); break;
+    case 'taskRenamed': { const task = tasks().find((value) => value.id === event.id); if (task) { task.title = event.title || task.title; task.detail = event.detail || null; } break; }
+    case 'taskReordered': { const task = tasks().find((value) => value.id === event.id); if (task) task.order = Number(event.order || task.order); break; }
+    case 'taskStarted': { const task = tasks().find((value) => value.id === event.id); if (task) { task.status = 'running'; task.failureReason = null; task.startedAt ||= new Date().toISOString(); task.completedAt = null; } if (tab.taskPlan) tab.taskPlan.state = 'running'; break; }
+    case 'taskCompleted': { const task = tasks().find((value) => value.id === event.id); if (task) { task.status = 'completed'; task.failureReason = null; task.completedAt ||= new Date().toISOString(); } if (tab.taskPlan) tab.taskPlan.state = tasks().every((value) => value.status === 'completed' || value.status === 'skipped') ? 'completed' : 'running'; break; }
+    case 'taskFailed': { const task = tasks().find((value) => value.id === event.id); if (task) { task.status = 'failed'; task.failureReason = event.reason ? String(event.reason).slice(0, 500) : null; } if (tab.taskPlan) tab.taskPlan.state = 'failed'; break; }
+    case 'taskSkipped': { const task = tasks().find((value) => value.id === event.id); if (task) { task.status = 'skipped'; task.failureReason = null; } if (tab.taskPlan && tasks().every((value) => value.status === 'completed' || value.status === 'skipped')) tab.taskPlan.state = 'completed'; break; }
+    case 'planPaused': if (tab.taskPlan) tab.taskPlan.state = 'paused'; break;
+    case 'planResumed': if (tab.taskPlan) tab.taskPlan.state = 'running'; break;
+    case 'planCompleted': if (tab.taskPlan) tab.taskPlan.state = 'completed'; break;
+    case 'planFailed': if (tab.taskPlan) tab.taskPlan.state = 'failed'; break;
+    case 'planCancelled': if (tab.taskPlan) tab.taskPlan.state = 'cancelled'; break;
+    default: return false;
+  }
+  if (tab.taskPlan) tab.taskPlan.updatedAt = new Date().toISOString();
+  vampRenderTaskPlan(tabID);
+  if (typeof renderTabs === 'function') renderTabs();
+  if (tabID === active && typeof isNearBottom === 'function' && isNearBottom()) scrollLatest(true);
+  return true;
+};
+window.vampInferTaskPlan = (tabID, semanticText) => {
+  if (!semanticText || /\u001b/.test(semanticText)) return false;
+  const parsed = String(semanticText).replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
+    const numbered = line.match(/^(\d+)[.)]\s+(.{4,})$/);
+    if (numbered) return {number: Number(numbered[1]), title: numbered[2], status: 'pending'};
+    const checklist = line.match(/^[-*]\s+\[([ xX])\]\s+(.{4,})$/);
+    if (checklist) return {number: 0, title: checklist[2], status: checklist[1].toLowerCase() === 'x' ? 'completed' : 'pending'};
+    return null;
+  }).filter(Boolean);
+  const hasChecklist = parsed.length > 0 && parsed.every((item) => item.number === 0);
+  const numbersAreSequential = parsed.length > 0 && parsed.every((item, index) => item.number === index + 1);
+  const lower = String(semanticText).toLowerCase();
+  const hasPlanMarker = /\b(plan|steps|checklist|todo|implementation)\b/.test(lower);
+  // Two numbered paragraphs are ordinary prose; only strong task syntax or
+  // an explicit plan marker may create a semantic plan card.
+  if (parsed.length < 2 || (!hasChecklist && !numbersAreSequential) || (!hasChecklist && !hasPlanMarker)) return false;
+  return window.vampApplyTaskPlanEvent(tabID, {kind: 'planCreated', plan: {id: vampNewUUID(), sessionID: sessionId, terminalID: tabID, title: 'Inferred plan', source: 'inferred', state: 'planning', tasks: parsed.map((item, index) => ({id: vampNewUUID(), order: index + 1, title: item.title, status: item.status}))}});
+};
 function setState(s){$('state').textContent=s;const dot=document.querySelector('.dot');if(dot){const key=String(s||'').toLowerCase().replace(/\s+/g,'-');dot.className='dot '+(key==='connected'?'connected':key==='connecting'?'connecting':key==='pairing'?'pairing':key==='disabled'?'disabled':key==='offline'||key.includes('error')?'offline':'pairing')}}
 function send(o){if(ws&&ws.readyState===1){ws.send(JSON.stringify(o));return true}return false}
 </script>
@@ -1171,6 +1317,25 @@ vampMoreStyle.textContent = `
   .composer input { box-sizing: border-box; height: 44px; min-height: 44px; padding: 8px 10px; }
   .composer > button { box-sizing: border-box; flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; padding: 0; }
   .clipboard-trigger { flex: 0 0 auto !important; min-width: 44px; height: 44px !important; }
+  .tab-plan-progress { color: #aaa; font: 10px ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .task-plan-message { margin-top: 10px; }
+  .task-plan-card { background: rgba(42,42,42,.78); border: 1px solid rgba(255,255,255,.16); border-radius: 18px; padding: 14px; box-shadow: 0 14px 42px rgba(0,0,0,.22); }
+  .task-plan-header { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 0; background: transparent; color: #eee; text-align: left; }
+  .task-plan-header strong { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+  .task-plan-status { color: #bfbfbf; font-size: 15px; }
+  .task-plan-progress { margin-left: auto; color: #aaa; font: 12px ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .task-plan-chevron { color: #888; font-size: 16px; }
+  .task-plan-body { display: grid; gap: 8px; margin-top: 10px; }
+  .task-plan-row { display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 8px; align-items: start; color: #ddd; font-size: 14px; line-height: 1.35; }
+  .task-plan-row.completed,.task-plan-row.skipped { color: #999; }
+  .task-plan-row.running .task-plan-title { font-weight: 650; color: #fff; }
+  .task-plan-symbol { color: #aaa; font-size: 16px; text-align: center; }
+  .task-plan-row.completed .task-plan-symbol { color: #57d69b; }
+  .task-plan-row.failed .task-plan-symbol { color: #ff8d85; }
+  .task-plan-detail { color: #999; font-size: 12px; margin-top: 3px; }
+  .task-plan-detail.failed { color: #ffaaa4; }
+  .task-plan-footer { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: #888; font-size: 11px; }
+  .task-plan-interrupt,.task-plan-resume { margin-left: auto; border: 1px solid rgba(255,255,255,.16); border-radius: 10px; padding: 7px 9px; background: rgba(255,255,255,.08); color: #eee; font-size: 11px; font-weight: 650; }
   .more-card { max-height: min(720px, calc(100dvh - 40px)); overflow: auto; }
   .more-kicker { color: #999; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
   .more-actions { display: grid; gap: 8px; margin: 14px 0; }
@@ -1650,8 +1815,9 @@ renderTabs = () => {
     button.dataset.id = id;
     button.setAttribute('aria-pressed', String(id === active));
     const stateClass = tab.opened ? 'open' : (tab.state || 'opening');
-    button.innerHTML = '<span class="tab-dot ' + stateClass + '" aria-hidden="true">●</span>' +
+      button.innerHTML = '<span class="tab-dot ' + stateClass + '" aria-hidden="true">●</span>' +
       '<span>' + esc(tab.title) + '</span>' +
+      (tab.taskPlan && tab.taskPlan.state !== 'completed' && tab.taskPlan.state !== 'cancelled' ? '<span class="tab-plan-progress">' + esc(vampTaskPlanProgress(tab.taskPlan)) + '</span>' : '') +
       (tab.unread ? '<span class="tab-dot" aria-label="Unread output">•</span>' : '') +
       '<span class="close" aria-label="Close">×</span>';
     button.onclick = (event) => {
@@ -1774,7 +1940,8 @@ createTab = (startup = null, title = null, agent = null) => {
     state: 'opening',
     decoder: new TextDecoder(),
     approvals: new Set(),
-    terminal: new VampBrowserVT()
+    terminal: new VampBrowserVT(),
+    taskPlan: null
   };
   tabs.set(id, tab);
   order.push(id);
@@ -1994,17 +2161,24 @@ const vampNormalizePairingCode = (raw) => {
   return digits.length === 6 ? digits : '';
 };
 
-pair = async () => {
-  const code = vampNormalizePairingCode($('code').value);
+let vampPairInFlight = false;
+pair = async (pairingCodeFromURL = null) => {
+  if (vampPairInFlight) return;
+  const code = vampNormalizePairingCode(pairingCodeFromURL || $('code').value);
   if (!code) {
     $('pair-error').textContent = 'Enter the six-digit code from Vamp Host.';
     return;
   }
+  vampPairInFlight = true;
   $('code').value = code;
   const button = $('pair-button');
   button.disabled = true;
   try {
-    const response = await fetch('/api/pair', {
+    // QR links carry the code in the URL as a fallback for captive portals,
+    // Safari form quirks, and proxies that omit a small JSON POST body. The
+    // host validates both forms against the same one-time secret.
+    const pairQuery = pairingCodeFromURL ? '?pair=' + encodeURIComponent(code) : '';
+    const response = await fetch('/api/pair' + pairQuery, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code })
@@ -2014,12 +2188,15 @@ pair = async () => {
         $('pair-error').textContent = 'Terminal Mode is disabled on the Mac.';
       } else if (response.status === 409) {
         $('pair-error').textContent = 'Another browser is already connected to this host.';
+      } else if (response.status === 429) {
+        $('pair-error').textContent = 'Too many attempts. Rotate the code on the host, then try again.';
       } else {
         $('pair-error').textContent = 'That code is invalid or expired.';
       }
       return;
     }
     const result = await response.json();
+    if (!result.token) throw new Error('missing-pair-token');
     token = result.token;
     $('pair').classList.add('hidden');
     $('composer').classList.remove('hidden');
@@ -2028,6 +2205,7 @@ pair = async () => {
   } catch (_) {
     $('pair-error').textContent = 'Could not reach Vamp Host.';
   } finally {
+    vampPairInFlight = false;
     button.disabled = false;
   }
 };
@@ -2060,6 +2238,7 @@ connect = () => {
       tab.commandCount = 0;
       tab.followOutput = false;
       tab.startupSeen = false;
+      tab.taskPlan = null;
     });
     // Refresh the host card after pairing/reconnect so the dashboard reflects
     // the same live host that accepted this WebSocket.
@@ -2091,6 +2270,7 @@ connect = () => {
       tab.pendingInput = null;
       tab.followOutput = false;
       tab.startupSeen = false;
+      tab.taskPlan = null;
     });
     document.querySelectorAll('.stream').forEach((element) => element.remove());
     chat.querySelectorAll('[data-tab-id], .explore-row[data-tab-id]').forEach((element) => element.remove());
@@ -2151,6 +2331,13 @@ connect = () => {
       }
     } else if (value.type === 'output') {
       vampAppendOutputChunk(vampTerminalKey(value.terminalID), value.data);
+    } else if (value.type === 'taskPlanEvent') {
+      if (value.sessionID && value.sessionID !== sessionId) return;
+      const terminalID = vampTerminalKey(value.terminalID);
+      // Semantic task events are the only source for this card. Do not pass
+      // terminal output or rendered rows through the task-plan reducer.
+      if (!vampTaskPlanEventIsBound(value.event, sessionId, terminalID)) return;
+      window.vampApplyTaskPlanEvent(terminalID, value.event);
     } else if (value.type === 'close') {
       const terminalID = vampTerminalKey(value.terminalID);
       const tab = tabs.get(terminalID);
@@ -2339,7 +2526,7 @@ if (vampPairFromURL) {
   $('code').value = vampPairFromURL;
   // Keep the one-time code out of browser history after it has been read.
   history.replaceState(null, '', location.pathname + location.hash);
-  setTimeout(() => pair(), 350);
+  setTimeout(() => pair(vampPairFromURL), 350);
 }
 </script>
 <script>
