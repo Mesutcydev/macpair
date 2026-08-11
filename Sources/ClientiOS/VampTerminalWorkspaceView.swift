@@ -55,9 +55,10 @@ struct VampTerminalWorkspaceView: View {
 
             ZStack {
                 VStack(spacing: 0) {
-                    // Every tab remains mounted in this one stable ZStack. In
-                    // Chat the selected pane is a compact read-only preview;
-                    // Terminal expands the same SwiftTerm view in place.
+                    // Every VT stays mounted for stable PTY state, but Chat is
+                    // a semantic card feed—not a terminal embedded above a
+                    // conversation. The VT surface becomes visible only when
+                    // the user explicitly chooses Terminal.
                     ZStack {
                         (workspace.selectedTab?.provider?.terminalBackground ?? Color.black)
                         if workspace.tabs.isEmpty {
@@ -83,7 +84,9 @@ struct VampTerminalWorkspaceView: View {
                             .id(tab.id)
                         }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: presentation == .chat ? 148 : .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: presentation == .chat ? 0 : .infinity)
+                    .opacity(presentation == .chat ? 0 : 1)
+                    .allowsHitTesting(presentation == .terminal)
                     .clipped()
 
                     if presentation == .chat, let tab = workspace.selectedTab {
@@ -97,6 +100,9 @@ struct VampTerminalWorkspaceView: View {
                             ),
                             onSendCommand: { command in
                                 workspace.sendCommand(tabID: tab.id, text: command)
+                            },
+                            onResolveApproval: { choice in
+                                workspace.resolveApproval(tabID: tab.id, choice: choice)
                             },
                             onOpenTerminal: { presentation = .terminal },
                             onInterrupt: { workspace.interrupt(tabID: tab.id) },
@@ -680,6 +686,7 @@ private struct TerminalChatFeedView: View {
     let provider: VampAgentProvider?
     @Binding var draft: String
     let onSendCommand: (String) -> Void
+    let onResolveApproval: (TerminalChatStore.ApprovalChoice) -> Void
     let onOpenTerminal: () -> Void
     let onInterrupt: () -> Void
     let onResume: () -> Void
@@ -701,6 +708,13 @@ private struct TerminalChatFeedView: View {
                         if let taskPlan = chat.taskPlan {
                             TaskPlanCard(plan: taskPlan, onInterrupt: onInterrupt, onResume: onResume)
                                 .id(taskPlan.id)
+                        }
+                        if let approval = chat.pendingApproval {
+                            TerminalApprovalCard(
+                                approval: approval,
+                                onResolve: onResolveApproval
+                            )
+                            .id(approval.id)
                         }
                         Color.clear
                             .frame(height: 1)
@@ -742,13 +756,9 @@ private struct TerminalChatFeedView: View {
                     guard isNearLatest else { return }
                     scrollToLatestAfterLayout(proxy, animated: true)
                 }
-                .onChange(of: composerFocused) { _, focused in
-                    guard focused else { return }
-                    // The keyboard changes the container height after focus.
-                    // Follow once after that layout pass so the composer does
-                    // not cover the newest streamed card or expose a stale
-                    // "Latest" control on a fresh command.
-                    scrollToLatestAfterLayout(proxy, animated: false)
+                .onChange(of: chat.pendingApproval) { _, _ in
+                    guard isNearLatest else { return }
+                    scrollToLatestAfterLayout(proxy, animated: true)
                 }
                 .onScrollGeometryChange(for: Bool.self) { geometry in
                     let distanceFromLatest = geometry.contentSize.height
@@ -760,24 +770,24 @@ private struct TerminalChatFeedView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // The conversation owns the scrolling region. Keeping the
-            // composer in the safe-area inset prevents the keyboard from
-            // changing the feed's measured height and stops the input card
-            // from colliding with the latest streamed response.
+            // The conversation owns the scrolling region. The composer uses
+            // one native keyboard-safe inset; focusing it must not also
+            // programmatically scroll the feed, which made cards jump while
+            // the keyboard animation was still changing the viewport.
             .safeAreaInset(edge: .bottom, spacing: 0) {
-            TerminalChatComposer(
-                draft: $draft,
-                composerFocused: $composerFocused,
-                provider: provider,
-                isEnabled: session.canEditInput,
-                canSend: session.canSendInput,
-                onSend: sendDraft,
-                onOpenTerminal: onOpenTerminal,
-                onPaste: pasteFromPhone,
-                onSendClipboardToHost: onSendClipboardToHost,
-                onRequestClipboardFromHost: onRequestClipboardFromHost
-            )
-        }
+                TerminalChatComposer(
+                    draft: $draft,
+                    composerFocused: $composerFocused,
+                    provider: provider,
+                    isEnabled: session.canEditInput,
+                    canSend: session.canSendInput,
+                    onSend: sendDraft,
+                    onOpenTerminal: onOpenTerminal,
+                    onPaste: pasteFromPhone,
+                    onSendClipboardToHost: onSendClipboardToHost,
+                    onRequestClipboardFromHost: onRequestClipboardFromHost
+                )
+            }
         .background(provider?.terminalBackground ?? Color.black)
     }
 
@@ -974,6 +984,89 @@ private struct TaskPlanCard: View {
         case .failed: return VampGlassPalette.bad
         case .skipped: return VampGlassPalette.inkSubtle
         }
+    }
+}
+
+private struct TerminalApprovalCard: View {
+    let approval: TerminalChatStore.PendingApproval
+    let onResolve: (TerminalChatStore.ApprovalChoice) -> Void
+
+    @State private var selection: TerminalChatStore.ApprovalChoice = .once
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
+            VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
+                Label("Permission required", systemImage: "lock.shield")
+                    .font(.system(.headline, design: .rounded).weight(.semibold))
+                Text("Awaiting approval · \(approval.identity)")
+                    .font(.system(size: 12, design: .rounded))
+                    .foregroundStyle(VampGlassPalette.inkSecondary)
+            }
+
+            Text(approval.command)
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .foregroundStyle(VampGlassPalette.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(VampTerminalDesign.space3)
+                .background(Color.black.opacity(0.32), in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
+
+            VStack(spacing: VampTerminalDesign.space2) {
+                approvalChoice(.once, number: "1", title: "Allow", detail: "Allow only this time")
+                approvalChoice(.always, number: "2", title: "Always allow", detail: "Do not ask again for this command")
+                approvalChoice(.deny, number: "3", title: "Deny", detail: "Reject it for now")
+            }
+
+            HStack(alignment: .center, spacing: VampTerminalDesign.space3) {
+                Text("Choose an action, then confirm.")
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundStyle(VampGlassPalette.inkTertiary)
+                Spacer(minLength: 0)
+                Button("Confirm") { onResolve(selection) }
+                    .font(.system(.subheadline, design: .rounded).weight(.bold))
+                    .foregroundStyle(Color.black)
+                    .padding(.horizontal, VampTerminalDesign.space4)
+                    .frame(minHeight: VampTerminalDesign.minTapTarget)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
+            }
+        }
+        .padding(VampTerminalDesign.space4)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.largeCardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.largeCardRadius, color: VampGlassPalette.ruleStrong)
+    }
+
+    private func approvalChoice(
+        _ choice: TerminalChatStore.ApprovalChoice,
+        number: String,
+        title: String,
+        detail: String
+    ) -> some View {
+        Button {
+            selection = choice
+        } label: {
+            HStack(spacing: VampTerminalDesign.space3) {
+                Text(number + ".")
+                    .font(.system(.subheadline, design: .monospaced))
+                    .foregroundStyle(VampGlassPalette.inkTertiary)
+                    .frame(width: 22, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    Text(detail)
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(VampGlassPalette.inkSecondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: selection == choice ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(selection == choice ? VampGlassPalette.good : VampGlassPalette.inkTertiary)
+            }
+            .padding(.horizontal, VampTerminalDesign.space3)
+            .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+            .background(
+                Color.white.opacity(selection == choice ? 0.11 : 0.045),
+                in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

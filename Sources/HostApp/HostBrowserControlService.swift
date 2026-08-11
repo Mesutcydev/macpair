@@ -3005,14 +3005,11 @@ if (vampPairFromURL) {
       line-height: 1.4;
     }
     body.vamp-terminal-mode .stream-card.output-message .stream-caption { margin-bottom: 9px; }
-    body:not(.vamp-terminal-mode) .stream-card.output-message {
-      max-height: 174px;
-      overflow: hidden;
-    }
+    body:not(.vamp-terminal-mode) .stream-card.output-message { max-height: none; overflow: visible; }
     body:not(.vamp-terminal-mode) .stream-card.output-message .rich-body {
-      max-height: 112px;
-      overflow: hidden;
-      pointer-events: none;
+      max-height: min(46dvh, 440px);
+      overflow: auto;
+      pointer-events: auto;
     }
     .open-terminal-preview {
       flex: 0 0 auto;
@@ -3245,6 +3242,23 @@ if (vampPairFromURL) {
     '<button class="context-icon" id="context-panel" type="button" aria-label="Open sessions dashboard">◧</button>';
   document.querySelector('.top')?.insertAdjacentElement('afterend', context);
 
+  let keyboardWasOpen = false;
+  let keyboardScrollAnchor = 0;
+  let keyboardAnchorTimers = [];
+  const restoreKeyboardScrollAnchor = () => {
+    keyboardAnchorTimers.splice(0).forEach(clearTimeout);
+    const restore = () => {
+      content.dataset.vampProgrammatic = '1';
+      content.scrollTop = keyboardScrollAnchor;
+      requestAnimationFrame(() => { delete content.dataset.vampProgrammatic; });
+    };
+    requestAnimationFrame(restore);
+    // Mobile Safari can perform a second focused-element reveal after its
+    // visual viewport resize. Reassert the conversation anchor until that
+    // transition settles, without changing the document or shell position.
+    keyboardAnchorTimers.push(setTimeout(restore, 80));
+    keyboardAnchorTimers.push(setTimeout(restore, 180));
+  };
   const keyboardViewportUpdate = () => {
     const viewport = window.visualViewport;
     const layoutWidth = document.documentElement.clientWidth || window.innerWidth;
@@ -3263,10 +3277,17 @@ if (vampPairFromURL) {
     document.documentElement.style.setProperty('--vamp-visual-height', Math.max(240, Math.round(visibleHeight)) + 'px');
     document.documentElement.style.setProperty('--vamp-vv-left', Math.round(offsetLeft) + 'px');
     document.documentElement.style.setProperty('--vamp-vv-top', Math.round(offsetTop) + 'px');
+    if (keyboardOpen && !keyboardWasOpen) {
+      keyboardScrollAnchor = content.scrollTop;
+    }
     shell.classList.toggle('vamp-keyboard-open', keyboardOpen);
     document.documentElement.classList.toggle('vamp-keyboard-open', keyboardOpen);
     if (keyboardOpen) document.documentElement.style.setProperty('--vamp-keyboard-height', Math.max(240, Math.round(visibleHeight)) + 'px');
     else document.documentElement.style.removeProperty('--vamp-keyboard-height');
+    if (keyboardOpen !== keyboardWasOpen) {
+      restoreKeyboardScrollAnchor();
+    }
+    keyboardWasOpen = keyboardOpen;
   };
   const resetPagePosition = () => {
     document.documentElement.scrollTop = 0;
@@ -3296,7 +3317,10 @@ if (vampPairFromURL) {
   window.visualViewport?.addEventListener('resize', keyboardViewportUpdate, { passive: true });
   window.visualViewport?.addEventListener('scroll', keyboardViewportUpdate, { passive: true });
   window.addEventListener('orientationchange', () => { keyboardViewportUpdate(); resetPagePosition(); }, { passive: true });
-  document.addEventListener('focusin', () => setTimeout(keyboardViewportUpdate, 60), { passive: true });
+  document.addEventListener('focusin', (event) => {
+    if (event.target === $('input')) keyboardScrollAnchor = content.scrollTop;
+    setTimeout(keyboardViewportUpdate, 60);
+  }, { passive: true });
   document.addEventListener('visibilitychange', keyboardViewportUpdate, { passive: true });
   keyboardViewportUpdate();
 
@@ -3411,7 +3435,7 @@ if (vampPairFromURL) {
         : tab.state === 'error' || tab.state === 'closed' || tab.state === 'offline'
           ? 'Terminal unavailable'
           : 'Waiting for terminal output…';
-      card.innerHTML = '<div class="stream-card-head"><div class="stream-card-title"><span class="card-glyph">⌁</span><span>' + esc(tab.title) + '</span></div><div class="stream-card-actions"><span class="stream-state">' + esc(tab.opened ? 'Live' : 'Opening') + '</span><button type="button" class="open-terminal-preview">Open Terminal</button></div></div><div class="stream-caption">Read-only terminal preview</div><div class="rich-body" role="log" aria-live="polite"><div class="rich-empty">' + esc(initialState) + '</div></div>';
+      card.innerHTML = '<div class="stream-card-head"><div class="stream-card-title"><span class="card-glyph">⌁</span><span>' + esc(tab.title) + '</span></div><div class="stream-card-actions"><span class="stream-state">' + esc(tab.opened ? 'Ready' : 'Opening') + '</span><button type="button" class="open-terminal-preview">Open Terminal</button></div></div><div class="stream-caption">Streaming response</div><div class="rich-body" role="log" aria-live="polite"><div class="rich-empty">' + esc(initialState) + '</div></div>';
       card.querySelector('.open-terminal-preview')?.addEventListener('click', () => window.vampSetPresentation?.('terminal'));
       chat.appendChild(card);
       tab.outputCard = card;
@@ -3461,16 +3485,21 @@ if (vampPairFromURL) {
     const stickToLatest = id === active && (tab.followOutput === true || isNearBottom());
     const card = ensureOutputCard(id);
     if (!card) return;
-    card.classList.add('terminal-rendered');
+    const terminalMode = document.body.classList.contains('vamp-terminal-mode');
+    card.classList.toggle('terminal-rendered', terminalMode);
     const body = card.querySelector('.rich-body');
     const bodyWasNearBottom = body ? body.scrollHeight - body.scrollTop - body.clientHeight < 28 : true;
     const previousBodyScrollTop = body?.scrollTop || 0;
     if (body) {
-      body.innerHTML = tab.terminal.renderHTML() || '<div class="rich-empty">Waiting for terminal output…</div>';
+      const semanticSnapshot = tab.terminal.render();
+      body.innerHTML = terminalMode
+        ? (tab.terminal.renderHTML() || '<div class="rich-empty">Waiting for terminal output…</div>')
+        : (renderBlocks(semanticSnapshot) || '<div class="rich-empty">Waiting for agent response…</div>');
       body.scrollTop = bodyWasNearBottom ? body.scrollHeight : Math.min(previousBodyScrollTop, body.scrollHeight);
+      if (!terminalMode && semanticSnapshot.trim()) window.vampInferTaskPlan?.(id, semanticSnapshot);
     }
     const state = card.querySelector('.stream-state');
-    if (state) state.textContent = tab.pendingCommand ? 'Streaming' : 'Live';
+    if (state) state.textContent = tab.pendingCommand ? 'Streaming' : (terminalMode ? 'Live' : 'Ready');
     filterTabContent();
     if (stickToLatest) scrollLatest(true);
   };
@@ -3602,7 +3631,16 @@ if (vampPairFromURL) {
     chat.appendChild(card);
     filterTabContent();
     setActiveDraft('');
-    if (stick) scrollLatest(true);
+    if (stick) {
+      requestAnimationFrame(() => {
+        content.dataset.vampProgrammatic = '1';
+        // Approval tables can be taller than the available conversation
+        // viewport. Align their heading, not their bottom, so the decision
+        // context is never hidden beneath the mode switch.
+        content.scrollTop = Math.max(0, card.offsetTop - chat.offsetTop - 8);
+        requestAnimationFrame(() => { delete content.dataset.vampProgrammatic; });
+      });
+    }
   };
 
   selectTab = (id) => {

@@ -83,6 +83,17 @@ struct ConservativeAgentSessionAdapter: AgentSessionAdapter {
 /// screen buffer and must never be scraped back into this transcript.
 @MainActor
 final class TerminalChatStore: ObservableObject {
+    enum ApprovalChoice: Equatable {
+        case once
+        case always
+        case deny
+    }
+
+    struct PendingApproval: Identifiable, Equatable {
+        let id: UUID
+        let command: String
+        let identity: String
+    }
     enum Role: Equatable {
         case system
         case command
@@ -130,17 +141,22 @@ final class TerminalChatStore: ObservableObject {
     @Published private(set) var blocks: [Block]
     @Published private(set) var activityEvents: [ActivityEvent] = []
     @Published private(set) var taskPlan: SessionTaskPlan?
+    @Published private(set) var pendingApproval: PendingApproval?
 
     private let tabTitle: String
+    private let semanticSessionID: UUID?
     private let taskPlanPersistenceKey: String?
     private var taskPlanCoordinator: SessionTaskCoordinator
     private var didMarkReady = false
     private var didMarkClosed = false
     private let maxBlocks = 180
     private let maxActivityEvents = 120
+    private var alwaysAllowedCommands: Set<String> = []
+    private var semanticStream = TerminalSemanticStreamDecoder()
 
     init(tabTitle: String, sessionID: UUID? = nil) {
         self.tabTitle = tabTitle
+        self.semanticSessionID = sessionID
         self.taskPlanPersistenceKey = sessionID.map { "com.mesutcy.vamp-terminal.task-plan.\($0.uuidString)" }
         if let key = self.taskPlanPersistenceKey,
            let data = UserDefaults.standard.data(forKey: key),
@@ -172,12 +188,56 @@ final class TerminalChatStore: ObservableObject {
         recordActivity("Terminal input · \(data.count) bytes")
     }
 
-    /// Kept as a no-op compatibility surface for older callers. Terminal
-    /// bytes are rendered only by the mounted VT emulator, never as Chat text.
-    func appendOutput(_ data: Data) {
-        // Do not even decode the bytes here. A packet may end halfway through
-        // UTF-8 or an ANSI sequence, and a terminal screen is not a log.
-        guard !data.isEmpty else { return }
+    /// Converts the process byte stream into a semantic, append-only Chat
+    /// projection. This happens before VT rendering and never reads the
+    /// terminal screen. ANSI/OSC controls are consumed incrementally so split
+    /// packets cannot leak escape fragments into cards.
+    func appendOutput(_ data: Data, provider: VampAgentProvider? = nil) {
+        guard !data.isEmpty, let text = semanticStream.consume(data), !text.isEmpty else { return }
+        finishOpeningMessage()
+        blocks.removeAll { $0.role == .progress && $0.isStreaming }
+        let identity = provider?.sessionDisplayName ?? tabTitle
+        if let index = blocks.lastIndex(where: { $0.role == .output && $0.isStreaming }) {
+            blocks[index].title = identity
+            blocks[index].text = text
+        } else {
+            append(Block(role: .output, title: identity, text: text, isStreaming: true))
+        }
+        if taskPlan == nil, let semanticSessionID {
+            consumeSemanticAgentOutput(
+                text,
+                provider: provider,
+                sessionID: semanticSessionID,
+                terminalID: semanticSessionID
+            )
+        }
+    }
+
+    func requestApproval(for command: String, provider: VampAgentProvider?) -> Bool {
+        if alwaysAllowedCommands.contains(command) { return false }
+        pendingApproval = PendingApproval(
+            id: UUID(),
+            command: command,
+            identity: provider?.sessionDisplayName ?? "Shell"
+        )
+        recordActivity("Approval requested")
+        return true
+    }
+
+    func resolveApproval(_ choice: ApprovalChoice) -> String? {
+        guard let approval = pendingApproval else { return nil }
+        pendingApproval = nil
+        switch choice {
+        case .deny:
+            append(Block(role: .warning, title: "Denied", text: approval.command))
+            recordActivity("Command denied")
+            return nil
+        case .always:
+            alwaysAllowedCommands.insert(approval.command)
+            return approval.command
+        case .once:
+            return approval.command
+        }
     }
 
     func markReady() {
@@ -330,6 +390,67 @@ final class TerminalChatStore: ObservableObject {
         }
     }
 
+}
+
+/// A small incremental control-sequence consumer for the semantic Chat
+/// projection. SwiftTerm remains the authoritative VT emulator; this reducer
+/// only creates readable streaming cards and deliberately ignores cursor and
+/// styling instructions.
+private struct TerminalSemanticStreamDecoder {
+    private enum ControlState { case text, escape, csi, osc, oscEscape }
+    private var state: ControlState = .text
+    private var utf8Remainder = Data()
+    private var rendered = ""
+
+    mutating func consume(_ data: Data) -> String? {
+        utf8Remainder.append(data)
+        var decoded: String?
+        var retained = 0
+        for suffix in 0...min(3, utf8Remainder.count) {
+            let prefixCount = utf8Remainder.count - suffix
+            guard prefixCount > 0 else { continue }
+            if let value = String(data: utf8Remainder.prefix(prefixCount), encoding: .utf8) {
+                decoded = value
+                retained = suffix
+                break
+            }
+        }
+        guard let decoded else {
+            if utf8Remainder.count > 8_192 { utf8Remainder.removeAll(keepingCapacity: true) }
+            return nil
+        }
+        utf8Remainder = retained == 0 ? Data() : Data(utf8Remainder.suffix(retained))
+
+        for scalar in decoded.unicodeScalars {
+            switch state {
+            case .text:
+                switch scalar.value {
+                case 0x1B: state = .escape
+                case 0x0D:
+                    if let newline = rendered.lastIndex(of: "\n") { rendered.removeSubrange(rendered.index(after: newline)..<rendered.endIndex) }
+                    else { rendered.removeAll(keepingCapacity: true) }
+                case 0x0A: rendered.append("\n")
+                case 0x08: if !rendered.isEmpty { rendered.removeLast() }
+                case 0x09: rendered.append("    ")
+                case 0x20...0x10FFFF: rendered.unicodeScalars.append(scalar)
+                default: break
+                }
+            case .escape:
+                if scalar == "[" { state = .csi }
+                else if scalar == "]" { state = .osc }
+                else { state = .text }
+            case .csi:
+                if (0x40...0x7E).contains(scalar.value) { state = .text }
+            case .osc:
+                if scalar.value == 0x07 { state = .text }
+                else if scalar.value == 0x1B { state = .oscEscape }
+            case .oscEscape:
+                state = scalar == "\\" ? .text : .osc
+            }
+        }
+        if rendered.count > 16_000 { rendered = String(rendered.suffix(16_000)) }
+        return rendered.trimmingCharacters(in: .newlines)
+    }
 }
 
 /// Keeps the host-backed workspace catalog separate from live PTY tabs. The
@@ -824,10 +945,21 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         let command = text.replacingOccurrences(of: "\u{0}", with: "")
         guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               tabs[index].session.canSendInput else { return }
-        let data = Data((command + "\n").utf8)
+        guard !tabs[index].chat.requestApproval(for: command, provider: tabs[index].provider) else { return }
+        sendApprovedCommand(tabID: tabID, command: command)
+    }
+
+    func resolveApproval(tabID: UUID, choice: TerminalChatStore.ApprovalChoice) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }),
+              let command = tabs[index].chat.resolveApproval(choice) else { return }
+        sendApprovedCommand(tabID: tabID, command: command)
+    }
+
+    private func sendApprovedCommand(tabID: UUID, command: String) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }), tabs[index].session.canSendInput else { return }
         tabs[index].chat.recordChatSubmission(command, provider: tabs[index].provider)
         tabs[index].chat.markWorking(provider: tabs[index].provider)
-        tabs[index].session.sendInput(data)
+        tabs[index].session.sendInput(Data((command + "\n").utf8))
     }
 
     /// Raw Terminal input is intentionally not added to Chat. It remains a
@@ -899,8 +1031,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
 
     private func receiveOutput(_ message: TerminalOutputMessage) {
         for index in tabs.indices where tabs[index].session.receiveOutput(message) {
-            // The VT emulator is the only consumer of PTY bytes. Chat must
-            // not infer prompts, commands, or assistant text from a repaint.
+            tabs[index].chat.appendOutput(message.data, provider: tabs[index].provider)
             tabs[index].chat.recordActivity("Terminal output received")
             if tabs[index].id != selectedTabID {
                 tabs[index].hasUnreadOutput = true

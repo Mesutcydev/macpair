@@ -4,7 +4,7 @@ import SharedProtocol
 
 @MainActor
 final class TerminalWorkspaceTests: XCTestCase {
-    func testChatSubmissionIsCanonicalAndRawOutputNeverBecomesChatText() {
+    func testChatSubmissionIsCanonicalAndProcessOutputStreamsIntoAReadableCard() {
         let chat = TerminalChatStore(tabTitle: "Build")
 
         XCTAssertEqual(chat.blocks.first?.text, "Build is opening a shell…")
@@ -15,7 +15,7 @@ final class TerminalWorkspaceTests: XCTestCase {
         XCTAssertTrue(chat.blocks.contains {
             $0.role == .command && $0.title == "You · Shell" && $0.text == "$ echo café"
         })
-        XCTAssertFalse(chat.blocks.contains { $0.text.contains("running build") || $0.text.contains("verified") })
+        XCTAssertTrue(chat.blocks.contains { $0.role == .output && $0.text.contains("running build") })
         XCTAssertFalse(chat.blocks.contains { $0.text.contains("38;5") || $0.text.contains("\u{1B}") })
     }
 
@@ -48,18 +48,18 @@ final class TerminalWorkspaceTests: XCTestCase {
         XCTAssertEqual(chat.activityEvents.filter { $0.text == "PTY ready" }.count, 2)
     }
 
-    func testRawInputAndOutputDoNotBecomeChatText() {
+    func testRawInputDoesNotBecomeAUserMessageButOutputCanStream() {
         let chat = TerminalChatStore(tabTitle: "Terminal 1")
         chat.markReady()
         chat.recordInput(Data("echo ready\n".utf8))
         chat.appendOutput(Data("%\n~❯\n❯ echo ready\nready\n%\n~❯ ".utf8))
 
         XCTAssertFalse(chat.blocks.contains { $0.role == .command })
-        XCTAssertFalse(chat.blocks.contains { $0.role == .output })
+        XCTAssertTrue(chat.blocks.contains { $0.role == .output && $0.text.contains("ready") })
         XCTAssertTrue(chat.activityEvents.contains { $0.text.contains("bytes") })
     }
 
-    func testChatDoesNotAttemptToRenderTUIRepaintOutput() {
+    func testChatConsumesTUIControlsWithoutLeakingANSIAndBoundsTheCard() {
         let chat = TerminalChatStore(tabTitle: "OpenCode")
         chat.markReady()
         chat.recordInput(Data("opencode\n".utf8))
@@ -68,8 +68,9 @@ final class TerminalWorkspaceTests: XCTestCase {
             .joined(separator: "\n")
         chat.appendOutput(Data(repaint.utf8))
 
-        XCTAssertFalse(chat.blocks.contains { $0.role == .output })
-        XCTAssertFalse(chat.blocks.contains { $0.text.contains("OpenCode") })
+        XCTAssertTrue(chat.blocks.contains { $0.role == .output && $0.text.contains("OpenCode") })
+        XCTAssertFalse(chat.blocks.contains { $0.text.contains("\u{1B}") || $0.text.contains("[2K") })
+        XCTAssertLessThanOrEqual(chat.blocks.first(where: { $0.role == .output })?.text.count ?? .max, 16_000)
         XCTAssertTrue(chat.activityEvents.contains { $0.text.contains("bytes") })
     }
 
