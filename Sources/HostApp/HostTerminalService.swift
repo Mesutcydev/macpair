@@ -300,7 +300,9 @@ final class HostTerminalService: @unchecked Sendable {
     }
 
     private func writeStartupCommand(_ command: String, to session: ActiveSession) {
-        let data = Data((command + "\n").utf8)
+        // Startup commands are typed into an interactive PTY. Enter is CR,
+        // not LF; TUIs and line editors are not required to submit on LF.
+        let data = Data((command + "\r").utf8)
         guard data.count <= TerminalInputMessage.maxChunkBytes else { return }
         write(data, to: session)
     }
@@ -805,6 +807,13 @@ final class HostWorkspaceService: @unchecked Sendable {
             self.cachedWorkspaces = result
             completion(result, self.browseRoots(), nil)
         }
+    }
+
+    /// Fast, non-recursive roots for launch UI. Project discovery may take
+    /// longer on a large Desktop/Documents tree, so clients can present a
+    /// useful workspace chooser immediately while discovery finishes.
+    func availableBrowseRoots() -> [WorkspaceBrowseRoot] {
+        browseRoots()
     }
 
     func listDirectory(

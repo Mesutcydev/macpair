@@ -508,7 +508,7 @@ struct TerminalModeView: View {
         let command = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty, session.canSendInput else { return }
         transcript.submitCommand(command)
-        session.sendInput(Data((command + "\n").utf8))
+        session.sendInput(Data((command + "\r").utf8))
         draft = ""
         composerFocused = true
     }

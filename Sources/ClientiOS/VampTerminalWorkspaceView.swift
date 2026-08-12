@@ -441,9 +441,9 @@ struct VampTerminalWorkspaceView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             Button {
-                _ = workspace.createTab()
+                showingWorkspaces = true
             } label: {
-                Label("New terminal", systemImage: "plus")
+                Label("Choose workspace", systemImage: "folder")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(VampGlassPalette.ink)
                     .padding(.horizontal, VampTerminalDesign.space4)
@@ -478,9 +478,9 @@ struct VampTerminalWorkspaceView: View {
 
                 Menu {
                     Button {
-                        _ = workspace.createTab()
+                        showingWorkspaces = true
                     } label: {
-                        Label("New shell", systemImage: "terminal")
+                        Label("New shell in workspace", systemImage: "terminal")
                     }
 
                     Section("Resume a session") {

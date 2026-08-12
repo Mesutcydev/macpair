@@ -169,6 +169,7 @@ final class TerminalWorkspaceTests: XCTestCase {
         let environment = ClientAppEnvironment.makeDefault(clientName: "Workspace Test")
         let workspace = TerminalWorkspaceViewModel(coordinator: environment.sessionCoordinator)
         workspace.activate(sessionID: UUID())
+        XCTAssertTrue(workspace.createTab())
 
         XCTAssertEqual(workspace.tabs.count, 1)
         let firstID = workspace.tabs[0].id
@@ -189,6 +190,7 @@ final class TerminalWorkspaceTests: XCTestCase {
         let environment = ClientAppEnvironment.makeDefault(clientName: "Unread Test")
         let workspace = TerminalWorkspaceViewModel(coordinator: environment.sessionCoordinator)
         workspace.activate(sessionID: UUID())
+        XCTAssertTrue(workspace.createTab())
         XCTAssertTrue(workspace.createTab())
 
         let first = workspace.tabs[0]
@@ -217,6 +219,7 @@ final class TerminalWorkspaceTests: XCTestCase {
         let environment = ClientAppEnvironment.makeDefault(clientName: "Capacity Test")
         let workspace = TerminalWorkspaceViewModel(coordinator: environment.sessionCoordinator)
         workspace.activate(sessionID: UUID())
+        XCTAssertTrue(workspace.createTab())
 
         for _ in 1..<TerminalWorkspaceViewModel.maxTabs {
             XCTAssertTrue(workspace.createTab())
@@ -232,6 +235,7 @@ final class TerminalWorkspaceTests: XCTestCase {
         let workspace = TerminalWorkspaceViewModel(coordinator: environment.sessionCoordinator)
         workspace.activate(sessionID: UUID())
         XCTAssertTrue(workspace.createTab())
+        XCTAssertTrue(workspace.createTab())
 
         let firstID = workspace.tabs[0].id
         let originalNames = Set(workspace.tabs.map(\.title))
@@ -243,5 +247,19 @@ final class TerminalWorkspaceTests: XCTestCase {
         let names = workspace.tabs.map(\.title)
         XCTAssertEqual(Set(names).count, names.count)
         XCTAssertEqual(Set(names), ["Terminal 1", "Terminal 2"])
+    }
+
+    func testChatComposerUsesPTYCarriageReturnForEnter() throws {
+        let source = try String(contentsOfFile: "Sources/ClientiOS/TerminalWorkspaceViewModel.swift")
+        XCTAssertTrue(source.contains(#"Data((command + "\r").utf8)"#))
+        XCTAssertFalse(source.contains(#"Data((command + "\n").utf8)"#))
+    }
+
+    func testFreshConnectionWaitsForWorkspaceSelection() {
+        let environment = ClientAppEnvironment.makeDefault(clientName: "Launch Flow Test")
+        let workspace = TerminalWorkspaceViewModel(coordinator: environment.sessionCoordinator)
+        workspace.activate(sessionID: UUID())
+        XCTAssertTrue(workspace.tabs.isEmpty)
+        XCTAssertNil(workspace.selectedTabID)
     }
 }

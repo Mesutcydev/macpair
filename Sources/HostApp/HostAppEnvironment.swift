@@ -435,6 +435,7 @@ final class HostAppEnvironment: ObservableObject {
         self.browserControlService.terminalModeProvider = { [weak self] in
             self?.terminalModeEnabled ?? false
         }
+        self.browserControlService.workspaceService = self.workspaceService
         self.browserControlService.readClipboard = {
             NSPasteboard.general.string(forType: .string)
         }

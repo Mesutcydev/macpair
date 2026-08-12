@@ -121,6 +121,7 @@ final class HostBrowserControlService: @unchecked Sendable {
     var readClipboard: () -> String? = { nil }
     var writeClipboard: (String) -> Void = { _ in }
     var onStatusChange: (@Sendable (HostBrowserControlStatus) -> Void)?
+    var workspaceService: HostWorkspaceService?
 
     deinit {
         stop()
@@ -524,7 +525,7 @@ final class HostBrowserControlService: @unchecked Sendable {
         // browser and leaves tabs stuck at "Opening shell…" with no PTY.
         client.mode = .webSocket
         client.sessionID = UUID()
-        let terminalService = HostTerminalService()
+        let terminalService = HostTerminalService(workspaceService: workspaceService)
         terminalService.sendEnvelope = { [weak self, weak client] envelope in
             guard let self, let client else { return }
             self.queue.async {
@@ -541,6 +542,22 @@ final class HostBrowserControlService: @unchecked Sendable {
         sendRaw(Data(response.utf8), to: client) { [weak self, weak client] in
             guard let self, let client, self.clients[client.id] != nil else { return }
             self.sendJSON(hello, to: client)
+            if let workspaceService = self.workspaceService {
+                self.sendJSON(
+                    BrowserWorkspaceEvent(
+                        workspaces: [],
+                        roots: workspaceService.availableBrowseRoots(),
+                        error: nil
+                    ),
+                    to: client
+                )
+            }
+            self.workspaceService?.listWorkspaces(refresh: false) { [weak self, weak client] workspaces, roots, error in
+                guard let self, let client else { return }
+                self.queue.async {
+                    self.sendJSON(BrowserWorkspaceEvent(workspaces: workspaces, roots: roots, error: error), to: client)
+                }
+            }
         }
 
         // A client is allowed to pipeline its first frame with the upgrade
@@ -602,7 +619,9 @@ final class HostBrowserControlService: @unchecked Sendable {
                 cols: cols,
                 rows: rows,
                 term: command.term ?? "xterm-256color",
-                startupCommand: command.startupCommand
+                startupCommand: command.startupCommand,
+                workspaceID: command.workspaceID,
+                workingDirectory: command.workingDirectory
             ))
         case "input":
             guard let terminalID = command.terminalID,
@@ -995,8 +1014,17 @@ private struct BrowserTerminalCommand: Decodable {
     let rows: UInt16?
     let term: String?
     let startupCommand: String?
+    let workspaceID: UUID?
+    let workingDirectory: String?
     let data: String?
     let text: String?
+}
+
+private struct BrowserWorkspaceEvent: Encodable {
+    let type = "workspaces"
+    let workspaces: [RemoteWorkspace]
+    let roots: [WorkspaceBrowseRoot]
+    let error: String?
 }
 
 private struct BrowserHelloEvent: Encodable {
@@ -1093,6 +1121,7 @@ private enum BrowserControlWebAssets {
    Keep the original CSS above intentionally small; these rules provide the
    responsive controls without making the embedded asset depend on a bundle. */
 .tab{min-height:40px}.newtab{min-width:44px;min-height:44px}.quick button{min-height:40px}.composer{z-index:4}.composer input{min-height:44px}.clipboard-wrap{position:relative;flex:0 0 auto}.clipboard-trigger{width:auto!important;min-width:44px;padding:0 12px;display:flex;align-items:center;justify-content:center;gap:6px}.clipboard-label{font-size:13px;font-weight:600}.clipboard-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:6;min-width:230px;padding:8px;background:rgba(43,43,43,.96);border:1px solid rgba(255,255,255,.18);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.42);backdrop-filter:blur(18px)}.clipboard-menu.hidden{display:none}.clipboard-menu button{width:100%!important;height:auto!important;min-height:40px;padding:10px 12px;text-align:left;background:transparent;border-radius:9px;font-size:14px}.clipboard-menu button:hover,.clipboard-menu button:focus-visible{background:rgba(255,255,255,.12)}.approval-actions{flex-wrap:wrap}.tab-dot{color:var(--muted);font-size:11px}.tab-dot.open{color:var(--good)}.tab-dot.opening{color:var(--warn)}.modal-card input,.modal-card button{min-height:44px}@media(max-width:520px){.clipboard-label{display:none}.clipboard-trigger{padding:0 10px}}
+.workspace-list{display:grid;gap:8px;max-height:min(52vh,420px);overflow:auto}.workspace-choice{display:flex!important;flex-direction:column;align-items:flex-start;gap:4px;width:100%;margin:0!important;padding:12px 14px!important;background:rgba(255,255,255,.08)!important;color:#fff!important;text-align:left}.workspace-choice small{color:#aaa;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
 </style></head>
 <body><div class="shell">
 <header class="top"><button class="back" id="back" aria-label="Open sessions dashboard" title="Open sessions dashboard" onclick="vampToggleDashboard()">‹</button><div class="title" id="page-title">Task chat</div><div class="state"><span class="dot"></span><span id="state">Pairing</span></div></header>
@@ -1111,6 +1140,7 @@ private enum BrowserControlWebAssets {
 <div class="composer" id="composer"><div class="clipboard-wrap"><button id="clipboard" class="clipboard-trigger" type="button" title="Clipboard actions" aria-label="Clipboard actions" aria-expanded="false">▣ <span class="clipboard-label">Clipboard</span></button><div id="clipboard-menu" class="clipboard-menu hidden" role="menu" aria-label="Clipboard actions"><button id="paste" type="button" role="menuitem">Paste into terminal</button><button id="copyhost" type="button" role="menuitem">Copy Mac clipboard to Safari</button><button id="sethost" type="button" role="menuitem">Send Safari clipboard to Mac</button></div></div><input id="input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command…"><button id="more" type="button" title="More controls" aria-label="More controls">•••</button><button class="send" id="send" type="button" title="Review command" aria-label="Review command">↑</button></div>
 </div>
 <div class="modal" id="pair"><div class="modal-card"><h2>Open this workspace</h2><p>Scan the QR code from Vamp Host, or enter the six-digit code shown in Settings → Browser control. The code expires after ten minutes.</p><input id="code" inputmode="numeric" maxlength="18" placeholder="000000" aria-label="Pairing code" autocomplete="one-time-code"><div class="error" id="pair-error"></div><button id="pair-button">Pair browser</button></div></div>
+<div class="modal hidden" id="launch-modal"><div class="modal-card more-card"><div class="more-kicker">New session</div><h2 id="launch-title">Choose workspace</h2><p id="launch-copy">Every session keeps its own working directory.</p><div class="workspace-list" id="workspace-list"></div><div class="more-footer"><button id="launch-cancel" class="secondary" type="button">Cancel</button></div></div></div>
 <div class="modal hidden" id="more-modal"><div class="modal-card more-card"><div class="more-kicker">Terminal actions</div><h2>Open a session</h2><p>Start a fresh shell, attach a persistent tmux or screen session, or open a coding agent in a new tab.</p><div class="more-actions"><button id="more-shell" type="button"><span class="provider-mark" style="--provider:#e8e8e8">›_</span><span><b>New shell</b><br><small>Open an independent terminal tab</small></span></button><button id="more-tmux" type="button" class="secondary"><span class="provider-mark" style="--provider:#9dd6ff">▣</span><span><b>Attach / create tmux</b><br><small>Resume a named workspace</small></span></button><button id="more-screen" type="button" class="secondary"><span class="provider-mark" style="--provider:#b8a6ff">▤</span><span><b>Attach screen</b><br><small>Resume a GNU screen session</small></span></button></div><div class="provider-title">Agent launchers</div><div class="provider-grid"><button type="button" data-provider="opencode" style="--provider:#00c8ce"><span class="provider-mark">◈</span><span>OpenCode</span></button><button type="button" data-provider="pi" style="--provider:#f57a48"><span class="provider-mark">π</span><span>Pi</span></button><button type="button" data-provider="commandcode" style="--provider:#b883ff"><span class="provider-mark">⌘</span><span>CommandCode</span></button><button type="button" data-provider="chatgpt" style="--provider:#10a37f"><span class="provider-mark">◌</span><span>ChatGPT CLI</span></button><button type="button" data-provider="claude" style="--provider:#dc6a42"><span class="provider-mark">✦</span><span>Claude Code</span></button><button type="button" data-provider="kimi" style="--provider:#4c8dff"><span class="provider-mark">K</span><span>Kimi</span></button><button type="button" data-provider="qwen" style="--provider:#4678f2"><span class="provider-mark">Q</span><span>Qwen Code</span></button><button type="button" data-provider="codex" style="--provider:#10a37f"><span class="provider-mark">⌘</span><span>Codex CLI</span></button><button type="button" data-provider="aider" style="--provider:#66c28c"><span class="provider-mark">A</span><span>Aider</span></button><button type="button" data-provider="grok" style="--provider:#e6a94f"><span class="provider-mark">G</span><span>Grok CLI</span></button></div><label class="more-command">Custom command or session<input id="more-command" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tmux attach -t work"></label><div class="more-footer"><button id="more-cancel" class="secondary" type="button">Cancel</button><button id="more-open" type="button">Open tab</button></div></div></div>
 <script>
 const $=id=>document.getElementById(id);
@@ -1836,7 +1866,9 @@ const vampOpenTerminal = (id) => {
     terminalID: id,
     cols: size.cols,
     rows: size.rows,
-    startupCommand: tab.startupCommand || null
+    startupCommand: tab.startupCommand || null,
+    workspaceID: tab.workspace?.id || null,
+    workingDirectory: tab.workspace?.path || null
   });
   if (!sent) {
     tab.state = 'error';
@@ -1971,7 +2003,7 @@ function vampToggleDashboard(force) {
 
 $('dashboard-open').onclick = () => vampToggleDashboard(false);
 
-createTab = (startup = null, title = null, agent = null) => {
+createTab = (startup = null, title = null, agent = null, workspace = null) => {
   if (order.length >= 8) {
     addMessage('<div class="badge">Terminal capacity reached (8 tabs).</div>');
     return null;
@@ -1981,6 +2013,7 @@ createTab = (startup = null, title = null, agent = null) => {
     id,
     title: title || vampNextTerminalTitle(),
     agent: agent || null,
+    workspace: workspace || null,
     startupCommand: startup,
     out: '',
     outputCard: null,
@@ -2039,7 +2072,7 @@ closeTab = (id) => {
   tabs.delete(id);
   order = order.filter((value) => value !== id);
   if (active === id) active = order[0] || null;
-  if (!active) createTab();
+  if (!active && vampWorkspaces.length) chooseWorkspaceForLaunch(null, 'Shell');
   if (active) selectTab(active);
   renderTabs();
 };
@@ -2115,7 +2148,7 @@ reviewCommand = () => {
       addMessage('<div class="badge">One command is already queued. It will run when this terminal is ready.</div>', tabID);
       return;
     }
-    tab.pendingInput = value + '\n';
+    tab.pendingInput = value + '\r';
     $('input').value = '';
     appendCommand(value, 'Queued · starting', tabID);
     vampScrollChatToLatest();
@@ -2123,7 +2156,7 @@ reviewCommand = () => {
   }
   tab.approvals ||= new Set();
   if (tab.approvals.has(value)) {
-    if (sendInput(tabID, value + '\n')) {
+    if (sendInput(tabID, value + '\r')) {
       $('input').value = '';
       appendCommand(value, 'Running', tabID);
     } else {
@@ -2162,7 +2195,7 @@ reviewCommand = () => {
       current.approvals ||= new Set();
       current.approvals.add(value);
     }
-    if (sendInput(tabID, value + '\n')) {
+    if (sendInput(tabID, value + '\r')) {
       $('input').value = '';
       appendCommand(value, choice === 'always' ? 'Always allowed · running' : 'Running', tabID);
     } else {
@@ -2311,8 +2344,7 @@ connect = () => {
     void vampRefreshStatus();
     renderDashboard();
     $('empty').hidden = true;
-    if (order.length === 0) createTab();
-    else order.forEach((id) => {
+    if (order.length !== 0) order.forEach((id) => {
       const tab = tabs.get(id);
       if (tab && !tab.opened) vampOpenTerminal(id);
     });
@@ -2395,6 +2427,21 @@ connect = () => {
           addMessage('<div class="badge">The host connection closed before the queued input was sent. Try again.</div>', terminalID);
         }
       }
+    } else if (value.type === 'workspaces') {
+      const discovered = Array.isArray(value.workspaces) ? value.workspaces : [];
+      const roots = (Array.isArray(value.roots) ? value.roots : []).map((root) => ({
+        id: null,
+        name: root.name,
+        path: root.path,
+        kind: root.name === 'Home' ? 'home' : 'folder',
+        isAvailable: true
+      }));
+      const byPath = new Map();
+      [...discovered, ...roots].forEach((workspace) => {
+        if (workspace && workspace.path && !byPath.has(workspace.path)) byPath.set(workspace.path, workspace);
+      });
+      vampWorkspaces = [...byPath.values()];
+      if (!active && vampWorkspaces.length) chooseWorkspaceForLaunch(null, 'Shell');
     } else if (value.type === 'output') {
       vampAppendOutputChunk(vampTerminalKey(value.terminalID), value.data);
     } else if (value.type === 'taskPlanEvent') {
@@ -2463,7 +2510,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') closeClipboardMenu();
 });
 
-$('newtab').onclick = () => createTab();
+$('newtab').onclick = () => openMoreModal();
 // Resolve the handler at click time. The presentation layer below replaces
 // `reviewCommand` with the Chat/Terminal-aware implementation after this boot
 // block runs; capturing the old function here would bypass Terminal mode.
@@ -2509,23 +2556,39 @@ $('paste').onclick = async () => {
 };
 const moreModal = $('more-modal');
 const moreCommand = $('more-command');
+let vampWorkspaces = [];
 const closeMoreModal = () => moreModal.classList.add('hidden');
 const openMoreModal = () => {
   moreCommand.value = '';
   moreModal.classList.remove('hidden');
   moreCommand.focus();
 };
-const openMoreTab = (command, title, agent = null) => {
+const closeLaunchModal = () => $('launch-modal').classList.add('hidden');
+const openMoreTab = (command, title, agent = null, workspace = null) => {
   closeMoreModal();
   if (order.length >= 8) {
     addMessage('<div class="badge">Terminal capacity reached (8 tabs).</div>');
     return;
   }
-  createTab(command || null, title || null, agent);
+  createTab(command || null, title || null, agent, workspace);
+};
+const chooseWorkspaceForLaunch = (command, title, agent = null) => {
+  $('launch-title').textContent = agent ? 'Choose workspace for ' + title : 'Choose shell workspace';
+  $('launch-copy').textContent = agent ? title + ' starts directly in this folder.' : 'The shell starts directly in the selected folder.';
+  const list = $('workspace-list'); list.innerHTML = '';
+  if (!vampWorkspaces.length) list.innerHTML = '<div class="badge">No host workspaces are available.</div>';
+  vampWorkspaces.filter((item) => item.isAvailable !== false).forEach((item) => {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'workspace-choice';
+    button.innerHTML = '<strong>' + esc(item.name) + '</strong><small>' + esc(item.path) + '</small>';
+    button.onclick = () => { closeLaunchModal(); openMoreTab(command, title, agent, item); };
+    list.append(button);
+  });
+  $('launch-modal').classList.remove('hidden');
 };
 $('more').onclick = openMoreModal;
 $('more-cancel').onclick = closeMoreModal;
-$('more-shell').onclick = () => openMoreTab(null, null);
+$('more-shell').onclick = () => { closeMoreModal(); chooseWorkspaceForLaunch(null, 'Shell'); };
 $('more-tmux').onclick = () => { moreCommand.value = 'tmux new-session -A -s work'; moreCommand.focus(); };
 $('more-screen').onclick = () => { moreCommand.value = 'screen -D -RR work'; moreCommand.focus(); };
 $('more-open').onclick = () => {
@@ -2554,10 +2617,12 @@ const providerCommands = {
 document.querySelectorAll('[data-provider]').forEach((button) => {
   button.onclick = () => {
     const value = providerCommands[button.dataset.provider];
-    if (value) openMoreTab(value[0], value[1], button.dataset.provider || null);
+    if (value) { closeMoreModal(); chooseWorkspaceForLaunch(value[0], value[1], button.dataset.provider || null); }
   };
 });
 moreModal.addEventListener('click', (event) => { if (event.target === moreModal) closeMoreModal(); });
+$('launch-cancel').onclick = closeLaunchModal;
+$('launch-modal').addEventListener('click', (event) => { if (event.target === $('launch-modal')) closeLaunchModal(); });
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMoreModal(); });
 moreCommand.addEventListener('keydown', (event) => { if (event.key === 'Enter') openMoreTab(moreCommand.value.trim(), null); });
 document.addEventListener('visibilitychange', vampUpdateViewportInset);
@@ -3296,9 +3361,9 @@ if (vampPairFromURL) {
   });
   setVampPresentation('chat');
   const originalCreateTabForPresentation = createTab;
-  createTab = (startup = null, title = null, agent = null) => {
+  createTab = (startup = null, title = null, agent = null, workspace = null) => {
     if (active && tabs.get(active)) tabs.get(active).draft = $('input').value;
-    const id = originalCreateTabForPresentation(startup, title, agent);
+    const id = originalCreateTabForPresentation(startup, title, agent, workspace);
     if (id) {
       const tab = tabs.get(id);
       if (tab) {
@@ -3707,7 +3772,7 @@ if (vampPairFromURL) {
     if (document.body.classList.contains('vamp-terminal-mode')) {
       // Terminal mode is a raw PTY surface. The input is sent once as a line
       // and is never reconstructed as a Chat item from terminal echo.
-      if (sendInput(tabID, value + '\n')) {
+      if (sendInput(tabID, value + '\r')) {
         setActiveDraft('');
         if (tab) tab.pendingCommand = null;
       }
@@ -3722,7 +3787,7 @@ if (vampPairFromURL) {
         addMessage('<div class="badge">One command is already queued. It will run when this terminal is ready.</div>', tabID);
         return;
       }
-      tab.pendingInput = value + '\n';
+      tab.pendingInput = value + '\r';
       setActiveDraft('');
       appendCommand(value, 'Queued · starting', tabID);
       vampScrollChatToLatest();
@@ -3730,7 +3795,7 @@ if (vampPairFromURL) {
     }
     tab.approvals ||= new Set();
     if (tab.approvals.has(value)) {
-      if (sendInput(tabID, value + '\n')) { setActiveDraft(''); appendCommand(value, 'Running', tabID); }
+      if (sendInput(tabID, value + '\r')) { setActiveDraft(''); appendCommand(value, 'Running', tabID); }
       return;
     }
     const card = document.createElement('article');
@@ -3753,7 +3818,7 @@ if (vampPairFromURL) {
         return;
       }
       if (choice === 'always' && current) { current.approvals ||= new Set(); current.approvals.add(value); }
-      if (sendInput(tabID, value + '\n')) { setActiveDraft(''); appendCommand(value, choice === 'always' ? 'Always allowed · running' : 'Running', tabID); }
+      if (sendInput(tabID, value + '\r')) { setActiveDraft(''); appendCommand(value, choice === 'always' ? 'Always allowed · running' : 'Running', tabID); }
       else { if (choice === 'always' && current) current.approvals.delete(value); setActiveDraft(value); addMessage('<div class="badge">The host connection closed before the command was sent. Try again.</div>', tabID); }
     };
     const stick = isNearBottom();
@@ -3817,7 +3882,7 @@ if (vampPairFromURL) {
     tabs.delete(id);
     order = order.filter((value) => value !== id);
     if (active === id) active = order[0] || null;
-    if (!active) createTab();
+    if (!active && vampWorkspaces.length) chooseWorkspaceForLaunch(null, 'Shell');
     if (active) selectTab(active);
     renderTabs();
   };

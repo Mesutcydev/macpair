@@ -827,7 +827,6 @@ final class TerminalWorkspaceViewModel: ObservableObject {
             try self.coordinator.sendTerminalEnvelope(envelope)
         }
         workspaceStore.activate()
-        _ = createTab()
     }
 
     /// Clears the workspace when the authenticated connection ends. Shells are
@@ -1013,7 +1012,9 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }), tabs[index].session.canSendInput else { return }
         tabs[index].chat.recordChatSubmission(command, provider: tabs[index].provider)
         tabs[index].chat.markWorking(provider: tabs[index].provider)
-        tabs[index].session.sendInput(Data((command + "\n").utf8))
+        // A PTY Enter key is carriage return (0x0D). Interactive TUIs such as
+        // Grok keep LF in their editor buffer instead of submitting.
+        tabs[index].session.sendInput(Data((command + "\r").utf8))
     }
 
     /// Raw Terminal input is intentionally not added to Chat. It remains a

@@ -6,6 +6,8 @@ import { dirname, join } from 'node:path';
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const sourcePath = join(testDirectory, '..', 'Sources', 'HostApp', 'HostBrowserControlService.swift');
 const source = await readFile(sourcePath, 'utf8');
+assert.match(source, /sendInput\(tabID, value \+ '\\r'\)/, 'browser composer submits PTY Enter as carriage return');
+assert.doesNotMatch(source, /sendInput\(tabID, value \+ '\\n'\)/, 'browser composer must not use LF for interactive Enter');
 const classStart = source.indexOf('class VampBrowserVT');
 const classEnd = source.indexOf('\n\nconst vampNextTerminalTitle', classStart);
 assert.ok(classStart >= 0, 'VampBrowserVT class is present');
