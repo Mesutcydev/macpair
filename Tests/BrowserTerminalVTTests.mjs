@@ -8,6 +8,9 @@ const sourcePath = join(testDirectory, '..', 'Sources', 'HostApp', 'HostBrowserC
 const source = await readFile(sourcePath, 'utf8');
 assert.match(source, /sendInput\(tabID, value \+ '\\r'\)/, 'browser composer submits PTY Enter as carriage return');
 assert.doesNotMatch(source, /sendInput\(tabID, value \+ '\\n'\)/, 'browser composer must not use LF for interactive Enter');
+assert.match(source, /globalThis\.crypto\.randomUUID\(\)\.toLowerCase\(\)/, 'Safari UUIDs are canonicalized when tabs are created');
+assert.match(source, /const id = vampTerminalKey\(vampNewUUID\(\)\)/, 'terminal Map keys use the wire identity canonicalizer');
+assert.match(source, /The shell did not acknowledge startup/, 'a missing terminal-ready event becomes an actionable error instead of infinite Opening');
 const classStart = source.indexOf('class VampBrowserVT');
 const classEnd = source.indexOf('\n\nconst vampNextTerminalTitle', classStart);
 assert.ok(classStart >= 0, 'VampBrowserVT class is present');
@@ -23,7 +26,7 @@ assert.match(source, /window\.vampInferTaskPlan = \(tabID, semanticText\)/);
 assert.match(source, /vampTaskPlanEventIsBound\(value\.event, sessionId, terminalID\)/);
 assert.match(source, /task-plan-resume/);
 assert.equal(source.includes('vampInferTaskPlan(tabID, tab.terminal'), false, 'task inference is not fed VT screen state');
-assert.match(source, /const fullSemanticText = tab\.semanticText \|\| '';/, 'Chat renders the byte-stream semantic projection');
+assert.match(source, /let semanticSnapshot = tab\.responseText \|\| '';/, 'Chat renders the command-scoped byte-stream semantic projection');
 assert.doesNotMatch(source, /const semanticSnapshot = tab\.terminal\.render\(\)/, 'Chat never renders the mutable VT screen as prose');
 
 // A successful pairing must replace a stale browser socket before the new
@@ -40,18 +43,20 @@ assert.match(source, /\$\('input'\)\?\.blur\(\);[\s\S]*?composerHasFocus = false
 // make project chrome yield while the software keyboard is present.
 assert.match(source, /body\.vamp-terminal-mode \.content \{[\s\S]*?display: flex !important;[\s\S]*?overflow: hidden !important;/);
 assert.match(source, /body\.vamp-terminal-mode \.chat \{[\s\S]*?flex: 1 1 auto !important;[\s\S]*?min-height: 0 !important;/);
-assert.match(source, /\.shell\.vamp-keyboard-open \.composer \{[\s\S]*?position: static !important;/);
-assert.match(source, /\.shell\.vamp-keyboard-open \.task-context,[\s\S]*?\.shell\.vamp-keyboard-open \.tabs \{ display: none !important; \}/);
+assert.match(source, /\.shell\.vamp-keyboard-open \.composer \{[\s\S]*?position: absolute !important;/);
+assert.match(source, /\.shell\.vamp-keyboard-open \.task-context \{ display: flex !important; \}/);
+assert.match(source, /\.shell\.vamp-keyboard-open \.tabs \{ display: flex !important; \}/);
 assert.match(source, /\.shell\.vamp-keyboard-open \.content \{[\s\S]*?overflow-x: hidden !important;[\s\S]*?overflow-y: auto !important;/);
 assert.match(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-open \.stream-card\.output-message \.rich-body \{[\s\S]*?max-height: 132px !important;[\s\S]*?overflow: auto !important;/);
-assert.match(source, /\.shell:has\(\.composer input:focus\) \.task-context,[\s\S]*?\.shell:has\(\.composer input:focus\) \.tabs \{[\s\S]*?display: none !important;/, 'focus enters the compact keyboard layout without waiting for VisualViewport');
+assert.doesNotMatch(source, /\.shell:has\(\.composer input:focus\) \.task-context,[\s\S]*?\.shell:has\(\.composer input:focus\) \.tabs \{[\s\S]*?display: none !important;/, 'focus does not replace the task hierarchy while Safari animates the keyboard');
 assert.match(source, /if \(!terminalMode && !tab\.lastSubmittedCommand\) semanticSnapshot = '';/, 'unsolicited PTY startup output stays out of Chat');
 assert.match(source, /body\.vamp-terminal-mode \.stream-card-head,[\s\S]*?body\.vamp-terminal-mode \.open-terminal-preview \{[\s\S]*?display: none !important;/);
 assert.match(source, /const selected = navigation\.querySelector\('\.tab\.active'\)/);
 assert.match(source, /navigation\.scrollLeft = Math\.min\(/);
 assert.match(source, /const keyboardOpen = composerHasFocus \|\| viewportContracted/);
 assert.match(source, /event\.target === \$\('input'\)[\s\S]*?composerHasFocus = true;[\s\S]*?keyboardViewportUpdate\(\)/);
-assert.match(source, /keyboardWasNearLatest = true;[\s\S]*?setTimeout\(\(\) => scrollLatest\(true\), delay\)/, 'focused composer keeps the active response above the keyboard');
+assert.match(source, /keyboardWasNearLatest = content\.scrollHeight - content\.scrollTop - content\.clientHeight < 96;/, 'keyboard opening records whether the user was following the latest response');
+assert.match(source, /keyboardWasNearLatest \? content\.scrollHeight : keyboardScrollAnchor/, 'focused composer restores the existing conversation anchor');
 const appendCommandStart = source.indexOf('appendCommand = (value, status, tabID = active) =>');
 const reviewCommandStart = source.indexOf('\nreviewCommand = () =>', appendCommandStart);
 assert.ok(appendCommandStart >= 0 && reviewCommandStart > appendCommandStart, 'appendCommand boundary is present');
@@ -61,7 +66,7 @@ const activeAppendCommandStart = source.lastIndexOf('appendCommand = (value, sta
 const activeReviewCommandStart = source.indexOf('\n  reviewCommand = () =>', activeAppendCommandStart);
 assert.ok(activeAppendCommandStart >= 0 && activeReviewCommandStart > activeAppendCommandStart, 'active appendCommand override boundary is present');
 assert.equal(source.slice(activeAppendCommandStart, activeReviewCommandStart).includes('tab.outputCard = null'), false, 'active browser handler preserves the stable stream card');
-assert.match(source.slice(activeAppendCommandStart, activeReviewCommandStart), /tab\.semanticBaseline = tab\.semanticText \|\| '';/, 'each Chat submission starts a fresh semantic response segment');
+assert.match(source.slice(activeAppendCommandStart, activeReviewCommandStart), /tab\.responseSemantic = new VampSemanticStream\(\);[\s\S]*?tab\.responseText = '';/, 'each Chat submission starts a fresh semantic response segment');
 assert.match(source.slice(activeAppendCommandStart, activeReviewCommandStart), /chat\.appendChild\(tab\.outputCard\)/, 'the stable response card moves after its user request');
 
 const escapeHTML = (value) => String(value)

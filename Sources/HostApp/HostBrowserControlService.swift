@@ -1464,7 +1464,10 @@ document.head.appendChild(vampMoreStyle);
 // not; normalize host events before routing them to the tab that opened them.
 const vampNewUUID = () => {
   if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
+    // WebKit versions have not been consistent about UUID letter casing.
+    // Terminal IDs are case-insensitive on the Swift wire but Map keys are
+    // case-sensitive, so canonicalize at creation as well as reception.
+    return globalThis.crypto.randomUUID().toLowerCase();
   }
   const bytes = new Uint8Array(16);
   if (globalThis.crypto && typeof globalThis.crypto.getRandomValues === 'function') {
@@ -1475,7 +1478,7 @@ const vampNewUUID = () => {
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
   const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
-  return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+  return (hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20)).toLowerCase();
 };
 const vampTerminalKey = (value) => String(value || '').toLowerCase();
 
@@ -1874,6 +1877,17 @@ const vampOpenTerminal = (id) => {
     tab.state = 'error';
     addMessage('<div class="badge">The host connection is not ready. Reconnect and retry this terminal.</div>', id);
   }
+  if (sent) {
+    const openingID = vampTerminalKey(id);
+    clearTimeout(tab.openTimeout);
+    tab.openTimeout = setTimeout(() => {
+      const current = tabs.get(openingID);
+      if (!current || current.opened || current.state !== 'opening') return;
+      current.state = 'error';
+      renderTabs();
+      addMessage('<div class="badge">The shell did not acknowledge startup. Retry this terminal.</div>', openingID);
+    }, 8000);
+  }
   return sent;
 };
 
@@ -2008,7 +2022,7 @@ createTab = (startup = null, title = null, agent = null, workspace = null) => {
     addMessage('<div class="badge">Terminal capacity reached (8 tabs).</div>');
     return null;
   }
-  const id = vampNewUUID();
+  const id = vampTerminalKey(vampNewUUID());
   const tab = {
     id,
     title: title || vampNextTerminalTitle(),
@@ -2414,6 +2428,8 @@ connect = () => {
       const terminalID = vampTerminalKey(value.terminalID);
       const tab = tabs.get(terminalID);
       if (tab) {
+        clearTimeout(tab.openTimeout);
+        tab.openTimeout = null;
         // A reconnect or host-side PTY notification can repeat ready for the
         // same terminal. Keep the session state idempotent and do not duplicate
         // the visible system card in the task stream.
