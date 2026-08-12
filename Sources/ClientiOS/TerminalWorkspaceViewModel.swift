@@ -213,9 +213,12 @@ final class TerminalChatStore: ObservableObject {
             }
             return
         }
-        let response = text.hasPrefix(semanticBaseline)
+        var response = text.hasPrefix(semanticBaseline)
             ? String(text.dropFirst(semanticBaseline.count))
             : text
+        if provider == nil {
+            response = Self.removingTrailingShellPrompt(from: response)
+        }
         guard !response.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         blocks.removeAll { $0.role == .progress && $0.isStreaming }
         let identity = provider?.sessionDisplayName ?? tabTitle
@@ -357,6 +360,21 @@ final class TerminalChatStore: ObservableObject {
         blocks.removeAll {
             $0.role == .system && $0.isStreaming
         }
+    }
+
+    /// Shell prompts are terminal chrome, not command output. Remove only a
+    /// short final prompt-shaped line and only for plain shells; agent output
+    /// is never guessed or rewritten by this heuristic.
+    private static func removingTrailingShellPrompt(from value: String) -> String {
+        var lines = value.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        guard lines.count > 1, let last = lines.last else { return value }
+        let trimmed = last.trimmingCharacters(in: .whitespaces)
+        guard trimmed.count <= 80,
+              trimmed.range(of: #"^\S{0,80}(?:[%$#]|❯|>)\s*$"#, options: .regularExpression) != nil else {
+            return value
+        }
+        lines.removeLast()
+        return lines.joined(separator: "\n").trimmingCharacters(in: .newlines)
     }
 
     func markWorking(provider: VampAgentProvider?) {

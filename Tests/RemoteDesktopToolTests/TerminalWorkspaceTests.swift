@@ -10,12 +10,13 @@ final class TerminalWorkspaceTests: XCTestCase {
         XCTAssertEqual(chat.blocks.first?.text, "Build is opening a shell…")
         chat.recordChatSubmission("echo café", provider: nil)
         chat.appendOutput(Data("running build…\n✓ clean\n".utf8))
-        chat.appendOutput(Data("\u{1B}[32m✓ verified\u{1B}[0m\r".utf8))
+        chat.appendOutput(Data("\u{1B}[32m✓ verified\u{1B}[0m\n192% ".utf8))
 
         XCTAssertTrue(chat.blocks.contains {
             $0.role == .command && $0.title == "You · Shell" && $0.text == "$ echo café"
         })
         XCTAssertTrue(chat.blocks.contains { $0.role == .output && $0.text.contains("running build") })
+        XCTAssertFalse(chat.blocks.contains { $0.role == .output && $0.text.contains("192%") })
         XCTAssertFalse(chat.blocks.contains { $0.text.contains("38;5") || $0.text.contains("\u{1B}") })
     }
 

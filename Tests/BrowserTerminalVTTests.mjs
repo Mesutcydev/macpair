@@ -42,12 +42,14 @@ assert.match(source, /\.shell\.vamp-keyboard-open \.composer \{[\s\S]*?position:
 assert.match(source, /\.shell\.vamp-keyboard-open \.task-context,[\s\S]*?\.shell\.vamp-keyboard-open \.tabs \{ display: none !important; \}/);
 assert.match(source, /\.shell\.vamp-keyboard-open \.content \{[\s\S]*?overflow-x: hidden !important;[\s\S]*?overflow-y: auto !important;/);
 assert.match(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-open \.stream-card\.output-message \.rich-body \{[\s\S]*?max-height: 132px !important;[\s\S]*?overflow: auto !important;/);
+assert.match(source, /\.shell:has\(\.composer input:focus\) \.task-context,[\s\S]*?\.shell:has\(\.composer input:focus\) \.tabs \{[\s\S]*?display: none !important;/, 'focus enters the compact keyboard layout without waiting for VisualViewport');
 assert.match(source, /if \(!terminalMode && !tab\.lastSubmittedCommand\) semanticSnapshot = '';/, 'unsolicited PTY startup output stays out of Chat');
 assert.match(source, /body\.vamp-terminal-mode \.stream-card-head,[\s\S]*?body\.vamp-terminal-mode \.open-terminal-preview \{[\s\S]*?display: none !important;/);
 assert.match(source, /const selected = navigation\.querySelector\('\.tab\.active'\)/);
 assert.match(source, /navigation\.scrollLeft = Math\.min\(/);
 assert.match(source, /const keyboardOpen = composerHasFocus \|\| viewportContracted/);
 assert.match(source, /event\.target === \$\('input'\)[\s\S]*?composerHasFocus = true;[\s\S]*?keyboardViewportUpdate\(\)/);
+assert.match(source, /keyboardWasNearLatest = true;[\s\S]*?setTimeout\(\(\) => scrollLatest\(true\), delay\)/, 'focused composer keeps the active response above the keyboard');
 const appendCommandStart = source.indexOf('appendCommand = (value, status, tabID = active) =>');
 const reviewCommandStart = source.indexOf('\nreviewCommand = () =>', appendCommandStart);
 assert.ok(appendCommandStart >= 0 && reviewCommandStart > appendCommandStart, 'appendCommand boundary is present');

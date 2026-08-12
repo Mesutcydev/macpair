@@ -781,6 +781,17 @@ private struct TerminalChatFeedView: View {
                         }
                     }
                 }
+                .onChange(of: composerFocused) { _, focused in
+                    guard focused else { return }
+                    // Keyboard presentation changes the ScrollView's safe
+                    // area in several phases. Re-anchor the active turn after
+                    // each phase so the composer never covers the response
+                    // the user is replying to.
+                    scrollToLatestAfterLayout(proxy, animated: false)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
+                        scrollToLatest(proxy, animated: false)
+                    }
+                }
                 .onScrollGeometryChange(for: Bool.self) { geometry in
                     let distanceFromLatest = geometry.contentSize.height
                         - geometry.contentOffset.y

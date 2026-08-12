@@ -3212,6 +3212,32 @@ if (vampPairFromURL) {
         max-height: 132px !important;
         overflow: auto !important;
       }
+      /* Focus is the source of truth for the editing layout. WebKit may move
+         the visual viewport before dispatching its resize event, which left
+         the full workspace chrome onscreen and squeezed the active response
+         behind the composer. :has() enters the compact contract in the same
+         frame as focus, independently of VisualViewport timing. */
+      .shell:has(.composer input:focus) .task-context,
+      .shell:has(.composer input:focus) .tabs {
+        display: none !important;
+      }
+      .shell:has(.composer input:focus) .top {
+        flex-basis: 46px !important;
+        min-height: 46px !important;
+      }
+      .shell:has(.composer input:focus) .mode-switch {
+        flex-basis: 42px !important;
+        min-height: 42px !important;
+      }
+      .shell:has(.composer input:focus) .content {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+      }
+      body:not(.vamp-terminal-mode) .shell:has(.composer input:focus) .stream-card.output-message .rich-body {
+        max-height: 132px !important;
+        overflow: auto !important;
+      }
     }
   `;
   document.head.appendChild(modeStyle);
@@ -3387,9 +3413,13 @@ if (vampPairFromURL) {
     if (event.target === $('input')) {
       composerHasFocus = true;
       keyboardScrollAnchor = content.scrollTop;
-      keyboardWasNearLatest = content.scrollHeight - content.scrollTop - content.clientHeight < 96;
+      // The composer edits the active/latest turn. Keep that turn visible
+      // while Safari performs its focused-element reveal instead of
+      // restoring an obsolete pre-keyboard scroll offset.
+      keyboardWasNearLatest = true;
       keyboardViewportUpdate();
       requestAnimationFrame(keyboardViewportUpdate);
+      [0, 80, 180, 360].forEach((delay) => setTimeout(() => scrollLatest(true), delay));
     }
   }, { passive: true });
   document.addEventListener('focusout', (event) => {
