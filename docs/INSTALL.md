@@ -6,7 +6,7 @@ four separate install surfaces:
 | Surface | Artifact | Use it for |
 | --- | --- | --- |
 | iPhone / iPad | `VampTerminal-iOS-2.0.0-build-26-altstore-unsigned.ipa` | Multi-tab terminal client |
-| iPhone / iPad | `VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa` | Vamp Host remote-control client |
+| iPhone / iPad | `VampRemote-iOS-3.7.2-build-36-altstore-unsigned-r1.ipa` | Vamp Host remote-control client |
 | macOS | `VampRemote-macOS-1.3.15-build-32-unsigned.zip` | Vamp Host remote-control client |
 | macOS | `VampHost-macOS-2.0.0-build-26-adhoc.zip` | Full Vamp Host: remote clients plus optional Terminal Mode |
 | macOS | `VampTerminalHost-macOS-2.0.0-build-26-adhoc.zip` | Terminal-only host with Safari control and Tailscale |
@@ -36,8 +36,8 @@ profile is distributed.
 
 The current Vamp Remote builds are attached to the [latest Vamp Suite release](https://github.com/Mesutcydev/macpair/releases/latest):
 
-- [iOS IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa) — unsigned; import with AltStore or another compatible sideloader.
-- [iOS checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa.sha256)
+- [iOS IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-iOS-3.7.2-build-36-altstore-unsigned-r1.ipa) — unsigned; import with AltStore or another compatible sideloader.
+- [iOS checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-iOS-3.7.2-build-36-altstore-unsigned-r1.ipa.sha256)
 - [macOS ZIP](https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-macOS-1.3.15-build-32-unsigned.zip) — unzip and move Vamp Remote to Applications.
 - [macOS checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-macOS-1.3.15-build-32-unsigned.zip.sha256)
 
