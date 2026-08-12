@@ -1387,8 +1387,19 @@ struct VampWorkspacesView: View {
                         .foregroundStyle(VampGlassPalette.inkTertiary)
 
                     if store.workspaces.isEmpty && store.isLoading {
-                        ProgressView("Discovering projects…")
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(spacing: VampTerminalDesign.space3) {
+                            ProgressView()
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Finding recent projects")
+                                    .font(.headline)
+                                Text("You can open Home or another location now.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(VampGlassPalette.inkSecondary)
+                            }
+                        }
+                        .padding(VampTerminalDesign.space4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
                     } else {
                         ForEach(store.workspaces) { item in
                             VampWorkspaceCard(
@@ -1399,6 +1410,21 @@ struct VampWorkspacesView: View {
                                 onFavorite: { store.toggleFavorite(item.id) }
                             )
                         }
+                    }
+
+                    if let error = store.errorMessage {
+                        VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
+                            Label("Projects unavailable", systemImage: "exclamationmark.triangle")
+                                .font(.headline)
+                            Text(error)
+                                .font(.subheadline)
+                                .foregroundStyle(VampGlassPalette.inkSecondary)
+                            Button("Try again") { store.refresh() }
+                                .buttonStyle(.bordered)
+                        }
+                        .padding(VampTerminalDesign.space4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
                     }
 
                     Text("OTHER LOCATIONS")

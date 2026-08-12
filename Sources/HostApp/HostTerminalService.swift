@@ -917,8 +917,9 @@ final class HostWorkspaceService: @unchecked Sendable {
             guard let enumerator = fileManager.enumerator(
                 at: rootURL,
                 includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsPackageDescendants]
+                options: [.skipsPackageDescendants, .skipsHiddenFiles]
             ) else { continue }
+            var inspectedDirectoryCount = 0
             for case let url as URL in enumerator {
                 if Self.discoveryExcludedDirectoryNames.contains(url.lastPathComponent) {
                     enumerator.skipDescendants()
@@ -931,6 +932,12 @@ final class HostWorkspaceService: @unchecked Sendable {
                 }
                 guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey]),
                       values.isDirectory == true else { continue }
+                inspectedDirectoryCount += 1
+                // Discovery is a convenience, never an unbounded filesystem
+                // crawl. Users can still browse every advertised root.
+                if inspectedDirectoryCount > 1_500 {
+                    break
+                }
                 let hints = projectHints(at: url)
                 let isGit = isGitRepository(at: url)
                 guard isGit || !hints.isEmpty else { continue }

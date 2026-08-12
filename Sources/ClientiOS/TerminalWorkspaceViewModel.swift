@@ -636,15 +636,21 @@ final class VampWorkspaceStore: ObservableObject {
     private func receive(_ response: WorkspaceListResponseMessage) {
         guard response.sessionID == coordinator.activeSessionID,
               pendingListRequestID == nil || pendingListRequestID == response.requestID else { return }
-        pendingListRequestID = nil
         hostID = response.hostID
         persistenceKey = "com.mesutcy.vamp-terminal.workspaces.\(response.hostID.uuidString)"
         loadPersisted()
         roots = response.roots
-        workspaces = merge(server: response.workspaces)
-        isLoading = false
+        // The host intentionally sends roots first, then the discovered
+        // projects with the same request ID. Keep the lightweight loading
+        // state while still exposing Home/Desktop immediately.
+        let isRootsOnlyResponse = response.workspaces.isEmpty && response.errorMessage == nil
+        if !isRootsOnlyResponse || roots.isEmpty {
+            pendingListRequestID = nil
+            workspaces = merge(server: response.workspaces)
+        }
+        isLoading = isRootsOnlyResponse && !roots.isEmpty
         errorMessage = response.errorMessage
-        persist()
+        if !isRootsOnlyResponse { persist() }
     }
 
     private func receive(_ response: WorkspaceDirectoryResponseMessage) {

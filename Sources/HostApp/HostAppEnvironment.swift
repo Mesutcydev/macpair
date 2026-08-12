@@ -387,6 +387,19 @@ final class HostAppEnvironment: ObservableObject {
                 guard let self,
                       self.sessionCoordinator.activeSessionID == message.sessionID else { return }
                 let workspaceService = self.workspaceService
+                // Browsing roots are cheap and must be usable immediately.
+                // Project discovery can traverse several developer folders,
+                // so never make the launch sheet wait on that scan.
+                let initialResponse = WorkspaceListResponseMessage(
+                    sessionID: message.sessionID,
+                    requestID: message.requestID,
+                    hostID: workspaceService.hostID,
+                    workspaces: [],
+                    roots: workspaceService.availableBrowseRoots()
+                )
+                if let envelope = try? DataChannelEnvelope.workspaceListResponse(initialResponse) {
+                    try? self.webRTCSessionManager.sendDataMessage(envelope)
+                }
                 workspaceService.listWorkspaces(refresh: message.refresh) { [weak self] workspaces, roots, errorMessage in
                     Task { @MainActor [weak self] in
                         guard let self,
