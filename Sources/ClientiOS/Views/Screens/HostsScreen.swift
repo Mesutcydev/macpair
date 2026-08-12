@@ -28,7 +28,7 @@ struct HostsScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             PRScreenHeader(
-                title: "hosts",
+                title: "Hosts",
                 host: headerHostLine,
                 latency: latencyText,
                 state: headerState
@@ -38,7 +38,7 @@ struct HostsScreen: View {
                 VStack(spacing: 12) {
                     connectionOverviewCard
 
-                    PRCard("hosts", trailing: {
+                    PRCard("Available Hosts", trailing: {
                         Button {
                             Task { await refreshHosts() }
                         } label: {
@@ -50,7 +50,7 @@ struct HostsScreen: View {
                                 }
                                 Image(systemName: "dot.radiowaves.left.and.right")
                                     .font(.system(size: 10, weight: .bold))
-                                Text(isRefreshing ? "scanning" : "scan")
+                                Text(isRefreshing ? "Scanning" : "Refresh")
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
@@ -74,11 +74,11 @@ struct HostsScreen: View {
                         }
                     }
 
-                    PRCard("connect") {
+                    PRCard("Connect Manually") {
                         VStack(spacing: 0) {
                             connectSectionHeader(
-                                title: "manual",
-                                subtitle: "paste the IP, hostname, or Tailscale address from Vamp Host"
+                                title: "Address",
+                                subtitle: "Enter the IP, hostname, or Tailscale address shown by Vamp Host."
                             )
 
                             VStack(alignment: .leading, spacing: 10) {
@@ -106,11 +106,11 @@ struct HostsScreen: View {
                                     connectManualAddress()
                                 } label: {
                                     HStack(spacing: 8) {
-                                        Text("connect")
+                                        Text("Connect")
                                         Image(systemName: "arrow.right")
                                             .font(.system(size: 11, weight: .semibold))
                                     }
-                                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                    .font(.subheadline.weight(.semibold))
                                     .foregroundColor(manualAddressButtonEnabled ? PR.bg : PR.dim)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 11)
@@ -124,8 +124,8 @@ struct HostsScreen: View {
                                 .buttonStyle(.plain)
                                 .disabled(!manualAddressButtonEnabled)
 
-                                Text("default port is 9471 if you do not specify one")
-                                    .font(.system(size: 10, design: .monospaced))
+                                Text("Port 9471 is used when no port is specified.")
+                                    .font(.caption)
                                     .foregroundColor(PR.dim)
                             }
                             .padding(.horizontal, 14)
@@ -136,8 +136,8 @@ struct HostsScreen: View {
                             Divider().overlay(PR.border)
 
                             connectSectionHeader(
-                                title: "recent",
-                                subtitle: "saved or recently used targets"
+                                title: "Recent",
+                                subtitle: "Saved and recently used hosts"
                             )
 
                             VStack(spacing: 0) {
@@ -161,18 +161,18 @@ struct HostsScreen: View {
                                     }
 
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text("scan qr")
-                                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                    Text("Scan QR Code")
+                                        .font(.body.weight(.medium))
                                         .foregroundColor(PR.fg)
-                                    Text("scan a code shown by Vamp Host")
-                                        .font(.system(size: 10, design: .monospaced))
+                                    Text("Scan a code shown by Vamp Host")
+                                        .font(.caption)
                                         .foregroundColor(PR.dim)
                                 }
 
                                 Spacer()
 
-                                Text("planned")
-                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                Text("Coming Soon")
+                                    .font(.caption.weight(.semibold))
                                     .foregroundColor(PR.dim)
                             }
                             .padding(.horizontal, 14)
@@ -280,7 +280,7 @@ struct HostsScreen: View {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 5) {
                                 Text(host.title)
-                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                    .font(.body.weight(.semibold))
                                     .foregroundColor(HostNameColor.color(for: host.id))
                                 if host.isSaved {
                                     Image(systemName: "checkmark.shield.fill")
@@ -289,7 +289,7 @@ struct HostsScreen: View {
                                 }
                                 if isTerminalOnly {
                                     Text("TERMINAL ONLY")
-                                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                        .font(.caption2.weight(.bold))
                                         .foregroundColor(PR.warn)
                                         .padding(.horizontal, 5)
                                         .padding(.vertical, 2)
@@ -303,7 +303,7 @@ struct HostsScreen: View {
                                 .foregroundColor(PR.dim)
                             if isTerminalOnly && !environment.supportsTerminalOnlyHosts {
                                 Text("use Vamp Terminal for terminal tabs")
-                                    .font(.system(size: 9, design: .monospaced))
+                                    .font(.caption2)
                                     .foregroundColor(PR.warn)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -318,7 +318,7 @@ struct HostsScreen: View {
 
                 VStack(alignment: .trailing, spacing: 6) {
                     Text(signalLabel(for: host))
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .font(.caption2.weight(.semibold))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .foregroundColor(signalColor)
@@ -332,7 +332,7 @@ struct HostsScreen: View {
                         wakeButton(for: host, isWaking: isWaking)
                     } else {
                         Text(actionState.title)
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .font(.caption2.weight(.semibold))
                             .foregroundColor(actionState.color)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -413,7 +413,7 @@ struct HostsScreen: View {
                 Image(systemName: isWaking ? "bolt.horizontal.fill" : "power")
                     .font(.system(size: 9, weight: .bold))
                 Text(isWaking ? "waking…" : "wake")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(.caption2.weight(.semibold))
             }
             .foregroundColor(PR.warn)
             .padding(.horizontal, 8)

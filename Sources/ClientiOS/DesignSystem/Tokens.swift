@@ -4,26 +4,26 @@ import UIKit
 #endif
 
 enum PR {
-    static let bg = Color.dynamic(light: 0xF4F7F9, dark: 0x0B0D0E)
-    static let bg2 = Color.dynamic(light: 0xECF1F5, dark: 0x0F1214)
-    static let card = Color.dynamic(light: 0xFFFFFF, dark: 0x15191D)
-    static let cardHi = Color.dynamic(light: 0xF8FBFD, dark: 0x1A1F24)
+    static let bg = Color(uiColor: .systemGroupedBackground)
+    static let bg2 = Color(uiColor: .secondarySystemGroupedBackground)
+    static let card = Color(uiColor: .secondarySystemGroupedBackground)
+    static let cardHi = Color(uiColor: .tertiarySystemGroupedBackground)
 
-    static let border = Color.dynamic(light: 0xD3DBE4, dark: 0xFFFFFF, lightAlpha: 0.90, darkAlpha: 0.08)
-    static let borderHi = Color.dynamic(light: 0xBBC8D6, dark: 0xFFFFFF, lightAlpha: 0.95, darkAlpha: 0.14)
+    static let border = Color.primary.opacity(0.08)
+    static let borderHi = Color.primary.opacity(0.14)
 
-    static let fg = Color.dynamic(light: 0x0F1722, dark: 0xE6EAEE)
-    static let fg2 = Color.dynamic(light: 0x3F4F62, dark: 0xA8B0BA)
-    static let dim = Color.dynamic(light: 0x607080, dark: 0x6B7480)
+    static let fg = Color.primary
+    static let fg2 = Color.secondary
+    static let dim = Color.secondary.opacity(0.68)
 
-    static let accent = Color.dynamic(light: 0x159A73, dark: 0x22D3A1)
-    static let accent2 = Color.dynamic(light: 0x187EA9, dark: 0x7DD3FC)
-    static let warn = Color.dynamic(light: 0xA56D1B, dark: 0xF4C674)
-    static let err = Color.dynamic(light: 0xC44343, dark: 0xF87171)
+    static let accent = Color.accentColor
+    static let accent2 = Color.accentColor
+    static let warn = Color.orange
+    static let err = Color.red
 
     static let r6: CGFloat = 6
     static let r8: CGFloat = 8
-    static let r12: CGFloat = 12
+    static let r12: CGFloat = 16
 }
 
 /// A restrained, neutral canvas behind every system-rendered glass surface.

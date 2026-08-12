@@ -894,7 +894,7 @@ struct SimpleHomeView: View {
 
                     VStack(spacing: 3) {
                         Text(host.title)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.headline)
                             .foregroundColor(HostNameColor.color(for: host.id))
                             .lineLimit(1)
                         Text(host.endpoint.hostname)

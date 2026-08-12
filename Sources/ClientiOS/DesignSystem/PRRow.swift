@@ -25,11 +25,11 @@ struct PRRow<Trailing: View>: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .font(.body)
                         .foregroundColor(PR.fg)
                     if let hint {
                         Text(hint)
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.caption)
                             .foregroundColor(PR.dim)
                     }
                 }

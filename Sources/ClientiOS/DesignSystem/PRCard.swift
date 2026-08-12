@@ -22,13 +22,12 @@ struct PRCard<Content: View, Trailing: View>: View {
         VStack(spacing: 0) {
             if let title {
                 HStack(spacing: 8) {
-                    (Text(verbatim: "// ") + Text(title))
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .tracking(1)
-                        .foregroundColor(PR.accent)
+                    Text(title)
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(PR.fg2)
                     Spacer()
                     trailing
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(.caption.weight(.semibold))
                         .foregroundColor(PR.accent)
                 }
                 .padding(.horizontal, 14)
@@ -48,7 +47,7 @@ struct PRCard<Content: View, Trailing: View>: View {
     VStack(spacing: 12) {
         PRCard("session", trailing: { Text("+ scan") }) {
             Text("content")
-                .font(.system(size: 12, design: .monospaced))
+                .font(.body)
                 .foregroundColor(PR.fg)
         }
     }

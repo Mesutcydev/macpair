@@ -37,19 +37,18 @@ struct PRTabBar: View {
                         Image(systemName: tab.icon)
                             .font(.system(size: 14))
                         Text(tab.rawValue)
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                            .tracking(0.6)
+                            .font(.caption2.weight(.medium))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .foregroundColor(isOn ? PR.accent : PR.dim)
+                    .foregroundColor(isOn ? PR.fg : PR.dim)
                     .background {
                         if isOn {
                             RoundedRectangle(cornerRadius: PR.r8)
-                                .fill(PR.accent.opacity(0.08))
+                                .fill(PR.fg.opacity(0.07))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: PR.r8)
-                                        .strokeBorder(PR.accent.opacity(0.20), lineWidth: 0.5)
+                                        .strokeBorder(PR.fg.opacity(0.12), lineWidth: 0.5)
                                 )
                                 .matchedGeometryEffect(id: "cursor", in: cursor)
                         }

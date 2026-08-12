@@ -1034,10 +1034,10 @@ private struct SessionToolbarStatusPill: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(hostName)
-                    .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .lineLimit(1)
                 Text(qualityLabel)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -1093,10 +1093,10 @@ private struct SessionToolbarMetric: View {
     var body: some View {
         VStack(spacing: 1) {
             Text(label)
-                .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                .font(.system(size: 9.5, weight: .medium))
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.system(size: 10.5, weight: .semibold, design: .rounded).monospacedDigit())
+                .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
                 .lineLimit(1)
         }
         .accessibilityElement(children: .combine)
@@ -1126,7 +1126,7 @@ private struct SessionToolbarToggleLabel: View {
             Image(systemName: systemImage)
                 .font(.system(size: 11, weight: .semibold))
             Text(title)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .font(.system(size: 11, weight: .semibold))
                 .lineLimit(1)
         }
         .padding(.horizontal, 9)
@@ -1145,23 +1145,12 @@ private struct SessionToolbarDisconnectButton: View {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 12, weight: .semibold))
                 Text("Disconnect")
-                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: 11.5, weight: .semibold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 11)
             .frame(minHeight: 30)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: hovering
-                                ? [Color.red.opacity(0.95), Color.red.opacity(0.82)]
-                                : [Color.red.opacity(0.88), Color.red.opacity(0.72)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-            )
+            .background(Capsule(style: .continuous).fill(Color.red.opacity(hovering ? 0.94 : 0.84)))
             .overlay {
                 Capsule(style: .continuous)
                     .strokeBorder(.white.opacity(0.22), lineWidth: 0.5)

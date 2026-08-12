@@ -2019,6 +2019,8 @@ createTab = (startup = null, title = null, agent = null, workspace = null) => {
     outputCard: null,
     outputText: '',
     semanticBaseline: '',
+    responseSemantic: null,
+    responseText: '',
     lastSubmittedCommand: null,
     pendingCommand: null,
     pendingInput: null,
@@ -2098,6 +2100,11 @@ const vampAppendOutputChunk = (id, encoded) => {
   tab.terminal ||= new VampBrowserVT();
   tab.semantic ||= new VampSemanticStream();
   tab.semanticText = tab.semantic.feedBytes(bytes);
+  // Chat owns a command-scoped semantic stream. Slicing the lifetime stream
+  // is invalid for interactive TUIs because carriage-return redraws can
+  // rewrite text before a saved baseline. Consume the same original bytes in
+  // a fresh incremental stream without scraping the rendered terminal.
+  if (tab.responseSemantic) tab.responseText = tab.responseSemantic.feedBytes(bytes);
   tab.terminal.feedBytes(bytes);
   appendOutput(id);
 };
@@ -2558,11 +2565,42 @@ const moreModal = $('more-modal');
 const moreCommand = $('more-command');
 let vampWorkspaces = [];
 const closeMoreModal = () => moreModal.classList.add('hidden');
-const openMoreModal = () => {
+let vampModalPresentationToken = 0;
+const vampEndComposerEditing = () => {
+  const composerInput = $('input');
+  if (document.activeElement === composerInput) composerInput.blur();
+  // The presentation layer installs these globals below. Updating them here
+  // makes modal launch deterministic even before Safari emits focusout or its
+  // delayed VisualViewport resize events.
+  if (typeof window.vampComposerDidBlur === 'function') window.vampComposerDidBlur();
+};
+const vampPresentAfterKeyboard = (present) => {
+  const token = ++vampModalPresentationToken;
+  vampEndComposerEditing();
+  const viewport = window.visualViewport;
+  const layoutHeight = document.documentElement.clientHeight || window.innerHeight;
+  const keyboardVisible = viewport && viewport.height < layoutHeight - 80;
+  // Present immediately when no software keyboard exists. When it does,
+  // wait for WebKit's visual viewport to return instead of showing a sheet
+  // that visibly grows and recenters during keyboard dismissal.
+  if (!keyboardVisible) { present(); return; }
+  const started = performance.now();
+  const settle = () => {
+    if (token !== vampModalPresentationToken) return;
+    const current = window.visualViewport;
+    const restored = !current || current.height >= layoutHeight - 80;
+    if (restored || performance.now() - started > 420) { present(); return; }
+    requestAnimationFrame(settle);
+  };
+  requestAnimationFrame(settle);
+};
+const openMoreModal = () => vampPresentAfterKeyboard(() => {
   moreCommand.value = '';
   moreModal.classList.remove('hidden');
-  moreCommand.focus();
-};
+  // A launcher menu is not a text-entry surface. Autofocus reopened the iOS
+  // keyboard underneath the agent list and made the whole sheet flutter.
+  if (!matchMedia('(pointer: coarse)').matches) moreCommand.focus();
+});
 const closeLaunchModal = () => $('launch-modal').classList.add('hidden');
 const openMoreTab = (command, title, agent = null, workspace = null) => {
   closeMoreModal();
@@ -2584,7 +2622,7 @@ const chooseWorkspaceForLaunch = (command, title, agent = null) => {
     button.onclick = () => { closeLaunchModal(); openMoreTab(command, title, agent, item); };
     list.append(button);
   });
-  $('launch-modal').classList.remove('hidden');
+  vampPresentAfterKeyboard(() => $('launch-modal').classList.remove('hidden'));
 };
 $('more').onclick = openMoreModal;
 $('more-cancel').onclick = closeMoreModal;
@@ -3261,45 +3299,17 @@ if (vampPairFromURL) {
       }
     }
     @media (max-width: 719px) {
-      /* Keep one stable hierarchy while the keyboard animates. Safari only
-         changes the shell's visual-viewport height; normal flex flow gives
-         the remaining height to content and keeps the composer below it. */
-      .shell.vamp-keyboard-open .top { flex-basis: 46px !important; min-height: 46px !important; }
-      /* The keyboard already consumes roughly half an iPhone. Keep the task
-         identity in the title bar and remove duplicated workspace/tab chrome
-         until editing ends. This gives the semantic response and approval
-         cards a useful viewport instead of squeezing them behind composer. */
-      .shell.vamp-keyboard-open .task-context,
-      .shell.vamp-keyboard-open .tabs { display: none !important; }
-      .shell.vamp-keyboard-open .mode-switch { flex-basis: 42px !important; min-height: 42px !important; }
+      /* Keyboard focus must not swap the page into a second hierarchy. Hiding
+         the workspace and tabs on focus made every Safari keyboard frame
+         reflow the entire task surface, which users saw as image flutter.
+         The visual viewport already supplies the available height; flexbox
+         only needs to redistribute that height among the same children. */
+      .shell.vamp-keyboard-open .top { flex-basis: 54px !important; min-height: 54px !important; }
+      .shell.vamp-keyboard-open .task-context { display: flex !important; }
+      .shell.vamp-keyboard-open .tabs { display: flex !important; }
+      .shell.vamp-keyboard-open .mode-switch { flex-basis: 46px !important; min-height: 46px !important; }
       .shell.vamp-keyboard-open .content { overflow-x: hidden !important; overflow-y: auto !important; }
       body:not(.vamp-terminal-mode) .shell.vamp-keyboard-open .stream-card.output-message .rich-body {
-        max-height: 132px !important;
-        overflow: auto !important;
-      }
-      /* Focus is the source of truth for the editing layout. WebKit may move
-         the visual viewport before dispatching its resize event, which left
-         the full workspace chrome onscreen and squeezed the active response
-         behind the composer. :has() enters the compact contract in the same
-         frame as focus, independently of VisualViewport timing. */
-      .shell:has(.composer input:focus) .task-context,
-      .shell:has(.composer input:focus) .tabs {
-        display: none !important;
-      }
-      .shell:has(.composer input:focus) .top {
-        flex-basis: 46px !important;
-        min-height: 46px !important;
-      }
-      .shell:has(.composer input:focus) .mode-switch {
-        flex-basis: 42px !important;
-        min-height: 42px !important;
-      }
-      .shell:has(.composer input:focus) .content {
-        flex: 1 1 0 !important;
-        min-height: 0 !important;
-        overflow-y: auto !important;
-      }
-      body:not(.vamp-terminal-mode) .shell:has(.composer input:focus) .stream-card.output-message .rich-body {
         max-height: 132px !important;
         overflow: auto !important;
       }
@@ -3430,7 +3440,10 @@ if (vampPairFromURL) {
     const viewportContracted = visibleHeight < layoutHeight - 80 || inset > 100;
     const keyboardOpen = composerHasFocus || viewportContracted;
     document.documentElement.style.setProperty('--vamp-visual-width', Math.max(280, Math.round(visibleWidth)) + 'px');
-    document.documentElement.style.setProperty('--vamp-visual-height', Math.max(240, Math.round(visibleHeight)) + 'px');
+    // `vampUpdateViewportInset` is the single owner of visual height. Two
+    // handlers previously wrote the same property during each WebKit keyboard
+    // animation frame and triggered redundant ResizeObserver/layout passes.
+    vampUpdateViewportInset();
     document.documentElement.style.setProperty('--vamp-vv-left', Math.round(offsetLeft) + 'px');
     document.documentElement.style.setProperty('--vamp-vv-top', Math.round(offsetTop) + 'px');
     if (keyboardOpen && !keyboardWasOpen) {
@@ -3483,10 +3496,14 @@ if (vampPairFromURL) {
       // restoring an obsolete pre-keyboard scroll offset.
       keyboardWasNearLatest = true;
       keyboardViewportUpdate();
-      requestAnimationFrame(keyboardViewportUpdate);
-      [0, 80, 180, 360].forEach((delay) => setTimeout(() => scrollLatest(true), delay));
+      requestAnimationFrame(() => scrollLatest(true));
     }
   }, { passive: true });
+  window.vampComposerDidBlur = () => {
+    composerHasFocus = false;
+    keyboardAnchorTimers.splice(0).forEach(clearTimeout);
+    keyboardViewportUpdate();
+  };
   document.addEventListener('focusout', (event) => {
     if (event.target !== $('input')) return;
     composerHasFocus = false;
@@ -3666,10 +3683,7 @@ if (vampPairFromURL) {
     const bodyWasNearBottom = body ? body.scrollHeight - body.scrollTop - body.clientHeight < 28 : true;
     const previousBodyScrollTop = body?.scrollTop || 0;
     if (body) {
-      const fullSemanticText = tab.semanticText || '';
-      let semanticSnapshot = tab.semanticBaseline && fullSemanticText.startsWith(tab.semanticBaseline)
-        ? fullSemanticText.slice(tab.semanticBaseline.length)
-        : fullSemanticText;
+      let semanticSnapshot = tab.responseText || '';
       // Startup banners, prompts and full-screen TUI repaints are terminal
       // state, not a conversation. Chat begins only after an exact composer
       // submission establishes a semantic response boundary.
@@ -3745,6 +3759,8 @@ if (vampPairFromURL) {
       tab.pendingOutputFrames = 0;
       tab.followOutput = true;
       tab.semanticBaseline = tab.semanticText || '';
+      tab.responseSemantic = new VampSemanticStream();
+      tab.responseText = '';
       tab.lastSubmittedCommand = value;
       tab.commandCount = (tab.commandCount || 0) + 1;
     }
@@ -3898,7 +3914,7 @@ if (vampPairFromURL) {
     if (!showing) { filterTabContent(); resetPagePosition(); updateComposerForMode(); requestAnimationFrame(() => { if (active) selectTab(active); }); }
   };
   $('context-panel').onclick = () => vampToggleDashboard(true);
-  $('context-more').onclick = () => { $('more-modal').classList.remove('hidden'); $('more-command').focus(); };
+  $('context-more').onclick = openMoreModal;
   $('context-branch').onclick = () => addExplore(active, 'Session routing · ' + (tabs.get(active)?.title || 'Terminal'));
   $('context-repo').onclick = () => addExplore(active, 'Connected to Vamp Host');
 

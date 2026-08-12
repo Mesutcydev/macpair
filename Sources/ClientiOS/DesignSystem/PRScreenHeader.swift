@@ -29,28 +29,25 @@ struct PRScreenHeader: View {
                     .shadow(color: dot.opacity(0.7), radius: 4)
 
                 Text(host)
-                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .font(.caption)
                     .foregroundColor(PR.fg2)
 
                 if !latency.isEmpty {
                     Text("·").foregroundColor(PR.dim)
                     Text(latency)
-                        .font(.system(size: 10, weight: .regular, design: .monospaced))
+                        .font(.caption.monospacedDigit())
                         .foregroundColor(dot)
-                        .monospacedDigit()
                 }
 
                 Spacer()
 
                 Text(state.rawValue.uppercased())
-                    .font(.system(size: 10, weight: .regular, design: .monospaced))
-                    .tracking(0.6)
+                    .font(.caption2.weight(.semibold))
                     .foregroundColor(PR.dim)
             }
 
             Text(title)
-                .font(.system(size: 26, weight: .semibold))
-                .tracking(-0.4)
+                .font(.title2.weight(.semibold))
                 .foregroundColor(PR.fg)
         }
         .padding(.horizontal, 18)

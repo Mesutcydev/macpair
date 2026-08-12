@@ -8,15 +8,12 @@ struct PRStatPill: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(key.uppercased())
-                .font(.system(size: 9, weight: .regular, design: .monospaced))
-                .tracking(1)
+                .font(.caption2)
                 .foregroundColor(PR.dim)
 
             Text(value)
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                .tracking(-0.3)
+                .font(.headline.monospacedDigit())
                 .foregroundColor(color)
-                .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }

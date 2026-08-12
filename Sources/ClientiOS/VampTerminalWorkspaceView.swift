@@ -848,9 +848,14 @@ private struct TerminalChatFeedView: View {
     }
 
     private func sendDraft() {
-        let command = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty, session.canSendInput else { return }
-        onSendCommand(command)
+        // The composer submission is the canonical Chat message. Use trimming
+        // only to reject an empty draft; sending the trimmed value corrupted
+        // intentional indentation and made Chat differ from what the agent
+        // actually received in its PTY.
+        let submittedText = draft
+        guard !submittedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              session.canSendInput else { return }
+        onSendCommand(submittedText)
         draft = ""
         composerFocused = true
     }
