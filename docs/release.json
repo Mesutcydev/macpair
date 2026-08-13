@@ -1,33 +1,33 @@
 {
   "repository": "Mesutcydev/macpair",
-  "tag": "vamp-terminal-2.0.0-build-30",
-  "name": "Vamp Suite 2.0.0 build 30",
-  "url": "https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-2.0.0-build-30",
-  "published_at": "2026-08-12T09:14:06Z",
+  "tag": "vamp-terminal-2.0.0-build-32",
+  "name": "Vamp Suite 2.0.0 build 32",
+  "url": "https://github.com/Mesutcydev/macpair/releases/tag/vamp-terminal-2.0.0-build-32",
+  "published_at": "2026-08-13T18:53:46Z",
   "assets": {
     "vamp-host": {
-      "name": "VampHost-macOS-2.0.0-build-30-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-30/VampHost-macOS-2.0.0-build-30-adhoc.zip",
-      "label": "2.0.0 \u00b7 build 30"
+      "name": "VampHost-macOS-2.0.0-build-32-adhoc.zip",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-32/VampHost-macOS-2.0.0-build-32-adhoc.zip",
+      "label": "2.0.0 \u00b7 build 32"
     },
     "vamp-terminal-host": {
-      "name": "VampTerminalHost-macOS-2.0.0-build-30-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-30/VampTerminalHost-macOS-2.0.0-build-30-adhoc.zip",
-      "label": "2.0.0 \u00b7 build 30"
+      "name": "VampTerminalHost-macOS-2.0.0-build-32-adhoc.zip",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-32/VampTerminalHost-macOS-2.0.0-build-32-adhoc.zip",
+      "label": "2.0.0 \u00b7 build 32"
     },
     "vamp-terminal-ios": {
-      "name": "VampTerminal-iOS-2.0.0-build-30-altstore-unsigned.ipa",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-30/VampTerminal-iOS-2.0.0-build-30-altstore-unsigned.ipa",
-      "label": "2.0.0 \u00b7 build 30"
+      "name": "VampTerminal-iOS-2.0.0-build-32-altstore-unsigned.ipa",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-32/VampTerminal-iOS-2.0.0-build-32-altstore-unsigned.ipa",
+      "label": "2.0.0 \u00b7 build 32"
     },
     "vamp-remote-ios": {
       "name": "VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-30/VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-32/VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa",
       "label": "3.7.2 \u00b7 build 36"
     },
     "vamp-remote-macos": {
       "name": "VampRemote-macOS-1.3.15-build-32-unsigned.zip",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-30/VampRemote-macOS-1.3.15-build-32-unsigned.zip",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-terminal-2.0.0-build-32/VampRemote-macOS-1.3.15-build-32-unsigned.zip",
       "label": "1.3.15 \u00b7 build 32"
     }
   }
