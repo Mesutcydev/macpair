@@ -134,6 +134,8 @@
     .hero h1 em { font-style: normal; color: var(--text-soft); }
     .hero-copy { max-width: 600px; color: var(--text-soft); font-size: clamp(1.05rem, 1.8vw, 1.25rem); line-height: 1.55; }
     .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+    .hero-actions .text-link { display: inline-flex; align-items: center; min-height: 40px; color: var(--text-soft); font-size: 13px; font-weight: 650; }
+    .hero-actions .text-link:hover { color: var(--text); }
     .hero-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; color: var(--text-faint); font-size: 12px; }
     .pill { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: 999px; background: var(--surface); }
     .dot { width: 7px; height: 7px; border: 1px solid currentColor; border-radius: 50%; }
@@ -296,6 +298,8 @@
     .step h3 { margin: 0 0 8px; font-size: 17px; letter-spacing: -.03em; }
     .step p { margin: 0; color: var(--text-soft); font-size: 13px; }
     .step code { display: block; margin-top: 14px; color: var(--text); font: 11px/1.5 var(--mono); }
+    .onboarding { margin-top: 110px; }
+    .onboarding .steps { grid-template-columns: repeat(3, 1fr); margin-top: 24px; }
     .code-panel { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(0,0,0,.18); }
     .code-panel code { overflow: auto; color: var(--text); font: 12px var(--mono); white-space: nowrap; }
     .compat { display: grid; grid-template-columns: 1.1fr .9fr; gap: 18px; margin-top: 110px; }
@@ -341,6 +345,7 @@
       .mobile-nav a { padding: 12px 2px; border-top: 1px solid var(--line-soft); color: var(--text-soft); font-size: 15px; }
       .mobile-nav a:hover { color: var(--text); }
       .mobile-nav .mobile-nav-action { margin-top: 8px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); background: var(--surface); text-align: center; }
+      .onboarding .steps { grid-template-columns: 1fr; }
       .brand small { display: none; }
       .hero { min-height: auto; padding: 63px 0 62px; }
       .hero h1 { font-size: clamp(3rem, 16vw, 5rem); }
@@ -427,17 +432,17 @@
   <main id="top">
     <section class="hero wrap">
       <div>
-        <div class="eyebrow">Vamp Suite · macOS · iOS · iPadOS · Linux</div>
-        <h1>One private<br><em>workspace.</em></h1>
-        <p class="hero-copy">Vamp Suite is the current product family in the <code>macpair</code> repository: full remote control, a terminal-only Mac host, multi-tab iPhone and iPad access, Safari task chat, and a dependency-free Linux browser host.</p>
+        <div class="eyebrow">Private Mac access · LAN or Tailscale</div>
+        <h1>Control your Mac.<br><em>Keep it private.</em></h1>
+        <p class="hero-copy">Vamp Suite connects your iPhone, iPad, Safari, and Mac to the machines you own—over your LAN or Tailscale, with visible pairing and no hosted relay.</p>
         <div class="hero-actions">
-          <a class="button primary" href="#hosts">Explore the suite ↓</a>
-          <a class="button quiet" href="#install">Install current builds</a>
+          <a class="button primary" data-release-asset="vamp-terminal-ios" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.0.0-build-30-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download iPhone build ↗</a>
+          <a class="button quiet" href="#install">Install the Mac host ↓</a>
+          <a class="text-link" href="#onboarding">See the 3-step setup ↓</a>
         </div>
         <div class="hero-meta" aria-label="Product compatibility">
-          <span class="pill"><i class="dot"></i> 4 native apps</span>
-          <span class="pill">Linux browser host</span>
-          <span class="pill">8 concurrent PTYs</span>
+          <span class="pill"><i class="dot"></i> Visible pairing</span>
+          <span class="pill">Private transport</span>
           <span class="pill">No hosted relay</span>
         </div>
       </div>
@@ -467,6 +472,18 @@
       <div class="signal"><strong>1</strong><span>Linux browser companion</span></div>
       <div class="signal"><strong>8</strong><span>independent terminal tabs</span></div>
       <div class="signal"><strong>2-way</strong><span>clipboard sync with the host</span></div>
+    </section>
+
+    <section class="onboarding wrap" id="onboarding">
+      <div class="section-head">
+        <div><div class="eyebrow">Start in three moves</div><h2>Pair once. Pick up anywhere.</h2></div>
+        <p>Install one host on the Mac, approve your device, then return to the same sessions from iPhone, iPad, or private Safari.</p>
+      </div>
+      <div class="steps">
+        <article class="step glass"><h3>Install one host</h3><p>Choose Vamp Host for remote control, or Vamp Terminal Host for terminal and Safari access only.</p><code>Mac → Install a host</code></article>
+        <article class="step glass"><h3>Approve the device</h3><p>Enter the six-digit code shown by the host and approve the signed pairing request on the Mac.</p><code>Mac → Approve pairing</code></article>
+        <article class="step glass"><h3>Open a session</h3><p>Launch the iOS app or private Safari address, then attach to a persistent tab without restarting your work.</p><code>iPhone / Safari → Open a tab</code></article>
+      </div>
     </section>
 
     <section class="wrap" id="features">
