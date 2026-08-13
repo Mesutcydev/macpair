@@ -124,6 +124,7 @@
     .button.quiet { color: var(--text-soft); border-color: var(--line-soft); background: transparent; }
     .button:hover, .icon-button:hover, .text-button:hover { background: var(--surface-strong); border-color: var(--line); }
     .button.primary:hover { background: #d8d8d4; border-color: #d8d8d4; }
+    .button.unavailable { cursor: not-allowed; opacity: .52; pointer-events: none; }
     .button:active, .icon-button:active, .text-button:active { transform: scale(.97); }
     .eyebrow { color: var(--text-faint); font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
     .hero { display: grid; grid-template-columns: minmax(0, 1.03fr) minmax(420px, .97fr); align-items: center; gap: 66px; min-height: 700px; padding: 96px 0 78px; }
@@ -495,10 +496,10 @@ No output yet.</pre>
         <p>The GitHub repository is still named <code>macpair</code>; the current product family is Vamp Suite. Use the full Vamp Host for remote control, the light host for terminal/Safari only, or choose the client that matches the device in your hand.</p>
       </div>
       <div class="host-grid">
-          <article class="host-card glass"><span class="host-label">macOS · full host</span><h3>Vamp Host</h3><p>Remote display, input, and Terminal Mode in one host. Terminal Mode is explicit and supports up to eight tabs for the Vamp Terminal client.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.0.0-build-28-adhoc.zip" target="_blank" rel="noreferrer">Download latest full host ↗</a></article>
-          <article class="host-card glass"><span class="host-label">macOS · light host</span><h3>Vamp Terminal Host</h3><p>A focused companion with terminal sessions, Safari control, pairing, Tailscale discovery, and no screen-capture or remote-input surface.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.0.0-build-28-adhoc.zip" target="_blank" rel="noreferrer">Download latest light host ↗</a></article>
+          <article class="host-card glass"><span class="host-label">macOS · full host</span><h3>Vamp Host</h3><p>Remote display, input, and Terminal Mode in one host. Terminal Mode is explicit and supports up to eight tabs for the Vamp Terminal client.</p><a class="host-link" data-release-asset="vamp-host" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.0.0-build-30-adhoc.zip" target="_blank" rel="noreferrer">Download latest full host ↗</a></article>
+          <article class="host-card glass"><span class="host-label">macOS · light host</span><h3>Vamp Terminal Host</h3><p>A focused companion with terminal sessions, Safari control, pairing, Tailscale discovery, and no screen-capture or remote-input surface.</p><a class="host-link" data-release-asset="vamp-terminal-host" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.0.0-build-30-adhoc.zip" target="_blank" rel="noreferrer">Download latest light host ↗</a></article>
         <article class="host-card glass"><span class="host-label">Linux · browser host</span><h3>Vamp Terminal Linux Host</h3><p>Dependency-free Python host with eight PTYs per browser connection. Keep it on loopback and expose it with Tailscale Serve for Safari access.</p><a class="host-link" href="https://github.com/Mesutcydev/macpair/blob/main/linux-host/README.md" target="_blank" rel="noreferrer">Run on Linux ↗</a></article>
-          <article class="host-card glass"><span class="host-label">iOS · iPadOS · macOS · remote control</span><h3>Vamp Remote Control Client</h3><p>The original client for Vamp Host remote display, pointer, keyboard, clipboard, and file workflows. Download the current Vamp builds or build both clients from source.</p><div class="install-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-iOS-3.7.2-build-36-altstore-unsigned-r1.ipa" target="_blank" rel="noreferrer">Download latest iOS IPA ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-macOS-1.3.15-build-32-unsigned.zip" target="_blank" rel="noreferrer">Download latest macOS ZIP ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">Source ↗</a></div></article>
+          <article class="host-card glass"><span class="host-label">iOS · iPadOS · macOS · remote control</span><h3>Vamp Remote Control Client</h3><p>The original client for Vamp Host remote display, pointer, keyboard, clipboard, and file workflows. Download the current Vamp builds or build both clients from source.</p><div class="install-actions"><a class="button primary" data-release-asset="vamp-remote-ios" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download latest iOS IPA ↗</a><a class="button quiet" data-release-asset="vamp-remote-macos" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-macOS-1.3.15-build-32-unsigned.zip" target="_blank" rel="noreferrer">Download latest macOS ZIP ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">Source ↗</a></div></article>
       </div>
     </section>
 
@@ -599,11 +600,11 @@ No output yet.</pre>
     <section class="install wrap" id="install">
       <div class="section-head">
         <div class="install-intro"><div class="eyebrow">Download & install · current line</div><h2>Bring the Vamp Suite to the devices you own.</h2></div>
-        <p>The current public line is Vamp Host 2.0.0 · build 25, with the current Vamp Terminal iOS client (2.0.0 · build 25), Vamp Remote iOS and macOS clients, two ad-hoc signed macOS hosts, and a Linux host that runs from source.</p>
+        <p data-release-summary>Loading the current public release and download assets…</p>
       </div>
       <div class="install-grid">
         <article class="install-track glass featured">
-          <div class="install-track-top"><span class="install-kicker">iPhone & iPad</span><span class="build-pill">build 25 · arm64</span></div>
+          <div class="install-track-top"><span class="install-kicker">iPhone & iPad</span><span class="build-pill" data-release-version="vamp-terminal-ios">Current release</span></div>
           <h3>Vamp Terminal</h3>
           <p>Unsigned IPA for AltStore or another compatible re-signing sideloader.</p>
           <ol class="install-list">
@@ -612,10 +613,10 @@ No output yet.</pre>
             <li><span><strong>Import</strong> with AltStore → + → Sideload IPA.</span></li>
             <li><span><strong>Allow Local Network</strong>, then pair with a host.</span></li>
           </ol>
-          <div class="install-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.0.0-build-28-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download latest IPA ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_SIDELOAD.md" target="_blank" rel="noreferrer">AltStore guide ↗</a></div>
+          <div class="install-actions"><a class="button primary" data-release-asset="vamp-terminal-ios" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.0.0-build-30-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download latest IPA ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_SIDELOAD.md" target="_blank" rel="noreferrer">AltStore guide ↗</a></div>
         </article>
         <article class="install-track glass">
-          <div class="install-track-top"><span class="install-kicker">iOS & macOS · remote control</span><span class="build-pill">iOS 3.7.2 · macOS 1.3.15</span></div>
+          <div class="install-track-top"><span class="install-kicker">iOS & macOS · remote control</span><span class="build-pill" data-release-version="vamp-remote-ios">Current iOS</span><span class="build-pill" data-release-version="vamp-remote-macos">Current macOS</span></div>
           <h3>Vamp Remote Control Client</h3>
           <p>Direct downloads for the current remote display and input clients that connect to Vamp Host.</p>
           <ol class="install-list">
@@ -623,17 +624,17 @@ No output yet.</pre>
             <li><span><strong>macOS:</strong> unzip the unsigned client and move it to Applications.</span></li>
             <li><span><strong>Pair</strong> with Vamp Host after approval.</span></li>
           </ol>
-          <div class="install-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-iOS-3.7.2-build-36-altstore-unsigned-r1.ipa" target="_blank" rel="noreferrer">Download latest iOS IPA ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-macOS-1.3.15-build-32-unsigned.zip" target="_blank" rel="noreferrer">Download latest macOS ZIP ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">Build source ↗</a></div>
+          <div class="install-actions"><a class="button primary" data-release-asset="vamp-remote-ios" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download latest iOS IPA ↗</a><a class="button quiet" data-release-asset="vamp-remote-macos" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampRemote-macOS-1.3.15-build-32-unsigned.zip" target="_blank" rel="noreferrer">Download latest macOS ZIP ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">Build source ↗</a></div>
         </article>
         <article class="install-track glass">
-          <div class="install-track-top"><span class="install-kicker">macOS host</span><span class="build-pill">2.0.0 · build 24</span></div>
+          <div class="install-track-top"><span class="install-kicker">macOS host</span><span class="build-pill" data-release-version="vamp-host">Current host</span><span class="build-pill" data-release-version="vamp-terminal-host">Current terminal host</span></div>
           <h3>Choose your host</h3>
           <p>Install one host on the Mac. Both expose the same signed pairing and terminal protocol.</p>
           <div class="host-choice">
             <div class="host-choice-item"><strong>Vamp Host</strong><span>Remote desktop, remote clients, and optional Terminal Mode.</span></div>
             <div class="host-choice-item"><strong>Vamp Terminal Host</strong><span>Terminal, Safari control, Tailscale, and pairing only.</span></div>
           </div>
-          <div class="install-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.0.0-build-28-adhoc.zip" target="_blank" rel="noreferrer">Download latest full host ↗</a><a class="button quiet" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.0.0-build-28-adhoc.zip" target="_blank" rel="noreferrer">Download latest terminal host ↗</a></div>
+          <div class="install-actions"><a class="button primary" data-release-asset="vamp-host" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.0.0-build-30-adhoc.zip" target="_blank" rel="noreferrer">Download latest full host ↗</a><a class="button quiet" data-release-asset="vamp-terminal-host" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.0.0-build-30-adhoc.zip" target="_blank" rel="noreferrer">Download latest terminal host ↗</a></div>
         </article>
       </div>
       <div class="source-panel glass">
@@ -642,7 +643,7 @@ No output yet.</pre>
 scripts/package-vamp-hosts.sh --clean</code></pre>
       </div>
       <div class="version-panel glass">
-        <div><div class="eyebrow">Version map</div><h3>One current fixed line.</h3><p><strong>Current:</strong> Vamp Host 2.0.0 · build 25 and Vamp Terminal Host 2.0.0 · build 25, with Vamp Terminal iOS 2.0.0 build 25, Vamp Remote iOS 3.7.2 build 36, and Vamp Remote macOS 1.3.15 build 32. All public download buttons point to this latest fixed release.</p></div>
+        <div><div class="eyebrow">Version map</div><h3>One current release line.</h3><p data-release-map>Loading release metadata…</p></div>
         <div class="install-actions"><a class="button primary" href="https://github.com/Mesutcydev/macpair/releases/latest" target="_blank" rel="noreferrer">Current release ↗</a></div>
       </div>
       <div class="install-grid">
@@ -703,6 +704,56 @@ scripts/package-vamp-hosts.sh --clean</code></pre>
   <script>
     (() => {
       const root = document.documentElement;
+
+      const applyReleaseMetadata = (release) => {
+        if (!release?.assets) return;
+        const assetEntries = Object.entries(release.assets);
+        document.querySelectorAll('[data-release-asset]').forEach((link) => {
+          const asset = release.assets[link.dataset.releaseAsset];
+          if (asset) {
+            link.href = asset.url;
+            link.title = asset.name;
+            return;
+          }
+          link.removeAttribute('href');
+          link.setAttribute('aria-disabled', 'true');
+          link.classList.add('unavailable');
+          link.textContent = 'Unavailable in current release';
+        });
+        document.querySelectorAll('[data-release-version]').forEach((element) => {
+          const asset = release.assets[element.dataset.releaseVersion];
+          if (asset) element.textContent = asset.label;
+        });
+        document.querySelectorAll('a[href$="/releases/latest"]').forEach((link) => {
+          link.href = release.url;
+        });
+        const summary = document.querySelector('[data-release-summary]');
+        if (summary) {
+          const published = release.published_at
+            ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(release.published_at))
+            : 'recently';
+          summary.textContent = `${release.name} was published ${published}. Download buttons below always follow this release automatically.`;
+        }
+        const versionMap = document.querySelector('[data-release-map]');
+        if (versionMap) {
+          versionMap.innerHTML = `<strong>Current:</strong> ${assetEntries
+            .map(([key, asset]) => `${key.replaceAll('-', ' ')} ${asset.label}`)
+            .join(' · ')}. All public download buttons point to the latest release.`;
+        }
+      };
+
+      fetch('release.json', { cache: 'no-store' })
+        .then((response) => {
+          if (!response.ok) throw new Error(`Release metadata request failed: ${response.status}`);
+          return response.json();
+        })
+        .then(applyReleaseMetadata)
+        .catch(() => {
+          document.querySelector('[data-release-summary]')?.replaceChildren(
+            document.createTextNode('Release metadata is temporarily unavailable. Open the current release to choose a download.')
+          );
+        });
+
       const themeButton = document.getElementById('theme-toggle');
       const savedTheme = localStorage.getItem('vamp-theme');
       if (savedTheme === 'light' || savedTheme === 'dark') root.dataset.theme = savedTheme;

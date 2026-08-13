@@ -25,6 +25,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
+      - name: Resolve latest release assets
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/generate-pages-release.py
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
         with:
