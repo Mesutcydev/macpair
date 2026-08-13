@@ -79,6 +79,7 @@ final class HostAppEnvironment: ObservableObject {
     let audioPipeline: HostAudioCapturePipeline
     let workspaceService: HostWorkspaceService
     let terminalService: HostTerminalService
+    let agentSemanticService: HostAgentSemanticService
     let browserControlService: HostBrowserControlService
     #endif
 
@@ -235,6 +236,7 @@ final class HostAppEnvironment: ObservableObject {
         let workspaceService = HostWorkspaceService(hostID: canonicalHostIdentity.id)
         self.workspaceService = workspaceService
         self.terminalService = HostTerminalService(workspaceService: workspaceService)
+        self.agentSemanticService = HostAgentSemanticService(workspaceService: workspaceService)
         self.browserControlService = HostBrowserControlService()
         #endif
         self.manualLowPowerModeEnabled = storedLowPower
@@ -365,6 +367,9 @@ final class HostAppEnvironment: ObservableObject {
         self.terminalService.sendEnvelope = { [weak webRTCSessionManager = self.webRTCSessionManager] envelope in
             try? webRTCSessionManager?.sendDataMessage(envelope)
         }
+        self.agentSemanticService.sendEnvelope = { [weak webRTCSessionManager = self.webRTCSessionManager] envelope in
+            try? webRTCSessionManager?.sendDataMessage(envelope)
+        }
         self.inputCommandRouter.onTerminalOpen = { [terminalService = self.terminalService] message in
             // The router has already authenticated, routed, and feature-gated
             // this packet. HostTerminalService is queue-isolated, so invoke it
@@ -381,6 +386,9 @@ final class HostAppEnvironment: ObservableObject {
         }
         self.inputCommandRouter.onTerminalClose = { [weak terminalService = self.terminalService] message in
             terminalService?.handleClose(message)
+        }
+        self.inputCommandRouter.onAgentPrompt = { [weak agentSemanticService = self.agentSemanticService] message in
+            agentSemanticService?.handlePrompt(message)
         }
         self.inputCommandRouter.onWorkspaceListRequest = { [weak self] message in
             Task { @MainActor [weak self] in
@@ -440,8 +448,9 @@ final class HostAppEnvironment: ObservableObject {
                 }
             }
         }
-        self.inputCommandRouter.onSessionEnded = { [weak terminalService = self.terminalService] in
+        self.inputCommandRouter.onSessionEnded = { [weak terminalService = self.terminalService, weak agentSemanticService = self.agentSemanticService] in
             terminalService?.sessionDidEnd()
+            agentSemanticService?.sessionDidEnd()
         }
 
         #if os(macOS)

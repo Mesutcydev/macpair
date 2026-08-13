@@ -808,15 +808,7 @@ private struct VampTerminalHostStatusPill: View {
 
 private struct VampTerminalHostBackdrop: View {
     var body: some View {
-        ZStack {
-            Color(nsColor: .windowBackgroundColor)
-            LinearGradient(
-                colors: [Color.white.opacity(0.04), .clear, Color.black.opacity(0.05)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-        .ignoresSafeArea()
+        AppBackground()
     }
 }
 

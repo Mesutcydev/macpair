@@ -1,5 +1,7 @@
 import SwiftUI
 import SharedProtocol
+import Speech
+import AVFoundation
 
 private enum VampTerminalPresentation: String, CaseIterable, Identifiable {
     case chat
@@ -46,15 +48,16 @@ struct VampTerminalWorkspaceView: View {
     @State private var showingWorkspaces = false
     @State private var showingActivity = false
     @State private var presentation: VampTerminalPresentation = .chat
-    @State private var keyboardPresented = false
 
     var body: some View {
         VStack(spacing: 0) {
             header
-            if !keyboardPresented {
-                tabBar
-                presentationBar
-            }
+            // Keep the workspace hierarchy stable while the keyboard moves.
+            // The composer already participates in SwiftUI's keyboard-safe
+            // area, so removing and reinserting these bars caused the whole
+            // task view to jump on every focus transition.
+            tabBar
+            presentationBar
 
             ZStack {
                 VStack(spacing: 0) {
@@ -164,17 +167,7 @@ struct VampTerminalWorkspaceView: View {
         .onDisappear {
             workspace.stop()
         }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
-                keyboardPresented = true
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
-                keyboardPresented = false
-            }
-        }
-        .sheet(item: $selectedAgentForWorkspace) { provider in
+        .fullScreenCover(item: $selectedAgentForWorkspace) { provider in
             VampWorkspaceChooserView(
                 store: workspace.workspaceStore,
                 provider: provider,
@@ -198,7 +191,7 @@ struct VampTerminalWorkspaceView: View {
                 selectedAgentForWorkspace = nil
             }
         }
-        .sheet(isPresented: $showingWorkspaces) {
+        .fullScreenCover(isPresented: $showingWorkspaces) {
             VampWorkspacesView(
                 store: workspace.workspaceStore,
                 terminalWorkspace: workspace,
@@ -379,15 +372,8 @@ struct VampTerminalWorkspaceView: View {
     }
 
     private var presentationBar: some View {
-        HStack(spacing: VampTerminalDesign.space2) {
-            Label(
-                "Mode",
-                systemImage: "rectangle.split.2x1"
-            )
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(VampGlassPalette.inkTertiary)
-            Spacer(minLength: VampTerminalDesign.space2)
-
+        HStack {
+            Spacer(minLength: 0)
             HStack(spacing: 2) {
                 ForEach(VampTerminalPresentation.allCases) { mode in
                     Button {
@@ -415,6 +401,7 @@ struct VampTerminalWorkspaceView: View {
             .padding(2)
             .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
             .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius)
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, VampTerminalDesign.space4)
         .padding(.vertical, VampTerminalDesign.space1)
@@ -779,17 +766,6 @@ private struct TerminalChatFeedView: View {
                         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
                             proxy.scrollTo(approval.id, anchor: .top)
                         }
-                    }
-                }
-                .onChange(of: composerFocused) { _, focused in
-                    guard focused else { return }
-                    // Keyboard presentation changes the ScrollView's safe
-                    // area in several phases. Re-anchor the active turn after
-                    // each phase so the composer never covers the response
-                    // the user is replying to.
-                    scrollToLatestAfterLayout(proxy, animated: false)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
-                        scrollToLatest(proxy, animated: false)
                     }
                 }
                 .onScrollGeometryChange(for: Bool.self) { geometry in
@@ -1297,6 +1273,29 @@ struct VampWorkspaceChooserView: View {
                         }
                     }
 
+                }
+                .padding(.horizontal, VampTerminalDesign.space5)
+                .padding(.vertical, VampTerminalDesign.space5)
+            }
+            // A discovered Mac can contain dozens of projects. Keeping the
+            // only launch action after that list made a selected workspace
+            // appear to do nothing and required scrolling many screens before
+            // a session could start. The CTA belongs to the sheet chrome and
+            // remains reachable while the workspace list scrolls beneath it.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(alignment: .leading, spacing: VampTerminalDesign.space2) {
+                    if let selectedWorkspace {
+                        Text(selectedWorkspace.name + " · " + selectedWorkspace.path)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(VampGlassPalette.inkSecondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    } else {
+                        Text("Choose a workspace to continue")
+                            .font(.footnote)
+                            .foregroundStyle(VampGlassPalette.inkSecondary)
+                    }
+
                     Button {
                         guard let selectedWorkspace else { return }
                         onStart(selectedWorkspace, resumeMode, persistenceMode)
@@ -1311,9 +1310,15 @@ struct VampWorkspaceChooserView: View {
                     .buttonStyle(VampGlassPressStyle())
                     .disabled(selectedWorkspace == nil)
                     .opacity(selectedWorkspace == nil ? 0.45 : 1)
+                    .accessibilityHint(selectedWorkspace == nil ? "Choose a workspace first" : "Starts the agent in the selected workspace")
                 }
                 .padding(.horizontal, VampTerminalDesign.space5)
-                .padding(.vertical, VampTerminalDesign.space5)
+                .padding(.top, VampTerminalDesign.space3)
+                .padding(.bottom, VampTerminalDesign.space2)
+                .background(.ultraThinMaterial)
+                .overlay(alignment: .top) {
+                    Rectangle().fill(VampGlassPalette.rule).frame(height: 0.5)
+                }
             }
             .background(Color.black.ignoresSafeArea())
             .navigationTitle("Choose workspace")
@@ -1474,12 +1479,16 @@ struct VampWorkspacesView: View {
                 }
             }
         }
-        .sheet(item: $selectedWorkspace) { item in
+        .fullScreenCover(item: $selectedWorkspace) { item in
             VampWorkspaceDetailView(
                 workspace: item,
                 store: store,
                 terminalWorkspace: terminalWorkspace,
-                hostName: hostName
+                hostName: hostName,
+                onSessionStarted: {
+                    selectedWorkspace = nil
+                    dismiss()
+                }
             )
         }
         .preferredColorScheme(.dark)
@@ -1493,6 +1502,7 @@ private struct VampWorkspaceDetailView: View {
     @ObservedObject var store: VampWorkspaceStore
     @ObservedObject var terminalWorkspace: TerminalWorkspaceViewModel
     let hostName: String
+    let onSessionStarted: () -> Void
     @State private var selectedAgent: VampAgentProvider?
 
     private var activeTabs: [TerminalWorkspaceViewModel.Tab] {
@@ -1562,8 +1572,18 @@ private struct VampWorkspaceDetailView: View {
                 .buttonStyle(VampGlassPressStyle())
 
                 Button {
-                    _ = terminalWorkspace.createTab(title: "Shell · \(workspace.name)", workspace: workspace)
+                    // Close both nested workspace sheets before mounting the
+                    // terminal. SwiftTerm may become first responder as soon
+                    // as its PTY is ready; creating it while the workspace
+                    // sheet is still presented leaves the keyboard attached
+                    // to a hidden terminal and visually mixes both screens.
                     dismiss()
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 180_000_000)
+                        onSessionStarted()
+                        try? await Task.sleep(nanoseconds: 180_000_000)
+                        _ = terminalWorkspace.createTab(title: "Shell · \(workspace.name)", workspace: workspace)
+                    }
                 } label: {
                     Label("Open shell here", systemImage: "terminal")
                         .font(.headline)
@@ -1580,23 +1600,29 @@ private struct VampWorkspaceDetailView: View {
         .background(Color.black.ignoresSafeArea())
         .navigationTitle("Workspace")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $selectedAgent) { provider in
+        .fullScreenCover(item: $selectedAgent) { provider in
             VampWorkspaceChooserView(store: store, provider: provider, hostName: hostName) { chosen, resumeMode, persistenceMode in
                 let launch = provider.launchConfiguration(
                     resumeMode: resumeMode,
                     persistenceMode: persistenceMode,
                     workspaceID: chosen.id
                 )
-                _ = terminalWorkspace.createTab(
-                    title: provider.sessionDisplayName,
-                    provider: provider,
-                    workspace: chosen,
-                    resumeMode: resumeMode,
-                    persistenceMode: persistenceMode,
-                    launchExecutable: launch.executable,
-                    launchArguments: launch.arguments
-                )
                 selectedAgent = nil
+                dismiss()
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 180_000_000)
+                    onSessionStarted()
+                    try? await Task.sleep(nanoseconds: 180_000_000)
+                    _ = terminalWorkspace.createTab(
+                        title: provider.sessionDisplayName,
+                        provider: provider,
+                        workspace: chosen,
+                        resumeMode: resumeMode,
+                        persistenceMode: persistenceMode,
+                        launchExecutable: launch.executable,
+                        launchArguments: launch.arguments
+                    )
+                }
             }
         }
         .preferredColorScheme(.dark)
@@ -1740,63 +1766,62 @@ private struct TerminalChatBlockView: View {
     }
 
     private var commandBlock: some View {
-        VStack(alignment: .leading, spacing: VampTerminalDesign.space2) {
-            HStack(spacing: VampTerminalDesign.space2) {
-                Image(systemName: "arrow.turn.down.right")
-                    .font(.system(size: 11, weight: .semibold))
+        HStack(alignment: .bottom, spacing: VampTerminalDesign.space2) {
+            Spacer(minLength: 48)
+            VStack(alignment: .trailing, spacing: VampTerminalDesign.space2) {
                 Text(block.title ?? "You")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                Spacer(minLength: 0)
-                Text("command")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(VampGlassPalette.inkSubtle)
-            }
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(VampGlassPalette.inkSecondary)
             Text(block.text)
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .font(.system(size: 15, weight: .regular, design: .rounded))
                 .foregroundStyle(VampGlassPalette.ink)
                 .textSelection(.enabled)
+                    .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, VampTerminalDesign.space4)
+                    .padding(.vertical, VampTerminalDesign.space3)
+                    .background(
+                        Color.primary.opacity(0.13),
+                        in: RoundedRectangle(cornerRadius: 19, style: .continuous)
+                    )
+            }
         }
-        .padding(VampTerminalDesign.space3)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .vampGlassSurface(.field, cornerRadius: VampTerminalDesign.cardRadius)
-        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: VampGlassPalette.ruleStrong)
         .accessibilityElement(children: .combine)
     }
 
     private var outputBlock: some View {
-        VStack(alignment: .leading, spacing: VampTerminalDesign.space2) {
+        HStack(alignment: .top, spacing: VampTerminalDesign.space3) {
+            ZStack {
+                Circle()
+                    .fill((provider?.accent ?? VampGlassPalette.inkSecondary).opacity(0.16))
+                Image(systemName: provider?.fallbackSystemImage ?? iconName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(provider?.accent ?? statusColor)
+            }
+            .frame(width: 30, height: 30)
+
+            VStack(alignment: .leading, spacing: VampTerminalDesign.space2) {
             HStack(spacing: VampTerminalDesign.space2) {
-                Image(systemName: iconName)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(statusColor)
-                Text(block.title ?? "Terminal output")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    Text(block.title ?? provider?.sessionDisplayName ?? "Response")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(VampGlassPalette.inkSecondary)
                 if block.isStreaming {
-                    Spacer(minLength: 0)
-                    Text("STREAMING")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .tracking(0.4)
-                        .foregroundStyle(statusColor)
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(provider?.accent ?? statusColor)
                 }
             }
 
-            TerminalChatContentView(text: block.text, color: provider?.terminalText ?? VampGlassPalette.ink)
+            TerminalChatContentView(
+                text: block.text,
+                color: provider?.terminalText ?? VampGlassPalette.ink,
+                usesProseTypography: provider != nil
+            )
+            }
         }
-        .padding(VampTerminalDesign.space3)
+        .padding(.vertical, VampTerminalDesign.space2)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            (provider?.terminalBackground ?? Color.black).opacity(0.72),
-            in: RoundedRectangle(cornerRadius: VampTerminalDesign.cardRadius, style: .continuous)
-        )
-        .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(statusColor)
-                .frame(width: 3)
-                .padding(.vertical, VampTerminalDesign.space3)
-        }
-        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: statusColor.opacity(0.25))
         .accessibilityElement(children: .combine)
     }
 
@@ -1826,6 +1851,7 @@ private struct TerminalChatBlockView: View {
 private struct TerminalChatContentView: View {
     let text: String
     let color: Color
+    let usesProseTypography: Bool
 
     var body: some View {
         if isTable {
@@ -1833,9 +1859,15 @@ private struct TerminalChatContentView: View {
         } else {
             ScrollView(.vertical) {
                 Text(text)
-                    .font(.system(size: 13, weight: .regular, design: .monospaced))
+                    .font(
+                        .system(
+                            size: usesProseTypography ? 15 : 13,
+                            weight: .regular,
+                            design: usesProseTypography ? .rounded : .monospaced
+                        )
+                    )
                     .foregroundStyle(color)
-                    .lineSpacing(3)
+                    .lineSpacing(usesProseTypography ? 5 : 3)
                     .textSelection(.enabled)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1902,6 +1934,10 @@ private struct TerminalChatComposer: View {
     let onSendClipboardToHost: () -> Void
     let onRequestClipboardFromHost: () -> Void
 
+    @StateObject private var speech = VampSpeechTranscriber()
+    @State private var dictationPrefix = ""
+    @State private var showingSpeechError = false
+
     var body: some View {
         HStack(alignment: .bottom, spacing: VampTerminalDesign.space2) {
             Button(action: onOpenTerminal) {
@@ -1924,7 +1960,7 @@ private struct TerminalChatComposer: View {
                 .autocorrectionDisabled()
                 .submitLabel(.send)
                 .lineLimit(1...4)
-                .font(.system(size: 14, weight: .regular, design: .monospaced))
+                .font(.system(size: 15, weight: .regular, design: provider == nil ? .monospaced : .rounded))
                 .foregroundStyle(VampGlassPalette.ink)
                 .tint(VampGlassPalette.ink)
                 .contentShape(Rectangle())
@@ -1956,21 +1992,19 @@ private struct TerminalChatComposer: View {
             .foregroundStyle(VampGlassPalette.inkSecondary)
             .accessibilityLabel("Command and clipboard actions")
 
-            Button(action: onSend) {
-                Image(systemName: "arrow.up")
+            Button(action: performPrimaryAction) {
+                Image(systemName: primaryActionSymbol)
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(canSend && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.black : VampGlassPalette.inkSubtle)
+                    .foregroundStyle(primaryActionForeground)
                     .frame(width: VampTerminalDesign.minTapTarget, height: VampTerminalDesign.minTapTarget)
                     .background(
-                        canSend && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ? VampGlassPalette.ink
-                            : Color.primary.opacity(0.10),
+                        primaryActionBackground,
                         in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous)
                     )
             }
             .buttonStyle(VampGlassPressStyle())
-            .disabled(!canSend || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            .accessibilityLabel("Send command")
+            .disabled(!isEnabled || (!speech.isRecording && hasDraft && !canSend))
+            .accessibilityLabel(primaryActionAccessibilityLabel)
         }
         .padding(.horizontal, VampTerminalDesign.space2)
         .padding(.vertical, VampTerminalDesign.space2)
@@ -1980,5 +2014,149 @@ private struct TerminalChatComposer: View {
         .padding(.horizontal, VampTerminalDesign.space3)
         .padding(.vertical, VampTerminalDesign.space2)
         .background(Color.black.opacity(0.82))
+        .onChange(of: speech.errorMessage) { _, message in
+            showingSpeechError = message != nil
+        }
+        .alert("Dictation unavailable", isPresented: $showingSpeechError) {
+            Button("OK") { speech.errorMessage = nil }
+        } message: {
+            Text(speech.errorMessage ?? "Check microphone and Speech Recognition access in Settings.")
+        }
+        .onDisappear { speech.stop() }
+    }
+
+    private var hasDraft: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var primaryActionSymbol: String {
+        if speech.isRecording { return "waveform" }
+        return hasDraft ? "arrow.up" : "mic.fill"
+    }
+
+    private var primaryActionForeground: Color {
+        if speech.isRecording { return .white }
+        if hasDraft && canSend { return .black }
+        return VampGlassPalette.inkSecondary
+    }
+
+    private var primaryActionBackground: Color {
+        if speech.isRecording { return VampGlassPalette.bad }
+        if hasDraft && canSend { return VampGlassPalette.ink }
+        return Color.primary.opacity(0.10)
+    }
+
+    private var primaryActionAccessibilityLabel: String {
+        if speech.isRecording { return "Stop dictation" }
+        return hasDraft ? "Send message" : "Dictate message"
+    }
+
+    private func performPrimaryAction() {
+        if speech.isRecording {
+            speech.stop()
+        } else if hasDraft {
+            onSend()
+        } else {
+            dictationPrefix = draft
+            speech.start { transcript in
+                let separator = dictationPrefix.isEmpty || transcript.isEmpty ? "" : " "
+                draft = dictationPrefix + separator + transcript
+            }
+        }
+    }
+}
+
+@MainActor
+private final class VampSpeechTranscriber: ObservableObject {
+    @Published var isRecording = false
+    @Published var errorMessage: String?
+
+    private let recognizer = SFSpeechRecognizer(locale: Locale.current)
+    private let audioEngine = AVAudioEngine()
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+    private var task: SFSpeechRecognitionTask?
+
+    func start(onTranscript: @escaping (String) -> Void) {
+        guard !isRecording else { return }
+        errorMessage = nil
+        SFSpeechRecognizer.requestAuthorization { [weak self] status in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard status == .authorized else {
+                    self.errorMessage = "Allow Speech Recognition to dictate messages."
+                    return
+                }
+                AVAudioApplication.requestRecordPermission { allowed in
+                    DispatchQueue.main.async {
+                        guard allowed else {
+                            self.errorMessage = "Allow microphone access to dictate messages."
+                            return
+                        }
+                        self.beginRecognition(onTranscript: onTranscript)
+                    }
+                }
+            }
+        }
+    }
+
+    func stop() {
+        guard isRecording || task != nil else { return }
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        request?.endAudio()
+        task?.cancel()
+        task = nil
+        request = nil
+        isRecording = false
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    private func beginRecognition(onTranscript: @escaping (String) -> Void) {
+        stop()
+        guard let recognizer, recognizer.isAvailable else {
+            errorMessage = "Speech Recognition is not available right now."
+            return
+        }
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+
+            let request = SFSpeechAudioBufferRecognitionRequest()
+            request.shouldReportPartialResults = true
+            self.request = request
+
+            let input = audioEngine.inputNode
+            let format = input.inputFormat(forBus: 0)
+            guard format.sampleRate > 0, format.channelCount > 0 else {
+                self.request = nil
+                errorMessage = "No microphone input is available. Connect a microphone and try again."
+                try? session.setActive(false, options: .notifyOthersOnDeactivation)
+                return
+            }
+            input.installTap(onBus: 0, bufferSize: 1_024, format: format) { buffer, _ in
+                request.append(buffer)
+            }
+            audioEngine.prepare()
+            try audioEngine.start()
+            isRecording = true
+
+            task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if let result {
+                        onTranscript(result.bestTranscription.formattedString)
+                        if result.isFinal { self.stop() }
+                    }
+                    if let error {
+                        self.errorMessage = error.localizedDescription
+                        self.stop()
+                    }
+                }
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+            stop()
+        }
     }
 }

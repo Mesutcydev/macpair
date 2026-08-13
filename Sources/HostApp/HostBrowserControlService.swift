@@ -307,6 +307,7 @@ final class HostBrowserControlService: @unchecked Sendable {
     private func remove(clientID: UUID, connection: NWConnection?) {
         guard let client = clients.removeValue(forKey: clientID) else { return }
         client.terminalService?.sessionDidEnd(reason: "browser-disconnected")
+        client.agentSemanticService?.sessionDidEnd()
         if connection == nil || connection === client.connection {
             client.connection.cancel()
         }
@@ -533,11 +534,31 @@ final class HostBrowserControlService: @unchecked Sendable {
             }
         }
         client.terminalService = terminalService
+        let agentSemanticService = HostAgentSemanticService(workspaceService: workspaceService)
+        agentSemanticService.sendEnvelope = { [weak self, weak client] envelope in
+            guard let self, let client else { return }
+            self.queue.async { self.sendTerminalEnvelope(envelope, to: client) }
+        }
+        client.agentSemanticService = agentSemanticService
 
+        var browserCapabilities = [
+            "terminal",
+            "multiple-terminals",
+            "clipboard",
+            "approval-cards",
+            "chat",
+            "task-plans",
+            "tmux",
+            "screen"
+        ]
+        if workspaceService != nil {
+            browserCapabilities.append("workspaces")
+        }
         let hello = BrowserHelloEvent(
             sessionID: client.sessionID ?? UUID(),
             maxTerminals: HostTerminalService.maxActiveTerminals,
-            capabilities: ["terminal", "multiple-terminals", "clipboard", "approval-cards", "tmux", "screen"]
+            features: BrowserFeatureCapabilities(chat: true, taskPlans: true, workspaces: workspaceService != nil),
+            capabilities: browserCapabilities
         )
         sendRaw(Data(response.utf8), to: client) { [weak self, weak client] in
             guard let self, let client, self.clients[client.id] != nil else { return }
@@ -644,6 +665,24 @@ final class HostBrowserControlService: @unchecked Sendable {
         case "close":
             guard let terminalID = command.terminalID else { sendError("invalid-terminal", to: client); return }
             terminalService.handleClose(TerminalCloseMessage(sessionID: sessionID, terminalID: terminalID, reason: "browser-requested"))
+        case "agentprompt":
+            guard let terminalID = command.terminalID,
+                  let rawProvider = command.provider,
+                  let provider = Self.browserProvider(rawProvider),
+                  let prompt = command.prompt,
+                  !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  prompt.utf8.count <= AgentPromptMessage.maxPromptBytes,
+                  let service = client.agentSemanticService else {
+                sendError("invalid-agent-prompt", terminalID: command.terminalID, to: client)
+                return
+            }
+            service.handlePrompt(AgentPromptMessage(
+                sessionID: sessionID,
+                terminalID: terminalID,
+                provider: provider,
+                prompt: prompt,
+                workingDirectory: command.workingDirectory
+            ))
         case "clipboardget":
             let text = String((readClipboard() ?? "").prefix(ClipboardSyncMessage.maxContentLength))
             sendJSON(BrowserClipboardEvent(text: text), to: client)
@@ -691,6 +730,12 @@ final class HostBrowserControlService: @unchecked Sendable {
                 return
             }
             sendJSON(BrowserTaskPlanEvent(sessionID: message.sessionID, terminalID: message.terminalID, event: message.event), to: client)
+        case .providerSemanticEvent:
+            guard let message = try? envelope.decodeProviderSemanticEvent() else {
+                logger.error("Could not decode provider semantic event for browser")
+                return
+            }
+            sendJSON(BrowserProviderSemanticEvent(message: message), to: client)
         default:
             break
         }
@@ -698,6 +743,16 @@ final class HostBrowserControlService: @unchecked Sendable {
 
     private func sendError(_ code: String, terminalID: UUID? = nil, to client: BrowserClient) {
         sendJSON(BrowserErrorEvent(code: code, terminalID: terminalID), to: client)
+    }
+
+    private static func browserProvider(_ value: String) -> AgentProviderKind? {
+        switch value.lowercased() {
+        case "grok": return .grok
+        case "opencode", "open-code": return .openCode
+        case "claude": return .claude
+        case "codex", "chatgpt": return .codex
+        default: return nil
+        }
     }
 
     // MARK: Wire helpers
@@ -944,6 +999,7 @@ private final class BrowserClient: @unchecked Sendable {
     var receiveBuffer = Data()
     var sessionID: UUID?
     var terminalService: HostTerminalService?
+    var agentSemanticService: HostAgentSemanticService?
 
     init(id: UUID, connection: NWConnection) {
         self.id = id
@@ -1018,6 +1074,8 @@ private struct BrowserTerminalCommand: Decodable {
     let workingDirectory: String?
     let data: String?
     let text: String?
+    let provider: String?
+    let prompt: String?
 }
 
 private struct BrowserWorkspaceEvent: Encodable {
@@ -1031,7 +1089,14 @@ private struct BrowserHelloEvent: Encodable {
     let type = "hello"
     let sessionID: UUID
     let maxTerminals: Int
+    let features: BrowserFeatureCapabilities
     let capabilities: [String]
+}
+
+private struct BrowserFeatureCapabilities: Encodable {
+    let chat: Bool
+    let taskPlans: Bool
+    let workspaces: Bool
 }
 
 private struct BrowserReadyEvent: Encodable {
@@ -1059,6 +1124,30 @@ private struct BrowserTaskPlanEvent: Encodable {
     let sessionID: UUID
     let terminalID: UUID
     let event: SessionTaskEvent
+}
+
+private struct BrowserProviderSemanticEvent: Encodable {
+    let type = "providerSemanticEvent"
+    let sessionID: UUID
+    let terminalID: UUID
+    let provider: AgentProviderKind
+    let eventType: String
+    let text: String?
+
+    init(message: ProviderSemanticEventMessage) {
+        sessionID = message.sessionID
+        terminalID = message.terminalID
+        provider = message.provider
+        switch message.event {
+        case .messageDelta(let value): eventType = "messageDelta"; text = value
+        case .thinkingDelta(let value): eventType = "thinkingDelta"; text = value
+        case .permissionRequested(let value): eventType = "permissionRequested"; text = value
+        case .sessionIdentifier(let value): eventType = "sessionIdentifier"; text = value
+        case .completed: eventType = "completed"; text = nil
+        case .failed(let value): eventType = "failed"; text = value
+        case .taskPlan: eventType = "taskPlan"; text = nil
+        }
+    }
 }
 
 private struct BrowserErrorEvent: Encodable {
@@ -1120,7 +1209,7 @@ private enum BrowserControlWebAssets {
 /* The browser surface follows the same four-point rhythm as the iOS client.
    Keep the original CSS above intentionally small; these rules provide the
    responsive controls without making the embedded asset depend on a bundle. */
-.tab{min-height:40px}.newtab{min-width:44px;min-height:44px}.quick button{min-height:40px}.composer{z-index:4}.composer input{min-height:44px}.clipboard-wrap{position:relative;flex:0 0 auto}.clipboard-trigger{width:auto!important;min-width:44px;padding:0 12px;display:flex;align-items:center;justify-content:center;gap:6px}.clipboard-label{font-size:13px;font-weight:600}.clipboard-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:6;min-width:230px;padding:8px;background:rgba(43,43,43,.96);border:1px solid rgba(255,255,255,.18);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.42);backdrop-filter:blur(18px)}.clipboard-menu.hidden{display:none}.clipboard-menu button{width:100%!important;height:auto!important;min-height:40px;padding:10px 12px;text-align:left;background:transparent;border-radius:9px;font-size:14px}.clipboard-menu button:hover,.clipboard-menu button:focus-visible{background:rgba(255,255,255,.12)}.approval-actions{flex-wrap:wrap}.tab-dot{color:var(--muted);font-size:11px}.tab-dot.open{color:var(--good)}.tab-dot.opening{color:var(--warn)}.modal-card input,.modal-card button{min-height:44px}@media(max-width:520px){.clipboard-label{display:none}.clipboard-trigger{padding:0 10px}}
+.tab{min-height:40px}.newtab{min-width:44px;min-height:44px}.quick button{min-height:40px}.composer{z-index:4}.composer input{min-height:44px}.clipboard-wrap{position:relative;flex:0 0 44px;width:44px;min-width:44px;overflow:visible}.clipboard-trigger{box-sizing:border-box;width:44px!important;min-width:44px;padding:0!important;display:flex;align-items:center;justify-content:center;font-size:0!important;overflow:hidden}.clipboard-trigger .clipboard-label{display:none!important}.clipboard-glyph{display:block;width:18px;height:18px;line-height:18px;font-size:19px!important;font-weight:500;text-align:center}.clipboard-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:6;min-width:230px;padding:8px;background:rgba(43,43,43,.96);border:1px solid rgba(255,255,255,.18);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.42);backdrop-filter:blur(18px)}.clipboard-menu.hidden{display:none}.clipboard-menu button{width:100%!important;height:auto!important;min-height:40px;padding:10px 12px;text-align:left;background:transparent;border-radius:9px;font-size:14px}.clipboard-menu button:hover,.clipboard-menu button:focus-visible{background:rgba(255,255,255,.12)}.approval-actions{flex-wrap:wrap}.tab-dot{color:var(--muted);font-size:11px}.tab-dot.open{color:var(--good)}.tab-dot.opening{color:var(--warn)}.modal-card input,.modal-card button{min-height:44px}
 .workspace-list{display:grid;gap:8px;max-height:min(52vh,420px);overflow:auto}.workspace-choice{display:flex!important;flex-direction:column;align-items:flex-start;gap:4px;width:100%;margin:0!important;padding:12px 14px!important;background:rgba(255,255,255,.08)!important;color:#fff!important;text-align:left}.workspace-choice small{color:#aaa;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
 </style></head>
 <body><div class="shell">
@@ -1136,8 +1225,8 @@ private enum BrowserControlWebAssets {
 </section>
 <section class="chat" id="chat"><div class="empty" id="empty">Pair this browser to start a terminal task.</div></section>
 </main>
-<div class="terminal-keybar" id="terminal-keybar" aria-label="Terminal controls"><button type="button" data-terminal-key="\u001b">Esc</button><button type="button" data-terminal-key="\u0003">Ctrl-C</button><button type="button" data-terminal-key="\u0009">Tab</button><button type="button" data-terminal-key="\u001b[A">↑</button><button type="button" data-terminal-key="\u001b[B">↓</button><button type="button" data-terminal-key="\u001b[D">←</button><button type="button" data-terminal-key="\u001b[C">→</button></div>
-<div class="composer" id="composer"><div class="clipboard-wrap"><button id="clipboard" class="clipboard-trigger" type="button" title="Clipboard actions" aria-label="Clipboard actions" aria-expanded="false">▣ <span class="clipboard-label">Clipboard</span></button><div id="clipboard-menu" class="clipboard-menu hidden" role="menu" aria-label="Clipboard actions"><button id="paste" type="button" role="menuitem">Paste into terminal</button><button id="copyhost" type="button" role="menuitem">Copy Mac clipboard to Safari</button><button id="sethost" type="button" role="menuitem">Send Safari clipboard to Mac</button></div></div><input id="input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command…"><button id="more" type="button" title="More controls" aria-label="More controls">•••</button><button class="send" id="send" type="button" title="Review command" aria-label="Review command">↑</button></div>
+<div class="terminal-keybar" id="terminal-keybar" aria-label="Terminal controls" aria-hidden="true" hidden><button type="button" data-terminal-key="\u001b">Esc</button><button type="button" data-terminal-key="\u0003">Ctrl-C</button><button type="button" data-terminal-key="\u0009">Tab</button><button type="button" data-terminal-key="\u001b[A">↑</button><button type="button" data-terminal-key="\u001b[B">↓</button><button type="button" data-terminal-key="\u001b[D">←</button><button type="button" data-terminal-key="\u001b[C">→</button></div>
+<div class="composer" id="composer"><div class="clipboard-wrap"><button id="clipboard" class="clipboard-trigger" type="button" title="Clipboard actions" aria-label="Clipboard actions" aria-expanded="false"><span class="clipboard-glyph" aria-hidden="true">⧉</span></button><div id="clipboard-menu" class="clipboard-menu hidden" role="menu" aria-label="Clipboard actions"><button id="paste" type="button" role="menuitem">Paste into terminal</button><button id="copyhost" type="button" role="menuitem">Copy Mac clipboard to Safari</button><button id="sethost" type="button" role="menuitem">Send Safari clipboard to Mac</button></div></div><input id="input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command…"><button id="more" type="button" title="More controls" aria-label="More controls">•••</button><button class="send" id="send" type="button" title="Review command" aria-label="Review command">↑</button></div>
 </div>
 <div class="modal" id="pair"><div class="modal-card"><h2>Open this workspace</h2><p>Scan the QR code from Vamp Host, or enter the six-digit code shown in Settings → Browser control. The code expires after ten minutes.</p><input id="code" inputmode="numeric" maxlength="18" placeholder="000000" aria-label="Pairing code" autocomplete="one-time-code"><div class="error" id="pair-error"></div><button id="pair-button">Pair browser</button></div></div>
 <div class="modal hidden" id="launch-modal"><div class="modal-card more-card"><div class="more-kicker">New session</div><h2 id="launch-title">Choose workspace</h2><p id="launch-copy">Every session keeps its own working directory.</p><div class="workspace-list" id="workspace-list"></div><div class="more-footer"><button id="launch-cancel" class="secondary" type="button">Cancel</button></div></div></div>
@@ -1864,15 +1953,20 @@ const vampOpenTerminal = (id) => {
   tab.lastSize = size;
   tab.terminal ||= new VampBrowserVT(size.cols, size.rows);
   tab.terminal.resize(size.cols, size.rows);
-  const sent = send({
+  const openCommand = {
     type: 'open',
     terminalID: id,
     cols: size.cols,
-    rows: size.rows,
-    startupCommand: tab.startupCommand || null,
-    workspaceID: tab.workspace?.id || null,
-    workingDirectory: tab.workspace?.path || null
-  });
+    rows: size.rows
+  };
+  // Keep optional fields off the wire instead of encoding JSON nulls. Apart
+  // from making the command unambiguous to Swift's decoder, a normal Home
+  // shell stays inside the compact WebSocket-frame form used by every browser.
+  // Agent/workspace launches still exercise the extended-length frame path.
+  if (tab.startupCommand) openCommand.startupCommand = tab.startupCommand;
+  if (tab.workspace?.id) openCommand.workspaceID = tab.workspace.id;
+  if (tab.workspace?.path) openCommand.workingDirectory = tab.workspace.path;
+  const sent = send(openCommand);
   if (!sent) {
     tab.state = 'error';
     addMessage('<div class="badge">The host connection is not ready. Reconnect and retry this terminal.</div>', id);
@@ -2023,10 +2117,22 @@ createTab = (startup = null, title = null, agent = null, workspace = null) => {
     return null;
   }
   const id = vampTerminalKey(vampNewUUID());
+  // Keep the launcher's semantic identity even if a browser/WebKit callback
+  // loses the optional dataset argument while the workspace sheet is being
+  // presented. Titles are application-owned constants, so this fallback does
+  // not guess an agent from arbitrary terminal output or user commands.
+  const knownAgentTitles = {
+    'OpenCode': 'opencode',
+    'ChatGPT / Codex CLI': 'chatgpt',
+    'Claude Code': 'claude',
+    'Codex CLI': 'codex',
+    'Grok CLI': 'grok'
+  };
+  const sessionAgent = agent || knownAgentTitles[title] || null;
   const tab = {
     id,
     title: title || vampNextTerminalTitle(),
-    agent: agent || null,
+    agent: sessionAgent,
     workspace: workspace || null,
     startupCommand: startup,
     out: '',
@@ -2038,6 +2144,7 @@ createTab = (startup = null, title = null, agent = null, workspace = null) => {
     lastSubmittedCommand: null,
     pendingCommand: null,
     pendingInput: null,
+    pendingAgentPrompt: null,
     unread: false,
     opened: false,
     readyNotified: false,
@@ -2114,11 +2221,14 @@ const vampAppendOutputChunk = (id, encoded) => {
   tab.terminal ||= new VampBrowserVT();
   tab.semantic ||= new VampSemanticStream();
   tab.semanticText = tab.semantic.feedBytes(bytes);
-  // Chat owns a command-scoped semantic stream. Slicing the lifetime stream
-  // is invalid for interactive TUIs because carriage-return redraws can
-  // rewrite text before a saved baseline. Consume the same original bytes in
-  // a fresh incremental stream without scraping the rendered terminal.
-  if (tab.responseSemantic) tab.responseText = tab.responseSemantic.feedBytes(bytes);
+  // Plain shells can project a command-scoped byte stream into Chat. Agent
+  // tabs cannot: their PTY is an interactive TUI whose cursor redraws, tmux
+  // status line, and alternate-screen contents are not semantic messages.
+  // Structured agents populate Chat exclusively through
+  // providerSemanticEvent; their original bytes remain available in the VT
+  // emulator and therefore in Terminal mode.
+  const structuredAgent = Boolean(tab.agent && vampStructuredProviders.has(tab.agent));
+  if (tab.responseSemantic && !structuredAgent) tab.responseText = tab.responseSemantic.feedBytes(bytes);
   tab.terminal.feedBytes(bytes);
   appendOutput(id);
 };
@@ -2387,6 +2497,7 @@ connect = () => {
       tab.lastSize = null;
       tab.readyNotified = false;
       tab.pendingInput = null;
+      tab.pendingAgentPrompt = null;
       tab.followOutput = false;
       tab.startupSeen = false;
       tab.taskPlan = null;
@@ -2423,6 +2534,11 @@ connect = () => {
     };
     if (value.type === 'hello') {
       sessionId = value.sessionID;
+      window.vampHostFeatures = {
+        chat: value.features?.chat === true || value.capabilities?.includes('chat'),
+        taskPlans: value.features?.taskPlans === true || value.capabilities?.includes('task-plans'),
+        workspaces: value.features?.workspaces === true || value.capabilities?.includes('workspaces')
+      };
       setState('Connected');
     } else if (value.type === 'ready') {
       const terminalID = vampTerminalKey(value.terminalID);
@@ -2431,11 +2547,15 @@ connect = () => {
         clearTimeout(tab.openTimeout);
         tab.openTimeout = null;
         // A reconnect or host-side PTY notification can repeat ready for the
-        // same terminal. Keep the session state idempotent and do not duplicate
-        // the visible system card in the task stream.
-        if (tab.readyNotified) return;
+        // same terminal. Treat it as an idempotent state repair: the stream or
+        // preview node may have been removed by a reconnect, a projection
+        // switch, or WebKit memory pressure even though the PTY is still live.
+        // Do not return before rebuilding that presentation.
+        const firstReady = !tab.readyNotified;
         const queuedInput = tab.pendingInput;
+        const queuedAgentPrompt = tab.pendingAgentPrompt;
         tab.pendingInput = null;
+        tab.pendingAgentPrompt = null;
         tab.readyNotified = true;
         tab.opened = true;
         tab.state = 'open';
@@ -2445,9 +2565,17 @@ connect = () => {
         if (typeof window.vampEnsureTerminalPreview === 'function') window.vampEnsureTerminalPreview(terminalID);
         vampResizeTerminal(terminalID);
         renderTabs();
-        if (queuedInput && !sendInput(terminalID, queuedInput)) {
+        // The semantic response card can be created after the prior tab
+        // filter pass. Re-run it so a newly-ready shell never presents a
+        // confusing blank Chat canvas.
+        if (typeof window.vampFilterTabContent === 'function') window.vampFilterTabContent();
+        if (firstReady && queuedInput && !sendInput(terminalID, queuedInput)) {
           tab.pendingInput = queuedInput;
           addMessage('<div class="badge">The host connection closed before the queued input was sent. Try again.</div>', terminalID);
+        }
+        if (firstReady && queuedAgentPrompt && !sendAgentPrompt(terminalID, queuedAgentPrompt)) {
+          tab.pendingAgentPrompt = queuedAgentPrompt;
+          addMessage('<div class="badge">The host connection closed before the queued agent prompt was sent. Try again.</div>', terminalID);
         }
       }
     } else if (value.type === 'workspaces') {
@@ -2474,6 +2602,32 @@ connect = () => {
       // terminal output or rendered rows through the task-plan reducer.
       if (!vampTaskPlanEventIsBound(value.event, sessionId, terminalID)) return;
       window.vampApplyTaskPlanEvent(terminalID, value.event);
+    } else if (value.type === 'providerSemanticEvent') {
+      if (value.sessionID && value.sessionID !== sessionId) return;
+      const terminalID = vampTerminalKey(value.terminalID);
+      const tab = tabs.get(terminalID);
+      if (!tab) return;
+      if (value.eventType === 'messageDelta') {
+        tab.responseText = (tab.responseText || '') + String(value.text || '');
+        tab.pendingCommand = tab.pendingCommand || 'agent';
+        scheduleTerminalRender(terminalID);
+      } else if (value.eventType === 'thinkingDelta') {
+        tab.agentState = 'Working';
+        scheduleTerminalRender(terminalID);
+      } else if (value.eventType === 'completed') {
+        tab.pendingCommand = null;
+        tab.agentState = 'Ready';
+        if (typeof window.vampRefreshTerminalCard === 'function') window.vampRefreshTerminalCard(terminalID);
+        else scheduleTerminalRender(terminalID);
+      } else if (value.eventType === 'failed') {
+        tab.pendingCommand = null;
+        tab.agentState = 'Failed';
+        addMessage('<div class="badge">' + esc(value.text || 'The agent request failed.') + '</div>', terminalID);
+        if (typeof window.vampRefreshTerminalCard === 'function') window.vampRefreshTerminalCard(terminalID);
+        else scheduleTerminalRender(terminalID);
+      } else if (value.eventType === 'permissionRequested') {
+        addMessage('<div class="meta">Permission required · ' + esc(tab.title) + '</div><div class="body">' + esc(value.text || 'The agent needs approval in Terminal mode.') + '</div>', terminalID);
+      }
     } else if (value.type === 'close') {
       const terminalID = vampTerminalKey(value.terminalID);
       const tab = tabs.get(terminalID);
@@ -2654,7 +2808,7 @@ const vampProviderCommand = (executable, session, label) => {
   const quotedExecutable = vampShellQuote(executable);
   const quotedSession = vampShellQuote(session);
   const quotedLabel = vampShellQuote(label);
-  return [`if ! command -v tmux >/dev/null 2>&1; then printf '\\nVamp Terminal: tmux is not installed or not on PATH.\\n'; elif ! command -v ${quotedExecutable} >/dev/null 2>&1; then printf '\\nVamp Terminal: ${quotedLabel} CLI (${quotedExecutable}) is not installed or not on PATH.\\n'; else tmux new-session -A -s ${quotedSession} -- ${quotedExecutable}; fi`, label];
+  return [`if ! command -v tmux >/dev/null 2>&1; then printf '\\nVamp Terminal: tmux is not installed or not on PATH.\\n'; elif ! command -v ${quotedExecutable} >/dev/null 2>&1; then printf '\\nVamp Terminal: ${quotedLabel} CLI (${quotedExecutable}) is not installed or not on PATH.\\n'; else tmux kill-session -t ${quotedSession} 2>/dev/null || true; exec tmux new-session -s ${quotedSession} -- ${quotedExecutable}; fi`, label];
 };
 const providerCommands = {
   opencode: vampProviderCommand('opencode', 'opencode', 'OpenCode'),
@@ -2886,30 +3040,32 @@ if (vampPairFromURL) {
         z-index: 20 !important;
       }
     }
-    /* Final viewport-canvas pass. iOS Safari can move the visual viewport
-       over the layout viewport while the keyboard is opening. A fixed root
-       then paints its chrome outside the visible screen. Keep one absolute
-       canvas sized from VisualViewport and place every mobile surface inside
-       it; the JS offset tracks Safari's pan without competing z-index layers. */
+    /* Final viewport-canvas pass. Keep the layout document permanently locked
+       and let only the content region scroll. WebKit otherwise scrolls the document to
+       reveal a focused input even when overflow is hidden, which moves the
+       complete task header above the visual viewport when the keyboard opens. */
     html {
-      position: relative !important;
-      inset: auto !important;
+      position: fixed !important;
+      inset: 0 !important;
       width: 100% !important;
       height: 100% !important;
       overflow: hidden !important;
+      overscroll-behavior: none !important;
     }
     body {
-      position: relative !important;
-      inset: auto !important;
+      position: fixed !important;
+      inset: 0 !important;
       width: 100% !important;
       height: 100% !important;
       min-height: 0 !important;
       overflow: hidden !important;
+      overscroll-behavior: none !important;
+      touch-action: manipulation;
     }
     .shell {
-      position: absolute !important;
-      left: var(--vamp-vv-left, 0px) !important;
-      top: var(--vamp-vv-top, 0px) !important;
+      position: fixed !important;
+      left: 0 !important;
+      top: 0 !important;
       right: auto !important;
       bottom: auto !important;
       width: var(--vamp-visual-width, 100%) !important;
@@ -2969,9 +3125,9 @@ if (vampPairFromURL) {
       z-index: 30 !important;
     }
     .modal {
-      position: absolute !important;
-      top: var(--vamp-vv-top, 0px) !important;
-      left: var(--vamp-vv-left, 0px) !important;
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
       right: auto !important;
       bottom: auto !important;
       width: var(--vamp-visual-width, 100%) !important;
@@ -3220,6 +3376,8 @@ if (vampPairFromURL) {
     .shell {
       display: flex !important;
       flex-direction: column !important;
+      left: var(--vamp-vv-left, 0px) !important;
+      top: var(--vamp-vv-top, 0px) !important;
       height: var(--vamp-visual-height, 100dvh) !important;
       min-height: 0 !important;
       padding-bottom: 0 !important;
@@ -3271,6 +3429,53 @@ if (vampPairFromURL) {
       margin: 0 12px max(8px, env(safe-area-inset-bottom)) !important;
       transform: none !important;
     }
+            .modal {
+                /* The fixed shell already follows visualViewport.pageLeft /
+                   pageTop. Applying those offsets to its modal child again
+                   double-pans the card above the iOS keyboard. */
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+            }
+            .shell.vamp-keyboard-open .modal {
+                align-items: flex-start !important;
+                overflow: hidden !important;
+                /* WebKit positions a fixed descendant in the already-panned
+                   shell coordinate space. Counter that parent pan so the
+                   pairing card begins inside the visible keyboard viewport. */
+                top: calc(-1 * var(--vamp-vv-top, 0px)) !important;
+                padding-top: max(10px, env(safe-area-inset-top)) !important;
+                padding-bottom: 10px !important;
+            }
+            .shell.vamp-keyboard-open .modal-card {
+                max-height: 100% !important;
+                /* The pairing card fits in the portrait keyboard viewport.
+                   Keeping it scrollable lets WebKit pan its contents to the
+                   focused field and hide the title; lock that internal
+                   viewport while the keyboard is present. */
+                overflow-y: hidden !important;
+                overscroll-behavior: contain;
+                padding: 14px 18px !important;
+                /* WebKit applies a final focus-reveal pan after visualViewport
+                   has settled. Reserve a small top rail so the title remains
+                   visible instead of landing behind Safari's status area. */
+                transform: translateY(64px) !important;
+            }
+            /* Keep the focused pairing control and its title in one compact
+               keyboard viewport. Safari otherwise scrolls the explanatory
+               paragraph above the visual viewport while revealing the
+               number pad, making the dialog appear broken. The full copy is
+               restored as soon as the keyboard closes. */
+            .shell.vamp-keyboard-open .modal-card p {
+                display: none !important;
+            }
+            .shell.vamp-keyboard-open .modal-card h2 {
+                margin-bottom: 10px !important;
+            }
+            .shell.vamp-keyboard-open .modal-card .error:empty {
+                display: none !important;
+            }
     body.vamp-terminal-mode .chat {
       display: flex !important;
       flex: 1 1 auto !important;
@@ -3325,13 +3530,507 @@ if (vampPairFromURL) {
       .shell.vamp-keyboard-open .tabs { display: flex !important; }
       .shell.vamp-keyboard-open .mode-switch { flex-basis: 46px !important; min-height: 46px !important; }
       .shell.vamp-keyboard-open .content { overflow-x: hidden !important; overflow-y: auto !important; }
-      body:not(.vamp-terminal-mode) .shell.vamp-keyboard-open .stream-card.output-message .rich-body {
-        max-height: 132px !important;
-        overflow: auto !important;
-      }
+      /* The middle viewport shrinks naturally. Do not also resize response
+         cards on focus: that second geometry change made the conversation
+         jump before Safari had finished presenting its keyboard. */
     }
   `;
   document.head.appendChild(modeStyle);
+
+  // One final design system owns the browser-control surface. Earlier rules
+  // remain as compatibility fallbacks for older WebKit builds, but this layer
+  // deliberately resolves their competing fixed/absolute layout models into
+  // a single flex hierarchy with one scrolling region.
+  const browserControlDesign = document.createElement('style');
+  browserControlDesign.textContent = `
+    :root {
+      --bc-page: #090909;
+      --bc-panel: rgba(30,30,30,.72);
+      --bc-panel-strong: rgba(38,38,38,.92);
+      --bc-raised: rgba(255,255,255,.075);
+      --bc-line: rgba(255,255,255,.105);
+      --bc-line-strong: rgba(255,255,255,.18);
+      --bc-text: #f4f4f4;
+      --bc-secondary: #a3a3a3;
+      --bc-tertiary: #707070;
+      --bc-radius: 18px;
+      --bc-control-radius: 13px;
+      --bc-page-inset: clamp(14px, 3vw, 28px);
+      --bc-readable: 820px;
+    }
+
+    html, body {
+      background: var(--bc-page) !important;
+      color: var(--bc-text) !important;
+    }
+    body {
+      background-image:
+        linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px),
+        radial-gradient(circle at 50% -16%, rgba(255,255,255,.095), transparent 40%) !important;
+      background-size: 48px 48px, 48px 48px, auto !important;
+    }
+    button { -webkit-tap-highlight-color: transparent; }
+    button:active { transform: scale(.975); }
+
+    .shell,
+    .shell.vamp-keyboard-open {
+      display: flex !important;
+      flex-direction: column !important;
+      width: min(var(--vamp-visual-width, 100%), 1120px) !important;
+      height: var(--vamp-visual-height, 100dvh) !important;
+      padding: env(safe-area-inset-top) var(--bc-page-inset) 0 !important;
+      background: rgba(10,10,10,.74) !important;
+      overflow: hidden !important;
+    }
+
+    .top {
+      flex: 0 0 58px !important;
+      height: 58px !important;
+      gap: 10px !important;
+      border: 0 !important;
+      background: transparent !important;
+    }
+    .back {
+      display: grid !important;
+      place-items: center !important;
+      width: 40px !important;
+      min-width: 40px !important;
+      height: 40px !important;
+      border: 1px solid var(--bc-line) !important;
+      border-radius: 13px !important;
+      background: var(--bc-raised) !important;
+      color: #d8d8d8 !important;
+      font-size: 23px !important;
+    }
+    .title {
+      font-size: 17px !important;
+      font-weight: 720 !important;
+      letter-spacing: -.015em !important;
+    }
+    .top .state {
+      display: inline-flex !important;
+      align-items: center !important;
+      min-height: 34px !important;
+      margin-left: auto !important;
+      padding: 0 11px !important;
+      border: 1px solid var(--bc-line) !important;
+      border-radius: 999px !important;
+      background: rgba(255,255,255,.045) !important;
+      color: var(--bc-secondary) !important;
+      font-size: 12px !important;
+    }
+
+    .task-context {
+      flex: 0 0 46px !important;
+      min-height: 46px !important;
+      gap: 6px !important;
+      border: 0 !important;
+      border-top: 1px solid var(--bc-line) !important;
+    }
+    .task-context .workspace {
+      font-size: 13px !important;
+      font-weight: 670 !important;
+      color: #d7d7d7 !important;
+    }
+    .context-pill, .context-icon {
+      min-height: 34px !important;
+      border-color: var(--bc-line) !important;
+      border-radius: 11px !important;
+      background: rgba(255,255,255,.055) !important;
+      color: #a8a8a8 !important;
+    }
+
+    .tabs {
+      flex: 0 0 56px !important;
+      min-height: 56px !important;
+      gap: 7px !important;
+      padding: 7px 0 !important;
+      border-top: 1px solid var(--bc-line) !important;
+      scroll-padding-inline: 8px 58px !important;
+    }
+    .tab {
+      min-height: 42px !important;
+      padding: 0 12px !important;
+      border: 1px solid transparent !important;
+      border-radius: 14px !important;
+      background: rgba(255,255,255,.045) !important;
+      color: #989898 !important;
+      font-size: 13px !important;
+      font-weight: 620 !important;
+    }
+    .tab.active {
+      border-color: var(--bc-line-strong) !important;
+      background: rgba(255,255,255,.115) !important;
+      color: #f3f3f3 !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08) !important;
+    }
+    .tab.active::after {
+      content: '';
+      position: absolute;
+      left: 34%; right: 34%; bottom: -7px;
+      height: 2px;
+      border-radius: 99px;
+      background: #f3f3f3;
+    }
+    .tab { position: relative; }
+    .tab .close { min-width: 22px; min-height: 22px; }
+    .newtab {
+      position: sticky !important;
+      right: 0 !important;
+      z-index: 3 !important;
+      flex: 0 0 44px !important;
+      width: 44px !important;
+      min-width: 44px !important;
+      min-height: 42px !important;
+      padding: 0 !important;
+      border: 1px solid var(--bc-line-strong) !important;
+      border-radius: 14px !important;
+      background: rgba(35,35,35,.96) !important;
+      box-shadow: -14px 0 18px rgba(9,9,9,.9) !important;
+      font-size: 21px !important;
+    }
+
+    .mode-switch {
+      flex: 0 0 48px !important;
+      min-height: 48px !important;
+      justify-content: flex-end !important;
+      gap: 3px !important;
+      padding: 6px 0 !important;
+      border: 0 !important;
+    }
+    .mode-switch button {
+      min-height: 36px !important;
+      padding: 0 13px !important;
+      border-radius: 12px !important;
+      color: #797979 !important;
+      font-size: 12px !important;
+    }
+    .mode-switch button[aria-pressed="true"] {
+      border: 1px solid var(--bc-line) !important;
+      background: rgba(255,255,255,.10) !important;
+      color: #ededed !important;
+    }
+
+    .content {
+      flex: 1 1 0 !important;
+      width: 100% !important;
+      height: auto !important;
+      min-height: 0 !important;
+      border-top: 1px solid var(--bc-line) !important;
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
+      scrollbar-gutter: stable !important;
+    }
+    .chat {
+      width: min(100%, var(--bc-readable)) !important;
+      min-height: 100% !important;
+      margin: 0 auto !important;
+      padding: 18px 2px 22px !important;
+    }
+    .empty {
+      display: grid !important;
+      place-items: center !important;
+      min-height: min(46vh, 360px) !important;
+      padding: 32px 18px !important;
+      color: var(--bc-tertiary) !important;
+    }
+    .empty[hidden] { display: none !important; }
+    .message { margin-bottom: 20px !important; }
+    .message .meta { color: #7f7f7f !important; }
+    .message .body { color: #ededed !important; font-size: 15px !important; line-height: 1.6 !important; }
+    .explore-row { margin: 12px auto 16px !important; }
+
+    .stream-card,
+    .stream-card.output-message.structured-output,
+    .command-card,
+    .task-plan-card {
+      border: 1px solid var(--bc-line) !important;
+      border-radius: var(--bc-radius) !important;
+      background: linear-gradient(145deg, rgba(39,39,39,.78), rgba(20,20,20,.88)) !important;
+      box-shadow: 0 18px 50px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.045) !important;
+    }
+    .stream-card { padding: 15px !important; margin: 8px auto 22px !important; }
+    .stream-card.output-message:not(.structured-output) {
+      padding: 15px !important;
+      border-color: var(--bc-line) !important;
+      background: linear-gradient(145deg, rgba(34,34,34,.64), rgba(16,16,16,.72)) !important;
+    }
+    .stream-card-head { min-height: 34px !important; }
+    .stream-caption { margin: 7px 0 10px 37px !important; }
+    body:not(.vamp-terminal-mode) .stream-card.output-message .rich-body {
+      max-height: min(32dvh, 260px) !important;
+      padding: 0 0 2px 37px !important;
+      overflow: auto !important;
+      mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
+    }
+    body:not(.vamp-terminal-mode) .stream-card.output-message.structured-output .rich-body {
+      padding-left: 0 !important;
+      mask-image: none !important;
+    }
+    .open-terminal-preview {
+      min-height: 34px !important;
+      padding: 0 11px !important;
+      border-radius: 11px !important;
+      background: rgba(255,255,255,.075) !important;
+    }
+
+    .command-card { padding: 16px !important; }
+    .approval-actions { grid-template-columns: 1fr !important; }
+    .approval-choice { min-height: 56px !important; border-radius: 13px !important; }
+    .approval-choice.selected {
+      border-color: rgba(255,255,255,.34) !important;
+      background: rgba(255,255,255,.115) !important;
+    }
+    .approval-footer .confirm { min-height: 46px !important; border-radius: 12px !important; }
+
+    .terminal-keybar {
+      display: none !important;
+      visibility: hidden !important;
+      height: 0 !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      flex: 0 0 auto !important;
+      width: min(100%, var(--bc-readable)) !important;
+      margin: 0 auto !important;
+      gap: 7px !important;
+    }
+    .terminal-keybar button {
+      min-height: 38px !important;
+      border-color: var(--bc-line) !important;
+      background: rgba(35,35,35,.94) !important;
+    }
+    body.vamp-terminal-mode .terminal-keybar {
+      display: flex !important;
+      visibility: visible !important;
+      height: auto !important;
+      min-height: 48px !important;
+      padding: 5px 0 !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+    }
+    body:not(.vamp-terminal-mode) #terminal-keybar {
+      display: none !important;
+      visibility: hidden !important;
+      position: fixed !important;
+      width: 0 !important;
+      height: 0 !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      clip-path: inset(100%) !important;
+      pointer-events: none !important;
+    }
+    .composer,
+    .shell.vamp-keyboard-open .composer {
+      flex: 0 0 auto !important;
+      width: min(calc(100% - 8px), var(--bc-readable)) !important;
+      min-height: 60px !important;
+      height: 60px !important;
+      margin: 4px auto max(10px, env(safe-area-inset-bottom)) !important;
+      padding: 7px !important;
+      gap: 6px !important;
+      border: 1px solid var(--bc-line-strong) !important;
+      border-radius: 19px !important;
+      background: rgba(38,38,38,.88) !important;
+      box-shadow: 0 18px 54px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.07) !important;
+      backdrop-filter: blur(24px) saturate(135%) !important;
+    }
+    .composer input { font-size: 16px !important; }
+    .composer button {
+      flex: 0 0 44px !important;
+      width: 44px !important;
+      height: 44px !important;
+      border-radius: 13px !important;
+      background: rgba(255,255,255,.075) !important;
+    }
+    .composer .send { background: #f2f2f2 !important; color: #111 !important; }
+
+    body.vamp-terminal-mode .content { border-top-color: transparent !important; }
+    body.vamp-terminal-mode .chat { padding: 8px 0 !important; }
+    body.vamp-terminal-mode .stream-card.output-message {
+      border: 1px solid var(--bc-line) !important;
+      border-radius: var(--bc-radius) !important;
+      background: #050505 !important;
+      padding: 8px !important;
+    }
+    body.vamp-terminal-mode .stream-card.output-message .rich-body {
+      border: 0 !important;
+      border-radius: 12px !important;
+      background: #050505 !important;
+      padding: 10px !important;
+    }
+
+    .dashboard { padding: 24px 0 32px !important; }
+    .dashboard-heading { align-items: center !important; }
+    .dashboard-heading p { color: var(--bc-secondary) !important; }
+    .dashboard-open, .session-card-action { border-radius: 12px !important; }
+    .host-card, .session-card {
+      border-color: var(--bc-line) !important;
+      background: var(--bc-panel) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.05) !important;
+    }
+    .session-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important; }
+
+    .modal {
+      padding: 18px !important;
+      background: rgba(0,0,0,.68) !important;
+      backdrop-filter: blur(10px) !important;
+    }
+    .modal-card,
+    .shell.vamp-keyboard-open .modal-card {
+      width: min(460px, 100%) !important;
+      max-height: min(760px, calc(100% - 24px)) !important;
+      padding: 20px !important;
+      border: 1px solid var(--bc-line-strong) !important;
+      border-radius: 22px !important;
+      background: rgba(38,38,38,.96) !important;
+      box-shadow: 0 30px 90px rgba(0,0,0,.62), inset 0 1px 0 rgba(255,255,255,.08) !important;
+      overflow-y: auto !important;
+      transform: none !important;
+    }
+    .modal-card h2 { font-size: 22px !important; letter-spacing: -.025em !important; }
+    .modal-card p { color: var(--bc-secondary) !important; }
+    .workspace-list { gap: 8px !important; }
+    .workspace-choice { min-height: 64px !important; border-radius: 14px !important; }
+    .provider-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+    .provider-grid button { min-height: 48px !important; border-radius: 13px !important; }
+
+    @media (min-width: 720px) {
+      .shell,
+      .shell.vamp-keyboard-open {
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+      }
+    }
+
+    @media (min-width: 900px) {
+      .shell,
+      .shell.vamp-keyboard-open {
+        /* Desktop geometry must not inherit VisualViewport values captured
+           while Chrome was narrow, zoomed, or restoring a mobile-sized
+           window. Normal-flow centering also avoids the left-half clipping
+           caused by competing left/translate overrides in older layers. */
+        left: 0 !important;
+        right: 0 !important;
+        width: min(calc(100vw - 80px), 1120px) !important;
+        max-width: 1120px !important;
+        margin-inline: auto !important;
+        transform: none !important;
+        top: 16px !important;
+        height: calc(100dvh - 32px) !important;
+        border: 1px solid var(--bc-line) !important;
+        border-radius: 24px !important;
+        box-shadow: 0 34px 100px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.04) !important;
+      }
+      .top { flex-basis: 64px !important; height: 64px !important; }
+      .task-context { padding-inline: 4px !important; }
+      .composer, .shell.vamp-keyboard-open .composer { margin-bottom: 14px !important; }
+    }
+
+    @media (max-width: 719px) {
+      :root { --bc-page-inset: 14px; --bc-radius: 16px; }
+      .shell, .shell.vamp-keyboard-open {
+        left: var(--vamp-vv-left, 0px) !important;
+        top: var(--vamp-vv-top, 0px) !important;
+        width: var(--vamp-visual-width, 100%) !important;
+        padding-top: max(env(safe-area-inset-top), 8px) !important;
+      }
+      .top, .shell.vamp-keyboard-open .top { flex-basis: 52px !important; height: 52px !important; min-height: 52px !important; }
+      .back { width: 36px !important; min-width: 36px !important; height: 36px !important; border-radius: 12px !important; }
+      .top .state { min-height: 32px !important; padding: 0 9px !important; }
+      .task-context { flex-basis: 42px !important; min-height: 42px !important; }
+      .task-context .workspace { font-size: 12px !important; }
+      .context-pill { flex-basis: 64px !important; width: 64px !important; max-width: 64px !important; }
+      .context-icon { flex-basis: 30px !important; width: 30px !important; min-width: 30px !important; min-height: 32px !important; }
+      .tabs, .shell.vamp-keyboard-open .tabs { flex-basis: 52px !important; min-height: 52px !important; padding: 5px 0 !important; }
+      .tab { min-height: 40px !important; }
+      .newtab { min-height: 40px !important; }
+      .mode-switch, .shell.vamp-keyboard-open .mode-switch { flex-basis: 44px !important; min-height: 44px !important; }
+      .chat { padding: 14px 0 18px !important; }
+      .stream-card { padding: 13px !important; }
+      .stream-card-actions { gap: 5px !important; }
+      .stream-state { font-size: 10px !important; }
+      body:not(.vamp-terminal-mode) .stream-card.output-message .rich-body {
+        max-height: min(24dvh, 190px) !important;
+        padding-left: 0 !important;
+      }
+      .stream-caption { margin-left: 0 !important; }
+      .terminal-keybar { width: 100% !important; }
+      .composer, .shell.vamp-keyboard-open .composer {
+        width: 100% !important;
+        margin: 4px 0 max(8px, env(safe-area-inset-bottom)) !important;
+        border-radius: 17px !important;
+      }
+      .clipboard-label { display: none !important; }
+      .modal { align-items: flex-end !important; padding: 10px !important; }
+      .shell.vamp-keyboard-open .modal { align-items: flex-end !important; top: 0 !important; padding: 10px !important; }
+      .modal-card, .shell.vamp-keyboard-open .modal-card {
+        width: 100% !important;
+        max-height: min(86dvh, calc(100% - 8px)) !important;
+        padding: 18px !important;
+        border-radius: 24px !important;
+        overflow-y: auto !important;
+      }
+      .shell.vamp-keyboard-open .modal-card p { display: block !important; }
+      .provider-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+      .dashboard { padding-top: 18px !important; }
+      .dashboard-heading { display: block !important; }
+      .dashboard-open { width: 100% !important; margin-top: 14px !important; }
+      .session-grid { grid-template-columns: 1fr !important; }
+    }
+
+    /* Mobile browser control is one continuous task surface. Older style
+       layers positioned the mode selector and composer like loose overlays,
+       which left an empty band and made the controls feel detached. */
+    @media (max-width: 719px) {
+      .mode-switch,
+      .shell.vamp-keyboard-open .mode-switch {
+        width: 100% !important;
+        justify-content: stretch !important;
+        gap: 4px !important;
+        margin: 0 !important;
+        padding: 4px !important;
+        border: 1px solid var(--bc-line) !important;
+        border-radius: 14px !important;
+        background: rgba(255,255,255,.035) !important;
+      }
+      .mode-switch button {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        padding-inline: 10px !important;
+      }
+      .content { border-top: 0 !important; }
+      .empty { min-height: 210px !important; }
+      .composer,
+      .shell.vamp-keyboard-open .composer {
+        position: relative !important;
+        inset: auto !important;
+        flex: 0 0 60px !important;
+      }
+    }
+
+    @media (max-height: 600px) and (max-width: 719px) {
+      .task-context { display: none !important; }
+      .tabs { flex-basis: 46px !important; min-height: 46px !important; }
+      .mode-switch { flex-basis: 40px !important; min-height: 40px !important; }
+      .chat { padding-top: 8px !important; }
+      body:not(.vamp-terminal-mode) .stream-card.output-message .rich-body { max-height: 110px !important; }
+    }
+
+    @media (prefers-reduced-transparency: reduce) {
+      .shell, .composer, .modal-card, .top .state { backdrop-filter: none !important; background: #181818 !important; }
+    }
+    @media (prefers-contrast: more) {
+      :root { --bc-line: rgba(255,255,255,.26); --bc-line-strong: rgba(255,255,255,.42); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+    }
+  `;
+  document.head.appendChild(browserControlDesign);
 
   let vampPresentation = 'chat';
   const modeSwitch = $('mode-switch');
@@ -3346,6 +4045,17 @@ if (vampPairFromURL) {
   const saveActiveDraft = () => {
     if (active && tabs.get(active)) tabs.get(active).draft = $('input').value;
   };
+  // WebKit's default tap-to-focus path scrolls the nearest scroll container
+  // before VisualViewport reports the keyboard. Focus explicitly from the
+  // trusted pointer event with preventScroll so the keyboard can open without
+  // moving the task canvas or the conversation's preserved scroll position.
+  $('input').addEventListener('pointerdown', (event) => {
+    if (document.activeElement === $('input')) return;
+    event.preventDefault();
+    $('input').focus({ preventScroll: true });
+    const end = $('input').value.length;
+    $('input').setSelectionRange(end, end);
+  });
   $('input').addEventListener('input', saveActiveDraft);
   const updateComposerForMode = () => {
     const tab = tabs.get(active);
@@ -3363,6 +4073,15 @@ if (vampPairFromURL) {
   const setVampPresentation = (mode) => {
     vampPresentation = mode === 'terminal' ? 'terminal' : 'chat';
     document.body.classList.toggle('vamp-terminal-mode', vampPresentation === 'terminal');
+    if (terminalKeybar) {
+      terminalKeybar.hidden = vampPresentation !== 'terminal';
+      terminalKeybar.setAttribute('aria-hidden', String(vampPresentation !== 'terminal'));
+      // Safari may preserve an old layout box for a control whose display was
+      // previously toggled by several responsive rules. An inline important
+      // declaration makes the presentation state the sole source of truth.
+      terminalKeybar.style.setProperty('display', vampPresentation === 'terminal' ? 'flex' : 'none', 'important');
+      terminalKeybar.style.setProperty('visibility', vampPresentation === 'terminal' ? 'visible' : 'hidden', 'important');
+    }
     modeChat?.setAttribute('aria-pressed', String(vampPresentation === 'chat'));
     modeTerminal?.setAttribute('aria-pressed', String(vampPresentation === 'terminal'));
     updateComposerForMode();
@@ -3400,7 +4119,11 @@ if (vampPairFromURL) {
         filterTabContent?.();
       }
       setActiveDraft('');
-      setVampPresentation(agent ? 'chat' : 'terminal');
+      // Use the canonical tab identity, including the guarded launcher-title
+      // recovery above. Using only this wrapper's optional argument could put
+      // a known Grok/Claude/Codex tab into raw Terminal mode and bypass the
+      // semantic Chat transport entirely.
+      setVampPresentation(tab?.agent ? 'chat' : 'terminal');
     }
     return id;
   };
@@ -3416,23 +4139,19 @@ if (vampPairFromURL) {
   document.querySelector('.top')?.insertAdjacentElement('afterend', context);
 
   let keyboardWasOpen = false;
-  let keyboardScrollAnchor = 0;
-  let keyboardWasNearLatest = true;
   let composerHasFocus = false;
-  let keyboardAnchorTimers = [];
-  const restoreKeyboardScrollAnchor = () => {
-    keyboardAnchorTimers.splice(0).forEach(clearTimeout);
-    const restore = () => {
-      content.dataset.vampProgrammatic = '1';
-      content.scrollTop = keyboardWasNearLatest ? content.scrollHeight : keyboardScrollAnchor;
-      requestAnimationFrame(() => { delete content.dataset.vampProgrammatic; });
-    };
-    requestAnimationFrame(restore);
-    // Mobile Safari can perform a second focused-element reveal after its
-    // visual viewport resize. Reassert the conversation anchor until that
-    // transition settles, without changing the document or shell position.
-    keyboardAnchorTimers.push(setTimeout(restore, 80));
-    keyboardAnchorTimers.push(setTimeout(restore, 180));
+  let correctingLayoutScroll = false;
+  const lockLayoutViewport = () => {
+    if (correctingLayoutScroll) return;
+    const root = document.scrollingElement || document.documentElement;
+    const displaced = window.scrollX !== 0 || window.scrollY !== 0 || root.scrollLeft !== 0 || root.scrollTop !== 0 || document.body.scrollTop !== 0;
+    if (!displaced) return;
+    correctingLayoutScroll = true;
+    root.scrollLeft = 0;
+    root.scrollTop = 0;
+    document.body.scrollTop = 0;
+    window.scrollTo(0, 0);
+    correctingLayoutScroll = false;
   };
   const keyboardViewportUpdate = () => {
     const viewport = window.visualViewport;
@@ -3446,6 +4165,8 @@ if (vampPairFromURL) {
     // relying on Safari's unreliable position:fixed compositor path.
     const offsetLeft = Number.isFinite(viewport?.offsetLeft) ? viewport.offsetLeft : 0;
     const offsetTop = Number.isFinite(viewport?.offsetTop) ? viewport.offsetTop : 0;
+    const pageLeft = Number.isFinite(viewport?.pageLeft) ? viewport.pageLeft : window.scrollX + offsetLeft;
+    const pageTop = Number.isFinite(viewport?.pageTop) ? viewport.pageTop : window.scrollY + offsetTop;
     const inset = Math.max(0, Math.round(layoutHeight - visibleHeight - Math.max(0, offsetTop)));
     // Focus is the earliest reliable keyboard signal on iOS. visualViewport
     // catches interactive dismissal and browser-chrome changes, but it can
@@ -3460,19 +4181,27 @@ if (vampPairFromURL) {
     // handlers previously wrote the same property during each WebKit keyboard
     // animation frame and triggered redundant ResizeObserver/layout passes.
     vampUpdateViewportInset();
-    document.documentElement.style.setProperty('--vamp-vv-left', Math.round(offsetLeft) + 'px');
-    document.documentElement.style.setProperty('--vamp-vv-top', Math.round(offsetTop) + 'px');
-    if (keyboardOpen && !keyboardWasOpen) {
-      keyboardScrollAnchor = content.scrollTop;
-      keyboardWasNearLatest = content.scrollHeight - content.scrollTop - content.clientHeight < 96;
-    }
+    document.documentElement.style.setProperty('--vamp-vv-left', Math.round(pageLeft) + 'px');
+    // The document is deliberately non-scrollable, but WebKit still pans the
+    // visual viewport to reveal a focused input. Move the single shell canvas
+    // with that viewport so its header and composer keep their screen-space
+    // positions while its height contracts around the keyboard.
+    document.documentElement.style.setProperty('--vamp-vv-top', Math.round(pageTop) + 'px');
     shell.classList.toggle('vamp-keyboard-open', keyboardOpen);
     document.documentElement.classList.toggle('vamp-keyboard-open', keyboardOpen);
+    if (keyboardOpen) {
+      const visibleModalCard = shell.querySelector('.modal:not(.hidden) .modal-card');
+      if (visibleModalCard) {
+        // iOS Safari may scroll the modal's own overflow container when the
+        // pairing field receives focus even though the complete card already
+        // fits above the keyboard. Restore its heading on every viewport
+        // animation frame without moving the document or terminal content.
+        visibleModalCard.scrollTop = 0;
+        requestAnimationFrame(() => { visibleModalCard.scrollTop = 0; });
+      }
+    }
     if (keyboardOpen) document.documentElement.style.setProperty('--vamp-keyboard-height', Math.max(240, Math.round(visibleHeight)) + 'px');
     else document.documentElement.style.removeProperty('--vamp-keyboard-height');
-    if (keyboardOpen !== keyboardWasOpen) {
-      restoreKeyboardScrollAnchor();
-    }
     keyboardWasOpen = keyboardOpen;
   };
   const resetPagePosition = () => {
@@ -3501,33 +4230,29 @@ if (vampPairFromURL) {
   }, { passive: true });
   window.addEventListener('resize', keyboardViewportUpdate, { passive: true });
   window.visualViewport?.addEventListener('resize', keyboardViewportUpdate, { passive: true });
-  window.visualViewport?.addEventListener('scroll', keyboardViewportUpdate, { passive: true });
+  window.addEventListener('scroll', lockLayoutViewport, { passive: true });
+  window.visualViewport?.addEventListener('scroll', () => {
+    lockLayoutViewport();
+    keyboardViewportUpdate();
+  }, { passive: true });
   window.addEventListener('orientationchange', () => { keyboardViewportUpdate(); resetPagePosition(); }, { passive: true });
   document.addEventListener('focusin', (event) => {
     if (event.target === $('input')) {
       composerHasFocus = true;
-      keyboardScrollAnchor = content.scrollTop;
-      // The composer edits the active/latest turn. Keep that turn visible
-      // while Safari performs its focused-element reveal instead of
-      // restoring an obsolete pre-keyboard scroll offset.
-      keyboardWasNearLatest = true;
+      lockLayoutViewport();
       keyboardViewportUpdate();
-      requestAnimationFrame(() => scrollLatest(true));
     }
   }, { passive: true });
   window.vampComposerDidBlur = () => {
     composerHasFocus = false;
-    keyboardAnchorTimers.splice(0).forEach(clearTimeout);
     keyboardViewportUpdate();
   };
   document.addEventListener('focusout', (event) => {
     if (event.target !== $('input')) return;
     composerHasFocus = false;
-    // Interactive keyboard dismissal can briefly blur before Safari restores
-    // the full visual viewport. Reconcile after both phases without moving the
-    // conversation away from the user's reading position.
-    setTimeout(keyboardViewportUpdate, 80);
-    setTimeout(keyboardViewportUpdate, 240);
+    // visualViewport resize owns keyboard dismissal. Avoid delayed corrections
+    // that can fire after the user has already resumed scrolling or typing.
+    keyboardViewportUpdate();
   }, { passive: true });
   document.addEventListener('visibilitychange', keyboardViewportUpdate, { passive: true });
   keyboardViewportUpdate();
@@ -3550,6 +4275,7 @@ if (vampPairFromURL) {
       element.hidden = hidden;
     });
   };
+  window.vampFilterTabContent = filterTabContent;
 
   const inline = (value) => {
     const source = String(value || '');
@@ -3723,6 +4449,11 @@ if (vampPairFromURL) {
     filterTabContent();
     if (stickToLatest) scrollLatest(true);
   };
+  // Provider events can arrive while Chromium throttles animation frames
+  // (background window, occluded tab, or DevTools automation). Expose the
+  // idempotent renderer so semantic completion can commit its final text
+  // synchronously instead of leaving a stale "Waiting" card behind.
+  window.vampRefreshTerminalCard = updateTerminalCard;
 
   const addExplore = (id, detail) => {
     const tab = tabs.get(id);
@@ -3766,6 +4497,19 @@ if (vampPairFromURL) {
     scheduleTerminalRender(id);
     if (tab.pendingCommand && tab.out.trim()) tab.pendingCommand = null;
     if (active !== id) { tab.unread = true; renderTabs(); }
+  };
+
+  const vampStructuredProviders = new Set(['grok', 'opencode', 'claude', 'codex', 'chatgpt']);
+  const sendAgentPrompt = (tabID, value) => {
+    const tab = tabs.get(tabID);
+    if (!tab || !tab.agent || !vampStructuredProviders.has(tab.agent)) return false;
+    return send({
+      type: 'agentPrompt',
+      terminalID: tabID,
+      provider: tab.agent,
+      prompt: value,
+      workingDirectory: tab.workspace?.path || null
+    });
   };
 
   appendCommand = (value, status, tabID = active) => {
@@ -3815,11 +4559,12 @@ if (vampPairFromURL) {
       return;
     }
     if (!tab.opened) {
-      if (tab.pendingInput) {
+      if (tab.pendingInput || tab.pendingAgentPrompt) {
         addMessage('<div class="badge">One command is already queued. It will run when this terminal is ready.</div>', tabID);
         return;
       }
-      tab.pendingInput = value + '\r';
+      if (tab.agent && vampStructuredProviders.has(tab.agent)) tab.pendingAgentPrompt = value;
+      else tab.pendingInput = value + '\r';
       setActiveDraft('');
       appendCommand(value, 'Queued · starting', tabID);
       vampScrollChatToLatest();
@@ -3827,19 +4572,31 @@ if (vampPairFromURL) {
     }
     tab.approvals ||= new Set();
     if (tab.approvals.has(value)) {
-      if (sendInput(tabID, value + '\r')) { setActiveDraft(''); appendCommand(value, 'Running', tabID); }
+      const sent = tab.agent && vampStructuredProviders.has(tab.agent)
+        ? sendAgentPrompt(tabID, value)
+        : sendInput(tabID, value + '\r');
+      if (sent) { setActiveDraft(''); appendCommand(value, 'Running', tabID); }
       return;
     }
     const card = document.createElement('article');
     card.className = 'command-card';
     card.dataset.tabId = tabID;
+    card.dataset.command = value;
+    card.dataset.choice = 'once';
     const commandPreview = tab.agent ? esc(value) : '<span class="prompt">$ </span>' + esc(value);
     card.innerHTML = '<div class="eyebrow">⌁ Permission required</div><div class="approval">Awaiting approval · ' + esc(tab.title) + '</div><div class="command">' + commandPreview + '<br><span style="color:#888">No output.</span></div><div class="approval-actions"><button type="button" class="approval-choice selected" data-choice="once"><span class="choice-number">1.</span><span><strong>Allow</strong><small>Allow only this time</small></span></button><button type="button" class="approval-choice" data-choice="always"><span class="choice-number">2.</span><span><strong>Always allow</strong><small>Do not ask again for this command</small></span></button><button type="button" class="approval-choice" data-choice="deny"><span class="choice-number">3.</span><span><strong>Deny</strong><small>Reject it for now</small></span></button></div><div class="approval-footer"><p class="hint">Choose an action, then press Confirm.</p><button type="button" class="confirm">Confirm</button></div>';
     let choice = 'once';
     card.querySelectorAll('[data-choice]').forEach((button) => {
-      button.onclick = () => { choice = button.dataset.choice || 'once'; card.querySelectorAll('[data-choice]').forEach((candidate) => candidate.classList.toggle('selected', candidate === button)); };
+      button.onclick = () => {
+        choice = button.dataset.choice || 'once';
+        card.dataset.choice = choice;
+        card.querySelectorAll('[data-choice]').forEach((candidate) => candidate.classList.toggle('selected', candidate === button));
+      };
     });
-    card.querySelector('.confirm').onclick = () => {
+    const resolveApproval = () => {
+      if (card.dataset.resolved === '1') return;
+      card.dataset.resolved = '1';
+      choice = card.dataset.choice || choice;
       card.remove();
       const current = tabs.get(tabID);
       if (choice === 'deny') {
@@ -3850,9 +4607,19 @@ if (vampPairFromURL) {
         return;
       }
       if (choice === 'always' && current) { current.approvals ||= new Set(); current.approvals.add(value); }
-      if (sendInput(tabID, value + '\r')) { setActiveDraft(''); appendCommand(value, choice === 'always' ? 'Always allowed · running' : 'Running', tabID); }
+      const sent = current?.agent && vampStructuredProviders.has(current.agent)
+        ? sendAgentPrompt(tabID, value)
+        : sendInput(tabID, value + '\r');
+      if (sent) { setActiveDraft(''); appendCommand(value, choice === 'always' ? 'Always allowed · running' : 'Running', tabID); }
       else { if (choice === 'always' && current) current.approvals.delete(value); setActiveDraft(value); addMessage('<div class="badge">The host connection closed before the command was sent. Try again.</div>', tabID); }
     };
+    card.querySelector('.confirm').onclick = resolveApproval;
+    // Mobile Safari can retarget a tap while the visual viewport is settling
+    // after composer blur. A delegated fallback keeps Confirm functional even
+    // when the original button's direct click is lost during that reflow.
+    card.addEventListener('pointerup', (event) => {
+      if (event.target.closest('.confirm')) resolveApproval();
+    });
     const stick = isNearBottom();
     chat.appendChild(card);
     filterTabContent();

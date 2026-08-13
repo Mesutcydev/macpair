@@ -19,7 +19,7 @@ struct VampTerminalHostApp: App {
     @NSApplicationDelegateAdaptor(VampTerminalHostAppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        WindowGroup(id: "main") {
+        Window("Vamp Terminal Host", id: "main") {
             VampTerminalHostShellView(environment: environment)
                 .background {
                     VampTerminalHostWindowAccessor { window in

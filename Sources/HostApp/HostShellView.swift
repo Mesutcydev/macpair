@@ -488,7 +488,11 @@ private struct HostMinimalDashboard: View {
     }
 
     private var heroPrimaryText: String {
-        if !permissionsViewModel.blockers.isEmpty { return "Setup required" }
+        // An active authenticated session is the primary state. Permission
+        // reminders remain available in setup, but must not make a live host
+        // look broken or disconnected.
+        if sessionCoordinator.phase != .streaming,
+           !permissionsViewModel.blockers.isEmpty { return "Setup required" }
         switch sessionCoordinator.phase {
         case .streaming:
             return sessionCoordinator.connectedClientName.map { "Streaming to \($0)" } ?? "Streaming"
@@ -926,7 +930,8 @@ private struct HostMinimalDashboard: View {
     }
 
     private var headerStateLabel: LocalizedStringKey {
-        if !permissionsViewModel.blockers.isEmpty { return "SETUP" }
+        if sessionCoordinator.phase != .streaming,
+           !permissionsViewModel.blockers.isEmpty { return "SETUP" }
         switch sessionCoordinator.phase {
         case .streaming:                                                          return "LIVE"
         case .advertising, .awaitingClient:                                       return "READY"
@@ -937,7 +942,8 @@ private struct HostMinimalDashboard: View {
     }
 
     private var statusColor: Color {
-        if !permissionsViewModel.blockers.isEmpty { return AppColor.warning }
+        if sessionCoordinator.phase != .streaming,
+           !permissionsViewModel.blockers.isEmpty { return AppColor.warning }
         switch sessionCoordinator.phase {
         case .streaming:                    return AppColor.primaryAccent
         case .advertising, .awaitingClient: return AppColor.success
@@ -947,7 +953,8 @@ private struct HostMinimalDashboard: View {
     }
 
     private var statusTitle: String {
-        if !permissionsViewModel.blockers.isEmpty { return "Setup Required" }
+        if sessionCoordinator.phase != .streaming,
+           !permissionsViewModel.blockers.isEmpty { return "Setup Required" }
         switch sessionCoordinator.phase {
         case .streaming:
             return sessionCoordinator.connectedClientName.map { "Connected to \($0)" } ?? "Streaming"

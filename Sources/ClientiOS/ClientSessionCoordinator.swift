@@ -124,6 +124,7 @@ final class ClientSessionCoordinator: ObservableObject {
     /// is intentionally distinct from terminal output and is routed by the
     /// authenticated session plus terminal ID.
     var onTaskPlanEvent: ((SessionTaskEventMessage) -> Void)?
+    var onProviderSemanticEvent: ((ProviderSemanticEventMessage) -> Void)?
     var refreshEndpoint: ((ResolvedHostEndpoint) -> ResolvedHostEndpoint?)?
     /// Returns every distinct address we know for the physical host behind an endpoint
     /// (LAN + Tailscale relay sibling), ordered best-first. Used so reconnect can sweep
@@ -1376,6 +1377,13 @@ final class ClientSessionCoordinator: ObservableObject {
                        envelope.sessionID == message.sessionID,
                        message.sessionID == self.activeSessionID {
                         self.onTaskPlanEvent?(message)
+                    }
+                case .providerSemanticEvent:
+                    guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
+                    if let message = try? envelope.decodeProviderSemanticEvent(),
+                       envelope.sessionID == message.sessionID,
+                       message.sessionID == self.activeSessionID {
+                        self.onProviderSemanticEvent?(message)
                     }
                 default:
                     break

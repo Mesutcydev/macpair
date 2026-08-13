@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import collections
 import hashlib
 import http.server
 import json
@@ -28,10 +29,13 @@ from pathlib import Path
 from typing import Any
 
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 DEFAULT_PORT = 9475
 DEFAULT_MAX_TERMINALS = 8
 PAIRING_TTL_SECONDS = 600
+PAIRED_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
+PAIRING_MAX_ATTEMPTS = 8
+PAIRING_ATTEMPT_WINDOW_SECONDS = 60
 ROOT = Path(__file__).resolve().parent
 
 
@@ -77,6 +81,8 @@ def read_websocket_frame(sock: socket.socket) -> tuple[int, bytes]:
     first, second = read_exact(sock, 2)
     opcode = first & 0x0F
     masked = bool(second & 0x80)
+    if not masked:
+        raise ValueError("client websocket frames must be masked")
     length = second & 0x7F
     if length == 126:
         length = struct.unpack("!H", read_exact(sock, 2))[0]
@@ -97,38 +103,52 @@ class PairingState:
         self._lock = threading.Lock()
         self.code = ""
         self.expires_at = 0.0
-        self.token = ""
+        self._tokens: dict[str, float] = {}
         self.rotate()
 
     def rotate(self) -> None:
         with self._lock:
             self.code = f"{secrets.randbelow(1_000_000):06d}"
             self.expires_at = now() + PAIRING_TTL_SECONDS
-            self.token = ""
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
             return {
-                "code": self.code,
                 "expiresAt": self.expires_at,
-                "paired": bool(self.token and self.expires_at > now()),
+                "pairedClients": len(self._valid_tokens_locked()),
             }
 
-    def pair(self, code: str) -> str | None:
+    def pair(self, code: str) -> tuple[str, float] | None:
         with self._lock:
             if now() > self.expires_at or not secrets.compare_digest(code.strip(), self.code):
                 return None
-            self.token = secrets.token_urlsafe(32)
+            token = secrets.token_urlsafe(32)
+            token_expires_at = now() + PAIRED_TOKEN_TTL_SECONDS
+            self._tokens[self._digest(token)] = token_expires_at
+            # A pairing code is a one-time approval, never a reusable password.
+            self.code = f"{secrets.randbelow(1_000_000):06d}"
             self.expires_at = now() + PAIRING_TTL_SECONDS
-            return self.token
+            return token, token_expires_at
 
     def valid_token(self, token: str) -> bool:
         with self._lock:
-            return bool(
-                self.token
-                and now() < self.expires_at
-                and secrets.compare_digest(token, self.token)
-            )
+            self._valid_tokens_locked()
+            digest = self._digest(token)
+            expires_at = self._tokens.get(digest, 0)
+            return bool(token and now() < expires_at)
+
+    @staticmethod
+    def _digest(token: str) -> str:
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    def _valid_tokens_locked(self) -> dict[str, float]:
+        current = now()
+        self._tokens = {
+            digest: expires_at
+            for digest, expires_at in self._tokens.items()
+            if expires_at > current
+        }
+        return self._tokens
 
 
 class TerminalConnection:
@@ -170,7 +190,12 @@ class TerminalConnection:
             return
 
         title = str(payload.get("title") or "Terminal")[:80]
-        terminal = PtyTerminal(self, terminal_id, title)
+        try:
+            working_directory = self.host.resolve_workspace(payload.get("workingDirectory"))
+        except ValueError as error:
+            self.send_error("invalid-workspace", str(error), terminal_id)
+            return
+        terminal = PtyTerminal(self, terminal_id, title, working_directory)
         self.terminals[terminal_id] = terminal
         try:
             terminal.start()
@@ -183,12 +208,16 @@ class TerminalConnection:
             "type": "terminalReady",
             "terminalID": terminal_id,
             "title": title,
+            "workingDirectory": str(working_directory),
             "capabilities": {
                 "supportsTerminal": True,
                 "supportsMultipleTerminals": True,
                 "maxTerminals": self.host.max_terminals,
                 "supportsClipboard": True,
                 "supportsResize": True,
+                "supportsWorkspaces": True,
+                "supportsChat": False,
+                "supportsTaskPlans": False,
             },
         })
         command = payload.get("command")
@@ -246,6 +275,9 @@ class TerminalConnection:
         if message_type == "clipboardGet":
             self.send({"type": "clipboard", "data": self.host.clipboard})
             return
+        if message_type == "listWorkspaces":
+            self.send({"type": "workspaceList", "workspaces": self.host.workspace_roots()})
+            return
         if message_type == "ping":
             self.send({"type": "pong"})
             return
@@ -258,6 +290,7 @@ class TerminalConnection:
                 "product": "Vamp Terminal Linux Host",
                 "protocolVersion": 1,
                 "maxTerminals": self.host.max_terminals,
+                "capabilities": self.host.capabilities(),
             })
             while not self.stop_event.is_set():
                 opcode, raw = read_websocket_frame(self.sock)
@@ -286,10 +319,11 @@ class TerminalConnection:
 
 
 class PtyTerminal:
-    def __init__(self, connection: TerminalConnection, terminal_id: str, title: str) -> None:
+    def __init__(self, connection: TerminalConnection, terminal_id: str, title: str, working_directory: Path) -> None:
         self.connection = connection
         self.terminal_id = terminal_id
         self.title = title
+        self.working_directory = working_directory
         self.pid: int | None = None
         self.fd: int | None = None
         self.closed = threading.Event()
@@ -298,9 +332,13 @@ class PtyTerminal:
         pid, fd = pty.fork()
         if pid == 0:
             shell = os.environ.get("SHELL", "/bin/bash")
+            if not os.path.isabs(shell) or not os.access(shell, os.X_OK):
+                shell = "/bin/bash"
             environment = os.environ.copy()
-            environment.setdefault("TERM", "xterm-256color")
+            environment["TERM"] = "xterm-256color"
+            environment["COLORTERM"] = "truecolor"
             environment["VAMP_TERMINAL"] = "1"
+            os.chdir(self.working_directory)
             os.execvpe(shell, [shell, "-l"], environment)
         self.pid = pid
         self.fd = fd
@@ -336,6 +374,7 @@ class PtyTerminal:
                 os.killpg(self.pid, signal.SIGTERM)
             except OSError:
                 pass
+            threading.Thread(target=self._reap, name=f"vamp-reap-{self.terminal_id}", daemon=True).start()
         if self.fd is not None:
             try:
                 os.close(self.fd)
@@ -353,7 +392,8 @@ class PtyTerminal:
                 self.connection.send({
                     "type": "terminalOutput",
                     "terminalID": self.terminal_id,
-                    "data": output.decode("utf-8", errors="replace"),
+                    "encoding": "base64",
+                    "data": base64.b64encode(output).decode("ascii"),
                 })
         except OSError:
             pass
@@ -361,6 +401,15 @@ class PtyTerminal:
             if not self.closed.is_set():
                 self.closed.set()
                 self.connection.terminal_exited(self.terminal_id, "process-exited")
+            threading.Thread(target=self._reap, name=f"vamp-reap-{self.terminal_id}", daemon=True).start()
+
+    def _reap(self) -> None:
+        if not self.pid:
+            return
+        try:
+            os.waitpid(self.pid, 0)
+        except ChildProcessError:
+            pass
 
 
 class VampTerminalHost:
@@ -370,6 +419,47 @@ class VampTerminalHost:
         self.clipboard = ""
         self._lock = threading.Lock()
         self.connections: set[TerminalConnection] = set()
+
+    def capabilities(self) -> dict[str, Any]:
+        return {
+            "terminal": True,
+            "multipleTerminals": True,
+            "maxTerminals": self.max_terminals,
+            "clipboard": True,
+            "resize": True,
+            "workspaces": True,
+            # The small Linux host does not claim macOS semantic-agent features.
+            "chat": False,
+            "taskPlans": False,
+            "remoteControl": False,
+        }
+
+    def workspace_roots(self) -> list[dict[str, str]]:
+        home = Path.home().resolve()
+        candidates = [("Home", home)] + [
+            (name, home / name)
+            for name in ("Desktop", "Documents", "Downloads", "Developer", "Projects", "Sites")
+        ]
+        return [
+            {"name": name, "path": str(path.resolve())}
+            for name, path in candidates
+            if path.is_dir() and os.access(path, os.R_OK | os.X_OK)
+        ]
+
+    def resolve_workspace(self, raw_path: Any) -> Path:
+        home = Path.home().resolve()
+        if raw_path in (None, "", "~"):
+            return home
+        if not isinstance(raw_path, str) or "\x00" in raw_path:
+            raise ValueError("The workspace path is invalid")
+        candidate = Path(os.path.expanduser(raw_path)).resolve(strict=True)
+        if not candidate.is_dir():
+            raise ValueError("The workspace is not a directory")
+        if candidate != home and home not in candidate.parents:
+            raise ValueError("The workspace must be inside the current user's home directory")
+        if not os.access(candidate, os.R_OK | os.X_OK):
+            raise ValueError("The workspace is not readable")
+        return candidate
 
     def add_connection(self, connection: TerminalConnection) -> None:
         with self._lock:
@@ -391,6 +481,7 @@ class VampTerminalHost:
             "connections": connection_count,
             "terminals": terminal_count,
             "pairing": self.pairing.snapshot(),
+            "capabilities": self.capabilities(),
         }
 
     def close(self) -> None:
@@ -416,6 +507,8 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
         self.end_headers()
         self.wfile.write(body)
 
@@ -437,6 +530,9 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         if parsed.path != "/api/pair":
             self._send_json(404, {"error": "not-found"})
             return
+        if not self.server.allow_pair_attempt(self.client_address[0]):
+            self._send_json(429, {"error": "too-many-attempts"})
+            return
         try:
             length = int(self.headers.get("Content-Length", "0"))
             if length > 8_192:
@@ -446,11 +542,17 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         except (ValueError, TypeError, json.JSONDecodeError):
             self._send_json(400, {"error": "invalid-json"})
             return
-        token = self.server.host.pairing.pair(code)
-        if token is None:
+        pairing_result = self.server.host.pairing.pair(code)
+        if pairing_result is None:
             self._send_json(403, {"error": "invalid-or-expired-code"})
             return
-        self._send_json(200, {"token": token, "expiresAt": self.server.host.pairing.expires_at})
+        token, token_expires_at = pairing_result
+        print(
+            f"New pairing code: {self.server.host.pairing.code} "
+            f"(expires in {PAIRING_TTL_SECONDS // 60} minutes)",
+            flush=True,
+        )
+        self._send_json(200, {"token": token, "expiresAt": token_expires_at})
 
     def _serve_file(self, path: Path, content_type: str) -> None:
         try:
@@ -462,6 +564,10 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:; frame-ancestors 'none'")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
         self.end_headers()
         self.wfile.write(body)
 
@@ -494,7 +600,20 @@ class VampHTTPServer(http.server.ThreadingHTTPServer):
 
     def __init__(self, address: tuple[str, int], host: VampTerminalHost) -> None:
         self.host = host
+        self._pair_attempts: dict[str, collections.deque[float]] = {}
+        self._pair_attempts_lock = threading.Lock()
         super().__init__(address, RequestHandler)
+
+    def allow_pair_attempt(self, address: str) -> bool:
+        current = now()
+        with self._pair_attempts_lock:
+            attempts = self._pair_attempts.setdefault(address, collections.deque())
+            while attempts and attempts[0] <= current - PAIRING_ATTEMPT_WINDOW_SECONDS:
+                attempts.popleft()
+            if len(attempts) >= PAIRING_MAX_ATTEMPTS:
+                return False
+            attempts.append(current)
+            return True
 
 
 def parse_args() -> argparse.Namespace:

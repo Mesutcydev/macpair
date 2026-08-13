@@ -6,10 +6,25 @@ import { dirname, join } from 'node:path';
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const sourcePath = join(testDirectory, '..', 'Sources', 'HostApp', 'HostBrowserControlService.swift');
 const source = await readFile(sourcePath, 'utf8');
+
+// CSS is embedded inside JavaScript template literals. A backtick in a CSS
+// comment closes the template and aborts the final Chat/Terminal enhancement
+// script, silently falling back to legacy shell-style browser behavior.
+const browserEnhancementStart = source.indexOf('// The browser client is a task stream');
+assert.ok(browserEnhancementStart >= 0, 'browser enhancement script is present');
+const browserEnhancement = source.slice(browserEnhancementStart);
+const styleAssignments = [...browserEnhancement.matchAll(/\.textContent = `([\s\S]*?)`;\n/g)];
+assert.ok(styleAssignments.length >= 3, 'browser enhancement style templates are intact');
+for (const match of styleAssignments) {
+  assert.equal(match[1].includes('`'), false, 'embedded CSS must not contain a template-closing backtick');
+}
 assert.match(source, /sendInput\(tabID, value \+ '\\r'\)/, 'browser composer submits PTY Enter as carriage return');
 assert.doesNotMatch(source, /sendInput\(tabID, value \+ '\\n'\)/, 'browser composer must not use LF for interactive Enter');
 assert.match(source, /globalThis\.crypto\.randomUUID\(\)\.toLowerCase\(\)/, 'Safari UUIDs are canonicalized when tabs are created');
 assert.match(source, /const id = vampTerminalKey\(vampNewUUID\(\)\)/, 'terminal Map keys use the wire identity canonicalizer');
+assert.match(source, /const sessionAgent = agent \|\| knownAgentTitles\[title\] \|\| null;/, 'known launcher titles preserve semantic agent identity across workspace presentation');
+assert.match(source, /agent: sessionAgent,/, 'tabs store the recovered semantic agent identity');
+assert.match(source, /setVampPresentation\(tab\?\.agent \? 'chat' : 'terminal'\)/, 'presentation follows canonical tab agent identity');
 assert.match(source, /The shell did not acknowledge startup/, 'a missing terminal-ready event becomes an actionable error instead of infinite Opening');
 const classStart = source.indexOf('class VampBrowserVT');
 const classEnd = source.indexOf('\n\nconst vampNextTerminalTitle', classStart);
@@ -47,7 +62,7 @@ assert.match(source, /\.shell\.vamp-keyboard-open \.composer \{[\s\S]*?position:
 assert.match(source, /\.shell\.vamp-keyboard-open \.task-context \{ display: flex !important; \}/);
 assert.match(source, /\.shell\.vamp-keyboard-open \.tabs \{ display: flex !important; \}/);
 assert.match(source, /\.shell\.vamp-keyboard-open \.content \{[\s\S]*?overflow-x: hidden !important;[\s\S]*?overflow-y: auto !important;/);
-assert.match(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-open \.stream-card\.output-message \.rich-body \{[\s\S]*?max-height: 132px !important;[\s\S]*?overflow: auto !important;/);
+assert.doesNotMatch(source, /body:not\(\.vamp-terminal-mode\) \.shell\.vamp-keyboard-open \.stream-card\.output-message \.rich-body \{[\s\S]*?max-height: 132px !important;/, 'keyboard focus does not independently resize the active response card');
 assert.doesNotMatch(source, /\.shell:has\(\.composer input:focus\) \.task-context,[\s\S]*?\.shell:has\(\.composer input:focus\) \.tabs \{[\s\S]*?display: none !important;/, 'focus does not replace the task hierarchy while Safari animates the keyboard');
 assert.match(source, /if \(!terminalMode && !tab\.lastSubmittedCommand\) semanticSnapshot = '';/, 'unsolicited PTY startup output stays out of Chat');
 assert.match(source, /body\.vamp-terminal-mode \.stream-card-head,[\s\S]*?body\.vamp-terminal-mode \.open-terminal-preview \{[\s\S]*?display: none !important;/);
@@ -55,8 +70,18 @@ assert.match(source, /const selected = navigation\.querySelector\('\.tab\.active
 assert.match(source, /navigation\.scrollLeft = Math\.min\(/);
 assert.match(source, /const keyboardOpen = composerHasFocus \|\| viewportContracted/);
 assert.match(source, /event\.target === \$\('input'\)[\s\S]*?composerHasFocus = true;[\s\S]*?keyboardViewportUpdate\(\)/);
-assert.match(source, /keyboardWasNearLatest = content\.scrollHeight - content\.scrollTop - content\.clientHeight < 96;/, 'keyboard opening records whether the user was following the latest response');
-assert.match(source, /keyboardWasNearLatest \? content\.scrollHeight : keyboardScrollAnchor/, 'focused composer restores the existing conversation anchor');
+assert.match(source, /const pageTop = Number\.isFinite\(viewport\?\.pageTop\)[\s\S]*?setProperty\('--vamp-vv-top', Math\.round\(pageTop\) \+ 'px'\)/, 'the workspace canvas follows WebKit visual viewport page coordinates');
+assert.doesNotMatch(source, /keyboardAnchorTimers|restoreKeyboardScrollAnchor/, 'keyboard transitions do not run delayed scroll corrections');
+assert.match(source, /html \{[\s\S]*?position: fixed !important;[\s\S]*?overflow: hidden !important;[\s\S]*?body \{[\s\S]*?position: fixed !important;[\s\S]*?overflow: hidden !important;/, 'the Safari layout document is fixed and cannot be panned by input focus');
+assert.match(source, /\.content \{[\s\S]*?min-height: 0 !important;[\s\S]*?overflow-x: hidden !important;[\s\S]*?overflow-y: auto !important;/, 'the bounded conversation remains the sole vertical scroll owner');
+assert.match(source, /window\.addEventListener\('scroll', lockLayoutViewport/, 'Safari layout scrolling is corrected at the document boundary');
+assert.match(source, /window\.visualViewport\?\.addEventListener\('scroll',[\s\S]*?lockLayoutViewport\(\);[\s\S]*?keyboardViewportUpdate\(\);/, 'visual viewport panning is corrected before keyboard geometry is applied');
+assert.match(source, /@media \(min-width: 900px\) \{[\s\S]*?width: min\(calc\(100vw - 80px\), 1120px\) !important;[\s\S]*?margin-inline: auto !important;[\s\S]*?transform: none !important;/, 'desktop workspace uses layout-viewport geometry and normal-flow centering');
+assert.doesNotMatch(source, /@media \(min-width: 900px\) \{[\s\S]{0,1200}?height: calc\(var\(--vamp-visual-height/, 'desktop workspace height does not inherit a stale mobile VisualViewport value');
+assert.doesNotMatch(source, /if \(tab\.readyNotified\) return;/, 'duplicate ready events must repair a missing browser projection');
+assert.match(source, /const firstReady = !tab\.readyNotified;/, 'ready handling distinguishes one-shot queued input from idempotent UI repair');
+assert.match(source, /\$\('input'\)\.addEventListener\('pointerdown',[\s\S]*?event\.preventDefault\(\);[\s\S]*?focus\(\{ preventScroll: true \}\)/, 'composer uses trusted prevent-scroll focus on iOS Safari');
+assert.doesNotMatch(source, /focusin[\s\S]{0,500}scrollLatest\(true\)/, 'focusing the composer preserves the current conversation position');
 const appendCommandStart = source.indexOf('appendCommand = (value, status, tabID = active) =>');
 const reviewCommandStart = source.indexOf('\nreviewCommand = () =>', appendCommandStart);
 assert.ok(appendCommandStart >= 0 && reviewCommandStart > appendCommandStart, 'appendCommand boundary is present');
@@ -67,6 +92,7 @@ const activeReviewCommandStart = source.indexOf('\n  reviewCommand = () =>', act
 assert.ok(activeAppendCommandStart >= 0 && activeReviewCommandStart > activeAppendCommandStart, 'active appendCommand override boundary is present');
 assert.equal(source.slice(activeAppendCommandStart, activeReviewCommandStart).includes('tab.outputCard = null'), false, 'active browser handler preserves the stable stream card');
 assert.match(source.slice(activeAppendCommandStart, activeReviewCommandStart), /tab\.responseSemantic = new VampSemanticStream\(\);[\s\S]*?tab\.responseText = '';/, 'each Chat submission starts a fresh semantic response segment');
+assert.match(source, /structuredAgent = Boolean\(tab\.agent && vampStructuredProviders\.has\(tab\.agent\)\)[\s\S]*?if \(tab\.responseSemantic && !structuredAgent\)/, 'structured agent Chat must never consume PTY\/TUI bytes');
 assert.match(source.slice(activeAppendCommandStart, activeReviewCommandStart), /chat\.appendChild\(tab\.outputCard\)/, 'the stable response card moves after its user request');
 
 const escapeHTML = (value) => String(value)

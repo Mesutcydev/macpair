@@ -70,13 +70,8 @@ struct VampTerminalPaneView: View {
         .opacity(isActive ? 1 : 0.001)
         .allowsHitTesting(isActive && !isPreview)
         .accessibilityHidden(!isActive)
-        .onAppear {
-            if isActive && !isPreview { input.focus() }
-        }
         .onChange(of: isActive) { _, active in
-            if active && !isPreview {
-                input.focus()
-            } else {
+            if !active {
                 input.blur()
             }
         }
@@ -84,8 +79,6 @@ struct VampTerminalPaneView: View {
             guard isActive else { return }
             if preview {
                 input.blur()
-            } else {
-                input.focus()
             }
         }
         .onDisappear {
@@ -383,7 +376,7 @@ private struct VampTerminalEmptyState: View {
 
 @MainActor
 final class VampTerminalInputController: ObservableObject {
-    @Published var isKeyboardVisible = true
+    @Published var isKeyboardVisible = false
     @Published var ctrlActive = false
     @Published var metaActive = false
 

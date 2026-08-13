@@ -167,6 +167,7 @@
 		EE8BF5BFD2BA38E60A40EDBF /* ErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38197EB6320CB02185422B62 /* ErrorBanner.swift */; };
 		F004A8350EA0B3E6632EB39F /* PRTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EEB576B857D412E9A819B95 /* PRTabBar.swift */; };
 		F0A590A3B563B96CCDCEDE37 /* HostTerminalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A9C3F82AAEDD1C40FB44BDA /* HostTerminalService.swift */; };
+		F0A590A3B563B96CCDCEDE38 /* HostAgentSemanticService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A9C3F82AAEDD1C40FB44BDB /* HostAgentSemanticService.swift */; };
 		F0C1448BEE4F10AE1FCA2EE4 /* HostAppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC5D080852BD2D052359900 /* HostAppEnvironment.swift */; };
 		F11255014ECC2E2BE2C2AD86 /* PRTerminalLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2362B3DEF6561E861CCC5F64 /* PRTerminalLine.swift */; };
 		F16D2FC35EF054A954D97E29 /* HostActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6235AD86CA6772C36D7FBC78 /* HostActionButton.swift */; };
@@ -280,6 +281,7 @@
 		793096FA7CF9657B352099BC /* ClientFileTransferManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientFileTransferManager.swift; sourceTree = "<group>"; };
 		7A702848993DB19DEA38E297 /* HostAppLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostAppLogo.swift; sourceTree = "<group>"; };
 		7A9C3F82AAEDD1C40FB44BDA /* HostTerminalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostTerminalService.swift; sourceTree = "<group>"; };
+		7A9C3F82AAEDD1C40FB44BDB /* HostAgentSemanticService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostAgentSemanticService.swift; sourceTree = "<group>"; };
 		7BA1FC6ADD94345B0F49170A /* HostPerformanceMonitoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPerformanceMonitoring.swift; sourceTree = "<group>"; };
 		7D8C51B5818A4BB67162D1C3 /* ScreenAIToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenAIToolsView.swift; sourceTree = "<group>"; };
 		7F768BD5C4ECA669FC0DE54D /* SectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionHeader.swift; sourceTree = "<group>"; };
@@ -673,6 +675,7 @@
 				178C884EFB23D22459562B8E /* HostShellView.swift */,
 				1106DF457830D8DB494D255B /* HostStreamingCoordinator.swift */,
 				7A9C3F82AAEDD1C40FB44BDA /* HostTerminalService.swift */,
+				7A9C3F82AAEDD1C40FB44BDB /* HostAgentSemanticService.swift */,
 				4CF517FC3CBBE72919EC7B3E /* HostWakeReadiness.swift */,
 				7033FA86737A2EC951EA729C /* HostWakeReadinessCard.swift */,
 				BCB6FD88ECA4A3C92D9623E3 /* HostWidgetBridge.swift */,
@@ -1027,6 +1030,7 @@
 				CC411292A80E0AC8175D3693 /* HostStatusChip.swift in Sources */,
 				3C996A4696C8067F6B2318F0 /* HostStreamingCoordinator.swift in Sources */,
 				F0A590A3B563B96CCDCEDE37 /* HostTerminalService.swift in Sources */,
+				F0A590A3B563B96CCDCEDE38 /* HostAgentSemanticService.swift in Sources */,
 				E1BB00000000000000000001 /* HostProductMode.swift in Sources */,
 				3D11D2CFF21A842B4D1E7528 /* HostWakeReadiness.swift in Sources */,
 				F5543EB4165394B4E788B5F5 /* HostWakeReadinessCard.swift in Sources */,
@@ -1261,7 +1265,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/MacHost-AppStore.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 30;
+			CURRENT_PROJECT_VERSION = 32;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1398,7 +1402,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/MacHost-AppStore.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 30;
+			CURRENT_PROJECT_VERSION = 32;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1474,7 +1478,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminal.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_POINTER_AUTHENTICATION = NO;
-			CURRENT_PROJECT_VERSION = 30;
+			CURRENT_PROJECT_VERSION = 32;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Configuration/VampTerminal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1500,7 +1504,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminal.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_POINTER_AUTHENTICATION = NO;
-			CURRENT_PROJECT_VERSION = 30;
+			CURRENT_PROJECT_VERSION = 32;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Configuration/VampTerminal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1527,7 +1531,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminalHost.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 30;
+			CURRENT_PROJECT_VERSION = 32;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1554,7 +1558,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminalHost.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 30;
+			CURRENT_PROJECT_VERSION = 32;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;

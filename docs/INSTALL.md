@@ -5,22 +5,22 @@ four separate install surfaces:
 
 | Surface | Artifact | Use it for |
 | --- | --- | --- |
-| iPhone / iPad | `VampTerminal-iOS-2.0.0-build-30-altstore-unsigned.ipa` | Multi-tab terminal client |
+| iPhone / iPad | `VampTerminal-iOS-2.0.0-build-32-altstore-unsigned.ipa` | Multi-tab terminal client |
 | iPhone / iPad | `VampRemote-iOS-3.7.2-build-36-altstore-unsigned.ipa` | Vamp Host remote-control client |
 | macOS | `VampRemote-macOS-1.3.15-build-32-unsigned.zip` | Vamp Host remote-control client |
-| macOS | `VampHost-macOS-2.0.0-build-29-adhoc.zip` | Full Vamp Host: remote clients plus optional Terminal Mode |
-| macOS | `VampTerminalHost-macOS-2.0.0-build-29-adhoc.zip` | Terminal-only host with Safari control and Tailscale |
+| macOS | `VampHost-macOS-2.0.0-build-32-adhoc.zip` | Full Vamp Host: remote clients plus optional Terminal Mode |
+| macOS | `VampTerminalHost-macOS-2.0.0-build-32-adhoc.zip` | Terminal-only host with Safari control and Tailscale |
 | Linux | `linux-host/vamp_terminal_host.py` | Browser-only terminal host |
 
 The current downloads are in the [latest Vamp Suite GitHub release](https://github.com/Mesutcydev/macpair/releases/latest).
 
 ## 1. Install the iPhone or iPad client
 
-1. Download the [latest Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.0.0-build-30-altstore-unsigned.ipa) and its `.sha256` file from the same release.
+1. Download the [latest Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.0.0-build-32-altstore-unsigned.ipa) and its `.sha256` file from the same release.
 2. Verify the download:
 
    ```sh
-   shasum -a 256 -c VampTerminal-iOS-2.0.0-build-30-altstore-unsigned.ipa.sha256
+   shasum -a 256 -c VampTerminal-iOS-2.0.0-build-32-altstore-unsigned.ipa.sha256
    ```
 
 3. Import the IPA in AltStore with **+ → Sideload IPA**.
@@ -45,8 +45,8 @@ The current Vamp Remote builds are attached to the [latest Vamp Suite release](h
 
 Download one of the ad-hoc signed ZIPs:
 
-- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.0.0-build-29-adhoc.zip) for remote display, remote input, remote clients, and optional Terminal Mode.
-- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.0.0-build-29-adhoc.zip) for terminal tabs, Safari control, pairing, and Tailscale only.
+- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.0.0-build-32-adhoc.zip) for remote display, remote input, remote clients, and optional Terminal Mode.
+- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.0.0-build-32-adhoc.zip) for terminal tabs, Safari control, pairing, and Tailscale only.
 
 Then:
 
@@ -78,7 +78,21 @@ ends.
 
 ## 4. Run the Linux host
 
-The Linux host is a dependency-light Python browser host:
+The Linux host is a dependency-free Python browser host. Download and extract
+the latest archive, then install it without root access:
+
+```sh
+./install.sh
+vamp-terminal-host
+```
+
+To build the archive locally:
+
+```sh
+scripts/package-vamp-linux-host.sh
+```
+
+For a source checkout, it can also be run directly:
 
 ```sh
 scripts/vamp-linux-host --listen 127.0.0.1 --port 9475
@@ -92,7 +106,8 @@ tailscale serve --bg http://127.0.0.1:9475
 ```
 
 See [`linux-host/README.md`](../linux-host/README.md) for the Linux-specific
-requirements and pairing flow.
+requirements, user-level systemd service, and pairing flow. Pairing codes are
+single-use; after a successful pair the host prints the replacement code.
 
 ## 5. Build the current artifacts
 
@@ -101,6 +116,7 @@ Run these commands from the repository root on macOS with Xcode installed:
 ```sh
 scripts/package-vamp-terminal-ios.sh --clean
 scripts/package-vamp-hosts.sh --clean
+scripts/package-vamp-linux-host.sh
 ```
 
 The active project is `RemoteDesktopToolApps.xcodeproj`. The generated files

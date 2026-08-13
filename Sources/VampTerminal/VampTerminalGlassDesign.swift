@@ -144,7 +144,18 @@ extension VampAgentProvider {
         } else {
             scopedSessionName = sessionName
         }
-        return ("tmux", ["new-session", "-A", "-s", scopedSessionName, "--", executable])
+        if resumeMode == .resumePrevious {
+            return ("tmux", ["new-session", "-A", "-s", scopedSessionName, "--", executable])
+        }
+
+        // `tmux new-session -A` means "attach if this name already exists".
+        // Using it for a user-selected *New session* silently reused stale or
+        // wedged agents and left the UI connected to a process that could not
+        // answer. Replace that named session first, then exec a clean one.
+        // The command is an app-owned constant assembled only from this enum
+        // and a UUID-derived name; it is never user-authored terminal input.
+        let command = "tmux kill-session -t \(Self.shellQuote(scopedSessionName)) 2>/dev/null || true; exec tmux new-session -s \(Self.shellQuote(scopedSessionName)) -- \(Self.shellQuote(executable))"
+        return ("zsh", ["-f", "-c", command])
     }
 
     private static func shellQuote(_ value: String) -> String {

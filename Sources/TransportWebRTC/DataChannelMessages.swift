@@ -59,6 +59,10 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
     /// separate from terminalOutput so VT repaint bytes cannot become Chat
     /// tasks by accident.
     case taskPlanEvent
+    /// Client → host: submit one semantic Chat prompt to a provider runner.
+    case agentPrompt
+    /// Host → client: provider-native semantic output for Chat/task cards.
+    case providerSemanticEvent
 
     /// One source of truth for the control-channel authentication contract.
     /// Any kind that can inject input, change host state, read/write host data,
@@ -71,7 +75,8 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
              .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
              .terminalResize, .terminalClose, .workspaceListRequest,
              .workspaceListResponse, .workspaceDirectoryRequest,
-             .workspaceDirectoryResponse, .taskPlanEvent:
+             .workspaceDirectoryResponse, .taskPlanEvent, .agentPrompt,
+             .providerSemanticEvent:
             return true
         default:
             return false
@@ -357,6 +362,22 @@ extension DataChannelEnvelope {
             payload: try makeEncoder().encode(message)
         )
     }
+
+    public static func agentPrompt(_ message: AgentPromptMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .agentPrompt,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func providerSemanticEvent(_ message: ProviderSemanticEventMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .providerSemanticEvent,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
 }
 
 // MARK: - Decoding Helpers
@@ -463,6 +484,14 @@ extension DataChannelEnvelope {
 
     public func decodeTerminalClose() throws -> TerminalCloseMessage {
         try Self.makeDecoder().decode(TerminalCloseMessage.self, from: payload)
+    }
+
+    public func decodeAgentPrompt() throws -> AgentPromptMessage {
+        try Self.makeDecoder().decode(AgentPromptMessage.self, from: payload)
+    }
+
+    public func decodeProviderSemanticEvent() throws -> ProviderSemanticEventMessage {
+        try Self.makeDecoder().decode(ProviderSemanticEventMessage.self, from: payload)
     }
 
     public func decodeWorkspaceListRequest() throws -> WorkspaceListRequestMessage {

@@ -9,7 +9,10 @@ import AppKit
 #if !VAMP_TERMINAL_HOST
 @main
 struct HostApp: App {
-    @StateObject private var environment = HostAppEnvironment.placeholder()
+    /// One process-wide owner prevents duplicate signaling/browser runtimes if
+    /// SwiftUI reconstructs the App value while restoring the window scene.
+    private static let hostEnvironment = HostAppEnvironment.placeholder()
+    @StateObject private var environment = hostEnvironment
     #if os(macOS)
     @StateObject private var closeBehaviorController = HostWindowCloseBehaviorController.shared
     @NSApplicationDelegateAdaptor(HostAppDelegate.self) private var appDelegate
@@ -20,7 +23,7 @@ struct HostApp: App {
     }
 
     var body: some Scene {
-        WindowGroup(id: "main") {
+        Window("Vamp Host", id: "main") {
             HostShellView(environment: environment)
             #if os(macOS)
                 .background(

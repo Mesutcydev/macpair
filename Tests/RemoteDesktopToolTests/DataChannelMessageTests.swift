@@ -110,6 +110,33 @@ final class DataChannelMessageTests: XCTestCase {
         XCTAssertEqual(decoded.event, message.event)
     }
 
+    func testProviderSemanticMessagesRoundTrip() throws {
+        let sessionID = UUID()
+        let terminalID = UUID()
+        let prompt = AgentPromptMessage(
+            sessionID: sessionID,
+            terminalID: terminalID,
+            provider: .claude,
+            prompt: "Run the tests",
+            workingDirectory: "/Users/test/Project"
+        )
+        let decodedPrompt = try DataChannelEnvelope.wireDecode(
+            try DataChannelEnvelope.agentPrompt(prompt).wireEncode()
+        ).decodeAgentPrompt()
+        XCTAssertEqual(decodedPrompt, prompt)
+
+        let output = ProviderSemanticEventMessage(
+            sessionID: sessionID,
+            terminalID: terminalID,
+            provider: .claude,
+            event: .messageDelta("Tests passed")
+        )
+        let decodedOutput = try DataChannelEnvelope.wireDecode(
+            try DataChannelEnvelope.providerSemanticEvent(output).wireEncode()
+        ).decodeProviderSemanticEvent()
+        XCTAssertEqual(decodedOutput, output)
+    }
+
     func testHostStatusRoundTrip() throws {
         let status = HostStatusMessage(
             hostID: UUID(),
@@ -223,7 +250,9 @@ final class DataChannelMessageTests: XCTestCase {
             .fileTransfer, .error, .qualityAdjust, .setActiveDisplays, .requestKeyframe,
             .unlockPassword, .audioFrame, .clipboardSync, .clipboardRequest,
             .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
-            .terminalResize, .terminalClose, .taskPlanEvent
+            .terminalResize, .terminalClose, .workspaceListRequest, .workspaceListResponse,
+            .workspaceDirectoryRequest, .workspaceDirectoryResponse, .taskPlanEvent,
+            .agentPrompt, .providerSemanticEvent
         ]
         for kind in allKinds {
             XCTAssertFalse(kind.rawValue.isEmpty, "\(kind) should have non-empty raw value")
@@ -236,7 +265,9 @@ final class DataChannelMessageTests: XCTestCase {
             .displaySwitch, .setActiveDisplays, .requestKeyframe,
             .unlockPassword, .clipboardSync, .clipboardRequest,
             .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
-            .terminalResize, .terminalClose, .taskPlanEvent
+            .terminalResize, .terminalClose, .workspaceListRequest, .workspaceListResponse,
+            .workspaceDirectoryRequest, .workspaceDirectoryResponse, .taskPlanEvent,
+            .agentPrompt, .providerSemanticEvent
         ]
         let allKinds: [DataChannelMessageKind] = [
             .controlAuth, .inputCommand, .ping, .pong, .hostStatus, .displayLayout,
@@ -244,7 +275,9 @@ final class DataChannelMessageTests: XCTestCase {
             .fileTransfer, .error, .qualityAdjust, .setActiveDisplays, .requestKeyframe,
             .unlockPassword, .audioFrame, .clipboardSync, .clipboardRequest,
             .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
-            .terminalResize, .terminalClose, .taskPlanEvent
+            .terminalResize, .terminalClose, .workspaceListRequest, .workspaceListResponse,
+            .workspaceDirectoryRequest, .workspaceDirectoryResponse, .taskPlanEvent,
+            .agentPrompt, .providerSemanticEvent
         ]
         for kind in allKinds {
             XCTAssertEqual(kind.requiresControlChannelAuthentication, authenticated.contains(kind), "Unexpected auth contract for \(kind)")
@@ -260,7 +293,9 @@ final class DataChannelMessageTests: XCTestCase {
             .chatMessage, .error, .qualityAdjust, .setActiveDisplays, .requestKeyframe,
             .unlockPassword, .audioFrame, .clipboardSync, .clipboardRequest,
             .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
-            .terminalResize, .terminalClose
+            .terminalResize, .terminalClose, .workspaceListRequest, .workspaceListResponse,
+            .workspaceDirectoryRequest, .workspaceDirectoryResponse, .taskPlanEvent,
+            .agentPrompt, .providerSemanticEvent
         ] {
             let data = try encoder.encode(kind)
             let decoded = try decoder.decode(DataChannelMessageKind.self, from: data)

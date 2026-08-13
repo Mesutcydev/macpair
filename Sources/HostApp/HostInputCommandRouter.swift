@@ -71,6 +71,7 @@ final class HostInputCommandRouter: @unchecked Sendable {
     var onTerminalInput: (@Sendable (TerminalInputMessage) -> Void)?
     var onTerminalResize: (@Sendable (TerminalResizeMessage) -> Void)?
     var onTerminalClose: (@Sendable (TerminalCloseMessage) -> Void)?
+    var onAgentPrompt: (@Sendable (AgentPromptMessage) -> Void)?
     /// Workspace discovery is host-local; these callbacks are only reached
     /// after the same authenticated session/timestamp validation as terminal
     /// input, so an unauthenticated peer cannot browse the filesystem.
@@ -283,6 +284,8 @@ final class HostInputCommandRouter: @unchecked Sendable {
                     await self.handleTerminalResizeEnvelope(envelope)
                 case .terminalClose:
                     await self.handleTerminalCloseEnvelope(envelope)
+                case .agentPrompt:
+                    await self.handleAgentPromptEnvelope(envelope)
                 case .workspaceListRequest:
                     await self.handleWorkspaceListRequestEnvelope(envelope)
                 case .workspaceDirectoryRequest:
@@ -355,7 +358,7 @@ final class HostInputCommandRouter: @unchecked Sendable {
         case .controlAuth, .ping, .pong,
              .clipboardSync, .clipboardRequest,
              .terminalOpen, .terminalInput, .terminalResize, .terminalClose,
-             .workspaceListRequest, .workspaceDirectoryRequest:
+             .workspaceListRequest, .workspaceDirectoryRequest, .agentPrompt:
             return true
         default:
             return false
@@ -460,6 +463,20 @@ final class HostInputCommandRouter: @unchecked Sendable {
             category: "Chat",
             message: "Chat message received from \(message.senderDisplayName) (\(message.text.count) chars)"
         ))
+    }
+
+    private func handleAgentPromptEnvelope(_ envelope: DataChannelEnvelope) async {
+        guard validateControlEnvelopeAuth(envelope),
+              let activeSessionID = withLock({ _activeSessionID }),
+              let message = try? envelope.decodeAgentPrompt(),
+              envelope.sessionID == activeSessionID,
+              message.sessionID == activeSessionID,
+              !message.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              message.prompt.utf8.count <= AgentPromptMessage.maxPromptBytes else {
+            rejectCommand(reason: "Invalid agent prompt")
+            return
+        }
+        onAgentPrompt?(message)
     }
 
     private func handleQualityAdjustEnvelope(_ envelope: DataChannelEnvelope) async {

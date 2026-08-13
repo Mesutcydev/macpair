@@ -35,6 +35,16 @@ enum VampAgentProvider: String, CaseIterable, Identifiable {
         case .grok: return "Grok"
         }
     }
+
+    var semanticProvider: AgentProviderKind? {
+        switch self {
+        case .grok: return .grok
+        case .openCode: return .openCode
+        case .claude: return .claude
+        case .codex, .chatGPT: return .codex
+        case .pi, .commandCode, .kimi, .qwen, .aider: return nil
+        }
+    }
 }
 
 /// Input origins keep semantic chat events separate from raw terminal bytes.
@@ -153,9 +163,14 @@ final class TerminalChatStore: ObservableObject {
     private let maxActivityEvents = 120
     private var alwaysAllowedCommands: Set<String> = []
     private var semanticStream = TerminalSemanticStreamDecoder()
+    /// A command-scoped projection used only after an exact Chat composer
+    /// submission. Interactive applications can repaint or clear text that
+    /// existed before submission, so slicing a lifetime transcript at a
+    /// String index is not a stable response boundary.
+    private var responseSemanticStream: TerminalSemanticStreamDecoder?
     private var latestSemanticText = ""
-    private var semanticBaseline = ""
     private var hasChatSubmission = false
+    private var lastSubmittedCommand: String?
 
     init(tabTitle: String, sessionID: UUID? = nil) {
         self.tabTitle = tabTitle
@@ -196,9 +211,14 @@ final class TerminalChatStore: ObservableObject {
     /// terminal screen. ANSI/OSC controls are consumed incrementally so split
     /// packets cannot leak escape fragments into cards.
     func appendOutput(_ data: Data, provider: VampAgentProvider? = nil) {
-        guard !data.isEmpty, let text = semanticStream.consume(data), !text.isEmpty else { return }
-        latestSemanticText = text
+        guard !data.isEmpty else { return }
+        let text = semanticStream.consume(data) ?? ""
+        if !text.isEmpty { latestSemanticText = text }
         finishOpeningMessage()
+        // Supported providers have a machine-readable semantic channel. Their
+        // PTY remains mounted for Terminal mode, but its cursor repaints and
+        // echoes must never be projected into Chat or task cards.
+        if provider?.semanticProvider != nil { return }
         // A PTY startup banner or alternate-screen repaint is not an agent
         // message. Keep it in the mounted VT terminal and start Chat output
         // only at the exact boundary created by a composer submission.
@@ -213,10 +233,15 @@ final class TerminalChatStore: ObservableObject {
             }
             return
         }
-        var response = text.hasPrefix(semanticBaseline)
-            ? String(text.dropFirst(semanticBaseline.count))
-            : text
+        guard var responseDecoder = responseSemanticStream,
+              let decodedResponse = responseDecoder.consume(data) else { return }
+        responseSemanticStream = responseDecoder
+        var response = decodedResponse
         if provider == nil {
+            response = Self.removingLeadingShellEcho(
+                from: response,
+                command: lastSubmittedCommand
+            )
             response = Self.removingTrailingShellPrompt(from: response)
         }
         guard !response.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -337,8 +362,11 @@ final class TerminalChatStore: ObservableObject {
         guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
         finishOpeningMessage()
-        semanticBaseline = latestSemanticText
+        // Start a fresh byte-stream decoder at the canonical submit boundary.
+        // Never reconstruct a response by slicing mutable terminal state.
+        responseSemanticStream = TerminalSemanticStreamDecoder()
         hasChatSubmission = true
+        lastSubmittedCommand = command
         blocks.removeAll { $0.role == .output && $0.isStreaming }
         let identity = provider?.sessionDisplayName ?? "Shell"
         append(
@@ -377,6 +405,31 @@ final class TerminalChatStore: ObservableObject {
         return lines.joined(separator: "\n").trimmingCharacters(in: .newlines)
     }
 
+    /// Interactive shells normally echo the submitted command before its
+    /// output. Chat already owns the exact canonical submission, so showing
+    /// that echo again makes one action look duplicated. Remove only the
+    /// first non-empty prompt line when it contains the exact command.
+    private static func removingLeadingShellEcho(from value: String, command: String?) -> String {
+        guard let command, !command.isEmpty else { return value }
+        var lines = value.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        guard let index = lines.firstIndex(where: {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }) else { return value }
+        let line = lines[index].trimmingCharacters(in: .whitespaces)
+        guard line.contains(command) else { return value }
+        if line == command {
+            lines.remove(at: index)
+            return lines.joined(separator: "\n").trimmingCharacters(in: .newlines)
+        }
+        let prefix = line.replacingOccurrences(of: command, with: "")
+        guard prefix.count <= 80,
+              prefix.range(of: #"[%$#❯>]\s*$"#, options: .regularExpression) != nil else {
+            return value
+        }
+        lines.remove(at: index)
+        return lines.joined(separator: "\n").trimmingCharacters(in: .newlines)
+    }
+
     func markWorking(provider: VampAgentProvider?) {
         let identity = provider?.sessionDisplayName ?? tabTitle
         if !blocks.contains(where: { $0.role == .progress && $0.text == "\(identity) is working…" }) {
@@ -391,6 +444,38 @@ final class TerminalChatStore: ObservableObject {
         persistTaskPlan()
         if let taskPlan {
             recordActivity("Task plan · \(taskPlan.progressLabel)")
+        }
+    }
+
+    func applyProviderSemanticEvent(_ event: ProviderSemanticEvent, provider: VampAgentProvider?) {
+        let identity = provider?.sessionDisplayName ?? tabTitle
+        switch event {
+        case .messageDelta(let text):
+            guard !text.isEmpty else { return }
+            blocks.removeAll { $0.role == .progress && $0.isStreaming }
+            if let index = blocks.lastIndex(where: { $0.role == .output && $0.isStreaming }) {
+                blocks[index].title = identity
+                blocks[index].text += text
+            } else {
+                append(Block(role: .output, title: identity, text: text, isStreaming: true))
+            }
+        case .thinkingDelta:
+            markWorking(provider: provider)
+        case .taskPlan(let taskEvent):
+            applyTaskPlanEvent(taskEvent)
+        case .permissionRequested(let command):
+            _ = requestApproval(for: command ?? "Agent action", provider: provider)
+        case .sessionIdentifier(let id):
+            recordActivity("\(identity) session · \(id.prefix(8))")
+        case .completed:
+            blocks.removeAll { $0.role == .progress && $0.isStreaming }
+            if let index = blocks.lastIndex(where: { $0.role == .output && $0.isStreaming }) {
+                blocks[index].isStreaming = false
+            }
+            recordActivity("\(identity) completed")
+        case .failed(let reason):
+            blocks.removeAll { $0.role == .progress && $0.isStreaming }
+            append(Block(role: .error, title: "\(identity) stopped", text: reason ?? "The provider request failed."))
         }
     }
 
@@ -768,6 +853,9 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         coordinator.onTaskPlanEvent = { [weak self] message in
             self?.receiveTaskPlanEvent(message)
         }
+        coordinator.onProviderSemanticEvent = { [weak self] message in
+            self?.receiveProviderSemanticEvent(message)
+        }
         coordinator.onClipboardSync = { [weak self] message in
             self?.receiveClipboard(message)
         }
@@ -1016,6 +1104,10 @@ final class TerminalWorkspaceViewModel: ObservableObject {
 
     private func sendApprovedCommand(tabID: UUID, command: String) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }), tabs[index].session.canSendInput else { return }
+        if tabs[index].provider?.semanticProvider != nil {
+            _ = submitAgentPrompt(tabID: tabID, text: command)
+            return
+        }
         tabs[index].chat.recordChatSubmission(command, provider: tabs[index].provider)
         tabs[index].chat.markWorking(provider: tabs[index].provider)
         // A PTY Enter key is carriage return (0x0D). Interactive TUIs such as
@@ -1067,6 +1159,32 @@ final class TerminalWorkspaceViewModel: ObservableObject {
               let sessionID = activeSessionID,
               let terminalID = tab.session.terminalID else { return }
         tab.chat.consumeSemanticAgentOutput(text, provider: tab.provider, sessionID: sessionID, terminalID: terminalID)
+    }
+
+    @discardableResult
+    func submitAgentPrompt(tabID: UUID, text: String) -> Bool {
+        guard let tab = tabs.first(where: { $0.id == tabID }),
+              let sessionID = activeSessionID,
+              let terminalID = tab.session.terminalID,
+              let provider = tab.provider?.semanticProvider,
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        tab.chat.recordChatSubmission(text, provider: tab.provider)
+        tab.chat.markWorking(provider: tab.provider)
+        let message = AgentPromptMessage(
+            sessionID: sessionID,
+            terminalID: terminalID,
+            provider: provider,
+            prompt: text,
+            workingDirectory: tab.workingDirectory
+        )
+        guard let envelope = try? DataChannelEnvelope.agentPrompt(message) else { return false }
+        do {
+            try coordinator.sendTerminalEnvelope(envelope)
+            return true
+        } catch {
+            tab.chat.applyProviderSemanticEvent(.failed("The host could not start the agent request."), provider: tab.provider)
+            return false
+        }
     }
 
     /// Requests the Mac clipboard. The response is placed in the phone
@@ -1143,6 +1261,13 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         guard let tab = tabs.first(where: { $0.session.terminalID == message.terminalID }) else { return }
         guard message.event.isBound(toSessionID: message.sessionID, terminalID: message.terminalID) else { return }
         tab.chat.applyTaskPlanEvent(message.event)
+    }
+
+    private func receiveProviderSemanticEvent(_ message: ProviderSemanticEventMessage) {
+        guard message.sessionID == activeSessionID,
+              let tab = tabs.first(where: { $0.session.terminalID == message.terminalID }),
+              tab.provider?.semanticProvider == message.provider else { return }
+        tab.chat.applyProviderSemanticEvent(message.event, provider: tab.provider)
     }
 
     private func receiveClipboard(_ message: ClipboardSyncMessage) {

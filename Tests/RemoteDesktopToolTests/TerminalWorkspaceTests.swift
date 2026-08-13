@@ -84,12 +84,35 @@ final class TerminalWorkspaceTests: XCTestCase {
         chat.appendOutput(Data("prompt% echo hello\r".utf8))
         chat.appendOutput(Data("\nhello\r\n".utf8))
         XCTAssertTrue(chat.blocks.contains {
-            $0.role == .output && $0.text.contains("prompt% echo hello\nhello")
+            $0.role == .output && $0.text == "hello"
         })
 
         chat.appendOutput(Data("Downloading 10%\rDownloading 50%".utf8))
         XCTAssertTrue(chat.blocks.contains {
             $0.role == .output && $0.text.hasSuffix("Downloading 50%")
+        })
+    }
+
+    func testSupportedProviderChatIgnoresTUIRepaintsAndUsesSemanticEvents() {
+        let chat = TerminalChatStore(tabTitle: "Grok")
+        chat.markReady()
+        chat.appendOutput(Data("startup banner\nold prompt".utf8), provider: .grok)
+        chat.recordChatSubmission("build an animation", provider: .grok)
+
+        // A full-screen TUI may clear/rewrite content that existed before the
+        // command. The Chat response must still be derived from bytes received
+        // after submission, not from a String index in the lifetime screen.
+        chat.appendOutput(Data("\u{1B}[2J\u{1B}[HWorking on the animation…".utf8), provider: .grok)
+
+        XCTAssertFalse(chat.blocks.contains {
+            $0.role == .output && $0.text.contains("Working on the animation")
+        })
+        chat.applyProviderSemanticEvent(.messageDelta("Working on the animation…"), provider: .grok)
+        XCTAssertTrue(chat.blocks.contains {
+            $0.role == .output && $0.text.contains("Working on the animation")
+        })
+        XCTAssertFalse(chat.blocks.contains {
+            $0.role == .output && $0.text.contains("startup banner")
         })
     }
 

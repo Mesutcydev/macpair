@@ -98,12 +98,75 @@ final class HostTerminalServiceTests: XCTestCase {
             return
         }
         struct HelloMessage: Decodable {
+            struct Features: Decodable {
+                let chat: Bool
+                let taskPlans: Bool
+                let workspaces: Bool
+            }
             let maxTerminals: Int
+            let features: Features
             let capabilities: [String]
         }
         let helloMessage = try JSONDecoder().decode(HelloMessage.self, from: helloData)
         XCTAssertEqual(helloMessage.maxTerminals, HostTerminalService.maxActiveTerminals)
         XCTAssertTrue(helloMessage.capabilities.contains("multiple-terminals"))
+        XCTAssertTrue(helloMessage.capabilities.contains("chat"))
+        XCTAssertTrue(helloMessage.capabilities.contains("task-plans"))
+        XCTAssertFalse(helloMessage.capabilities.contains("workspaces"))
+        XCTAssertTrue(helloMessage.features.chat)
+        XCTAssertTrue(helloMessage.features.taskPlans)
+        XCTAssertFalse(helloMessage.features.workspaces)
+
+        // Exercise a real browser open command whose JSON payload crosses the
+        // 125-byte WebSocket boundary. Safari includes the selected working
+        // directory, so a broken extended-length decoder otherwise leaves the
+        // UI stuck at Opening with no PTY child and no error event.
+        let terminalID = UUID()
+        let openJSON = """
+        {"type":"open","terminalID":"\(terminalID.uuidString.lowercased())","cols":42,"rows":24,"term":"xterm-256color","workingDirectory":"\(NSHomeDirectory())"}
+        """
+        XCTAssertGreaterThan(openJSON.utf8.count, 125)
+        try await socket.send(.string(openJSON))
+        var receivedReady = false
+        for _ in 0..<4 {
+            let message = try await socket.receive()
+            guard case let .string(json) = message,
+                  let data = json.data(using: .utf8),
+                  let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+            if object["type"] as? String == "ready",
+               (object["terminalID"] as? String)?.lowercased() == terminalID.uuidString.lowercased() {
+                receivedReady = true
+                break
+            }
+        }
+        XCTAssertTrue(receivedReady)
+
+        // Exercise the complete browser composer path after terminal-ready.
+        // A browser can otherwise look connected while input is silently
+        // dropped between the WebSocket adapter and HostTerminalService.
+        let marker = "vamp-browser-roundtrip-\(UUID().uuidString.lowercased())"
+        let inputData = Data("printf '\(marker)\\n'\r".utf8).base64EncodedString()
+        let inputJSON = """
+        {"type":"input","terminalID":"\(terminalID.uuidString.lowercased())","data":"\(inputData)"}
+        """
+        try await socket.send(.string(inputJSON))
+        var receivedMarker = false
+        for _ in 0..<12 {
+            let message = try await socket.receive()
+            guard case let .string(json) = message,
+                  let data = json.data(using: .utf8),
+                  let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  object["type"] as? String == "output",
+                  (object["terminalID"] as? String)?.lowercased() == terminalID.uuidString.lowercased(),
+                  let encoded = object["data"] as? String,
+                  let output = Data(base64Encoded: encoded),
+                  let text = String(data: output, encoding: .utf8) else { continue }
+            if text.contains(marker) {
+                receivedMarker = true
+                break
+            }
+        }
+        XCTAssertTrue(receivedMarker, "Browser input must execute and stream output over the same terminal ID")
         firstSocket.cancel(with: .goingAway, reason: nil)
         socket.cancel(with: .goingAway, reason: nil)
     }
@@ -148,9 +211,18 @@ final class HostTerminalServiceTests: XCTestCase {
             terminalID: secondID,
             data: Data("printf 'vamp-second-alive\\n'\n".utf8)
         ))
+        // Mobile/Web composers submit the PTY Enter key as carriage return.
+        // Keep this covered separately from script-style LF input so a host
+        // termios regression cannot degrade into an echoed-but-unrun command.
+        service.handleInput(TerminalInputMessage(
+            sessionID: sessionID,
+            terminalID: firstID,
+            data: Data("printf 'vamp-carriage-return-ok\\n'\r".utf8)
+        ))
 
         let output = try waitFor(recorder) { envelopes in
             outputText(for: firstID, in: envelopes).contains("42 120")
+                && outputText(for: firstID, in: envelopes).contains("vamp-carriage-return-ok")
                 && outputText(for: secondID, in: envelopes).contains("vamp-second-alive")
         }
         let outputTerminalIDs = Set(output.compactMap { envelope -> UUID? in
