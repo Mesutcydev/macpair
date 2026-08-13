@@ -6,8 +6,8 @@
   <link rel="icon" type="image/png" href="assets/vamp-terminal-icon.png">
   <meta name="theme-color" content="#0b0b0b">
   <meta name="description" content="Vamp Suite — open-source remote desktop, multi-tab terminal, Safari control, and Linux browser access over your LAN or Tailscale network.">
-  <meta name="vamp-suite-release" content="2.0.0-build-28">
-  <meta name="vamp-terminal-release" content="2.0.0-build-28">
+  <meta name="vamp-suite-release" content="2.0.0-build-30">
+  <meta name="vamp-terminal-release" content="2.0.0-build-30">
   <meta property="og:title" content="Vamp Suite — one private workspace">
   <meta property="og:description" content="Vamp Host, Vamp Terminal Host, Vamp Terminal, the remote-control client, and the Linux browser host in one product family.">
   <meta property="og:type" content="website">
@@ -105,6 +105,8 @@
     .nav-links a { transition: color .16s ease; }
     .nav-links a:hover { color: var(--text); }
     .nav-actions { display: flex; gap: 8px; align-items: center; }
+    .mobile-nav { display: none; }
+    .menu-button { display: none; }
     .icon-button, .text-button, .button {
       display: inline-flex;
       align-items: center;
@@ -332,6 +334,13 @@
       .wrap { width: min(100% - 28px, 540px); }
       .nav { min-height: 64px; }
       .nav-links { display: none; }
+      .nav-actions .text-button { display: none; }
+      .menu-button { display: inline-flex; }
+      .mobile-nav { width: min(100% - 28px, 540px); padding-bottom: 12px; }
+      .mobile-nav[data-open="true"] { display: grid; animation: menu-in 180ms var(--ease-out) both; }
+      .mobile-nav a { padding: 12px 2px; border-top: 1px solid var(--line-soft); color: var(--text-soft); font-size: 15px; }
+      .mobile-nav a:hover { color: var(--text); }
+      .mobile-nav .mobile-nav-action { margin-top: 8px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); background: var(--surface); text-align: center; }
       .brand small { display: none; }
       .hero { min-height: auto; padding: 63px 0 62px; }
       .hero h1 { font-size: clamp(3rem, 16vw, 5rem); }
@@ -360,6 +369,7 @@
       .footer-row { display: block; }
       .footer-links { margin-top: 15px; }
     }
+    @keyframes menu-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
       .phone:hover { transform: rotate(3deg); }
@@ -396,8 +406,21 @@
         <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme">
           <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
         </button>
+        <button class="icon-button menu-button" id="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open navigation menu" title="Open navigation menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
         <a class="text-button" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">GitHub ↗</a>
       </div>
+    </nav>
+    <nav class="mobile-nav wrap" id="mobile-nav" aria-label="Mobile navigation" data-open="false" hidden>
+      <a href="#features">Suite</a>
+      <a href="#safari">Safari</a>
+      <a href="#hosts">Apps</a>
+      <a href="#cli">CLI</a>
+      <a href="#stream">Stream</a>
+      <a href="#install">Install</a>
+      <a href="#security">Security</a>
+      <a class="mobile-nav-action" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">Open GitHub ↗</a>
     </nav>
   </header>
 
@@ -698,7 +721,7 @@ scripts/package-vamp-hosts.sh --clean</code></pre>
   </main>
 
   <footer class="site-footer">
-      <div class="footer-row wrap"><span>© <span id="year"></span> Vamp Suite · current host build 25 · repository: macpair · Apache 2.0</span><div class="footer-links"><a href="https://github.com/Mesutcydev/macpair/blob/main/LICENSE" target="_blank" rel="noreferrer">License</a><a href="https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md" target="_blank" rel="noreferrer">Security</a><a href="https://github.com/Mesutcydev/macpair/issues" target="_blank" rel="noreferrer">Issues</a><a href="https://github.com/Mesutcydev/macpair/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer">Contribute</a></div></div>
+      <div class="footer-row wrap"><span>© <span id="year"></span> Vamp Suite · <span data-release-footer>current release</span> · repository: macpair · Apache 2.0</span><div class="footer-links"><a href="https://github.com/Mesutcydev/macpair/blob/main/LICENSE" target="_blank" rel="noreferrer">License</a><a href="https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md" target="_blank" rel="noreferrer">Security</a><a href="https://github.com/Mesutcydev/macpair/issues" target="_blank" rel="noreferrer">Issues</a><a href="https://github.com/Mesutcydev/macpair/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer">Contribute</a></div></div>
   </footer>
 
   <script>
@@ -708,6 +731,9 @@ scripts/package-vamp-hosts.sh --clean</code></pre>
       const applyReleaseMetadata = (release) => {
         if (!release?.assets) return;
         const assetEntries = Object.entries(release.assets);
+        document.querySelectorAll('meta[name$="-release"]').forEach((meta) => {
+          meta.content = release.tag;
+        });
         document.querySelectorAll('[data-release-asset]').forEach((link) => {
           const asset = release.assets[link.dataset.releaseAsset];
           if (asset) {
@@ -740,6 +766,8 @@ scripts/package-vamp-hosts.sh --clean</code></pre>
             .map(([key, asset]) => `${key.replaceAll('-', ' ')} ${asset.label}`)
             .join(' · ')}. All public download buttons point to the latest release.`;
         }
+        const footerRelease = document.querySelector('[data-release-footer]');
+        if (footerRelease) footerRelease.textContent = release.tag.replace(/^vamp-terminal-/, '');
       };
 
       fetch('release.json', { cache: 'no-store' })
@@ -761,6 +789,29 @@ scripts/package-vamp-hosts.sh --clean</code></pre>
         const next = root.dataset.theme === 'light' ? 'dark' : 'light';
         root.dataset.theme = next;
         localStorage.setItem('vamp-theme', next);
+      });
+
+      const menuButton = document.getElementById('mobile-menu-toggle');
+      const mobileNav = document.getElementById('mobile-nav');
+      const setMobileMenu = (open) => {
+        if (!menuButton || !mobileNav) return;
+        mobileNav.hidden = !open;
+        mobileNav.dataset.open = String(open);
+        menuButton.setAttribute('aria-expanded', String(open));
+        menuButton.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+        menuButton.title = open ? 'Close navigation menu' : 'Open navigation menu';
+      };
+      menuButton?.addEventListener('click', () => {
+        const open = menuButton.getAttribute('aria-expanded') !== 'true';
+        setMobileMenu(open);
+        if (open) mobileNav?.querySelector('a')?.focus();
+      });
+      mobileNav?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => setMobileMenu(false)));
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') setMobileMenu(false);
+      });
+      window.addEventListener('resize', () => {
+        if (window.innerWidth > 640) setMobileMenu(false);
       });
 
       document.querySelectorAll('[data-copy]').forEach((button) => {
