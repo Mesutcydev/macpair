@@ -28,13 +28,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Resolve Swift package dependencies
-        # The root Package.resolved also carries pins managed by the Xcode
-        # project (Sparkle, swift-argument-parser) that are not part of
-        # Package.swift's dependency graph, and the runner's SwiftPM rewrites
-        # the lockfile format version. An exact `git diff` check against it can
-        # therefore never pass at the package-root scope. Resolving still fails
-        # CI if a pinned dependency is unavailable or incompatible; the app
-        # targets' own resolved lockfiles govern the xcodebuild steps below.
+        # The runner's SwiftPM rewrites Package.resolved's format version, so an
+        # exact `git diff` check against it can never pass at the package-root
+        # scope. Resolving still fails CI if a pinned dependency is unavailable
+        # or incompatible; the app targets' own resolved lockfiles govern the
+        # xcodebuild steps below.
         run: swift package resolve
 
       - name: Run core tests

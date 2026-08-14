@@ -41,14 +41,13 @@ BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw "$INFO")"; DISPLAY="$(plutil
 [[ "$BUNDLE_ID" == com.mesutcy.remotedesktop.macclient ]] || fail "Unexpected bundle ID: $BUNDLE_ID"
 [[ "$DISPLAY" == 'Vamp Control' ]] || fail "Unexpected display name: $DISPLAY"
 file "$APP/Contents/MacOS/Vamp Control macOS" | grep -q arm64 || fail "Executable is not arm64"
-# Sign the whole bundle inside-out with a single ad-hoc identity. The previous
-# per-bundle loop used `-prune`, which stopped at the top-level bundles and
-# never re-signed Sparkle's *internal* code (Versions/B/XPCServices/*.xpc and
-# the Autoupdate/Updater apps). Those inner Mach-O kept Sparkle's upstream Team
-# ID, so macOS library validation refused to load Sparkle.framework at launch
-# ("mapping process and mapped file have different Team IDs") and the app
-# crashed on start. A deep ad-hoc sign gives the app and every nested
-# framework/xpc/app the same (empty) Team ID, so validation passes.
+# Sign the whole bundle inside-out with a single ad-hoc identity. Signing every
+# nested framework/xpc/app with the same (empty) Team ID as the app keeps macOS
+# library validation happy at launch: a bundled framework signed by a different
+# team is rejected by dyld ("mapping process and mapped file have different Team
+# IDs"), which previously crashed the app on start when Sparkle was embedded.
+# Sparkle has since been removed, but a deep ad-hoc sign remains the correct,
+# future-proof way to seal any nested code the app may carry.
 codesign --force --deep --sign - --options runtime "$APP" >/dev/null
 codesign --verify --deep --strict "$APP"
 NAME="VampControl-macOS-${VERSION}-build-${BUILD}-adhoc.zip"; ZIP="$OUTPUT_DIR/$NAME"

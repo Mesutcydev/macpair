@@ -6,6 +6,13 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 
 ## [Unreleased]
 
+### Fixed
+
+- Drop the orphaned Sparkle (and swift-argument-parser) pins from `Package.resolved`
+  so the dependency lock matches the real graph (SwiftTerm only). The Vamp Control
+  macOS client no longer resolves or embeds Sparkle, removing the launch-time
+  library-validation crash caused by the framework's mismatched Team ID.
+
 ### Changed
 
 - Refresh the Vamp Terminal, Vamp Host, and website icon with the supplied glass terminal mark.
