@@ -589,7 +589,16 @@ final class HostTerminalService: @unchecked Sendable {
             "/usr/local/sbin",
             "\(home)/.local/bin",
             "\(home)/.npm-global/bin",
-            "\(home)/bin"
+            "\(home)/bin",
+            // Agent installers frequently drop binaries outside Homebrew, e.g.
+            // the official opencode installer uses ~/.opencode/bin. Include the
+            // common per-user tool dirs so launchers resolve without a
+            // login-shell PATH.
+            "\(home)/.opencode/bin",
+            "\(home)/.bun/bin",
+            "\(home)/.cargo/bin",
+            "\(home)/.deno/bin",
+            "\(home)/.volta/bin"
         ]
         var pathEntries = inheritedPath.split(separator: ":").map(String.init)
         for path in commonPaths where !pathEntries.contains(path) {

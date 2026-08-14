@@ -299,8 +299,31 @@ final class HostAgentSemanticService: @unchecked Sendable {
     }
 
     private static func resolveExecutable(_ name: String) -> String? {
-        let paths = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "\(NSHomeDirectory())/.local/bin", "\(NSHomeDirectory())/.bun/bin"]
-        return paths.map { URL(fileURLWithPath: $0).appendingPathComponent(name).path }
+        let home = NSHomeDirectory()
+        // Start from whatever PATH the host process actually inherited, then add
+        // the conventional install locations. GUI apps launched by launchd do
+        // not inherit a login-shell PATH, so a tool installed by Homebrew, npm,
+        // bun, cargo, or an agent's own installer (e.g. `opencode` lands in
+        // ~/.opencode/bin) would otherwise look "not installed" even when it is
+        // present. This mirrors the PATH the terminal PTY is given so Chat and
+        // Terminal resolve launchers identically.
+        let inherited = (ProcessInfo.processInfo.environment["PATH"] ?? "")
+            .split(separator: ":").map(String.init)
+        let common = [
+            "/opt/homebrew/bin", "/opt/homebrew/sbin",
+            "/usr/local/bin", "/usr/local/sbin",
+            "/usr/bin", "/bin", "/usr/sbin", "/sbin",
+            "\(home)/.local/bin", "\(home)/bin",
+            "\(home)/.opencode/bin",
+            "\(home)/.npm-global/bin",
+            "\(home)/.bun/bin",
+            "\(home)/.cargo/bin",
+            "\(home)/.deno/bin",
+            "\(home)/.volta/bin"
+        ]
+        var seen = Set<String>()
+        let dirs = (inherited + common).filter { seen.insert($0).inserted }
+        return dirs.map { URL(fileURLWithPath: $0).appendingPathComponent(name).path }
             .first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
