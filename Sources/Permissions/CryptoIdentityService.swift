@@ -198,10 +198,24 @@ public final class CryptoIdentityService: @unchecked Sendable {
     private func saveToFile(_ key: P256.Signing.PrivateKey) {
         let url = keyFileURL
         let dir = url.deletingLastPathComponent()
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         do {
-            try Data(key.x963Representation).write(to: url, options: [.atomic])
-            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            try FileManager.default.createDirectory(
+                at: dir,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            let data = Data(key.x963Representation)
+            if FileManager.default.fileExists(atPath: url.path) {
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+                try data.write(to: url, options: [.atomic])
+            } else if !FileManager.default.createFile(
+                atPath: url.path,
+                contents: data,
+                attributes: [.posixPermissions: 0o600]
+            ) {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         } catch {
             // Last-resort fallback so we don't lose the identity entirely.
             saveToKeychain(key)

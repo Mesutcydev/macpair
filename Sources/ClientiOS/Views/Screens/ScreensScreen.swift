@@ -256,5 +256,5 @@ private struct DottedGrid: View {
 }
 
 #Preview("ScreensScreen") {
-    ScreensScreen(environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client"))
+    ScreensScreen(environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Control"))
 }

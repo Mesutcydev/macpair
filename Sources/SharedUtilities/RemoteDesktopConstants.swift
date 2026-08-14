@@ -1,4 +1,5 @@
 import Foundation
+import SharedModels
 
 public enum RemoteDesktopConstants {
     public static let protocolVersion = 1
@@ -29,9 +30,7 @@ public enum RemoteDesktopConstants {
     /// validation in the shared layer so listener startup and Bonjour metadata cannot
     /// disagree about whether TLS is available.
     public static func isValidPublicKeyFingerprint(_ value: String) -> Bool {
-        guard value.count == 64 else { return false }
-        let validCharacters = CharacterSet(charactersIn: "0123456789abcdef")
-        return value.unicodeScalars.allSatisfy { validCharacters.contains($0) }
+        PublicKeyFingerprint.isValid(value)
     }
 }
 

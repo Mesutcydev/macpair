@@ -58,7 +58,7 @@ final class AppLockService: ObservableObject {
             : .deviceOwnerAuthentication
 
         do {
-            let ok = try await ctx.evaluatePolicy(policy, localizedReason: "Unlock Vamp Remote Control")
+            let ok = try await ctx.evaluatePolicy(policy, localizedReason: "Unlock Vamp Control")
             if ok { isLocked = false }
         } catch let laErr as LAError {
             switch laErr.code {

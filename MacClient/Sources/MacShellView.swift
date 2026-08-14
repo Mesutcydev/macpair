@@ -108,13 +108,13 @@ struct MacShellView: View {
         switch coordinator.phase {
         case .receiving:
             if let name = coordinator.connectedHostName {
-                return "\(name) — Vamp Remote"
+                return "\(name) — Vamp Control"
             }
-            return "Vamp Remote"
+            return "Vamp Control"
         case .connecting, .signalingConnected, .negotiating, .waitingForMedia:
-            return "Connecting… — Vamp Remote"
+            return "Connecting… — Vamp Control"
         case .idle, .error:
-            return "Vamp Remote"
+            return "Vamp Control"
         }
     }
 }

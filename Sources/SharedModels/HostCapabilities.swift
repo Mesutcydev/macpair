@@ -31,6 +31,12 @@ public struct HostCapabilityFlags: OptionSet, Codable, Hashable, Sendable {
     public static let supportsTerminal = HostCapabilityFlags(rawValue: 1 << 9)
     /// The peer supports multiple concurrent PTYs within one authenticated session.
     public static let supportsMultipleTerminals = HostCapabilityFlags(rawValue: 1 << 10)
+    /// The peer can project canonical agent turns as semantic Chat messages.
+    public static let supportsTerminalChat = HostCapabilityFlags(rawValue: 1 << 11)
+    /// The peer can stream structured, per-session task-plan events.
+    public static let supportsTaskPlans = HostCapabilityFlags(rawValue: 1 << 12)
+    /// The peer can browse and launch sessions in host-side workspaces.
+    public static let supportsWorkspaces = HostCapabilityFlags(rawValue: 1 << 13)
 
     public init(rawValue: Int) {
         self.rawValue = rawValue
@@ -50,7 +56,10 @@ public struct HostCapabilityFlags: OptionSet, Codable, Hashable, Sendable {
             .supportsVideoFEC,
             .supportsOpusAudio,
             .supportsTerminal,
-            .supportsMultipleTerminals
+            .supportsMultipleTerminals,
+            .supportsTerminalChat,
+            .supportsTaskPlans,
+            .supportsWorkspaces
         ]
         #if canImport(VideoToolbox)
         if VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC) {
@@ -88,6 +97,9 @@ public extension HostCapabilityFlags {
         if contains(.supportsOpusAudio) { names.append("supportsOpusAudio") }
         if contains(.supportsTerminal) { names.append("supportsTerminal") }
         if contains(.supportsMultipleTerminals) { names.append("supportsMultipleTerminals") }
+        if contains(.supportsTerminalChat) { names.append("supportsTerminalChat") }
+        if contains(.supportsTaskPlans) { names.append("supportsTaskPlans") }
+        if contains(.supportsWorkspaces) { names.append("supportsWorkspaces") }
         return names
     }
 
@@ -117,6 +129,12 @@ public extension HostCapabilityFlags {
                 flags.insert(.supportsTerminal)
             case "supportsMultipleTerminals":
                 flags.insert(.supportsMultipleTerminals)
+            case "supportsTerminalChat":
+                flags.insert(.supportsTerminalChat)
+            case "supportsTaskPlans":
+                flags.insert(.supportsTaskPlans)
+            case "supportsWorkspaces":
+                flags.insert(.supportsWorkspaces)
             default:
                 continue
             }

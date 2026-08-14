@@ -777,13 +777,27 @@ final class HostTerminalService: @unchecked Sendable {
 /// advertised to the client.
 final class HostWorkspaceService: @unchecked Sendable {
     private let queue = DispatchQueue(label: "host.workspace.service", qos: .utility)
+    /// Interactive directory navigation must never wait behind project
+    /// discovery. Discovery can traverse thousands of folders, while a tap in
+    /// the workspace browser has a short client-side response deadline.
+    private let browseQueue = DispatchQueue(label: "host.workspace.browser", qos: .userInitiated)
     private let fileManager = FileManager.default
     let hostID: UUID
     let homePath: String
     private var cachedWorkspaces: [RemoteWorkspace]?
+    private var approvedRootURLs: [URL] = []
+    private let approvedRootsLock = NSLock()
+    private let approvedRootsDefaultsKey: String
+    private let discoveryDelayForTesting: TimeInterval
 
-    init(hostID: UUID, homePath: String = NSHomeDirectory()) {
+    init(
+        hostID: UUID,
+        homePath: String = NSHomeDirectory(),
+        discoveryDelayForTesting: TimeInterval = 0
+    ) {
         self.hostID = hostID
+        self.approvedRootsDefaultsKey = "com.mesutcy.vamp-terminal.workspace-roots.\(hostID.uuidString)"
+        self.discoveryDelayForTesting = discoveryDelayForTesting
         self.homePath = Self.canonicalPath(
             URL(fileURLWithPath: homePath, isDirectory: true)
                 .standardizedFileURL
@@ -791,6 +805,28 @@ final class HostWorkspaceService: @unchecked Sendable {
                 .standardizedFileURL
                 .path
         )
+        restoreApprovedRoots()
+    }
+
+    /// Persists an explicitly user-selected directory. The resolved URLs are
+    /// retained for the service lifetime so one approval can serve browsing,
+    /// discovery, and PTY launches without reopening the panel.
+    @discardableResult
+    func addApprovedRoot(_ url: URL) -> Bool {
+        let canonicalURL = url.resolvingSymlinksInPath().standardizedFileURL
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: canonicalURL.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else { return false }
+        _ = canonicalURL.startAccessingSecurityScopedResource()
+        approvedRootsLock.lock()
+        if !approvedRootURLs.contains(where: { Self.canonicalPath($0.path) == Self.canonicalPath(canonicalURL.path) }) {
+            approvedRootURLs.append(canonicalURL)
+        }
+        let roots = approvedRootURLs
+        approvedRootsLock.unlock()
+        persistApprovedRoots(roots)
+        cachedWorkspaces = nil
+        return true
     }
 
     func listWorkspaces(
@@ -820,29 +856,33 @@ final class HostWorkspaceService: @unchecked Sendable {
         path: String,
         completion: @escaping @Sendable (String, [WorkspaceDirectoryEntry], String?) -> Void
     ) {
-        queue.async { [weak self] in
+        browseQueue.async { [weak self] in
             guard let self else { return }
             guard let canonical = self.validatedWorkingDirectory(path) else {
                 completion(path, [], "That folder is unavailable or outside the allowed workspace boundary.")
                 return
             }
             do {
-                let urls = try self.fileManager.contentsOfDirectory(
-                    at: URL(fileURLWithPath: canonical, isDirectory: true),
-                    includingPropertiesForKeys: [.isDirectoryKey, .isReadableKey],
-                    options: []
-                )
-                let entries = urls.compactMap { url -> WorkspaceDirectoryEntry? in
-                    guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isReadableKey]),
-                          values.isDirectory == true else { return nil }
-                    let hints = self.projectHints(at: url)
+                // Directory navigation is latency-sensitive. Do not prefetch
+                // resource metadata or enumerate every child to derive project
+                // hints here: either operation can block indefinitely on a
+                // protected or cloud-backed child of Home. Rich metadata is
+                // provided by background discovery after the user selects a
+                // workspace.
+                let names = try self.fileManager.contentsOfDirectory(atPath: canonical)
+                let entries = names.compactMap { name -> WorkspaceDirectoryEntry? in
+                    let url = URL(fileURLWithPath: canonical, isDirectory: true)
+                        .appendingPathComponent(name, isDirectory: true)
+                    var isDirectory: ObjCBool = false
+                    guard self.fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                          isDirectory.boolValue else { return nil }
                     return WorkspaceDirectoryEntry(
-                        name: url.lastPathComponent,
+                        name: name,
                         path: url.path,
                         isDirectory: true,
-                        isReadable: values.isReadable ?? false,
-                        isGitRepository: self.isGitRepository(at: url),
-                        projectHints: hints
+                        isReadable: self.fileManager.isReadableFile(atPath: url.path),
+                        isGitRepository: false,
+                        projectHints: []
                     )
                 }
                 completion(canonical, entries.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }, nil)
@@ -866,8 +906,10 @@ final class HostWorkspaceService: @unchecked Sendable {
             .resolvingSymlinksInPath()
             .standardizedFileURL
         let candidatePath = Self.canonicalPath(candidate.path)
-        let homePrefix = homePath.hasSuffix("/") ? homePath : homePath + "/"
-        guard candidatePath == homePath || candidatePath.hasPrefix(homePrefix) else { return nil }
+        let allowedRoots = [homePath] + approvedRootsSnapshot().map { Self.canonicalPath($0.path) }
+        guard allowedRoots.contains(where: { root in
+            candidatePath == root || candidatePath.hasPrefix(root.hasSuffix("/") ? root : root + "/")
+        }) else { return nil }
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: candidatePath, isDirectory: &isDirectory),
               isDirectory.boolValue,
@@ -890,16 +932,25 @@ final class HostWorkspaceService: @unchecked Sendable {
             ("Projects", homePath + "/Projects"),
             ("Sites", homePath + "/Sites")
         ]
-        return candidates.compactMap { name, path in
+        var roots: [WorkspaceBrowseRoot] = candidates.compactMap { name, path -> WorkspaceBrowseRoot? in
             var isDirectory: ObjCBool = false
             guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
                 return nil
             }
             return WorkspaceBrowseRoot(name: name, path: path)
         }
+        for url in approvedRootsSnapshot() {
+            let path = Self.canonicalPath(url.path)
+            guard !roots.contains(where: { Self.canonicalPath($0.path) == path }) else { continue }
+            roots.append(WorkspaceBrowseRoot(name: url.lastPathComponent, path: path))
+        }
+        return roots
     }
 
     private func discoverWorkspaces() -> [RemoteWorkspace] {
+        if discoveryDelayForTesting > 0 {
+            Thread.sleep(forTimeInterval: discoveryDelayForTesting)
+        }
         var found: [String: RemoteWorkspace] = [:]
         found[homePath] = RemoteWorkspace(
             id: stableWorkspaceID(path: homePath),
@@ -911,7 +962,18 @@ final class HostWorkspaceService: @unchecked Sendable {
             isAvailable: true
         )
 
-        let scanRoots = browseRoots().filter { $0.name != "Home" }
+        // Desktop, Documents, and Downloads are protected by macOS privacy.
+        // Merely enumerating each of them during automatic discovery can
+        // trigger several consent dialogs even though the user only asked to
+        // open one workspace. Keep background discovery to conventional
+        // developer roots. Protected locations remain available in the
+        // explicit browser, where one deliberate user action may request
+        // access to the chosen folder.
+        let automaticRootNames: Set<String> = ["Developer", "Projects", "Sites"]
+        let approvedPaths = Set(approvedRootsSnapshot().map { Self.canonicalPath($0.path) })
+        let scanRoots = browseRoots().filter {
+            automaticRootNames.contains($0.name) || approvedPaths.contains(Self.canonicalPath($0.path))
+        }
         for root in scanRoots {
             let rootURL = URL(fileURLWithPath: root.path, isDirectory: true)
             guard let enumerator = fileManager.enumerator(
@@ -1037,6 +1099,41 @@ final class HostWorkspaceService: @unchecked Sendable {
         ".git", ".build", "DerivedData", "node_modules", "Pods", "build",
         "dist", "vendor", "target", ".swiftpm"
     ]
+
+    private func restoreApprovedRoots() {
+        let bookmarks = UserDefaults.standard.array(forKey: approvedRootsDefaultsKey) as? [Data] ?? []
+        let restored: [URL] = bookmarks.compactMap { data -> URL? in
+            var stale = false
+            guard let url = try? URL(
+                resolvingBookmarkData: data,
+                options: [.withSecurityScope, .withoutUI],
+                relativeTo: nil,
+                bookmarkDataIsStale: &stale
+            ) else { return nil }
+            _ = url.startAccessingSecurityScopedResource()
+            return url.resolvingSymlinksInPath().standardizedFileURL
+        }
+        approvedRootsLock.lock()
+        approvedRootURLs = restored
+        approvedRootsLock.unlock()
+        if bookmarks.count != restored.count {
+            persistApprovedRoots(restored)
+        }
+    }
+
+    private func persistApprovedRoots(_ roots: [URL]? = nil) {
+        let values = roots ?? approvedRootsSnapshot()
+        let bookmarks = values.compactMap {
+            try? $0.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+        }
+        UserDefaults.standard.set(bookmarks, forKey: approvedRootsDefaultsKey)
+    }
+
+    private func approvedRootsSnapshot() -> [URL] {
+        approvedRootsLock.lock()
+        defer { approvedRootsLock.unlock() }
+        return approvedRootURLs
+    }
 
     private static func canonicalPath(_ path: String) -> String {
         let standardized = URL(fileURLWithPath: path, isDirectory: true)

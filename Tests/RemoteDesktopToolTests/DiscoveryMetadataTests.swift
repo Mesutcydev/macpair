@@ -17,7 +17,10 @@ final class DiscoveryMetadataTests: XCTestCase {
                 .supportsMultiDisplay,
                 .supportsMacClient,
                 .supportsTerminal,
-                .supportsMultipleTerminals
+                .supportsMultipleTerminals,
+                .supportsTerminalChat,
+                .supportsTaskPlans,
+                .supportsWorkspaces
             ]
         )
 
@@ -30,6 +33,9 @@ final class DiscoveryMetadataTests: XCTestCase {
         XCTAssertTrue(parsed.capabilities.contains(.supportsMacClient))
         XCTAssertTrue(parsed.capabilities.contains(.supportsTerminal))
         XCTAssertTrue(parsed.capabilities.contains(.supportsMultipleTerminals))
+        XCTAssertTrue(parsed.capabilities.contains(.supportsTerminalChat))
+        XCTAssertTrue(parsed.capabilities.contains(.supportsTaskPlans))
+        XCTAssertTrue(parsed.capabilities.contains(.supportsWorkspaces))
     }
 
     func testHostAdvertisementMetadataRejectsMissingProtocolVersion() {

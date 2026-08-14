@@ -5,9 +5,14 @@ import XCTest
 
 // MARK: - Mock Peer Connection Provider
 
-final class MockPeerConnectionProvider: PeerConnectionProviding, @unchecked Sendable {
+final class MockPeerConnectionProvider: PeerConnectionProviding, LANTransportSecurityConfigurable, @unchecked Sendable {
     var shouldFail = false
     var lastCreatedConnection: MockPeerConnection?
+    var configuredSessionTokenHex: String?
+
+    func configureTransportSecurity(sessionTokenHex: String?) {
+        configuredSessionTokenHex = sessionTokenHex
+    }
 
     func makePeerConnection(
         configuration: WebRTCConfiguration,
@@ -175,6 +180,19 @@ final class WebRTCSessionManagerTests: XCTestCase {
         XCTAssertNotNil(provider.lastCreatedConnection)
         // Client doesn't create data channel — it receives one via delegate
         XCTAssertTrue(provider.lastCreatedConnection!.createdDataChannels.isEmpty)
+    }
+
+    func testReplacementSessionPreservesConfiguredTransportToken() async throws {
+        let token = String(repeating: "ab", count: 32)
+        manager.configureControlChannelAuth(sessionTokenHex: token)
+        try await manager.prepareSession(id: UUID(), role: .host)
+
+        // Reconfiguration happens before prepareSession in the real coordinator.
+        // Replacing the existing peer must not clear that newly configured token.
+        manager.configureControlChannelAuth(sessionTokenHex: token)
+        try await manager.prepareSession(id: UUID(), role: .host)
+
+        XCTAssertEqual(provider.configuredSessionTokenHex, token)
     }
 
     // MARK: - Prepare Session Failure

@@ -120,6 +120,7 @@ final class ClientSessionCoordinator: ObservableObject {
     var onWorkspaceListResponse: ((WorkspaceListResponseMessage) -> Void)?
     /// Called on MainActor when the host returns a validated directory listing.
     var onWorkspaceDirectoryResponse: ((WorkspaceDirectoryResponseMessage) -> Void)?
+    var onWorkspaceAccessResponse: ((WorkspaceAccessResponseMessage) -> Void)?
     /// Called on MainActor for semantic agent task-plan mutations. This path
     /// is intentionally distinct from terminal output and is routed by the
     /// authenticated session plus terminal ID.
@@ -205,9 +206,7 @@ final class ClientSessionCoordinator: ObservableObject {
     }
 
     private func isValidNormalizedFingerprint(_ value: String) -> Bool {
-        guard value.count == 64 else { return false }
-        let validCharacters = CharacterSet(charactersIn: "0123456789abcdef")
-        return value.unicodeScalars.allSatisfy { validCharacters.contains($0) }
+        RemoteDesktopConstants.isValidPublicKeyFingerprint(value)
     }
 
     private func normalizedHostAndPort(host: String, fallbackPort: UInt16) -> (host: String, port: UInt16) {
@@ -1371,6 +1370,13 @@ final class ClientSessionCoordinator: ObservableObject {
                        message.sessionID == self.activeSessionID {
                         self.onWorkspaceDirectoryResponse?(message)
                     }
+                case .workspaceAccessResponse:
+                    guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
+                    if let message = try? envelope.decodeWorkspaceAccessResponse(),
+                       envelope.sessionID == message.sessionID,
+                       message.sessionID == self.activeSessionID {
+                        self.onWorkspaceAccessResponse?(message)
+                    }
                 case .taskPlanEvent:
                     guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
                     if let message = try? envelope.decodeTaskPlanEvent(),
@@ -1468,6 +1474,14 @@ final class ClientSessionCoordinator: ObservableObject {
         guard let sessionID = activeSessionID else { throw WebRTCSessionError.dataChannelUnavailable }
         let message = WorkspaceDirectoryRequestMessage(sessionID: sessionID, path: path)
         let envelope = try DataChannelEnvelope.workspaceDirectoryRequest(message)
+        try sendTerminalEnvelope(envelope)
+        return message.requestID
+    }
+
+    func requestAdditionalWorkspaceFolder() throws -> UUID {
+        guard let sessionID = activeSessionID else { throw WebRTCSessionError.dataChannelUnavailable }
+        let message = WorkspaceAccessRequestMessage(sessionID: sessionID)
+        let envelope = try DataChannelEnvelope.workspaceAccessRequest(message)
         try sendTerminalEnvelope(envelope)
         return message.requestID
     }

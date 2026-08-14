@@ -306,9 +306,16 @@ extension WebRTCSessionManager: WebRTCSessionManaging {
     // MARK: Session Lifecycle
 
     public func prepareSession(id: UUID, role: WebRTCSessionRole) async throws {
+        // A caller configures the freshly generated session token before preparing
+        // the replacement peer. Closing an older peer resets per-session state,
+        // including that token, so preserve and restore it across the teardown.
+        // Without this, reconnects (and a second attempt after pairing approval)
+        // create a tokenless TLS data listener and fail before SDP negotiation.
+        let configuredSessionToken = withLock { controlChannelAuthTokenHex }
         let existing = withLock { _peerConnection }
         if existing != nil {
             await closeSession()
+            configureControlChannelAuth(sessionTokenHex: configuredSessionToken)
         }
 
         let delegateAdapter = PeerConnectionDelegateAdapter(manager: self)
@@ -468,6 +475,10 @@ extension WebRTCSessionManager: WebRTCSessionManaging {
             controlChannelAuthTokenHex = sessionTokenHex
             outboundControlAuthCounter = 0
         }
+        (peerConnectionProvider as? LANTransportSecurityConfigurable)?
+            .configureTransportSecurity(sessionTokenHex: sessionTokenHex)
+        (withLock { _peerConnection } as? LANTransportSecurityConfigurable)?
+            .configureTransportSecurity(sessionTokenHex: sessionTokenHex)
     }
 
     public func receiveDataMessages() -> AsyncStream<DataChannelEnvelope> {

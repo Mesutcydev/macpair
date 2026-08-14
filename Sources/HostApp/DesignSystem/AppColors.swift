@@ -59,22 +59,22 @@ struct AppBackground: View {
                     .scaledToFill()
                     .frame(width: proxy.size.width, height: proxy.size.height)
                     .clipped()
-                    .saturation(colorScheme == .dark ? 0.68 : 0.84)
-                    .contrast(colorScheme == .dark ? 0.94 : 0.98)
-                    .opacity(reduceTransparency ? 0.34 : (colorScheme == .dark ? 0.62 : 0.74))
+                    .saturation(colorScheme == .dark ? 0.82 : 0.96)
+                    .contrast(colorScheme == .dark ? 1.04 : 1.02)
+                    .opacity(reduceTransparency ? 0.44 : (colorScheme == .dark ? 0.78 : 0.88))
 
                 LinearGradient(
                     colors: colorScheme == .dark
-                        ? [Color.black.opacity(0.34), Color.black.opacity(0.52)]
-                        : [Color.white.opacity(0.18), Color(nsColor: .windowBackgroundColor).opacity(0.38)],
+                        ? [Color.black.opacity(0.18), Color.black.opacity(0.36)]
+                        : [Color.white.opacity(0.08), Color(nsColor: .windowBackgroundColor).opacity(0.20)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
 
                 RadialGradient(
                     colors: colorScheme == .dark
-                        ? [Color.black.opacity(0.28), .clear]
-                        : [Color.white.opacity(0.30), .clear],
+                        ? [Color.black.opacity(0.18), .clear]
+                        : [Color.white.opacity(0.14), .clear],
                     center: .center,
                     startRadius: 10,
                     endRadius: max(proxy.size.width, proxy.size.height) * 0.72

@@ -1,10 +1,28 @@
 #if os(macOS)
 import XCTest
+import Network
 @testable import HostApp
 import SharedProtocol
 import TransportWebRTC
 
 final class HostTerminalServiceTests: XCTestCase {
+    func testBrowserWebSocketOriginMustMatchHost() {
+        XCTAssertTrue(HostBrowserControlService.isAllowedBrowserOrigin(nil, hostHeader: "127.0.0.1:9475"))
+        XCTAssertTrue(HostBrowserControlService.isAllowedBrowserOrigin("http://127.0.0.1:9475", hostHeader: "127.0.0.1:9475"))
+        XCTAssertTrue(HostBrowserControlService.isAllowedBrowserOrigin("https://mac.example.test", hostHeader: "mac.example.test"))
+        XCTAssertFalse(HostBrowserControlService.isAllowedBrowserOrigin("null", hostHeader: "127.0.0.1:9475"))
+        XCTAssertFalse(HostBrowserControlService.isAllowedBrowserOrigin("https://evil.example", hostHeader: "127.0.0.1:9475"))
+    }
+
+    func testBrowserRemoteAddressMustBeInsideTailscaleRanges() {
+        XCTAssertTrue(HostBrowserControlService.isTailscaleAddress(.ipv4(IPv4Address("100.64.0.1")!)))
+        XCTAssertTrue(HostBrowserControlService.isTailscaleAddress(.ipv4(IPv4Address("100.127.255.254")!)))
+        XCTAssertFalse(HostBrowserControlService.isTailscaleAddress(.ipv4(IPv4Address("100.128.0.1")!)))
+        XCTAssertFalse(HostBrowserControlService.isTailscaleAddress(.ipv4(IPv4Address("192.168.1.11")!)))
+        XCTAssertTrue(HostBrowserControlService.isTailscaleAddress(.ipv6(IPv6Address("fd7a:115c:a1e0::1")!)))
+        XCTAssertFalse(HostBrowserControlService.isTailscaleAddress(.ipv6(IPv6Address("fd00::1")!)))
+    }
+
     func testBrowserPairingCodeAcceptsFormattedAndLocalizedDigits() {
         XCTAssertEqual(HostBrowserPairingCode.normalize(" 12-34·56 "), "123456")
         XCTAssertEqual(HostBrowserPairingCode.normalize("١٢٣٤٥٦"), "123456")
@@ -57,6 +75,14 @@ final class HostTerminalServiceTests: XCTestCase {
         XCTAssertTrue(status.running)
         XCTAssertEqual(status.port, port)
         XCTAssertFalse(status.pairingCode.isEmpty)
+
+        var crossOriginRequest = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/api/pair")!)
+        crossOriginRequest.httpMethod = "POST"
+        crossOriginRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        crossOriginRequest.setValue("https://evil.example", forHTTPHeaderField: "Origin")
+        crossOriginRequest.httpBody = Data("{\"code\":\"\(status.pairingCode)\"}".utf8)
+        let (_, crossOriginResponse) = try await URLSession.shared.data(for: crossOriginRequest)
+        XCTAssertEqual((crossOriginResponse as? HTTPURLResponse)?.statusCode, 403)
 
         var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/api/pair?pair=\(status.pairingCode)")!)
         request.httpMethod = "POST"

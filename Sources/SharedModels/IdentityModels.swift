@@ -1,5 +1,13 @@
 import Foundation
 
+public enum PublicKeyFingerprint {
+    public static func isValid(_ value: String) -> Bool {
+        guard value.count == 64 else { return false }
+        let validCharacters = CharacterSet(charactersIn: "0123456789abcdef")
+        return value.unicodeScalars.allSatisfy { validCharacters.contains($0) }
+    }
+}
+
 public struct HostIdentity: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
     public var displayName: String

@@ -77,6 +77,7 @@ final class HostInputCommandRouter: @unchecked Sendable {
     /// input, so an unauthenticated peer cannot browse the filesystem.
     var onWorkspaceListRequest: (@Sendable (WorkspaceListRequestMessage) -> Void)?
     var onWorkspaceDirectoryRequest: (@Sendable (WorkspaceDirectoryRequestMessage) -> Void)?
+    var onWorkspaceAccessRequest: (@Sendable (WorkspaceAccessRequestMessage) -> Void)?
     /// Called from `stopListening` so per-session services (terminal, etc.) can clean up.
     var onSessionEnded: (@Sendable () -> Void)?
 
@@ -290,6 +291,8 @@ final class HostInputCommandRouter: @unchecked Sendable {
                     await self.handleWorkspaceListRequestEnvelope(envelope)
                 case .workspaceDirectoryRequest:
                     await self.handleWorkspaceDirectoryRequestEnvelope(envelope)
+                case .workspaceAccessRequest:
+                    await self.handleWorkspaceAccessRequestEnvelope(envelope)
                 default:
                     continue
                 }
@@ -358,7 +361,8 @@ final class HostInputCommandRouter: @unchecked Sendable {
         case .controlAuth, .ping, .pong,
              .clipboardSync, .clipboardRequest,
              .terminalOpen, .terminalInput, .terminalResize, .terminalClose,
-             .workspaceListRequest, .workspaceDirectoryRequest, .agentPrompt:
+             .workspaceListRequest, .workspaceDirectoryRequest,
+             .workspaceAccessRequest, .agentPrompt:
             return true
         default:
             return false
@@ -705,9 +709,37 @@ final class HostInputCommandRouter: @unchecked Sendable {
     }
 
     private func handleWorkspaceDirectoryRequestEnvelope(_ envelope: DataChannelEnvelope) async {
+        guard envelope.hasAcceptableTimestamp else {
+            rejectCommand(reason: "Workspace directory request timestamp rejected")
+            return
+        }
+        guard validateControlEnvelopeAuth(envelope) else {
+            rejectCommand(reason: "Workspace directory request authentication rejected")
+            return
+        }
+        guard let message = try? envelope.decodeWorkspaceDirectoryRequest(),
+              envelope.sessionID == message.sessionID else {
+            rejectCommand(reason: "Workspace directory request payload rejected")
+            return
+        }
+        let rejection = InputCommandValidation.validateRouting(
+            commandSessionID: message.sessionID,
+            activeSessionID: activeSessionID,
+            isRouterEnabled: isEnabled,
+            connectionState: webRTCSessionManager.connectionState
+        )
+        guard rejection == nil else {
+            rejectCommand(reason: "Workspace directory request routing rejected: \(String(describing: rejection))")
+            return
+        }
+        logger.notice("Workspace directory request accepted")
+        onWorkspaceDirectoryRequest?(message)
+    }
+
+    private func handleWorkspaceAccessRequestEnvelope(_ envelope: DataChannelEnvelope) async {
         guard envelope.hasAcceptableTimestamp,
               validateControlEnvelopeAuth(envelope),
-              let message = try? envelope.decodeWorkspaceDirectoryRequest(),
+              let message = try? envelope.decodeWorkspaceAccessRequest(),
               envelope.sessionID == message.sessionID else { return }
         let rejection = InputCommandValidation.validateRouting(
             commandSessionID: message.sessionID,
@@ -716,7 +748,7 @@ final class HostInputCommandRouter: @unchecked Sendable {
             connectionState: webRTCSessionManager.connectionState
         )
         guard rejection == nil else { return }
-        onWorkspaceDirectoryRequest?(message)
+        onWorkspaceAccessRequest?(message)
     }
 
     private func handleFileTransferEnvelope(_ envelope: DataChannelEnvelope) async {

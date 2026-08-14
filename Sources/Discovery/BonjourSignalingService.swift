@@ -547,7 +547,8 @@ public final class BonjourSignalingService: @unchecked Sendable {
         if seenEnvelopeIDs[envelope.id] != nil {
             return false
         }
-        if abs(envelope.sentAt.timeIntervalSince(now)) > clockSkewAllowanceSeconds {
+        let age = now.timeIntervalSince(envelope.sentAt)
+        if age > replayWindowSeconds || age < -clockSkewAllowanceSeconds {
             return false
         }
 

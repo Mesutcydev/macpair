@@ -638,11 +638,12 @@ final class HostSessionCoordinator: ObservableObject {
             await startPipeline(sessionID: sessionID, offer: offer, terminalOnly: isTerminalSession)
 
         } catch {
-            logger.error("Session negotiation failed: \(error.localizedDescription)")
+            let diagnostic = "\(String(reflecting: type(of: error))): \(error.localizedDescription)"
+            logger.error("Session negotiation failed: \(diagnostic, privacy: .public)")
             await eventLogStore.append(EventLogItem(
                 severity: .error,
                 category: "Session",
-                message: "Negotiation failed: \(error.localizedDescription)"
+                message: "Negotiation failed: \(diagnostic)"
             ))
             // Disconnect the signaling TCP so a new client connection can be accepted,
             // then return to awaitingClient so the listener keeps running.
@@ -1440,7 +1441,10 @@ final class HostSessionCoordinator: ObservableObject {
             .supportsAudioLater,
             .supportsVideoFragmentation,
             .supportsTerminal,
-            .supportsMultipleTerminals
+            .supportsMultipleTerminals,
+            .supportsTerminalChat,
+            .supportsTaskPlans,
+            .supportsWorkspaces
         ]
         if VideoEncoderCapabilities.supportsHardwareHEVCEncode {
             flags.insert(.supportsHEVC)
@@ -1459,7 +1463,10 @@ final class HostSessionCoordinator: ObservableObject {
             .supportsMultiDisplay,
             .supportsAudioLater,
             .supportsTerminal,
-            .supportsMultipleTerminals
+            .supportsMultipleTerminals,
+            .supportsTerminalChat,
+            .supportsTaskPlans,
+            .supportsWorkspaces
         ]
 
     /// Capabilities the connected client advertised in its session offer, if any.
@@ -1657,13 +1664,11 @@ final class HostSessionCoordinator: ObservableObject {
             severity: .info, category: "Display",
             message: "Multi-display request received: [\(message.displayIDs.joined(separator: ", "))]"))
 
-        // The control message arrives on the live session's data channel, so honour it even if the
-        // client echoed a stale session ID after a reconnect (the log shows frequent reconnects) —
-        // just note the mismatch rather than silently dropping the request.
-        if activeSessionID != message.sessionID {
+        guard activeSessionID == message.sessionID else {
             await eventLogStore.append(EventLogItem(
                 severity: .warning, category: "Display",
-                message: "Multi-display: session-ID mismatch (request \(String(describing: message.sessionID)) vs active \(String(describing: activeSessionID))) — proceeding on the live channel"))
+                message: "Multi-display request rejected: session-ID mismatch"))
+            return
         }
         guard negotiatedCapabilities.supportsMultiDisplay else {
             await eventLogStore.append(EventLogItem(

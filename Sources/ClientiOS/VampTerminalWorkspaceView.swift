@@ -48,6 +48,7 @@ struct VampTerminalWorkspaceView: View {
     @State private var showingWorkspaces = false
     @State private var showingActivity = false
     @State private var presentation: VampTerminalPresentation = .chat
+    @AppStorage("vampTerminal.appearance") private var appearance = "system"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -66,9 +67,14 @@ struct VampTerminalWorkspaceView: View {
                     // conversation. The VT surface becomes visible only when
                     // the user explicitly chooses Terminal.
                     ZStack {
-                        (workspace.selectedTab?.provider?.terminalBackground ?? Color.black)
-                        if workspace.tabs.isEmpty {
-                            emptyWorkspaceState
+                        // Only the mounted VT surface owns a provider-colored
+                        // terminal canvas. Chat and empty states use the
+                        // appearance-adaptive application surface so Light
+                        // mode never places dark labels on a black backdrop.
+                        if presentation == .terminal, !workspace.tabs.isEmpty {
+                            workspace.selectedTab?.provider?.terminalBackground ?? Color.black
+                        } else {
+                            Color(uiColor: .systemBackground)
                         }
                         ForEach(workspace.tabs) { tab in
                             VampTerminalPaneView(
@@ -95,8 +101,9 @@ struct VampTerminalWorkspaceView: View {
                     .allowsHitTesting(presentation == .terminal)
                     .clipped()
 
-                    if presentation == .chat, let tab = workspace.selectedTab {
-                        TerminalChatFeedView(
+                    if presentation == .chat {
+                        if let tab = workspace.selectedTab {
+                            TerminalChatFeedView(
                             chat: tab.chat,
                             session: tab.session,
                             provider: tab.provider,
@@ -115,8 +122,17 @@ struct VampTerminalWorkspaceView: View {
                             onResume: { workspace.resumePlan(tabID: tab.id) },
                             onSendClipboardToHost: { _ = workspace.sendClipboardToHost() },
                             onRequestClipboardFromHost: { _ = workspace.requestClipboardFromHost() }
-                        )
-                        .id(tab.id)
+                            )
+                            .id(tab.id)
+                        } else {
+                            emptyWorkspaceState
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(Color(uiColor: .systemBackground))
+                        }
+                    } else if workspace.tabs.isEmpty {
+                        emptyWorkspaceState
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(Color(uiColor: .systemBackground))
                     }
                 }
 
@@ -134,13 +150,7 @@ struct VampTerminalWorkspaceView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(Color.black)
-        // The workspace is intentionally a dark terminal surface even when
-        // the home screen follows the system appearance.  Several of the
-        // glass tokens use SwiftUI's semantic primary/secondary colors; pin
-        // this surface to dark so those tokens remain readable on the black
-        // PTY background instead of becoming black text on black.
-        .preferredColorScheme(.dark)
+        .background(Color(uiColor: .systemBackground))
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             if let sessionID = coordinator.activeSessionID {
@@ -340,6 +350,13 @@ struct VampTerminalWorkspaceView: View {
                 } label: {
                     Label("Open workspaces", systemImage: "folder")
                 }
+                Menu {
+                    appearanceButton("System", value: "system", systemImage: "circle.lefthalf.filled")
+                    appearanceButton("Light", value: "light", systemImage: "sun.max")
+                    appearanceButton("Dark", value: "dark", systemImage: "moon")
+                } label: {
+                    Label("Appearance", systemImage: "circle.righthalf.filled")
+                }
                 Button(role: .destructive) {
                     showingDisconnectConfirmation = true
                 } label: {
@@ -368,6 +385,14 @@ struct VampTerminalWorkspaceView: View {
             Rectangle()
                 .fill(VampGlassPalette.ruleStrong)
                 .frame(height: 0.5)
+        }
+    }
+
+    private func appearanceButton(_ title: String, value: String, systemImage: String) -> some View {
+        Button {
+            appearance = value
+        } label: {
+            Label(title, systemImage: appearance == value ? "checkmark" : systemImage)
         }
     }
 
@@ -796,7 +821,7 @@ private struct TerminalChatFeedView: View {
                     onRequestClipboardFromHost: onRequestClipboardFromHost
                 )
             }
-        .background(provider?.terminalBackground ?? Color.black)
+        .background(Color(uiColor: .systemBackground))
     }
 
     private func scrollToLatest(_ proxy: ScrollViewProxy, animated: Bool) {
@@ -1253,6 +1278,35 @@ struct VampWorkspaceChooserView: View {
                     }
                     .buttonStyle(VampGlassPressStyle())
 
+                    Button {
+                        store.requestAdditionalFolder()
+                    } label: {
+                        HStack(spacing: VampTerminalDesign.space3) {
+                            if store.isRequestingFolderAccess {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: "macbook.and.iphone")
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Add Mac folder…")
+                                    .font(.headline)
+                                Text("A folder picker will open on (hostName)")
+                                    .font(.caption)
+                                    .foregroundStyle(VampGlassPalette.inkSecondary)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .foregroundStyle(VampGlassPalette.ink)
+                        .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.controlHeight, alignment: .leading)
+                        .padding(.horizontal, VampTerminalDesign.space4)
+                        .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                        .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius)
+                    }
+                    .buttonStyle(VampGlassPressStyle())
+                    .disabled(store.isRequestingFolderAccess)
+                    .accessibilityHint("Opens a folder chooser on the connected Mac")
+
                     if let selectedWorkspace {
                         VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
                             sectionLabel("SESSION")
@@ -1320,7 +1374,7 @@ struct VampWorkspaceChooserView: View {
                     Rectangle().fill(VampGlassPalette.rule).frame(height: 0.5)
                 }
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(Color(uiColor: .systemBackground).ignoresSafeArea())
             .navigationTitle("Choose workspace")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1333,7 +1387,6 @@ struct VampWorkspaceChooserView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
         .onAppear {
             store.activate()
             if selectedWorkspaceID == nil {
@@ -1469,7 +1522,7 @@ struct VampWorkspacesView: View {
                 .padding(.horizontal, VampTerminalDesign.space5)
                 .padding(.vertical, VampTerminalDesign.space5)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(Color(uiColor: .systemBackground).ignoresSafeArea())
             .navigationTitle("Workspaces")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1491,7 +1544,6 @@ struct VampWorkspacesView: View {
                 }
             )
         }
-        .preferredColorScheme(.dark)
         .onAppear { store.activate() }
     }
 }
@@ -1559,7 +1611,11 @@ private struct VampWorkspaceDetailView: View {
                         Button {
                             selectedAgent = provider
                         } label: {
-                            Label(provider.displayName, systemImage: provider.fallbackSystemImage)
+                            if let assetName = provider.assetName {
+                                Label(provider.displayName, image: assetName)
+                            } else {
+                                Label(provider.displayName, systemImage: provider.fallbackSystemImage)
+                            }
                         }
                     }
                 } label: {
@@ -1597,7 +1653,7 @@ private struct VampWorkspaceDetailView: View {
             .padding(.horizontal, VampTerminalDesign.space5)
             .padding(.vertical, VampTerminalDesign.space5)
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .navigationTitle("Workspace")
         .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(item: $selectedAgent) { provider in
@@ -1625,7 +1681,6 @@ private struct VampWorkspaceDetailView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
     }
 }
 
@@ -1650,6 +1705,12 @@ private struct VampWorkspaceBrowserView: View {
             Section {
                 if store.isBrowsing {
                     ProgressView("Reading Mac folder…")
+                } else if let error = store.errorMessage {
+                    ContentUnavailableView(
+                        "Folder unavailable",
+                        systemImage: "exclamationmark.folder",
+                        description: Text(error)
+                    )
                 } else if store.directoryEntries.isEmpty {
                     ContentUnavailableView(
                         "No folders here",
@@ -2013,7 +2074,7 @@ private struct TerminalChatComposer: View {
         .vampGlassOutline(cornerRadius: VampTerminalDesign.largeCardRadius, color: VampGlassPalette.ruleStrong)
         .padding(.horizontal, VampTerminalDesign.space3)
         .padding(.vertical, VampTerminalDesign.space2)
-        .background(Color.black.opacity(0.82))
+        .background(.ultraThinMaterial)
         .onChange(of: speech.errorMessage) { _, message in
             showingSpeechError = message != nil
         }

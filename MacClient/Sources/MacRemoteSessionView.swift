@@ -878,7 +878,7 @@ struct MacRemoteSessionView: View {
         formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
         let stamp = formatter.string(from: Date())
         let host = coordinator.connectedHostName.map { " — \($0)" } ?? ""
-        return "Vamp Remote Screenshot\(host) \(stamp).png"
+        return "Vamp Control Screenshot\(host) \(stamp).png"
     }
 
     // MARK: - Session toast

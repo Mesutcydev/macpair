@@ -55,6 +55,10 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
     case workspaceDirectoryRequest
     /// Host → client: directory entries for a validated browse path.
     case workspaceDirectoryResponse
+    /// Client → host: ask the Mac owner to expose another folder.
+    case workspaceAccessRequest
+    /// Host → client: result of the native Mac folder chooser.
+    case workspaceAccessResponse
     /// Host → client: a semantic agent task-plan mutation. This is kept
     /// separate from terminalOutput so VT repaint bytes cannot become Chat
     /// tasks by accident.
@@ -75,7 +79,8 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
              .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
              .terminalResize, .terminalClose, .workspaceListRequest,
              .workspaceListResponse, .workspaceDirectoryRequest,
-             .workspaceDirectoryResponse, .taskPlanEvent, .agentPrompt,
+             .workspaceDirectoryResponse, .workspaceAccessRequest,
+             .workspaceAccessResponse, .taskPlanEvent, .agentPrompt,
              .providerSemanticEvent:
             return true
         default:
@@ -355,6 +360,22 @@ extension DataChannelEnvelope {
         )
     }
 
+    public static func workspaceAccessRequest(_ message: WorkspaceAccessRequestMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .workspaceAccessRequest,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func workspaceAccessResponse(_ message: WorkspaceAccessResponseMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .workspaceAccessResponse,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
     public static func taskPlanEvent(_ message: SessionTaskEventMessage) throws -> DataChannelEnvelope {
         DataChannelEnvelope(
             kind: .taskPlanEvent,
@@ -508,6 +529,14 @@ extension DataChannelEnvelope {
 
     public func decodeWorkspaceDirectoryResponse() throws -> WorkspaceDirectoryResponseMessage {
         try Self.makeDecoder().decode(WorkspaceDirectoryResponseMessage.self, from: payload)
+    }
+
+    public func decodeWorkspaceAccessRequest() throws -> WorkspaceAccessRequestMessage {
+        try Self.makeDecoder().decode(WorkspaceAccessRequestMessage.self, from: payload)
+    }
+
+    public func decodeWorkspaceAccessResponse() throws -> WorkspaceAccessResponseMessage {
+        try Self.makeDecoder().decode(WorkspaceAccessResponseMessage.self, from: payload)
     }
 
     public func decodeTaskPlanEvent() throws -> SessionTaskEventMessage {

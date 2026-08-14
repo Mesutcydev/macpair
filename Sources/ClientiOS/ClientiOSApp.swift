@@ -46,7 +46,7 @@ private struct AppLockPrivacyCover: View {
 @main
 struct ClientiOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var environment = ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client")
+    @StateObject private var environment = ClientAppEnvironment.makeDefault(clientName: "Vamp Control")
     @StateObject private var keepaliveService = BackgroundKeepaliveService()
     @StateObject private var appLock = AppLockService()
     @State private var observersInstalled = false

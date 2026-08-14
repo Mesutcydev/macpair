@@ -405,5 +405,21 @@ final class DataChannelMessageTests: XCTestCase {
 
         XCTAssertEqual(listDecoded, list)
         XCTAssertEqual(directoryDecoded, directory)
+
+        let accessRequest = WorkspaceAccessRequestMessage(sessionID: sessionID)
+        let decodedAccessRequest = try DataChannelEnvelope.wireDecode(
+            try DataChannelEnvelope.workspaceAccessRequest(accessRequest).wireEncode()
+        ).decodeWorkspaceAccessRequest()
+        XCTAssertEqual(decodedAccessRequest, accessRequest)
+
+        let accessResponse = WorkspaceAccessResponseMessage(
+            sessionID: sessionID,
+            requestID: accessRequest.requestID,
+            approved: true
+        )
+        let decodedAccessResponse = try DataChannelEnvelope.wireDecode(
+            try DataChannelEnvelope.workspaceAccessResponse(accessResponse).wireEncode()
+        ).decodeWorkspaceAccessResponse()
+        XCTAssertEqual(decodedAccessResponse, accessResponse)
     }
 }

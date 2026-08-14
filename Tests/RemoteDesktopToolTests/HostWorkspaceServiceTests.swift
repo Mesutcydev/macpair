@@ -83,5 +83,31 @@ final class HostWorkspaceServiceTests: XCTestCase {
         XCTAssertNil(service.validatedWorkingDirectory("/tmp"))
         XCTAssertNil(service.validatedWorkingDirectory(root.path + "/../outside"))
     }
+
+    func testDirectoryBrowsingDoesNotWaitForBackgroundDiscovery() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("VampWorkspaceTests-\(UUID().uuidString)", isDirectory: true)
+        let projects = root.appendingPathComponent("Projects", isDirectory: true)
+        try fileManager.createDirectory(at: projects, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let service = HostWorkspaceService(
+            hostID: UUID(),
+            homePath: root.path,
+            discoveryDelayForTesting: 1
+        )
+        let discoveryStarted = expectation(description: "discovery completes")
+        service.listWorkspaces(refresh: true) { _, _, _ in discoveryStarted.fulfill() }
+
+        let browseReturned = expectation(description: "interactive browse returns immediately")
+        service.listDirectory(path: root.path) { _, _, errorMessage in
+            XCTAssertNil(errorMessage)
+            browseReturned.fulfill()
+        }
+
+        wait(for: [browseReturned], timeout: 0.5)
+        wait(for: [discoveryStarted], timeout: 2)
+    }
 }
 #endif

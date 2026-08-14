@@ -40,10 +40,16 @@ enum HostProductMode: String, CaseIterable, Sendable {
                 .supportsAudioLater,
                 .supportsMacClient,
                 .supportsTerminal,
-                .supportsMultipleTerminals
+                .supportsMultipleTerminals,
+                .supportsTerminalChat,
+                .supportsTaskPlans,
+                .supportsWorkspaces
             ]
         case .terminalOnly:
-            return [.supportsH264, .supportsTerminal, .supportsMultipleTerminals]
+            return [
+                .supportsH264, .supportsTerminal, .supportsMultipleTerminals,
+                .supportsTerminalChat, .supportsTaskPlans, .supportsWorkspaces
+            ]
         }
     }
 

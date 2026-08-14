@@ -60,6 +60,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Packaging later changes into the staging directory. Resolve a caller-supplied
+# relative destination now so the IPA is always written to the intended path.
+if [[ "$OUTPUT_DIR" != /* ]]; then
+  OUTPUT_DIR="$ROOT/$OUTPUT_DIR"
+fi
+
 for tool in xcodebuild ditto plutil file otool shasum python3 unzip zip; do
   command -v "$tool" >/dev/null 2>&1 || fail "Required tool not found: $tool"
 done

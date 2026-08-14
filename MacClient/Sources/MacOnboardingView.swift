@@ -14,7 +14,7 @@ struct MacOnboardingView: View {
                     .resizable()
                     .frame(width: 72, height: 72)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                Text("Welcome to Vamp Remote")
+                Text("Welcome to Vamp Control")
                     .font(.title2.weight(.semibold))
                 Text("Control another Mac from this one — full keyboard, mouse, and screen, over your local network or Tailscale.")
                     .font(.callout)

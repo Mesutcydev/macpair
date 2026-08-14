@@ -22,7 +22,7 @@ struct HostAgentCommandsView: View {
         .init(id: "version", command: "vamp version", hint: "Installed Vamp Host version and build"),
         .init(id: "pending", command: "vamp pending", hint: "Inspect pending trust request before approving"),
         .init(id: "approve-pairing", command: "vamp approve-pairing --fingerprint <hex>", hint: "Approve only when fingerprint matches"),
-        .init(id: "approve-connection", command: "vamp approve-connection", hint: "Approve a pending client connection request"),
+        .init(id: "approve-connection", command: "vamp approve-connection --fingerprint <hex>", hint: "Approve only when fingerprint matches"),
         .init(id: "terminal-list", command: "vamp terminal list", hint: "List persistent tmux/screen sessions that Vamp Terminal can resume"),
         .init(id: "terminal-start", command: "vamp terminal start --session work", hint: "Create a persistent shell for mobile handoff"),
         .init(id: "terminal-agent-opencode", command: "vamp terminal agent opencode --session opencode", hint: "Run OpenCode inside tmux so Vamp Terminal can reattach"),

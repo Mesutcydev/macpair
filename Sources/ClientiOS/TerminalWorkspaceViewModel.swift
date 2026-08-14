@@ -603,6 +603,7 @@ final class VampWorkspaceStore: ObservableObject {
     @Published private(set) var browsePath: String?
     @Published private(set) var isLoading = false
     @Published private(set) var isBrowsing = false
+    @Published private(set) var isRequestingFolderAccess = false
     @Published private(set) var errorMessage: String?
 
     private let coordinator: ClientSessionCoordinator
@@ -611,6 +612,8 @@ final class VampWorkspaceStore: ObservableObject {
     private var persistedWorkspaces: [RemoteWorkspace] = []
     private var pendingListRequestID: UUID?
     private var pendingDirectoryRequestID: UUID?
+    private var directoryTimeoutTask: Task<Void, Never>?
+    private var pendingAccessRequestID: UUID?
 
     init(coordinator: ClientSessionCoordinator) {
         self.coordinator = coordinator
@@ -618,6 +621,9 @@ final class VampWorkspaceStore: ObservableObject {
             self?.receive(response)
         }
         coordinator.onWorkspaceDirectoryResponse = { [weak self] response in
+            self?.receive(response)
+        }
+        coordinator.onWorkspaceAccessResponse = { [weak self] response in
             self?.receive(response)
         }
     }
@@ -657,11 +663,36 @@ final class VampWorkspaceStore: ObservableObject {
         }
     }
 
+    /// Asks the connected Mac to present its native folder picker. No path is
+    /// selected or transmitted by iOS; the Mac owner remains in control.
+    func requestAdditionalFolder() {
+        guard !isRequestingFolderAccess else { return }
+        isRequestingFolderAccess = true
+        errorMessage = nil
+        do {
+            pendingAccessRequestID = try coordinator.requestAdditionalWorkspaceFolder()
+        } catch {
+            isRequestingFolderAccess = false
+            errorMessage = "Reconnect to the Mac before adding a folder."
+        }
+    }
+
     func browse(path: String) {
+        directoryTimeoutTask?.cancel()
         isBrowsing = true
         errorMessage = nil
         do {
-            pendingDirectoryRequestID = try coordinator.requestWorkspaceDirectory(path: path)
+            let requestID = try coordinator.requestWorkspaceDirectory(path: path)
+            pendingDirectoryRequestID = requestID
+            directoryTimeoutTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 8_000_000_000)
+                guard !Task.isCancelled,
+                      let self,
+                      self.pendingDirectoryRequestID == requestID else { return }
+                self.pendingDirectoryRequestID = nil
+                self.isBrowsing = false
+                self.errorMessage = "The Mac did not answer the folder request. Reconnect and try again."
+            }
         } catch {
             isBrowsing = false
             errorMessage = "Reconnect to the Mac to browse this folder."
@@ -742,10 +773,24 @@ final class VampWorkspaceStore: ObservableObject {
         guard response.sessionID == coordinator.activeSessionID,
               pendingDirectoryRequestID == nil || pendingDirectoryRequestID == response.requestID else { return }
         pendingDirectoryRequestID = nil
+        directoryTimeoutTask?.cancel()
+        directoryTimeoutTask = nil
         browsePath = response.path
         directoryEntries = response.entries
         isBrowsing = false
         errorMessage = response.errorMessage
+    }
+
+    private func receive(_ response: WorkspaceAccessResponseMessage) {
+        guard response.sessionID == coordinator.activeSessionID,
+              pendingAccessRequestID == response.requestID else { return }
+        pendingAccessRequestID = nil
+        isRequestingFolderAccess = false
+        if response.approved {
+            refresh()
+        } else {
+            errorMessage = response.errorMessage
+        }
     }
 
     private func merge(server: [RemoteWorkspace]) -> [RemoteWorkspace] {

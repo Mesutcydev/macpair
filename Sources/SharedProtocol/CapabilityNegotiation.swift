@@ -14,6 +14,9 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
     public var supportsHDR10: Bool
     public var supportsTerminal: Bool
     public var supportsMultipleTerminals: Bool
+    public var supportsTerminalChat: Bool
+    public var supportsTaskPlans: Bool
+    public var supportsWorkspaces: Bool
 
     public init(
         videoCodec: VideoCodec,
@@ -22,7 +25,10 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         supportsMacClient: Bool,
         supportsHDR10: Bool = false,
         supportsTerminal: Bool = false,
-        supportsMultipleTerminals: Bool = false
+        supportsMultipleTerminals: Bool = false,
+        supportsTerminalChat: Bool = false,
+        supportsTaskPlans: Bool = false,
+        supportsWorkspaces: Bool = false
     ) {
         self.videoCodec = videoCodec
         self.supportsMultiDisplay = supportsMultiDisplay
@@ -31,6 +37,9 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         self.supportsHDR10 = supportsHDR10
         self.supportsTerminal = supportsTerminal
         self.supportsMultipleTerminals = supportsMultipleTerminals
+        self.supportsTerminalChat = supportsTerminalChat
+        self.supportsTaskPlans = supportsTaskPlans
+        self.supportsWorkspaces = supportsWorkspaces
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -41,6 +50,9 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         case supportsHDR10
         case supportsTerminal
         case supportsMultipleTerminals
+        case supportsTerminalChat
+        case supportsTaskPlans
+        case supportsWorkspaces
     }
 
     public init(from decoder: Decoder) throws {
@@ -52,6 +64,9 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         supportsHDR10 = try container.decodeIfPresent(Bool.self, forKey: .supportsHDR10) ?? false
         supportsTerminal = try container.decodeIfPresent(Bool.self, forKey: .supportsTerminal) ?? false
         supportsMultipleTerminals = try container.decodeIfPresent(Bool.self, forKey: .supportsMultipleTerminals) ?? false
+        supportsTerminalChat = try container.decodeIfPresent(Bool.self, forKey: .supportsTerminalChat) ?? false
+        supportsTaskPlans = try container.decodeIfPresent(Bool.self, forKey: .supportsTaskPlans) ?? false
+        supportsWorkspaces = try container.decodeIfPresent(Bool.self, forKey: .supportsWorkspaces) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -63,6 +78,9 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         try container.encode(supportsHDR10, forKey: .supportsHDR10)
         try container.encode(supportsTerminal, forKey: .supportsTerminal)
         try container.encode(supportsMultipleTerminals, forKey: .supportsMultipleTerminals)
+        try container.encode(supportsTerminalChat, forKey: .supportsTerminalChat)
+        try container.encode(supportsTaskPlans, forKey: .supportsTaskPlans)
+        try container.encode(supportsWorkspaces, forKey: .supportsWorkspaces)
     }
 }
 
@@ -89,7 +107,10 @@ public enum CapabilityNegotiator {
                 && host.contains(.supportsHDR10)
                 && client.contains(.supportsHDR10),
             supportsTerminal: host.contains(.supportsTerminal) && client.contains(.supportsTerminal),
-            supportsMultipleTerminals: host.contains(.supportsMultipleTerminals) && client.contains(.supportsMultipleTerminals)
+            supportsMultipleTerminals: host.contains(.supportsMultipleTerminals) && client.contains(.supportsMultipleTerminals),
+            supportsTerminalChat: host.contains(.supportsTerminalChat) && client.contains(.supportsTerminalChat),
+            supportsTaskPlans: host.contains(.supportsTaskPlans) && client.contains(.supportsTaskPlans),
+            supportsWorkspaces: host.contains(.supportsWorkspaces) && client.contains(.supportsWorkspaces)
         )
     }
 }

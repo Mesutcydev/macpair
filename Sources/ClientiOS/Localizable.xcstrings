@@ -4435,121 +4435,121 @@
       }
     },
     "Connection lost — reconnecting…": {},
-    "Control your Vamp Remote Control host from anywhere": {
+    "Control your Vamp Control host from anywhere": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "تحكم في مضيف Vamp Remote Control الخاص بك من أي مكان"
+            "value": "تحكم في مضيف Vamp Control الخاص بك من أي مكان"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Steuern Sie Ihren Vamp Remote Control-Host von überall"
+            "value": "Steuern Sie Ihren Vamp Control-Host von überall"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Control your Vamp Remote Control host from anywhere"
+            "value": "Control your Vamp Control host from anywhere"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Controle su host Vamp Remote Control desde cualquier lugar"
+            "value": "Controle su host Vamp Control desde cualquier lugar"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Contrôlez votre hôte Vamp Remote Control depuis n'importe où"
+            "value": "Contrôlez votre hôte Vamp Control depuis n'importe où"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "कहीं से भी अपने Vamp Remote Control होस्ट को नियंत्रित करें"
+            "value": "कहीं से भी अपने Vamp Control होस्ट को नियंत्रित करें"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Controlla il tuo host Vamp Remote Control da qualsiasi luogo"
+            "value": "Controlla il tuo host Vamp Control da qualsiasi luogo"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "どこからでもVamp Remote Controlホストを制御"
+            "value": "どこからでもVamp Controlホストを制御"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "어디서나 Vamp Remote Control 호스트를 제어하세요"
+            "value": "어디서나 Vamp Control 호스트를 제어하세요"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bedien uw Vamp Remote Control-host overal vandaan"
+            "value": "Bedien uw Vamp Control-host overal vandaan"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kontroluj swojego hosta Vamp Remote Control z dowolnego miejsca"
+            "value": "Kontroluj swojego hosta Vamp Control z dowolnego miejsca"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Controle seu host Vamp Remote Control de qualquer lugar"
+            "value": "Controle seu host Vamp Control de qualquer lugar"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Управляйте своим Vamp Remote Control-хостом откуда угодно"
+            "value": "Управляйте своим Vamp Control-хостом откуда угодно"
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Styr din Vamp Remote Control-värd var som helst ifrån"
+            "value": "Styr din Vamp Control-värd var som helst ifrån"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "ควบคุมโฮสต์ Vamp Remote Control ของคุณจากทุกที่"
+            "value": "ควบคุมโฮสต์ Vamp Control ของคุณจากทุกที่"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control ana bilgisayarınızı her yerden kontrol edin"
+            "value": "Vamp Control ana bilgisayarınızı her yerden kontrol edin"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Điều khiển máy chủ Vamp Remote Control của bạn từ mọi nơi"
+            "value": "Điều khiển máy chủ Vamp Control của bạn từ mọi nơi"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "随时随地控制您的 Vamp Remote Control 主机"
+            "value": "随时随地控制您的 Vamp Control 主机"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "隨時隨地控制您的 Vamp Remote Control 主機"
+            "value": "隨時隨地控制您的 Vamp Control 主機"
           }
         }
       }
@@ -7708,121 +7708,121 @@
       }
     },
     "For outside-LAN access, connect both devices with Tailscale and use the Mac’s Tailscale IP.": {},
-    "For remote access outside home or office, install the same private network app on the Vamp Remote Control host and Mac, then paste the host's Tailscale Connect address here.": {
+    "For remote access outside home or office, install the same private network app on the Vamp Control host and Mac, then paste the host's Tailscale Connect address here.": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "للوصول عن بُعد خارج المنزل أو المكتب، قم بتثبيت تطبيق الشبكة الخاصة نفسه على مضيف Vamp Remote Control وMac، ثم الصق عنوان Tailscale Connect الخاص بالمضيف هنا."
+            "value": "للوصول عن بُعد خارج المنزل أو المكتب، قم بتثبيت تطبيق الشبكة الخاصة نفسه على مضيف Vamp Control وMac، ثم الصق عنوان Tailscale Connect الخاص بالمضيف هنا."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Für Fernzugriff außerhalb von Zuhause oder Büro installieren Sie dieselbe private Netzwerk-App auf dem Vamp Remote Control-Host und Mac und fügen Sie dann die Tailscale Connect-Adresse des Hosts hier ein."
+            "value": "Für Fernzugriff außerhalb von Zuhause oder Büro installieren Sie dieselbe private Netzwerk-App auf dem Vamp Control-Host und Mac und fügen Sie dann die Tailscale Connect-Adresse des Hosts hier ein."
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "For remote access outside home or office, install the same private network app on the Vamp Remote Control host and Mac, then paste the host's Tailscale Connect address here."
+            "value": "For remote access outside home or office, install the same private network app on the Vamp Control host and Mac, then paste the host's Tailscale Connect address here."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Para acceso remoto fuera de casa u oficina, instale la misma aplicación de red privada en el host Vamp Remote Control y el Mac, luego pegue la dirección Tailscale Connect del host aquí."
+            "value": "Para acceso remoto fuera de casa u oficina, instale la misma aplicación de red privada en el host Vamp Control y el Mac, luego pegue la dirección Tailscale Connect del host aquí."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pour l'accès à distance en dehors du domicile ou du bureau, installez la même application de réseau privé sur l'hôte Vamp Remote Control et l'Mac, puis collez l'adresse Tailscale Connect de l'hôte ici."
+            "value": "Pour l'accès à distance en dehors du domicile ou du bureau, installez la même application de réseau privé sur l'hôte Vamp Control et l'Mac, puis collez l'adresse Tailscale Connect de l'hôte ici."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "घर या कार्यालय के बाहर रिमोट एक्सेस के लिए, Vamp Remote Control होस्ट और Mac पर समान निजी नेटवर्क ऐप इंस्टॉल करें, फिर होस्ट का Tailscale Connect पता यहां पेस्ट करें।"
+            "value": "घर या कार्यालय के बाहर रिमोट एक्सेस के लिए, Vamp Control होस्ट और Mac पर समान निजी नेटवर्क ऐप इंस्टॉल करें, फिर होस्ट का Tailscale Connect पता यहां पेस्ट करें।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Per l'accesso remoto fuori casa o ufficio, installa la stessa app di rete privata sull'host Vamp Remote Control e su Mac, quindi incolla qui l'indirizzo Tailscale Connect dell'host."
+            "value": "Per l'accesso remoto fuori casa o ufficio, installa la stessa app di rete privata sull'host Vamp Control e su Mac, quindi incolla qui l'indirizzo Tailscale Connect dell'host."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "自宅やオフィスの外部からのリモートアクセスには、Vamp Remote ControlホストとMacに同じプライベートネットワークアプリをインストールし、ホストのTailscale Connectアドレスをここに貼り付けてください。"
+            "value": "自宅やオフィスの外部からのリモートアクセスには、Vamp ControlホストとMacに同じプライベートネットワークアプリをインストールし、ホストのTailscale Connectアドレスをここに貼り付けてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "집이나 사무실 외부에서 원격 접근하려면 Vamp Remote Control 호스트와 Mac에 동일한 사설 네트워크 앱을 설치한 다음 호스트의 Tailscale Connect 주소를 여기에 붙여넣으세요."
+            "value": "집이나 사무실 외부에서 원격 접근하려면 Vamp Control 호스트와 Mac에 동일한 사설 네트워크 앱을 설치한 다음 호스트의 Tailscale Connect 주소를 여기에 붙여넣으세요."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voor externe toegang buiten huis of kantoor installeert u dezelfde privénetwerk-app op de Vamp Remote Control-host en Mac en plakt u het Tailscale Connect-adres van de host hier."
+            "value": "Voor externe toegang buiten huis of kantoor installeert u dezelfde privénetwerk-app op de Vamp Control-host en Mac en plakt u het Tailscale Connect-adres van de host hier."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aby uzyskać zdalny dostęp poza domem lub biurem, zainstaluj tę samą aplikację sieci prywatnej na hoście Vamp Remote Control i telefonie Mac, a następnie wklej tutaj adres Tailscale Connect hosta."
+            "value": "Aby uzyskać zdalny dostęp poza domem lub biurem, zainstaluj tę samą aplikację sieci prywatnej na hoście Vamp Control i telefonie Mac, a następnie wklej tutaj adres Tailscale Connect hosta."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Para acesso remoto fora de casa ou escritório, instale o mesmo app de rede privada no host Vamp Remote Control e no Mac, depois cole o endereço Tailscale Connect do host aqui."
+            "value": "Para acesso remoto fora de casa ou escritório, instale o mesmo app de rede privada no host Vamp Control e no Mac, depois cole o endereço Tailscale Connect do host aqui."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Для удаленного доступа вне дома или офиса установите одно и то же приложение частной сети на Vamp Remote Control-хост и Mac, затем вставьте сюда адрес Tailscale Connect хоста."
+            "value": "Для удаленного доступа вне дома или офиса установите одно и то же приложение частной сети на Vamp Control-хост и Mac, затем вставьте сюда адрес Tailscale Connect хоста."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "För fjärråtkomst utanför hemmet eller kontoret, installera samma privata nätverksapp på Vamp Remote Control-värden och Mac, klistra sedan in värdens Tailscale Connect-adress här."
+            "value": "För fjärråtkomst utanför hemmet eller kontoret, installera samma privata nätverksapp på Vamp Control-värden och Mac, klistra sedan in värdens Tailscale Connect-adress här."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "สำหรับการเข้าถึงระยะไกลนอกบ้านหรือสำนักงาน ให้ติดตั้งแอปเครือข่ายส่วนตัวเดียวกันบนโฮสต์ Vamp Remote Control และ Mac จากนั้นวางที่อยู่ Tailscale Connect ของโฮสต์ที่นี่"
+            "value": "สำหรับการเข้าถึงระยะไกลนอกบ้านหรือสำนักงาน ให้ติดตั้งแอปเครือข่ายส่วนตัวเดียวกันบนโฮสต์ Vamp Control และ Mac จากนั้นวางที่อยู่ Tailscale Connect ของโฮสต์ที่นี่"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ev veya ofis dışından uzaktan erişim için, aynı özel ağ uygulamasını Vamp Remote Control ana bilgisayarına ve Mac'a yükleyin, ardından ana bilgisayarın Tailscale Connect adresini buraya yapıştırın."
+            "value": "Ev veya ofis dışından uzaktan erişim için, aynı özel ağ uygulamasını Vamp Control ana bilgisayarına ve Mac'a yükleyin, ardından ana bilgisayarın Tailscale Connect adresini buraya yapıştırın."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Để truy cập từ xa bên ngoài nhà hoặc văn phòng, hãy cài đặt cùng một ứng dụng mạng riêng trên máy chủ Vamp Remote Control và Mac, sau đó dán địa chỉ Tailscale Connect của máy chủ vào đây."
+            "value": "Để truy cập từ xa bên ngoài nhà hoặc văn phòng, hãy cài đặt cùng một ứng dụng mạng riêng trên máy chủ Vamp Control và Mac, sau đó dán địa chỉ Tailscale Connect của máy chủ vào đây."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "对于家庭或办公室外的远程访问，请在 Vamp Remote Control 主机和 Mac 上安装相同的专用网络应用，然后将主机的 Tailscale Connect 地址粘贴到此处。"
+            "value": "对于家庭或办公室外的远程访问，请在 Vamp Control 主机和 Mac 上安装相同的专用网络应用，然后将主机的 Tailscale Connect 地址粘贴到此处。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "如需在家或辦公室外部進行遠端存取，請在 Vamp Remote Control 主機和 Mac 上安裝相同的專用網路應用程式，然後將主機的 Tailscale Connect 位址貼到此處。"
+            "value": "如需在家或辦公室外部進行遠端存取，請在 Vamp Control 主機和 Mac 上安裝相同的專用網路應用程式，然後將主機的 Tailscale Connect 位址貼到此處。"
           }
         }
       }
@@ -8830,7 +8830,7 @@
       }
     },
     "HOW VAMP TERMINAL WORKS": {
-      "comment": "The title of a card that describes how Vamp Remote Control works.",
+      "comment": "The title of a card that describes how Vamp Control works.",
       "isCommentAutoGenerated": true
     },
     "input validation": {
@@ -10844,121 +10844,121 @@
         }
       }
     },
-    "Looking for Vamp Remote Control hosts on your local network…": {
+    "Looking for Vamp Control hosts on your local network…": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "البحث عن مضيفي Vamp Remote Control على شبكتك المحلية…"
+            "value": "البحث عن مضيفي Vamp Control على شبكتك المحلية…"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Suche nach Vamp Remote Control-Hosts in Ihrem lokalen Netzwerk…"
+            "value": "Suche nach Vamp Control-Hosts in Ihrem lokalen Netzwerk…"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Looking for Vamp Remote Control hosts on your local network…"
+            "value": "Looking for Vamp Control hosts on your local network…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Buscando hosts Vamp Remote Control en su red local…"
+            "value": "Buscando hosts Vamp Control en su red local…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Recherche d'hôtes Vamp Remote Control sur votre réseau local…"
+            "value": "Recherche d'hôtes Vamp Control sur votre réseau local…"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "आपके स्थानीय नेटवर्क पर Vamp Remote Control होस्ट खोज रहे हैं…"
+            "value": "आपके स्थानीय नेटवर्क पर Vamp Control होस्ट खोज रहे हैं…"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ricerca di host Vamp Remote Control sulla rete locale…"
+            "value": "Ricerca di host Vamp Control sulla rete locale…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ローカルネットワークでVamp Remote Controlホストを検索中…"
+            "value": "ローカルネットワークでVamp Controlホストを検索中…"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "로컬 네트워크에서 Vamp Remote Control 호스트 검색 중…"
+            "value": "로컬 네트워크에서 Vamp Control 호스트 검색 중…"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zoeken naar Vamp Remote Control-hosts op uw lokale netwerk…"
+            "value": "Zoeken naar Vamp Control-hosts op uw lokale netwerk…"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wyszukiwanie hostów Vamp Remote Control w sieci lokalnej…"
+            "value": "Wyszukiwanie hostów Vamp Control w sieci lokalnej…"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Procurando hosts Vamp Remote Control na sua rede local…"
+            "value": "Procurando hosts Vamp Control na sua rede local…"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Поиск Vamp Remote Control-хостов в вашей локальной сети…"
+            "value": "Поиск Vamp Control-хостов в вашей локальной сети…"
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Söker efter Vamp Remote Control-värdar på ditt lokala nätverk…"
+            "value": "Söker efter Vamp Control-värdar på ditt lokala nätverk…"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "กำลังค้นหาโฮสต์ Vamp Remote Control บนเครือข่ายท้องถิ่นของคุณ…"
+            "value": "กำลังค้นหาโฮสต์ Vamp Control บนเครือข่ายท้องถิ่นของคุณ…"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yerel ağınızda Vamp Remote Control ana bilgisayarları aranıyor…"
+            "value": "Yerel ağınızda Vamp Control ana bilgisayarları aranıyor…"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Đang tìm máy chủ Vamp Remote Control trên mạng cục bộ của bạn…"
+            "value": "Đang tìm máy chủ Vamp Control trên mạng cục bộ của bạn…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在本地网络上查找 Vamp Remote Control 主机…"
+            "value": "正在本地网络上查找 Vamp Control 主机…"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在您的區域網路上尋找 Vamp Remote Control 主機…"
+            "value": "正在您的區域網路上尋找 Vamp Control 主機…"
           }
         }
       }
@@ -11233,121 +11233,121 @@
         }
       }
     },
-    "Manage trusted Vamp Remote Control hosts, connection posture, privacy defaults, and stream behavior.": {
+    "Manage trusted Vamp Control hosts, connection posture, privacy defaults, and stream behavior.": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "إدارة مضيفي Vamp Remote Control الموثوقين، ووضع الاتصال، وإعدادات الخصوصية الافتراضية، وسلوك البث."
+            "value": "إدارة مضيفي Vamp Control الموثوقين، ووضع الاتصال، وإعدادات الخصوصية الافتراضية، وسلوك البث."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verwalten Sie vertrauenswürdige Vamp Remote Control-Hosts, Verbindungshaltung, Datenschutzstandards und Stream-Verhalten."
+            "value": "Verwalten Sie vertrauenswürdige Vamp Control-Hosts, Verbindungshaltung, Datenschutzstandards und Stream-Verhalten."
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Manage trusted Vamp Remote Control hosts, connection posture, privacy defaults, and stream behavior."
+            "value": "Manage trusted Vamp Control hosts, connection posture, privacy defaults, and stream behavior."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Administre hosts Vamp Remote Control de confianza, postura de conexión, valores predeterminados de privacidad y comportamiento de transmisión."
+            "value": "Administre hosts Vamp Control de confianza, postura de conexión, valores predeterminados de privacidad y comportamiento de transmisión."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gérez les hôtes Vamp Remote Control de confiance, la posture de connexion, les paramètres de confidentialité par défaut et le comportement du flux."
+            "value": "Gérez les hôtes Vamp Control de confiance, la posture de connexion, les paramètres de confidentialité par défaut et le comportement du flux."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "विश्वसनीय Vamp Remote Control होस्ट, कनेक्शन मुद्रा, गोपनीयता डिफ़ॉल्ट और स्ट्रीम व्यवहार प्रबंधित करें।"
+            "value": "विश्वसनीय Vamp Control होस्ट, कनेक्शन मुद्रा, गोपनीयता डिफ़ॉल्ट और स्ट्रीम व्यवहार प्रबंधित करें।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gestisci host Vamp Remote Control fidati, postura di connessione, impostazioni predefinite sulla privacy e comportamento dello stream."
+            "value": "Gestisci host Vamp Control fidati, postura di connessione, impostazioni predefinite sulla privacy e comportamento dello stream."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "信頼できるVamp Remote Controlホスト、接続ポスチャー、プライバシー既定値、ストリーム動作を管理します。"
+            "value": "信頼できるVamp Controlホスト、接続ポスチャー、プライバシー既定値、ストリーム動作を管理します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "신뢰할 수 있는 Vamp Remote Control 호스트, 연결 자세, 개인정보 기본값 및 스트림 동작을 관리합니다."
+            "value": "신뢰할 수 있는 Vamp Control 호스트, 연결 자세, 개인정보 기본값 및 스트림 동작을 관리합니다."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beheer vertrouwde Vamp Remote Control-hosts, verbindingshouding, privacy-standaardinstellingen en streamgedrag."
+            "value": "Beheer vertrouwde Vamp Control-hosts, verbindingshouding, privacy-standaardinstellingen en streamgedrag."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zarządzaj zaufanymi hostami Vamp Remote Control, postawą połączenia, domyślnymi ustawieniami prywatności i zachowaniem strumienia."
+            "value": "Zarządzaj zaufanymi hostami Vamp Control, postawą połączenia, domyślnymi ustawieniami prywatności i zachowaniem strumienia."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gerencie hosts Vamp Remote Control confiáveis, postura de conexão, padrões de privacidade e comportamento do stream."
+            "value": "Gerencie hosts Vamp Control confiáveis, postura de conexão, padrões de privacidade e comportamento do stream."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Управляйте доверенными Vamp Remote Control-хостами, режимом подключения, настройками конфиденциальности по умолчанию и поведением потока."
+            "value": "Управляйте доверенными Vamp Control-хостами, режимом подключения, настройками конфиденциальности по умолчанию и поведением потока."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hantera betrodda Vamp Remote Control-värdar, anslutningsställning, sekretessstandarder och strömbeteende."
+            "value": "Hantera betrodda Vamp Control-värdar, anslutningsställning, sekretessstandarder och strömbeteende."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "จัดการโฮสต์ Vamp Remote Control ที่เชื่อถือได้ ท่าทางการเชื่อมต่อ ค่าเริ่มต้นความเป็นส่วนตัว และพฤติกรรมสตรีม"
+            "value": "จัดการโฮสต์ Vamp Control ที่เชื่อถือได้ ท่าทางการเชื่อมต่อ ค่าเริ่มต้นความเป็นส่วนตัว และพฤติกรรมสตรีม"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Güvenilir Vamp Remote Control ana bilgisayarlarını, bağlantı duruşunu, gizlilik varsayılanlarını ve akış davranışını yönetin."
+            "value": "Güvenilir Vamp Control ana bilgisayarlarını, bağlantı duruşunu, gizlilik varsayılanlarını ve akış davranışını yönetin."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quản lý máy chủ Vamp Remote Control đáng tin cậy, tư thế kết nối, mặc định quyền riêng tư và hành vi luồng."
+            "value": "Quản lý máy chủ Vamp Control đáng tin cậy, tư thế kết nối, mặc định quyền riêng tư và hành vi luồng."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "管理受信任的 Vamp Remote Control 主机、连接姿态、隐私默认设置和流行为。"
+            "value": "管理受信任的 Vamp Control 主机、连接姿态、隐私默认设置和流行为。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "管理受信任的 Vamp Remote Control 主機、連線姿態、隱私預設值和串流行為。"
+            "value": "管理受信任的 Vamp Control 主機、連線姿態、隱私預設值和串流行為。"
           }
         }
       }
@@ -12219,13 +12219,13 @@
         }
       }
     },
-    "new hosts require visible approval on Vamp Remote Control host before access": {
+    "new hosts require visible approval on Vamp Control host before access": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "تتطلب المضيفون الجدد موافقة مرئية على مضيف Vamp Remote Control قبل الوصول"
+            "value": "تتطلب المضيفون الجدد موافقة مرئية على مضيف Vamp Control قبل الوصول"
           }
         },
         "de": {
@@ -12237,49 +12237,49 @@
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "new hosts require visible approval on Vamp Remote Control host before access"
+            "value": "new hosts require visible approval on Vamp Control host before access"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los nuevos hosts requieren aprobación visible en Vamp Remote Control host"
+            "value": "Los nuevos hosts requieren aprobación visible en Vamp Control host"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les nouveaux hôtes nécessitent une approbation visible sur l'hôte Vamp Remote Control"
+            "value": "Les nouveaux hôtes nécessitent une approbation visible sur l'hôte Vamp Control"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "新しいホストはVamp Remote Controlホスト上での承認が必要です"
+            "value": "新しいホストはVamp Controlホスト上での承認が必要です"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los nuevos hosts requieren aprobación visible en Vamp Remote Control host"
+            "value": "Los nuevos hosts requieren aprobación visible en Vamp Control host"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yeni hostlar erişim için Vamp Remote Control host üzerinde onay gerektirir"
+            "value": "Yeni hostlar erişim için Vamp Control host üzerinde onay gerektirir"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "新主机在访问前需要在Vamp Remote Control主机上获得批准"
+            "value": "新主机在访问前需要在Vamp Control主机上获得批准"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "新主机在访问前需要在Vamp Remote Control主机上获得批准"
+            "value": "新主机在访问前需要在Vamp Control主机上获得批准"
           }
         }
       }
@@ -12828,12 +12828,12 @@
         }
       }
     },
-    "No trusted hosts. Pair a Vamp Remote Control host to create trust.": {
+    "No trusted hosts. Pair a Vamp Control host to create trust.": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "لا توجد مضيفون موثوقون. قم بإقران مضيف Vamp Remote Control لإنشاء الثقة."
+            "value": "لا توجد مضيفون موثوقون. قم بإقران مضيف Vamp Control لإنشاء الثقة."
           }
         },
         "de": {
@@ -12845,49 +12845,49 @@
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "No trusted hosts. Pair a Vamp Remote Control host to create trust."
+            "value": "No trusted hosts. Pair a Vamp Control host to create trust."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sin hosts de confianza. Empareja un Vamp Remote Control host para crear confianza."
+            "value": "Sin hosts de confianza. Empareja un Vamp Control host para crear confianza."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucun hôte de confiance. Associez un hôte Vamp Remote Control pour établir la confiance."
+            "value": "Aucun hôte de confiance. Associez un hôte Vamp Control pour établir la confiance."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "信頼済みホストがありません。信頼を確立するためにVamp Remote Controlホストをペアリングしてください。"
+            "value": "信頼済みホストがありません。信頼を確立するためにVamp Controlホストをペアリングしてください。"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sin hosts de confianza. Empareja un Vamp Remote Control host para crear confianza."
+            "value": "Sin hosts de confianza. Empareja un Vamp Control host para crear confianza."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Güvenilir host yok. Güven için bir Vamp Remote Control host eşleştir."
+            "value": "Güvenilir host yok. Güven için bir Vamp Control host eşleştir."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有受信任的主机。配对一个Vamp Remote Control主机以建立信任。"
+            "value": "没有受信任的主机。配对一个Vamp Control主机以建立信任。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有受信任的主机。配对一个Vamp Remote Control主机以建立信任。"
+            "value": "没有受信任的主机。配对一个Vamp Control主机以建立信任。"
           }
         }
       }
@@ -13453,121 +13453,121 @@
         }
       }
     },
-    "Only trusted devices can connect. Never share pairing codes, and revoke access from Security when a device should no longer control your Vamp Remote Control host.": {
+    "Only trusted devices can connect. Never share pairing codes, and revoke access from Security when a device should no longer control your Vamp Control host.": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يمكن فقط للأجهزة الموثوقة الاتصال. لا تشارك رموز الاقتران أبدًا، وقم بإلغاء الوصول من الأمان عندما لا ينبغي للجهاز التحكم في مضيف Vamp Remote Control الخاص بك."
+            "value": "يمكن فقط للأجهزة الموثوقة الاتصال. لا تشارك رموز الاقتران أبدًا، وقم بإلغاء الوصول من الأمان عندما لا ينبغي للجهاز التحكم في مضيف Vamp Control الخاص بك."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nur vertrauenswürdige Geräte können sich verbinden. Geben Sie niemals Kopplungscodes weiter und widerrufen Sie den Zugriff in den Sicherheitseinstellungen, wenn ein Gerät Ihren Vamp Remote Control-Host nicht mehr steuern soll."
+            "value": "Nur vertrauenswürdige Geräte können sich verbinden. Geben Sie niemals Kopplungscodes weiter und widerrufen Sie den Zugriff in den Sicherheitseinstellungen, wenn ein Gerät Ihren Vamp Control-Host nicht mehr steuern soll."
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Only trusted devices can connect. Never share pairing codes, and revoke access from Security when a device should no longer control your Vamp Remote Control host."
+            "value": "Only trusted devices can connect. Never share pairing codes, and revoke access from Security when a device should no longer control your Vamp Control host."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solo los dispositivos de confianza pueden conectarse. Nunca comparta códigos de emparejamiento y revoque el acceso desde Seguridad cuando un dispositivo ya no deba controlar su host Vamp Remote Control."
+            "value": "Solo los dispositivos de confianza pueden conectarse. Nunca comparta códigos de emparejamiento y revoque el acceso desde Seguridad cuando un dispositivo ya no deba controlar su host Vamp Control."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seuls les appareils de confiance peuvent se connecter. Ne partagez jamais les codes d'appairage et révoquez l'accès depuis Sécurité lorsqu'un appareil ne doit plus contrôler votre hôte Vamp Remote Control."
+            "value": "Seuls les appareils de confiance peuvent se connecter. Ne partagez jamais les codes d'appairage et révoquez l'accès depuis Sécurité lorsqu'un appareil ne doit plus contrôler votre hôte Vamp Control."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "केवल विश्वसनीय डिवाइस ही कनेक्ट कर सकते हैं। पेयरिंग कोड कभी साझा न करें, और जब कोई डिवाइस आपके Vamp Remote Control होस्ट को नियंत्रित नहीं करना चाहिए, तो सुरक्षा से एक्सेस रद्द करें।"
+            "value": "केवल विश्वसनीय डिवाइस ही कनेक्ट कर सकते हैं। पेयरिंग कोड कभी साझा न करें, और जब कोई डिवाइस आपके Vamp Control होस्ट को नियंत्रित नहीं करना चाहिए, तो सुरक्षा से एक्सेस रद्द करें।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solo i dispositivi fidati possono connettersi. Non condividere mai i codici di abbinamento e revoca l'accesso da Sicurezza quando un dispositivo non deve più controllare il tuo host Vamp Remote Control."
+            "value": "Solo i dispositivi fidati possono connettersi. Non condividere mai i codici di abbinamento e revoca l'accesso da Sicurezza quando un dispositivo non deve più controllare il tuo host Vamp Control."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "信頼できるデバイスのみ接続できます。ペアリングコードは決して共有せず、デバイスがVamp Remote Controlホストを制御すべきでなくなった場合はセキュリティからアクセスを取り消してください。"
+            "value": "信頼できるデバイスのみ接続できます。ペアリングコードは決して共有せず、デバイスがVamp Controlホストを制御すべきでなくなった場合はセキュリティからアクセスを取り消してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "신뢰할 수 있는 기기만 연결할 수 있습니다. 페어링 코드를 절대 공유하지 말고, 기기가 더 이상 Vamp Remote Control 호스트를 제어하지 않아야 할 때는 보안에서 액세스를 취소하세요."
+            "value": "신뢰할 수 있는 기기만 연결할 수 있습니다. 페어링 코드를 절대 공유하지 말고, 기기가 더 이상 Vamp Control 호스트를 제어하지 않아야 할 때는 보안에서 액세스를 취소하세요."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alleen vertrouwde apparaten kunnen verbinding maken. Deel nooit koppelingscodes en trek de toegang in via Beveiliging wanneer een apparaat uw Vamp Remote Control-host niet langer mag bedienen."
+            "value": "Alleen vertrouwde apparaten kunnen verbinding maken. Deel nooit koppelingscodes en trek de toegang in via Beveiliging wanneer een apparaat uw Vamp Control-host niet langer mag bedienen."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tylko zaufane urządzenia mogą się łączyć. Nigdy nie udostępniaj kodów parowania i cofnij dostęp w Zabezpieczeniach, gdy urządzenie nie powinno już kontrolować Twojego hosta Vamp Remote Control."
+            "value": "Tylko zaufane urządzenia mogą się łączyć. Nigdy nie udostępniaj kodów parowania i cofnij dostęp w Zabezpieczeniach, gdy urządzenie nie powinno już kontrolować Twojego hosta Vamp Control."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apenas dispositivos confiáveis podem se conectar. Nunca compartilhe códigos de pareamento e revogue o acesso em Segurança quando um dispositivo não deve mais controlar seu host Vamp Remote Control."
+            "value": "Apenas dispositivos confiáveis podem se conectar. Nunca compartilhe códigos de pareamento e revogue o acesso em Segurança quando um dispositivo não deve mais controlar seu host Vamp Control."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Только доверенные устройства могут подключаться. Никогда не передавайте коды сопряжения и отзывайте доступ в разделе Безопасность, когда устройство больше не должно управлять вашим Vamp Remote Control-хостом."
+            "value": "Только доверенные устройства могут подключаться. Никогда не передавайте коды сопряжения и отзывайте доступ в разделе Безопасность, когда устройство больше не должно управлять вашим Vamp Control-хостом."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Endast betrodda enheter kan ansluta. Dela aldrig parkopplingskoder och återkalla åtkomst från Säkerhet när en enhet inte längre ska styra din Vamp Remote Control-värd."
+            "value": "Endast betrodda enheter kan ansluta. Dela aldrig parkopplingskoder och återkalla åtkomst från Säkerhet när en enhet inte längre ska styra din Vamp Control-värd."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "เฉพาะอุปกรณ์ที่เชื่อถือได้เท่านั้นที่สามารถเชื่อมต่อได้ อย่าแชร์รหัสจับคู่ และเพิกถอนการเข้าถึงจากความปลอดภัยเมื่ออุปกรณ์ไม่ควรควบคุมโฮสต์ Vamp Remote Control ของคุณอีกต่อไป"
+            "value": "เฉพาะอุปกรณ์ที่เชื่อถือได้เท่านั้นที่สามารถเชื่อมต่อได้ อย่าแชร์รหัสจับคู่ และเพิกถอนการเข้าถึงจากความปลอดภัยเมื่ออุปกรณ์ไม่ควรควบคุมโฮสต์ Vamp Control ของคุณอีกต่อไป"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yalnızca güvenilir cihazlar bağlanabilir. Eşleştirme kodlarını asla paylaşmayın ve bir cihaz artık Vamp Remote Control ana bilgisayarınızı kontrol etmemesi gerektiğinde Güvenlik'ten erişimi iptal edin."
+            "value": "Yalnızca güvenilir cihazlar bağlanabilir. Eşleştirme kodlarını asla paylaşmayın ve bir cihaz artık Vamp Control ana bilgisayarınızı kontrol etmemesi gerektiğinde Güvenlik'ten erişimi iptal edin."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chỉ thiết bị đáng tin cậy mới có thể kết nối. Không bao giờ chia sẻ mã ghép nối và thu hồi quyền truy cập từ Bảo mật khi thiết bị không còn nên điều khiển máy chủ Vamp Remote Control của bạn."
+            "value": "Chỉ thiết bị đáng tin cậy mới có thể kết nối. Không bao giờ chia sẻ mã ghép nối và thu hồi quyền truy cập từ Bảo mật khi thiết bị không còn nên điều khiển máy chủ Vamp Control của bạn."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "只有受信任的设备才能连接。切勿分享配对码，当某设备不应再控制您的 Vamp Remote Control 主机时，请从安全设置中撤销访问权限。"
+            "value": "只有受信任的设备才能连接。切勿分享配对码，当某设备不应再控制您的 Vamp Control 主机时，请从安全设置中撤销访问权限。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "只有受信任的裝置才能連接。切勿分享配對碼，當裝置不應再控制您的 Vamp Remote Control 主機時，請從安全性設定中撤銷存取權限。"
+            "value": "只有受信任的裝置才能連接。切勿分享配對碼，當裝置不應再控制您的 Vamp Control 主機時，請從安全性設定中撤銷存取權限。"
           }
         }
       }
@@ -14418,13 +14418,13 @@
         }
       }
     },
-    "Pair your Mac with a Vamp Remote Control host in a secure terminal flow.": {
+    "Pair your Mac with a Vamp Control host in a secure terminal flow.": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "اقرن Mac بمضيف Vamp Remote Control في تدفق طرفية آمن."
+            "value": "اقرن Mac بمضيف Vamp Control في تدفق طرفية آمن."
           }
         },
         "de": {
@@ -14436,49 +14436,49 @@
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Pair your Mac with a Vamp Remote Control host in a secure terminal flow."
+            "value": "Pair your Mac with a Vamp Control host in a secure terminal flow."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Empareja tu Mac con un Vamp Remote Control host en un flujo de terminal seguro."
+            "value": "Empareja tu Mac con un Vamp Control host en un flujo de terminal seguro."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Associez votre Mac à un hôte Vamp Remote Control dans un terminal sécurisé."
+            "value": "Associez votre Mac à un hôte Vamp Control dans un terminal sécurisé."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "安全なターミナルフローでMacをVamp Remote Controlホストとペアリングします。"
+            "value": "安全なターミナルフローでMacをVamp Controlホストとペアリングします。"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Empareja tu Mac con un Vamp Remote Control host en un flujo de terminal seguro."
+            "value": "Empareja tu Mac con un Vamp Control host en un flujo de terminal seguro."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac'unuzu güvenli terminal akışında bir Vamp Remote Control host ile eşleştirin."
+            "value": "Mac'unuzu güvenli terminal akışında bir Vamp Control host ile eşleştirin."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "通过安全的终端流程将您的Mac与Vamp Remote Control主机配对。"
+            "value": "通过安全的终端流程将您的Mac与Vamp Control主机配对。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "通过安全的终端流程将您的Mac与Vamp Remote Control主机配对。"
+            "value": "通过安全的终端流程将您的Mac与Vamp Control主机配对。"
           }
         }
       }
@@ -15918,121 +15918,121 @@
         }
       }
     },
-    "Ready to control your Vamp Remote Control host over LAN or a trusted private relay.": {
+    "Ready to control your Vamp Control host over LAN or a trusted private relay.": {
       "extractionState": "stale",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "جاهز للتحكم في مضيف Vamp Remote Control الخاص بك عبر الشبكة المحلية أو مرحل خاص موثوق."
+            "value": "جاهز للتحكم في مضيف Vamp Control الخاص بك عبر الشبكة المحلية أو مرحل خاص موثوق."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bereit, Ihren Vamp Remote Control-Host über LAN oder ein vertrauenswürdiges privates Relay zu steuern."
+            "value": "Bereit, Ihren Vamp Control-Host über LAN oder ein vertrauenswürdiges privates Relay zu steuern."
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Ready to control your Vamp Remote Control host over LAN or a trusted private relay."
+            "value": "Ready to control your Vamp Control host over LAN or a trusted private relay."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Listo para controlar su host Vamp Remote Control a través de LAN o un relay privado de confianza."
+            "value": "Listo para controlar su host Vamp Control a través de LAN o un relay privado de confianza."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prêt à contrôler votre hôte Vamp Remote Control via LAN ou un relais privé de confiance."
+            "value": "Prêt à contrôler votre hôte Vamp Control via LAN ou un relais privé de confiance."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "LAN या विश्वसनीय निजी रिले पर अपने Vamp Remote Control होस्ट को नियंत्रित करने के लिए तैयार।"
+            "value": "LAN या विश्वसनीय निजी रिले पर अपने Vamp Control होस्ट को नियंत्रित करने के लिए तैयार।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pronto a controllare il tuo host Vamp Remote Control tramite LAN o un relay privato fidato."
+            "value": "Pronto a controllare il tuo host Vamp Control tramite LAN o un relay privato fidato."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "LANまたは信頼できるプライベートリレーを介してVamp Remote Controlホストを制御する準備ができました。"
+            "value": "LANまたは信頼できるプライベートリレーを介してVamp Controlホストを制御する準備ができました。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "LAN 또는 신뢰할 수 있는 사설 릴레이를 통해 Vamp Remote Control 호스트를 제어할 준비가 되었습니다."
+            "value": "LAN 또는 신뢰할 수 있는 사설 릴레이를 통해 Vamp Control 호스트를 제어할 준비가 되었습니다."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klaar om uw Vamp Remote Control-host te bedienen via LAN of een vertrouwde privérelay."
+            "value": "Klaar om uw Vamp Control-host te bedienen via LAN of een vertrouwde privérelay."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gotowy do sterowania hostem Vamp Remote Control przez LAN lub zaufany prywatny przekaźnik."
+            "value": "Gotowy do sterowania hostem Vamp Control przez LAN lub zaufany prywatny przekaźnik."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pronto para controlar seu host Vamp Remote Control via LAN ou um relay privado confiável."
+            "value": "Pronto para controlar seu host Vamp Control via LAN ou um relay privado confiável."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Готов к управлению вашим Vamp Remote Control-хостом через LAN или доверенный частный ретранслятор."
+            "value": "Готов к управлению вашим Vamp Control-хостом через LAN или доверенный частный ретранслятор."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Redo att styra din Vamp Remote Control-värd via LAN eller ett betrott privat relä."
+            "value": "Redo att styra din Vamp Control-värd via LAN eller ett betrott privat relä."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "พร้อมที่จะควบคุมโฮสต์ Vamp Remote Control ของคุณผ่าน LAN หรือรีเลย์ส่วนตัวที่เชื่อถือได้"
+            "value": "พร้อมที่จะควบคุมโฮสต์ Vamp Control ของคุณผ่าน LAN หรือรีเลย์ส่วนตัวที่เชื่อถือได้"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control ana bilgisayarınızı LAN veya güvenilir bir özel röle üzerinden kontrol etmeye hazır."
+            "value": "Vamp Control ana bilgisayarınızı LAN veya güvenilir bir özel röle üzerinden kontrol etmeye hazır."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sẵn sàng điều khiển máy chủ Vamp Remote Control của bạn qua LAN hoặc chuyển tiếp riêng tư đáng tin cậy."
+            "value": "Sẵn sàng điều khiển máy chủ Vamp Control của bạn qua LAN hoặc chuyển tiếp riêng tư đáng tin cậy."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已准备就绪，可通过局域网或受信任的专用中继控制您的 Vamp Remote Control 主机。"
+            "value": "已准备就绪，可通过局域网或受信任的专用中继控制您的 Vamp Control 主机。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "已準備好透過區域網路或受信任的專用中繼控制您的 Vamp Remote Control 主機。"
+            "value": "已準備好透過區域網路或受信任的專用中繼控制您的 Vamp Control 主機。"
           }
         }
       }
@@ -22944,165 +22944,165 @@
         }
       }
     },
-    "Vamp Remote Control": {
+    "Vamp Control": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control रिमोट कंट्रोल प्रो"
+            "value": "Vamp Control रिमोट कंट्रोल प्रो"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote ControlリモートコントロールPro"
+            "value": "Vamp ControlリモートコントロールPro"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control 원격 제어 Pro"
+            "value": "Vamp Control 원격 제어 Pro"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control"
+            "value": "Vamp Control"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control 远程控制专业版"
+            "value": "Vamp Control 远程控制专业版"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control 遠端控制專業版"
+            "value": "Vamp Control 遠端控制專業版"
           }
         }
       }
     },
-    "Vamp Remote Control requires Vamp Host running on macOS to function.": {
+    "Vamp Control requires Vamp Host running on macOS to function.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Vamp Remote Control requires Vamp Host running on macOS to function."
+            "value": "Vamp Control requires Vamp Host running on macOS to function."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control 需要 Vamp Host 在 macOS 上运行才能使用。"
+            "value": "Vamp Control 需要 Vamp Host 在 macOS 上运行才能使用。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control 需要 Vamp Host 在 macOS 上运行才能使用。"
+            "value": "Vamp Control 需要 Vamp Host 在 macOS 上运行才能使用。"
           }
         }
       }
     },
-    "Vamp Remote Control requires Vamp Host running on macOS to function. For full control, install the direct-download host and keep it open on the Mac you want to access.": {
+    "Vamp Control requires Vamp Host running on macOS to function. For full control, install the direct-download host and keep it open on the Mac you want to access.": {
       "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "new",
-            "value": "Vamp Remote Control requires Vamp Host running on macOS to function. For full control, install the direct-download host and keep it open on the Mac you want to access."
+            "value": "Vamp Control requires Vamp Host running on macOS to function. For full control, install the direct-download host and keep it open on the Mac you want to access."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control 需要 Vamp Host 在 macOS 上运行才能使用。如需完全控制，请安装直接下载版主机并在您要访问的 Mac 上保持其打开。"
+            "value": "Vamp Control 需要 Vamp Host 在 macOS 上运行才能使用。如需完全控制，请安装直接下载版主机并在您要访问的 Mac 上保持其打开。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vamp Remote Control 需要 Vamp Host 在 macOS 上运行才能使用。如需完全控制，请安装直接下载版主机并在您要访问的 Mac 上保持其打开。"
+            "value": "Vamp Control 需要 Vamp Host 在 macOS 上运行才能使用。如需完全控制，请安装直接下载版主机并在您要访问的 Mac 上保持其打开。"
           }
         }
       }

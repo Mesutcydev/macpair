@@ -26,6 +26,7 @@ import ApplicationServices
 
 @MainActor
 final class HostAppEnvironment: ObservableObject {
+    private let logger = Logger(subsystem: "com.remotedesktop.host", category: "Environment")
     /// Set when the real environment is constructed, so the app delegate can
     /// reach it to start the widget bridge independent of any window/scene.
     static weak var shared: HostAppEnvironment?
@@ -117,6 +118,7 @@ final class HostAppEnvironment: ObservableObject {
         pairingCodeExpiresAt: .distantPast,
         lastError: nil
     )
+    private var workspaceFolderSelectionFlag = false
     #endif
     /// When on, hold a power assertion so this Mac never idle-sleeps while the host runs — keeping it
     /// reachable for remote connections. This is the practical answer for an Apple-Silicon Mac on
@@ -430,6 +432,7 @@ final class HostAppEnvironment: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self,
                       self.sessionCoordinator.activeSessionID == message.sessionID else { return }
+                self.logger.notice("Listing requested workspace directory")
                 let workspaceService = self.workspaceService
                 workspaceService.listDirectory(path: message.path) { [weak self] canonicalPath, entries, errorMessage in
                     Task { @MainActor [weak self] in
@@ -443,6 +446,31 @@ final class HostAppEnvironment: ObservableObject {
                             errorMessage: errorMessage
                         )
                         guard let envelope = try? DataChannelEnvelope.workspaceDirectoryResponse(response) else { return }
+                        do {
+                            try self.webRTCSessionManager.sendDataMessage(envelope)
+                            self.logger.notice("Sent workspace directory response")
+                        } catch {
+                            self.logger.error("Workspace directory response failed: \(error.localizedDescription, privacy: .public)")
+                        }
+                    }
+                }
+            }
+        }
+        self.inputCommandRouter.onWorkspaceAccessRequest = { [weak self] message in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      self.sessionCoordinator.activeSessionID == message.sessionID else { return }
+                self.chooseAdditionalWorkspaceFolder { [weak self] approved in
+                    Task { @MainActor [weak self] in
+                        guard let self,
+                              self.sessionCoordinator.activeSessionID == message.sessionID else { return }
+                        let response = WorkspaceAccessResponseMessage(
+                            sessionID: message.sessionID,
+                            requestID: message.requestID,
+                            approved: approved,
+                            errorMessage: approved ? nil : "Folder selection was cancelled on the Mac."
+                        )
+                        guard let envelope = try? DataChannelEnvelope.workspaceAccessResponse(response) else { return }
                         try? self.webRTCSessionManager.sendDataMessage(envelope)
                     }
                 }
@@ -458,6 +486,12 @@ final class HostAppEnvironment: ObservableObject {
             self?.terminalModeEnabled ?? false
         }
         self.browserControlService.workspaceService = self.workspaceService
+        self.browserControlService.requestWorkspaceAccess = { [weak self] completion in
+            Task { @MainActor [weak self] in
+                guard let self else { completion(false); return }
+                self.chooseAdditionalWorkspaceFolder(completion: completion)
+            }
+        }
         self.browserControlService.readClipboard = {
             NSPasteboard.general.string(forType: .string)
         }
@@ -737,6 +771,40 @@ final class HostAppEnvironment: ObservableObject {
         // manually displayed code cannot briefly disagree after a tap.
         browserControlStatus = browserControlService.rotatePairingCode()
     }
+
+    /// Adds one operator-approved directory to the workspace roots. The host
+    /// persists a security-scoped bookmark, so iOS and Safari can reuse it
+    /// without prompting for the same folder on every request.
+    private var workspaceFolderSelectionInProgress: Bool {
+        get { workspaceFolderSelectionFlag }
+        set { workspaceFolderSelectionFlag = newValue }
+    }
+
+    func chooseAdditionalWorkspaceFolder(completion: @escaping @Sendable (Bool) -> Void = { _ in }) {
+        guard !workspaceFolderSelectionInProgress else {
+            completion(false)
+            return
+        }
+        workspaceFolderSelectionInProgress = true
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.prompt = "Add Folder"
+        panel.message = "Choose a project folder to make available to Vamp Terminal."
+        panel.begin { [weak self] response in
+            Task { @MainActor [weak self] in
+                guard let self else { completion(false); return }
+                self.workspaceFolderSelectionInProgress = false
+                guard response == .OK, let url = panel.url else {
+                    completion(false)
+                    return
+                }
+                completion(self.workspaceService.addApprovedRoot(url))
+            }
+        }
+    }
     #endif
 
     func resolveTrustPrompt(approved: Bool) {
@@ -744,6 +812,17 @@ final class HostAppEnvironment: ObservableObject {
         trustPromptContinuation = nil
         pendingTrustPrompt = nil
         pendingTrustPromptDeadline = nil
+    }
+
+    /// Resolve a trust prompt only when the caller proves it observed the
+    /// currently displayed peer fingerprint. This is used by the local `vamp`
+    /// CLI; ordinary widget/deep links remain unable to approve a device.
+    func resolveTrustPrompt(approved: Bool, matchingFingerprint fingerprint: String) -> Bool {
+        guard let pendingTrustPrompt,
+              pendingTrustPrompt.fingerprint.caseInsensitiveCompare(fingerprint) == .orderedSame
+        else { return false }
+        resolveTrustPrompt(approved: approved)
+        return true
     }
 
     func resolveFileTransferPrompt(approved: Bool) {

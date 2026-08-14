@@ -264,7 +264,7 @@ struct ConfigScreen: View {
 
                     PRCard("vamp host") {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Vamp Remote Control requires Vamp Host running on macOS.")
+                            Text("Vamp Control requires Vamp Host running on macOS.")
                                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                                 .foregroundColor(PR.fg)
                             Text("Vamp Host receives your approved commands and performs them on your Mac.")
@@ -431,14 +431,14 @@ struct ConfigScreen: View {
 
 #Preview("ConfigScreen") {
     ConfigScreen(
-        environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client"),
+        environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Control"),
         appLock: AppLockService()
     )
 }
 
 // MARK: - Vamp Host promo + explainer
 //
-// Shared UI for getting the required Vamp Host Mac app and explaining how Vamp Remote Control works.
+// Shared UI for getting the required Vamp Host Mac app and explaining how Vamp Control works.
 // Reused by the home empty state, the first-run welcome, and this config screen. Lives
 // here (an already-compiled file) rather than a new file to skip the two-target pbxproj
 // registration dance — see [[build-targets-and-file-membership]].
@@ -549,7 +549,7 @@ struct VampHostPromoCard: View {
     }
 }
 
-/// Three-step Vamp Remote Control explainer.
+/// Three-step Vamp Control explainer.
 struct HowItWorksCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {

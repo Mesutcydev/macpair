@@ -40,15 +40,9 @@ public actor PeerTrustGate {
         self.approvalHandler = handler
     }
 
-    private static func isValidFingerprint(_ fingerprint: String) -> Bool {
-        guard fingerprint.count == 64 else { return false }
-        let validChars = CharacterSet(charactersIn: "0123456789abcdef")
-        return fingerprint.unicodeScalars.allSatisfy { validChars.contains($0) }
-    }
-
     /// Evaluate trust for a connecting peer.
     public func evaluate(peerID: UUID, displayName: String, fingerprint: String) async -> TrustEvaluation {
-        guard Self.isValidFingerprint(fingerprint) else {
+        guard PublicKeyFingerprint.isValid(fingerprint) else {
             logger.warning("evaluate: malformed fingerprint from peer \(peerID.uuidString, privacy: .public) — requires approval")
             return .requiresApproval(peerID: peerID, displayName: displayName, fingerprint: fingerprint)
         }

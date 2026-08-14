@@ -248,6 +248,11 @@ struct VampTerminalHostShellView: View {
                 Menu {
                     Section("Host") {
                         Button {
+                            environment.chooseAdditionalWorkspaceFolder()
+                        } label: {
+                            Label("Add workspace folder…", systemImage: "folder.badge.plus")
+                        }
+                        Button {
                             Task {
                                 await environment.stopRuntime()
                                 await environment.startRuntimeIfNeeded()

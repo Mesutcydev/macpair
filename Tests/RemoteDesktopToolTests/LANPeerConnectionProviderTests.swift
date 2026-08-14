@@ -33,14 +33,31 @@ final class LANPeerConnectionProviderTests: XCTestCase {
         ) {}
     }
 
+    func testEncryptedListenerRejectsMissingSessionToken() async {
+        let peer = LANPeerConnection(remoteHost: nil, delegate: Delegate())
+        defer { peer.close() }
+
+        do {
+            _ = try await peer.createAnswer(constraints: .defaultAnswer)
+            XCTFail("Expected an unauthenticated data listener to be rejected")
+        } catch let error as WebRTCSessionError {
+            guard case .invalidState = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     func testFixedPortListenerRetriesUntilPreviousListenerReleasesPort() async throws {
         let delegate = Delegate()
-        let blocker = LANPeerConnection(remoteHost: nil, delegate: delegate)
+        let token = String(repeating: "ab", count: 32)
+        let blocker = LANPeerConnection(remoteHost: nil, sessionTokenHex: token, delegate: delegate)
         let blockerAnswer = try await blocker.createAnswer(constraints: .defaultAnswer)
         let blockerDescriptor = try XCTUnwrap(LANSessionDescriptor.decoded(from: blockerAnswer.sdp))
         let port = blockerDescriptor.dataPort
 
-        let peer = LANPeerConnection(remoteHost: nil, fixedDataPort: port, delegate: delegate)
+        let peer = LANPeerConnection(remoteHost: nil, fixedDataPort: port, sessionTokenHex: token, delegate: delegate)
         defer {
             blocker.close()
             peer.close()

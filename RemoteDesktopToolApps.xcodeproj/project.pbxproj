@@ -928,15 +928,25 @@
 			inputPaths = (
 				"$(SRCROOT)/scripts/vamp",
 				"$(SRCROOT)/scripts/screenharbor",
+				"$(SRCROOT)/Sources/VampTerminal/Assets.xcassets/ProviderOpenCode.imageset/opencode.png",
+				"$(SRCROOT)/Sources/VampTerminal/Assets.xcassets/ProviderClaude.imageset/claude.jpg",
+				"$(SRCROOT)/Sources/VampTerminal/Assets.xcassets/ProviderGrok.imageset/grok.jpg",
+				"$(SRCROOT)/Sources/VampTerminal/Assets.xcassets/ProviderOpenAI.imageset/openai.jpg",
+				"$(SRCROOT)/Sources/VampTerminal/Assets.xcassets/ProviderKimi.imageset/kimi.jpg",
 			);
 			name = "Bundle Vamp CLI";
 			outputPaths = (
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/vamp",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/screenharbor",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/BrowserProviders/opencode.png",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/BrowserProviders/claude.jpg",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/BrowserProviders/grok.jpg",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/BrowserProviders/openai.jpg",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/BrowserProviders/kimi.jpg",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nresources=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"$resources\"\ncp \"${SRCROOT}/scripts/vamp\" \"$resources/vamp\"\ncp \"${SRCROOT}/scripts/screenharbor\" \"$resources/screenharbor\"\nchmod +x \"$resources/vamp\" \"$resources/screenharbor\"\n";
+			shellScript = "set -e\nresources=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nproviders=\"$resources/BrowserProviders\"\nmkdir -p \"$resources\" \"$providers\"\ncp \"${SRCROOT}/scripts/vamp\" \"$resources/vamp\"\ncp \"${SRCROOT}/scripts/screenharbor\" \"$resources/screenharbor\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderOpenCode.imageset/opencode.png\" \"$providers/opencode.png\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderClaude.imageset/claude.jpg\" \"$providers/claude.jpg\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderGrok.imageset/grok.jpg\" \"$providers/grok.jpg\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderOpenAI.imageset/openai.jpg\" \"$providers/openai.jpg\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderKimi.imageset/kimi.jpg\" \"$providers/kimi.jpg\"\nchmod +x \"$resources/vamp\" \"$resources/screenharbor\"\n";
 		};
 		A1B2C3D4E5F60718293A4B95 /* Bundle Vamp Terminal Host CLI */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1223,7 +1233,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 36;
+				CURRENT_PROJECT_VERSION = 37;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_ENHANCED_SECURITY = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1265,7 +1275,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/MacHost-AppStore.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 32;
+			CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1276,7 +1286,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.0.0;
+				MARKETING_VERSION = 2.1.0;
 				OTHER_LDFLAGS = "$(inherited) -framework AppIntents";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.host;
 				PRODUCT_NAME = "Vamp Host";
@@ -1298,7 +1308,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 3.7.2;
+				MARKETING_VERSION = 3.7.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.ios.liveactivity;
 				PRODUCT_NAME = iOSRemoteLiveActivity;
 				SDKROOT = iphoneos;
@@ -1324,9 +1334,9 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.7.2;
+				MARKETING_VERSION = 3.7.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.ios;
-				PRODUCT_NAME = "Vamp Remote Control Client";
+				PRODUCT_NAME = "Vamp Control iOS";
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1367,7 +1377,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 36;
+				CURRENT_PROJECT_VERSION = 37;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_ENHANCED_SECURITY = YES;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1402,7 +1412,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/MacHost-AppStore.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 32;
+			CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1413,7 +1423,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.0.0;
+				MARKETING_VERSION = 2.1.0;
 				OTHER_LDFLAGS = "$(inherited) -framework AppIntents";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.host;
 				PRODUCT_NAME = "Vamp Host";
@@ -1439,9 +1449,9 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.7.2;
+				MARKETING_VERSION = 3.7.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.ios;
-				PRODUCT_NAME = "Vamp Remote Control Client";
+				PRODUCT_NAME = "Vamp Control iOS";
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1462,7 +1472,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 3.7.2;
+				MARKETING_VERSION = 3.7.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.ios.liveactivity;
 				PRODUCT_NAME = iOSRemoteLiveActivity;
 				SDKROOT = iphoneos;
@@ -1478,7 +1488,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminal.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_POINTER_AUTHENTICATION = NO;
-			CURRENT_PROJECT_VERSION = 32;
+			CURRENT_PROJECT_VERSION = 33;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Configuration/VampTerminal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1487,7 +1497,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0.0;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.terminal;
 				PRODUCT_NAME = "Vamp Terminal";
 				SDKROOT = iphoneos;
@@ -1504,7 +1514,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminal.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_POINTER_AUTHENTICATION = NO;
-			CURRENT_PROJECT_VERSION = 32;
+			CURRENT_PROJECT_VERSION = 33;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Configuration/VampTerminal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1513,7 +1523,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0.0;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.terminal;
 				PRODUCT_NAME = "Vamp Terminal";
 				SDKROOT = iphoneos;
@@ -1531,7 +1541,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminalHost.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 32;
+			CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1542,7 +1552,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.0.0;
+				MARKETING_VERSION = 2.1.0;
 				OTHER_LDFLAGS = "$(inherited) -framework AppIntents";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.terminalhost;
 				PRODUCT_NAME = "Vamp Terminal Host";
@@ -1558,7 +1568,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminalHost.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 32;
+			CURRENT_PROJECT_VERSION = 33;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1569,7 +1579,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.0.0;
+				MARKETING_VERSION = 2.1.0;
 				OTHER_LDFLAGS = "$(inherited) -framework AppIntents";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.terminalhost;
 				PRODUCT_NAME = "Vamp Terminal Host";

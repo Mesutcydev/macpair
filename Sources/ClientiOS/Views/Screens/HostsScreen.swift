@@ -252,7 +252,7 @@ struct HostsScreen: View {
         )) {
             Button("OK", role: .cancel) { pendingTerminalOnlyHost = nil }
         } message: {
-            Text("\(pendingTerminalOnlyHost?.title ?? "This host") only provides terminal tabs. Use the separate Vamp Terminal client for this host. Vamp Remote Control Client connects to Vamp Host for screen and remote-control sessions.")
+            Text("\(pendingTerminalOnlyHost?.title ?? "This host") only provides terminal tabs. Use the separate Vamp Terminal client for this host. Vamp Control connects to Vamp Host for screen and remote-control sessions.")
         }
     }
 
@@ -922,5 +922,5 @@ struct HostsScreen: View {
 }
 
 #Preview("HostsScreen") {
-    HostsScreen(environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client"))
+    HostsScreen(environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Control"))
 }

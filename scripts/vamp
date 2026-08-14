@@ -55,8 +55,8 @@ usage() {
   echo "  version              Print installed app version and build number"
   echo "  pending              Print the pending trust request (name, fingerprint, deadline)"
   echo "  wait-pending         Block until a pending request appears"
-  echo "  approve-pairing      Approve the pending device pairing request"
-  echo "  approve-connection   Approve the pending client connection request"
+  echo "  approve-pairing      Approve a pending request (requires --fingerprint)"
+  echo "  approve-connection   Approve a pending request (requires --fingerprint)"
   echo "  reject-pairing       Reject the pending device pairing request"
   echo "  reject-connection    Reject the pending client connection request"
   echo "  terminal list         List tmux/screen sessions that Vamp Terminal can resume"
@@ -182,9 +182,13 @@ open_app() {
 }
 
 open_action() {
-  local action="$1"
+  local action="$1" fingerprint="${2:-}"
   open_app
-  open "${URL_SCHEME}://action/${action}"
+  if [[ -n "$fingerprint" ]]; then
+    open "${URL_SCHEME}://action/${action}?fingerprint=${fingerprint}"
+  else
+    open "${URL_SCHEME}://action/${action}"
+  fi
 }
 
 read_snapshot_field() {
@@ -503,7 +507,7 @@ PY
     fi
   fi
 
-  open_action "$action"
+  open_action "$action" "$expected_fingerprint"
 
   local attempt
   for attempt in $(seq 1 10); do
@@ -732,6 +736,10 @@ main() {
     approve-pairing|approve-connection)
       parse_approve_options "$@"
       approve_fingerprint="$APPROVE_FINGERPRINT"
+      if [[ -z "$approve_fingerprint" ]]; then
+        err "Approval requires --fingerprint <64-character SHA-256 fingerprint>."
+        exit 7
+      fi
       case "$cmd" in
         approve-pairing) cmd_resolve_request approve-pairing "pairing" "$approve_fingerprint" ;;
         approve-connection) cmd_resolve_request approve-connection "connection" "$approve_fingerprint" ;;

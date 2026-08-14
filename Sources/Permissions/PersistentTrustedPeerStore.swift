@@ -29,7 +29,7 @@ public actor PersistentTrustedPeerStore: TrustedPeerStoreProtocol {
     }
 
     public func trustPeer(_ peer: TrustedPeer) async throws {
-        guard Self.isValidFingerprint(peer.fingerprint) else {
+        guard PublicKeyFingerprint.isValid(peer.fingerprint) else {
             throw TrustedPeerStoreError.invalidFingerprint
         }
         try loadIfNeeded()
@@ -163,12 +163,6 @@ public actor PersistentTrustedPeerStore: TrustedPeerStoreProtocol {
             }
         }
         throw lastError ?? CocoaError(.fileReadUnknown)
-    }
-
-    private static func isValidFingerprint(_ fingerprint: String) -> Bool {
-        guard fingerprint.count == 64 else { return false }
-        let validChars = CharacterSet(charactersIn: "0123456789abcdef")
-        return fingerprint.unicodeScalars.allSatisfy { validChars.contains($0) }
     }
 
     private func persist() throws {

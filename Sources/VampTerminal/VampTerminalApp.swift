@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct VampTerminalApp: App {
     @StateObject private var environment: ClientAppEnvironment
+    @AppStorage("vampTerminal.appearance") private var appearance = "system"
 
     init() {
         _environment = StateObject(
@@ -17,6 +18,15 @@ struct VampTerminalApp: App {
     var body: some Scene {
         WindowGroup {
             VampTerminalHomeView(environment: environment)
+                .preferredColorScheme(preferredColorScheme)
+        }
+    }
+
+    private var preferredColorScheme: ColorScheme? {
+        switch appearance {
+        case "light": .light
+        case "dark": .dark
+        default: nil
         }
     }
 }

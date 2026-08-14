@@ -6,6 +6,8 @@ import { dirname, join } from 'node:path';
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const sourcePath = join(testDirectory, '..', 'Sources', 'HostApp', 'HostBrowserControlService.swift');
 const source = await readFile(sourcePath, 'utf8');
+assert.match(source, /vampResponsePresentation[\s\S]*?Shell ready\. Type a command here or open Terminal for direct control\./, 'ready shells render an explicit usable state');
+assert.match(source, /value\.type === 'ready'[\s\S]*?vampRefreshTerminalCard/, 'terminalReady synchronously refreshes the stable response card');
 
 // CSS is embedded inside JavaScript template literals. A backtick in a CSS
 // comment closes the template and aborts the final Chat/Terminal enhancement

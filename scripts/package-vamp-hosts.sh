@@ -64,6 +64,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "$OUTPUT_DIR" != /* ]]; then
+  OUTPUT_DIR="$ROOT/$OUTPUT_DIR"
+fi
+
 for tool in xcodebuild codesign ditto plutil file shasum python3; do
   command -v "$tool" >/dev/null 2>&1 || fail "Required tool not found: $tool"
 done
@@ -112,6 +116,7 @@ package_host() {
     CODE_SIGNING_REQUIRED=NO \
     CODE_SIGN_IDENTITY= \
     DEVELOPMENT_TEAM= \
+    ENABLE_DEBUG_DYLIB=NO \
     build
 
   [[ -d "$app" ]] || fail "Built app not found: $app"
@@ -119,6 +124,13 @@ package_host() {
   local executable="$app/Contents/MacOS/$app_name"
   [[ -f "$info" ]] || fail "Built Info.plist not found: $info"
   [[ -x "$executable" ]] || fail "Built executable not found: $executable"
+
+  # Direct-distribution applications must never retain Xcode's debug-dylib
+  # indirection. Besides being unnecessary in Release, independently signing
+  # that dylib can give it a different Team ID and make dyld abort at launch.
+  if otool -L "$executable" | grep -q "${app_name}.debug.dylib"; then
+    fail "$app_name executable unexpectedly depends on a debug dylib"
+  fi
 
   local bundle_id version build display_name
   bundle_id="$(plutil -extract CFBundleIdentifier raw "$info")"

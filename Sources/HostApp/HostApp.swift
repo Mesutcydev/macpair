@@ -49,6 +49,7 @@ struct HostApp: App {
         // state cannot push the window beyond a laptop display.
         #if os(macOS)
         .windowResizability(.contentSize)
+        .defaultSize(width: 720, height: 900)
         #endif
 
         #if os(macOS)
@@ -483,7 +484,7 @@ final class HostWindowCloseBehaviorController: NSObject, ObservableObject, NSWin
             window.isOpaque = false
             window.backgroundColor = .clear
             window.contentMinSize = NSSize(width: 500, height: 520)
-            window.contentMaxSize = NSSize(width: 760, height: 860)
+            window.contentMaxSize = NSSize(width: 760, height: 920)
             if let restore = savedFullFrame {
                 window.setFrame(restore, display: true, animate: animate)
                 savedFullFrame = nil
@@ -611,6 +612,15 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
         for url in urls {
             guard let action = HostWidgetAction.from(url: url) else { continue }
             if let environment = HostAppEnvironment.shared {
+                if action == .approvePairing || action == .approveConnection,
+                   let fingerprint = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                       .queryItems?.first(where: { $0.name == "fingerprint" })?.value {
+                    _ = environment.resolveTrustPrompt(
+                        approved: true,
+                        matchingFingerprint: fingerprint
+                    )
+                    continue
+                }
                 // App already running — apply in-process immediately.
                 environment.applyWidgetAction(action)
             } else {

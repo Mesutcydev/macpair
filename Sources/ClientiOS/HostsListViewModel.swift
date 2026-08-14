@@ -810,7 +810,8 @@ final class HostsListViewModel: ObservableObject {
 
     private static func normalizedFingerprintStatic(_ value: String?) -> String? {
         let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard let normalized, normalized.count == 64 else { return nil }
+        guard let normalized,
+              RemoteDesktopConstants.isValidPublicKeyFingerprint(normalized) else { return nil }
         return normalized
     }
 
@@ -1072,7 +1073,8 @@ final class HostsListViewModel: ObservableObject {
 
     private func normalizedFingerprint(_ value: String?) -> String? {
         let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard let normalized, normalized.count == 64 else { return nil }
+        guard let normalized,
+              RemoteDesktopConstants.isValidPublicKeyFingerprint(normalized) else { return nil }
         return normalized
     }
 

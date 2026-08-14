@@ -713,7 +713,7 @@ struct SimpleHomeView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Vamp Remote Control")
+                Text("Vamp Control")
                     .font(.headline)
                     .foregroundColor(PR.fg)
                 Text(headerSubtitle)
@@ -3252,6 +3252,6 @@ private extension Color {
 
 #Preview("MirrorScreen") {
     if #available(iOS 16.1, *) {
-        MirrorScreen(environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Remote Control Client"))
+        MirrorScreen(environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Control"))
     }
 }

@@ -122,13 +122,14 @@ final class HostAgentSemanticService: @unchecked Sendable {
         process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory, isDirectory: true)
         process.standardOutput = output
         process.standardError = error
-        // A null-device stdin is reported as a pipe by some CLI runtimes.
-        // Codex then prints "Reading additional input from stdin..." and can
-        // alter prompt semantics even though Vamp supplied the complete prompt
-        // as an argument. Inheriting a real terminal when available, and
-        // falling back to /dev/null only for daemonized hosts, avoids that
-        // false piped-input path without ever accepting user bytes here.
-        process.standardInput = Self.semanticStandardInput()
+        // Semantic turns are deliberately non-interactive: the complete prompt
+        // is passed in the provider's arguments and permission was already
+        // resolved by Vamp. Never inherit the host app's stdin here. A host
+        // launched from Terminal can retain a controlling TTY; Grok then
+        // switches back to interactive input after emitting its startup
+        // records and Chat remains stuck forever. /dev/null gives every
+        // provider an immediate EOF and keeps this runner deterministic.
+        process.standardInput = FileHandle.nullDevice
         var environment = ProcessInfo.processInfo.environment
         environment["TERM"] = "dumb"
         environment["NO_COLOR"] = "1"
@@ -153,6 +154,15 @@ final class HostAgentSemanticService: @unchecked Sendable {
             send(.failed(error.localizedDescription), for: message)
             return
         }
+        // `Pipe` keeps both descriptors open in this process. Once the child
+        // has inherited its stdout/stderr descriptors, the host must close
+        // its copies of the write ends. Otherwise the readers below never
+        // observe EOF after the provider exits, `drains.notify` never runs,
+        // and Chat remains stuck in Running even though the CLI completed.
+        // Provider descendants inherit the child's descriptors normally;
+        // closing only these parent copies does not truncate their output.
+        try? output.fileHandleForWriting.close()
+        try? error.fileHandleForWriting.close()
 
         // Drain both pipes on dedicated blocking queues. FileHandle's
         // readabilityHandler is not reliable for these child pipes inside the
@@ -292,11 +302,6 @@ final class HostAgentSemanticService: @unchecked Sendable {
         let paths = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "\(NSHomeDirectory())/.local/bin", "\(NSHomeDirectory())/.bun/bin"]
         return paths.map { URL(fileURLWithPath: $0).appendingPathComponent(name).path }
             .first { FileManager.default.isExecutableFile(atPath: $0) }
-    }
-
-    private static func semanticStandardInput() -> Any {
-        guard isatty(STDIN_FILENO) != 0 else { return FileHandle.nullDevice }
-        return FileHandle.standardInput
     }
 
     private static func validateHomePath(_ path: String) -> String? {

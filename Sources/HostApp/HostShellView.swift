@@ -110,6 +110,11 @@ struct HostShellView: View {
 
                         Section("Manage") {
                             Button {
+                                environment.chooseAdditionalWorkspaceFolder()
+                            } label: {
+                                Label("Add workspace folder…", systemImage: "folder.badge.plus")
+                            }
+                            Button {
                                 showSettings = true
                             } label: {
                                 Label("Settings", systemImage: "gearshape")
@@ -379,8 +384,8 @@ private struct HostMinimalDashboard: View {
         // Keep a stable, screen-safe dashboard frame. The content scrolls instead
         // of forcing a window taller than a laptop display when permissions,
         // pairing, or diagnostics become visible.
-        .frame(minWidth: 500, idealWidth: 580, maxWidth: 720,
-               minHeight: 520, idealHeight: 720, maxHeight: 860)
+        .frame(minWidth: 500, idealWidth: 720, maxWidth: 720,
+               minHeight: 520, idealHeight: 900, maxHeight: 900)
         .animation(.easeInOut(duration: 0.2), value: sessionCoordinator.phase)
         .animation(.easeInOut(duration: 0.2), value: permissionsViewModel.blockers.count)
     }

@@ -183,6 +183,38 @@ public struct WorkspaceDirectoryResponseMessage: Codable, Hashable, Sendable {
     }
 }
 
+/// Client request to let the Mac owner expose one additional workspace root.
+/// The client never supplies a path: selection happens in a trusted native
+/// NSOpenPanel on the host and is persisted there as a security-scoped bookmark.
+public struct WorkspaceAccessRequestMessage: Codable, Hashable, Sendable {
+    public let sessionID: UUID
+    public let requestID: UUID
+
+    public init(sessionID: UUID, requestID: UUID = UUID()) {
+        self.sessionID = sessionID
+        self.requestID = requestID
+    }
+}
+
+public struct WorkspaceAccessResponseMessage: Codable, Hashable, Sendable {
+    public let sessionID: UUID
+    public let requestID: UUID
+    public let approved: Bool
+    public let errorMessage: String?
+
+    public init(
+        sessionID: UUID,
+        requestID: UUID,
+        approved: Bool,
+        errorMessage: String? = nil
+    ) {
+        self.sessionID = sessionID
+        self.requestID = requestID
+        self.approved = approved
+        self.errorMessage = errorMessage
+    }
+}
+
 public enum ResumeMode: String, Codable, Hashable, Sendable {
     case new
     case resumePrevious

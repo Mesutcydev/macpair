@@ -48,7 +48,7 @@ public enum ScreenExplainer {
     }
 
     private static let instructions = """
-    You are an assistant inside "Vamp Remote Control", a Mac remote-control app. The user is looking at a remote \
+    You are an assistant inside "Vamp Control", a Mac remote-control app. The user is looking at a remote \
     Mac screen and asks a question about it. You are given the on-screen text extracted by OCR \
     (it may be noisy or partial). Answer concisely — 1 to 4 sentences — based ONLY on that text. \
     If the text doesn't contain the answer, say the screen doesn't show enough to tell. Do not \

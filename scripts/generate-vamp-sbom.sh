@@ -6,7 +6,7 @@
 set -euo pipefail
 
 [[ $# -eq 6 ]] || {
-  printf 'Usage: %s <artifact> <vamp-terminal|vamp-host|vamp-terminal-host> <version> <build> <commit> <output>\n' "$0" >&2
+  printf 'Usage: %s <artifact> <vamp-terminal|vamp-host|vamp-terminal-host|vamp-control-ios|vamp-control-macos> <version> <build> <commit> <output>\n' "$0" >&2
   exit 64
 }
 
@@ -19,7 +19,7 @@ output="$6"
 
 [[ -f "$artifact" ]] || { printf 'Artifact not found: %s\n' "$artifact" >&2; exit 1; }
 case "$component" in
-  vamp-terminal|vamp-host|vamp-terminal-host) ;;
+  vamp-terminal|vamp-host|vamp-terminal-host|vamp-control-ios|vamp-control-macos) ;;
   *) printf 'Unsupported Vamp component: %s\n' "$component" >&2; exit 64 ;;
 esac
 
@@ -39,16 +39,22 @@ bundle_ids = {
     "vamp-terminal": "com.mesutcy.remotedesktop.terminal",
     "vamp-host": "com.mesutcy.remotedesktop.host",
     "vamp-terminal-host": "com.mesutcy.remotedesktop.terminalhost",
+    "vamp-control-ios": "com.mesutcy.remotedesktop.ios",
+    "vamp-control-macos": "com.mesutcy.remotedesktop.macclient",
 }
 app_names = {
     "vamp-terminal": "Vamp Terminal",
     "vamp-host": "Vamp Host",
     "vamp-terminal-host": "Vamp Terminal Host",
+    "vamp-control-ios": "Vamp Control iOS",
+    "vamp-control-macos": "Vamp Control macOS",
 }
 signatures = {
     "vamp-terminal": "unsigned",
     "vamp-host": "ad-hoc",
     "vamp-terminal-host": "ad-hoc",
+    "vamp-control-ios": "unsigned",
+    "vamp-control-macos": "ad-hoc",
 }
 
 artifact = os.environ["ARTIFACT"]

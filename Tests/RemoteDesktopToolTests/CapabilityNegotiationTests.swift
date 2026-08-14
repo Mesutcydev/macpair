@@ -33,17 +33,26 @@ final class CapabilityNegotiationTests: XCTestCase {
         let host: HostCapabilityFlags = [
             .supportsH264,
             .supportsTerminal,
-            .supportsMultipleTerminals
+            .supportsMultipleTerminals,
+            .supportsTerminalChat,
+            .supportsTaskPlans,
+            .supportsWorkspaces
         ]
         let client: HostCapabilityFlags = [
             .supportsH264,
             .supportsTerminal,
-            .supportsMultipleTerminals
+            .supportsMultipleTerminals,
+            .supportsTerminalChat,
+            .supportsTaskPlans,
+            .supportsWorkspaces
         ]
 
         let result = CapabilityNegotiator.negotiate(host: host, client: client)
 
         XCTAssertEqual(result?.supportsTerminal, true)
         XCTAssertEqual(result?.supportsMultipleTerminals, true)
+        XCTAssertEqual(result?.supportsTerminalChat, true)
+        XCTAssertEqual(result?.supportsTaskPlans, true)
+        XCTAssertEqual(result?.supportsWorkspaces, true)
     }
 }

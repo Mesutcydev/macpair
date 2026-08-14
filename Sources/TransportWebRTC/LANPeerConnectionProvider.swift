@@ -1,8 +1,13 @@
 #if canImport(Network)
 import Foundation
 import Network
+import Security
 import SharedUtilities
 import os
+
+public protocol LANTransportSecurityConfigurable: AnyObject {
+    func configureTransportSecurity(sessionTokenHex: String?)
+}
 
 // MARK: - LAN Session Descriptor (used as SDP payload)
 
@@ -30,9 +35,10 @@ struct LANSessionDescriptor: Codable, Sendable {
 
 /// Creates `LANPeerConnection` instances for LAN peer-to-peer communication
 /// using Network.framework. Set `remoteHost` before preparing a client session.
-public final class LANPeerConnectionProvider: PeerConnectionProviding, @unchecked Sendable {
+public final class LANPeerConnectionProvider: PeerConnectionProviding, LANTransportSecurityConfigurable, @unchecked Sendable {
     private let lock = NSLock()
     private var _remoteHost: String?
+    private var _sessionTokenHex: String?
     /// When true, the host listener uses a fixed well-known port
     /// (RemoteDesktopConstants.defaultDataPort) instead of a random one.
     /// This makes port-forwarding feasible for remote (non-LAN) access.
@@ -49,12 +55,21 @@ public final class LANPeerConnectionProvider: PeerConnectionProviding, @unchecke
         lock.withLock { _remoteHost }
     }
 
+    public func configureTransportSecurity(sessionTokenHex: String?) {
+        lock.withLock { _sessionTokenHex = sessionTokenHex }
+    }
+
     public func makePeerConnection(
         configuration: WebRTCConfiguration,
         delegate: any PeerConnectionDelegate
     ) throws -> any PeerConnectionProtocol {
-        let host = lock.withLock { _remoteHost }
-        return LANPeerConnection(remoteHost: host, fixedDataPort: useFixedDataPort ? RemoteDesktopConstants.defaultDataPort : nil, delegate: delegate)
+        let state = lock.withLock { (_remoteHost, _sessionTokenHex) }
+        return LANPeerConnection(
+            remoteHost: state.0,
+            fixedDataPort: useFixedDataPort ? RemoteDesktopConstants.defaultDataPort : nil,
+            sessionTokenHex: state.1,
+            delegate: delegate
+        )
     }
 }
 
@@ -69,16 +84,21 @@ public final class LANPeerConnectionProvider: PeerConnectionProviding, @unchecke
 ///
 /// Data channels are multiplexed over the single TCP connection using a
 /// simple frame format: `[1-byte channelTag][4-byte big-endian length][payload]`.
-public final class LANPeerConnection: @unchecked Sendable {
+public final class LANPeerConnection: LANTransportSecurityConfigurable, @unchecked Sendable {
     private let lock = NSLock()
     private weak var delegate: (any PeerConnectionDelegate)?
     private let remoteHost: String?
     private let fixedDataPort: UInt16?
+    private var sessionTokenHex: String?
     private let logger = Logger(subsystem: "com.remotedesktop.transport", category: "LANPeerConn")
 
     // Networking
     private var listener: NWListener?
     private var connection: NWConnection?
+    /// An accepted socket is only promoted after its authenticated TLS-PSK
+    /// handshake reaches `.ready`. This prevents an unauthenticated TCP client
+    /// from evicting a healthy data session merely by connecting to the port.
+    private var pendingAcceptedConnection: NWConnection?
     private var listenerPort: UInt16?
     private var pendingRemoteEndpoint: (host: String, port: UInt16)?
     private var connectAttempt: Int = 0
@@ -95,14 +115,20 @@ public final class LANPeerConnection: @unchecked Sendable {
     private var channelsByTag: [UInt8: LANDataChannel] = [:]
     private var nextChannelTag: UInt8 = 0
 
-    init(remoteHost: String?, fixedDataPort: UInt16? = nil, delegate: any PeerConnectionDelegate) {
+    init(remoteHost: String?, fixedDataPort: UInt16? = nil, sessionTokenHex: String? = nil, delegate: any PeerConnectionDelegate) {
         self.remoteHost = remoteHost
         self.fixedDataPort = fixedDataPort
+        self.sessionTokenHex = sessionTokenHex
         self.delegate = delegate
+    }
+
+    public func configureTransportSecurity(sessionTokenHex: String?) {
+        lock.withLock { self.sessionTokenHex = sessionTokenHex }
     }
 
     deinit {
         listener?.cancel()
+        pendingAcceptedConnection?.cancel()
         connection?.cancel()
     }
 
@@ -240,16 +266,45 @@ public final class LANPeerConnection: @unchecked Sendable {
     /// TCP parameters with kernel keepalive enabled so half-open connections
     /// (AP roam, NAT table timeout, peer power loss) surface as `.failed`
     /// within ~15 s instead of sitting in `.ready` indefinitely.
-    private static func makeTCPParameters() -> NWParameters {
+    private static let tlsPSKIdentity = Data("vamp-data-channel-v1".utf8)
+    private static let tlsPSKCiphersuite = tls_ciphersuite_t(rawValue: UInt16(0x00AD))
+
+    private static func makeTCPParameters(sessionTokenHex: String?) throws -> NWParameters {
+        guard let sessionTokenHex,
+              let token = tokenFromHex(sessionTokenHex),
+              token.count == 32 else {
+            throw WebRTCSessionError.invalidState("A valid session token is required for the encrypted data transport.")
+        }
         let tcp = NWProtocolTCP.Options()
         tcp.enableKeepalive = true
         tcp.keepaliveIdle = 5
         tcp.keepaliveInterval = 5
         tcp.keepaliveCount = 2
-        let params = NWParameters(tls: nil, tcp: tcp)
+        let tls = NWProtocolTLS.Options()
+        let psk = token.withUnsafeBytes { DispatchData(bytes: $0) }
+        let identity = tlsPSKIdentity.withUnsafeBytes { DispatchData(bytes: $0) }
+        sec_protocol_options_add_pre_shared_key(tls.securityProtocolOptions, psk as __DispatchData, identity as __DispatchData)
+        if let tlsPSKCiphersuite {
+            sec_protocol_options_append_tls_ciphersuite(tls.securityProtocolOptions, tlsPSKCiphersuite)
+        }
+        sec_protocol_options_set_peer_authentication_required(tls.securityProtocolOptions, true)
+        let params = NWParameters(tls: tls, tcp: tcp)
         params.includePeerToPeer = true
         params.allowLocalEndpointReuse = true
         return params
+    }
+
+    private static func tokenFromHex(_ hex: String) -> Data? {
+        guard hex.count == 64 else { return nil }
+        var result = Data(capacity: 32)
+        var index = hex.startIndex
+        while index < hex.endIndex {
+            guard let next = hex.index(index, offsetBy: 2, limitedBy: hex.endIndex),
+                  let byte = UInt8(hex[index..<next], radix: 16) else { return nil }
+            result.append(byte)
+            index = next
+        }
+        return result
     }
 
     // MARK: - Host: Listener
@@ -303,7 +358,7 @@ public final class LANPeerConnection: @unchecked Sendable {
     }
 
     private func startListenerAttempt() async throws -> UInt16 {
-        let params = Self.makeTCPParameters()
+        let params = try Self.makeTCPParameters(sessionTokenHex: lock.withLock { sessionTokenHex })
         let l: NWListener
         if let fixedPort = fixedDataPort, let nwPort = NWEndpoint.Port(rawValue: fixedPort) {
             l = try NWListener(using: params, on: nwPort)
@@ -395,32 +450,56 @@ public final class LANPeerConnection: @unchecked Sendable {
     }
 
     private func acceptConnection(_ newConn: NWConnection) {
-        lock.lock()
-        // A new inbound connection means a client is (re)starting a session — supersede any
-        // existing one, even if it still looks `.ready`. A half-open socket left by an unclean
-        // client disconnect (cellular drop, app backgrounded, relay hiccup) lingers in `.ready`
-        // on the host; the old "reject if .ready" rule then REJECTED the client's reconnect until
-        // TCP keepalive finally tore the dead socket down — over a relay that can take minutes,
-        // which is the "signaling connects but the video socket won't, then works a while later"
-        // bug. Newest connection wins; the trust/session layer still authenticates it.
-        if let existing = connection {
-            existing.cancel()
-            connection = nil
+        let supersededCandidate = lock.withLock { () -> NWConnection? in
+            let previous = pendingAcceptedConnection
+            pendingAcceptedConnection = newConn
+            return previous
         }
-        connection = newConn
-        lock.unlock()
+        supersededCandidate?.cancel()
 
         newConn.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
             switch state {
             case .ready:
+                let previousConnection = self.lock.withLock { () -> NWConnection? in
+                    guard self.pendingAcceptedConnection === newConn else { return nil }
+                    self.pendingAcceptedConnection = nil
+                    let previous = self.connection
+                    self.connection = newConn
+                    return previous
+                }
+                guard self.lock.withLock({ self.connection === newConn }) else {
+                    newConn.cancel()
+                    return
+                }
+                // A reconnect that completed the authenticated TLS handshake
+                // may now replace a stale ready socket. Authentication happens
+                // first; supersession happens second.
+                previousConnection?.cancel()
                 self.transitionState(.connected)
                 self.onConnectionEstablished()
             case .failed(let error):
                 self.logger.error("Accepted connection failed: \(error.localizedDescription)")
-                self.transitionState(.failed)
+                let hadActiveConnection = self.lock.withLock { () -> Bool in
+                    if self.pendingAcceptedConnection === newConn {
+                        self.pendingAcceptedConnection = nil
+                    }
+                    return self.connection != nil
+                }
+                if !hadActiveConnection {
+                    self.transitionState(.failed)
+                }
             case .cancelled:
-                self.transitionState(.closed)
+                let shouldClose = self.lock.withLock { () -> Bool in
+                    if self.pendingAcceptedConnection === newConn {
+                        self.pendingAcceptedConnection = nil
+                        return self.connection == nil
+                    }
+                    return self.connection === newConn
+                }
+                if shouldClose {
+                    self.transitionState(.closed)
+                }
             default:
                 break
             }
@@ -449,7 +528,14 @@ public final class LANPeerConnection: @unchecked Sendable {
         }
         logger.info("Client data connect attempt \(attempt) to \(host):\(port)")
         let endpoint = NWEndpoint.hostPort(host: NWEndpoint.Host(host), port: endpointPort)
-        let params = Self.makeTCPParameters()
+        let params: NWParameters
+        do {
+            params = try Self.makeTCPParameters(sessionTokenHex: lock.withLock { sessionTokenHex })
+        } catch {
+            logger.error("Client data transport security setup failed: \(error.localizedDescription)")
+            transitionState(.failed)
+            return
+        }
         let conn = NWConnection(to: endpoint, using: params)
         lock.lock()
         connection = conn

@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+# Build the direct-distribution Vamp Control macOS client.
+
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT="$ROOT/MacClient.xcodeproj"
+WORK="$ROOT/.packaging-vamp-control-macos"
+OUTPUT_DIR="$ROOT/dist/VampSuite"
+CLEAN=0
+ALLOW_DIRTY=0
+log() { printf '[vamp-control-macos] %s\n' "$*" >&2; }
+fail() { printf '[vamp-control-macos] error: %s\n' "$*" >&2; exit 1; }
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-dir) [[ $# -ge 2 ]] || fail "Missing output directory"; OUTPUT_DIR="$2"; shift 2 ;;
+    --clean) CLEAN=1; shift ;;
+    --allow-dirty) ALLOW_DIRTY=1; shift ;;
+    --help|-h) printf 'Usage: %s [--output-dir path] [--clean] [--allow-dirty]\n' "$0"; exit 0 ;;
+    *) fail "Unknown argument: $1" ;;
+  esac
+done
+[[ "$OUTPUT_DIR" == /* ]] || OUTPUT_DIR="$ROOT/$OUTPUT_DIR"
+for tool in xcodebuild codesign ditto plutil file shasum python3; do command -v "$tool" >/dev/null || fail "Missing $tool"; done
+COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
+if [[ "$ALLOW_DIRTY" -ne 1 ]] && [[ -n "$(git -C "$ROOT" status --porcelain)" ]]; then fail "Use --allow-dirty for local artifacts"; fi
+if [[ "$CLEAN" -eq 1 ]]; then
+  [[ "$WORK" == "$ROOT/.packaging-vamp-control-macos" ]] || fail "Unexpected work path"
+  rm -rf "$WORK"
+  find "$OUTPUT_DIR" -maxdepth 1 -type f -name 'VampControl-macOS-*' -delete 2>/dev/null || true
+fi
+mkdir -p "$WORK" "$OUTPUT_DIR"
+xcodebuild -quiet -project "$PROJECT" -scheme MacClient -configuration Release -sdk macosx \
+  -destination 'generic/platform=macOS' -derivedDataPath "$WORK/DerivedData" ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= DEVELOPMENT_TEAM= ENABLE_DEBUG_DYLIB=NO build
+APP="$WORK/DerivedData/Build/Products/Release/Vamp Control macOS.app"
+INFO="$APP/Contents/Info.plist"
+[[ -d "$APP" ]] || fail "Built app not found"
+VERSION="$(plutil -extract CFBundleShortVersionString raw "$INFO")"; BUILD="$(plutil -extract CFBundleVersion raw "$INFO")"
+BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw "$INFO")"; DISPLAY="$(plutil -extract CFBundleDisplayName raw "$INFO")"
+[[ "$BUNDLE_ID" == com.mesutcy.remotedesktop.macclient ]] || fail "Unexpected bundle ID: $BUNDLE_ID"
+[[ "$DISPLAY" == 'Vamp Control' ]] || fail "Unexpected display name: $DISPLAY"
+file "$APP/Contents/MacOS/Vamp Control macOS" | grep -q arm64 || fail "Executable is not arm64"
+# Sign nested code first, then seal the outer application. Sparkle is shipped
+# as a nested framework and cannot be made valid by signing only the app root.
+while IFS= read -r nested; do
+  codesign --force --sign - --options runtime "$nested" >/dev/null
+done < <(find "$APP/Contents/Frameworks" -type d \( -name '*.framework' -o -name '*.xpc' -o -name '*.app' \) -prune 2>/dev/null | sort -r)
+codesign --force --sign - --options runtime "$APP" >/dev/null
+codesign --verify --deep --strict "$APP"
+NAME="VampControl-macOS-${VERSION}-build-${BUILD}-adhoc.zip"; ZIP="$OUTPUT_DIR/$NAME"
+rm -f "$ZIP"; ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+SHA256="$(shasum -a 256 "$ZIP" | awk '{print $1}')"; SIZE="$(stat -f '%z' "$ZIP")"
+printf '%s  %s\n' "$SHA256" "$NAME" > "$ZIP.sha256"
+TREE_STATE=clean; [[ -z "$(git -C "$ROOT" status --porcelain)" ]] || TREE_STATE=dirty
+ARTIFACT="$NAME" VERSION="$VERSION" BUILD="$BUILD" COMMIT="$COMMIT" SHA256="$SHA256" SIZE="$SIZE" \
+ TREE_STATE="$TREE_STATE" MANIFEST="$ZIP.manifest.json" python3 - <<'PY'
+import datetime, json, os
+payload={"schemaVersion":1,"artifact":os.environ["ARTIFACT"],"application":"Vamp Control macOS",
+"installedDisplayName":"Vamp Control","platform":"macOS","minimumOSVersion":"13.0",
+"version":os.environ["VERSION"],"build":os.environ["BUILD"],"bundleIdentifier":"com.mesutcy.remotedesktop.macclient",
+"architecture":["arm64"],"signature":"ad-hoc","appleNotarized":False,
+"sourceCommit":os.environ["COMMIT"],"sourceTreeState":os.environ["TREE_STATE"],"sha256":os.environ["SHA256"],
+"sizeBytes":int(os.environ["SIZE"]),"createdAt":datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00","Z")}
+with open(os.environ["MANIFEST"],"w",encoding="utf-8") as f: json.dump(payload,f,indent=2); f.write("\n")
+PY
+"$ROOT/scripts/generate-vamp-sbom.sh" "$ZIP" vamp-control-macos "$VERSION" "$BUILD" "$COMMIT" "$ZIP.sbom.cdx.json"
+log "Created $ZIP"

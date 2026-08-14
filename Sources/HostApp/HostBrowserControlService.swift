@@ -122,6 +122,9 @@ final class HostBrowserControlService: @unchecked Sendable {
     var writeClipboard: (String) -> Void = { _ in }
     var onStatusChange: (@Sendable (HostBrowserControlStatus) -> Void)?
     var workspaceService: HostWorkspaceService?
+    /// Opens the trusted native Mac folder chooser. Browser JavaScript can
+    /// request this action, but it can never choose or submit a host path.
+    var requestWorkspaceAccess: ((@escaping @Sendable (Bool) -> Void) -> Void)?
 
     deinit {
         stop()
@@ -281,7 +284,10 @@ final class HostBrowserControlService: @unchecked Sendable {
             guard let self else { return }
             switch state {
             case .ready:
-                guard self.allowsBrowserPath(connection?.currentPath) else {
+                guard self.allowsBrowserPath(
+                    connection?.currentPath,
+                    remoteEndpoint: connection?.endpoint
+                ) else {
                     self.logger.warning("Rejecting browser connection outside loopback or Tailscale")
                     self.remove(clientID: id, connection: connection)
                     return
@@ -296,12 +302,39 @@ final class HostBrowserControlService: @unchecked Sendable {
         connection.start(queue: queue)
     }
 
-    private func allowsBrowserPath(_ path: NWPath?) -> Bool {
+    private func allowsBrowserPath(_ path: NWPath?, remoteEndpoint: NWEndpoint?) -> Bool {
         guard tailscaleListenerHost != nil else { return true }
         guard let path else { return false }
-        // Tailscale's utun interface is reported by Network.framework as
-        // `.other`; loopback remains required for `tailscale serve`.
-        return path.usesInterfaceType(.loopback) || path.usesInterfaceType(.other)
+        if path.usesInterfaceType(.loopback) { return true }
+        // Network.framework labels Tailscale's utun as `.other`, but `.other`
+        // also covers unrelated tunnels. Require the peer address itself to
+        // be in Tailscale's documented CGNAT IPv4 block or ULA IPv6 prefix.
+        guard path.usesInterfaceType(.other),
+              case let .hostPort(host, _) = remoteEndpoint else { return false }
+        return Self.isTailscaleAddress(host)
+    }
+
+    static func isTailscaleAddress(_ host: NWEndpoint.Host) -> Bool {
+        switch host {
+        case .ipv4(let address):
+            let bytes = [UInt8](address.rawValue)
+            guard bytes.count == 4 else { return false }
+            // 100.64.0.0/10
+            return bytes[0] == 100 && (64...127).contains(bytes[1])
+        case .ipv6(let address):
+            let bytes = [UInt8](address.rawValue)
+            guard bytes.count == 16 else { return false }
+            // fd7a:115c:a1e0::/48
+            return Array(bytes.prefix(6)) == [0xfd, 0x7a, 0x11, 0x5c, 0xa1, 0xe0]
+        case .name(let name, _):
+            // Connections accepted by a listener normally expose a numeric
+            // endpoint. Keep names closed instead of trusting suffix text.
+            return IPv4Address(name).map { isTailscaleAddress(.ipv4($0)) }
+                ?? IPv6Address(name).map { isTailscaleAddress(.ipv6($0)) }
+                ?? false
+        @unknown default:
+            return false
+        }
     }
 
     private func remove(clientID: UUID, connection: NWConnection?) {
@@ -393,7 +426,7 @@ final class HostBrowserControlService: @unchecked Sendable {
            request.method == "GET",
            headers["upgrade"]?.lowercased() == "websocket",
            let websocketKey = headers["sec-websocket-key"] {
-            upgradeToWebSocket(client, request: request, key: websocketKey)
+            upgradeToWebSocket(client, request: request, headers: headers, key: websocketKey)
             return
         }
 
@@ -402,7 +435,21 @@ final class HostBrowserControlService: @unchecked Sendable {
             sendHTTP(.ok, contentType: "text/html; charset=utf-8", body: BrowserControlWebAssets.indexHTML, to: client)
         case ("GET", "/api/status"):
             sendHTTP(.ok, contentType: "application/json", body: statusJSON(), to: client)
+        case ("GET", let path) where path.hasPrefix("/assets/providers/"):
+            sendProviderAsset(path: path, to: client)
         case ("POST", "/api/pair"):
+            // Pairing creates a bearer credential. A hostile web page must not
+            // be able to submit the visible six-digit code through the user's
+            // browser, so apply the same-origin rule used by the WebSocket
+            // upgrade. Native/non-browser clients may omit Origin.
+            guard Self.isAllowedBrowserOrigin(
+                headers["origin"],
+                hostHeader: headers["host"]
+            ) else {
+                logger.warning("Rejected browser pairing request with mismatched Origin")
+                sendHTTP(.forbidden, body: "Origin not allowed", to: client)
+                return
+            }
             // Keep the QR handoff available even when a browser or proxy
             // drops the JSON body. The URL code is still validated against
             // the same one-time pairing secret below; this is not a second
@@ -411,6 +458,24 @@ final class HostBrowserControlService: @unchecked Sendable {
         default:
             sendHTTP(.notFound, body: "Not found", to: client)
         }
+    }
+
+    private func sendProviderAsset(path: String, to client: BrowserClient) {
+        let name = String(path.dropFirst("/assets/providers/".count))
+        let allowed: [String: String] = [
+            "opencode.png": "image/png",
+            "claude.jpg": "image/jpeg",
+            "grok.jpg": "image/jpeg",
+            "openai.jpg": "image/jpeg",
+            "kimi.jpg": "image/jpeg",
+        ]
+        guard let contentType = allowed[name],
+              let resourceURL = Bundle.main.resourceURL?.appendingPathComponent("BrowserProviders/").appendingPathComponent(name),
+              let data = try? Data(contentsOf: resourceURL) else {
+            sendHTTP(.notFound, body: "Not found", to: client)
+            return
+        }
+        sendHTTP(.ok, contentType: contentType, data: data, to: client)
     }
 
     private func handlePair(body: Data, pairingCodeFromURL: String?, client: BrowserClient) {
@@ -491,7 +556,24 @@ final class HostBrowserControlService: @unchecked Sendable {
         return Self.jsonString(response)
     }
 
-    private func upgradeToWebSocket(_ client: BrowserClient, request: BrowserHTTPRequest, key: String) {
+    private func upgradeToWebSocket(
+        _ client: BrowserClient,
+        request: BrowserHTTPRequest,
+        headers: [String: String],
+        key: String
+    ) {
+        // A browser WebSocket is authenticated with a bearer token, so a
+        // cross-origin page must never be able to spend that token through the
+        // user's browser. Non-browser WebSocket clients commonly omit Origin;
+        // when it is present it must match this HTTP endpoint exactly.
+        guard Self.isAllowedBrowserOrigin(
+            headers["origin"],
+            hostHeader: headers["host"]
+        ) else {
+            logger.warning("Rejected browser WebSocket with mismatched Origin")
+            sendHTTP(.forbidden, body: "Origin not allowed", to: client)
+            return
+        }
         guard let token = request.query["token"],
               let storedToken = browserToken,
               let expiresAt = browserTokenExpiresAt,
@@ -587,6 +669,28 @@ final class HostBrowserControlService: @unchecked Sendable {
         if !client.receiveBuffer.isEmpty {
             handleWebSocketBuffer(for: client)
         }
+    }
+
+    static func isAllowedBrowserOrigin(_ origin: String?, hostHeader: String?) -> Bool {
+        guard let origin, !origin.isEmpty else { return true }
+        guard origin != "null",
+              let hostHeader,
+              let components = URLComponents(string: origin),
+              let scheme = components.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              let host = components.host?.lowercased() else { return false }
+
+        let originPort = components.port ?? (scheme == "https" ? 443 : 80)
+        let expected = hostHeader.lowercased()
+        let originAuthority = originPort == (scheme == "https" ? 443 : 80)
+            ? host
+            : "\(host):\(originPort)"
+        return originAuthority == expected
+    }
+
+    @available(*, deprecated, renamed: "isAllowedBrowserOrigin(_:hostHeader:)")
+    static func isAllowedWebSocketOrigin(_ origin: String?, hostHeader: String?) -> Bool {
+        isAllowedBrowserOrigin(origin, hostHeader: hostHeader)
     }
 
     // MARK: WebSocket terminal protocol
@@ -693,6 +797,21 @@ final class HostBrowserControlService: @unchecked Sendable {
             }
             writeClipboard(text)
             sendJSON(BrowserClipboardEvent(text: text), to: client)
+        case "addworkspace":
+            guard let requestWorkspaceAccess else {
+                sendError("workspace-access-unavailable", to: client)
+                return
+            }
+            requestWorkspaceAccess { [weak self, weak client] approved in
+                guard let self, let client else { return }
+                self.workspaceService?.listWorkspaces(refresh: true) { [weak self, weak client] workspaces, roots, error in
+                    guard let self, let client else { return }
+                    self.queue.async {
+                        let message = approved ? error : (error ?? "Folder selection was cancelled on the Mac.")
+                        self.sendJSON(BrowserWorkspaceEvent(workspaces: workspaces, roots: roots, error: message), to: client)
+                    }
+                }
+            }
         case "ping":
             sendJSON(BrowserPongEvent(), to: client)
         default:
@@ -770,6 +889,24 @@ final class HostBrowserControlService: @unchecked Sendable {
             + "Cache-Control: no-store\r\n"
             + "X-Content-Type-Options: nosniff\r\n"
             + "Content-Security-Policy: default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'\r\n"
+            + "Connection: close\r\n\r\n"
+        sendRaw(Data(response.utf8) + data, to: client) { [weak self] in
+            self?.remove(clientID: client.id, connection: client.connection)
+        }
+    }
+
+    private func sendHTTP(
+        _ status: HTTPStatus,
+        contentType: String,
+        data: Data,
+        to client: BrowserClient
+    ) {
+        let response = "HTTP/1.1 \(status.code) \(status.reason)\r\n"
+            + "Content-Type: \(contentType)\r\n"
+            + "Content-Length: \(data.count)\r\n"
+            + "Cache-Control: public, max-age=86400, immutable\r\n"
+            + "X-Content-Type-Options: nosniff\r\n"
+            + "Content-Security-Policy: default-src 'none'\r\n"
             + "Connection: close\r\n\r\n"
         sendRaw(Data(response.utf8) + data, to: client) { [weak self] in
             self?.remove(clientID: client.id, connection: client.connection)
@@ -1203,6 +1340,7 @@ private enum BrowserControlWebAssets {
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#151515"><title>Vamp Terminal · Task chat</title>
+<script>(function(){var value='system';try{value=localStorage.getItem('vamp.appearance')||'system'}catch(_){}document.documentElement.dataset.theme=value})();</script>
 <style>
 :root{color-scheme:dark;--bg:#151515;--panel:rgba(44,44,44,.76);--panel2:rgba(30,30,30,.88);--line:rgba(255,255,255,.12);--muted:#a3a3a3;--text:#f1f1f1;--accent:#f5f5f5;--good:#42d392;--warn:#ffc857;--danger:#ff756b;--u:4px;--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:20px;--s6:24px;--control:44px;--radius-card:20px;--radius-control:12px}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% -10%,#383838 0,transparent 40%),linear-gradient(145deg,#111,#191919 55%,#101010);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;min-height:100vh}button,input{font:inherit}button{color:inherit;border:0;cursor:pointer}.shell{max-width:980px;margin:auto;min-height:100vh;padding:env(safe-area-inset-top) 14px env(safe-area-inset-bottom);display:flex;flex-direction:column}.top{height:54px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--line)}.back{background:none;color:#bbb;font-size:22px;width:32px}.title{font-weight:650;font-size:17px}.top .state{margin-left:auto;color:var(--muted);font-size:12px}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);margin-right:6px}.dot.connected{background:var(--good)}.dot.connecting,.dot.pairing{background:var(--warn)}.dot.offline,.dot.error,.dot.disabled{background:var(--danger)}.tabs{display:flex;align-items:center;gap:8px;padding:12px 0 9px;overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tab{display:flex;align-items:center;gap:7px;white-space:nowrap;background:rgba(255,255,255,.08);border:1px solid transparent;border-radius:17px;padding:8px 12px;color:#bbb}.tab.active{border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.14);color:#fff}.tab .close{color:#888;background:none;padding:0 0 0 3px}.newtab{background:rgba(255,255,255,.1);border-radius:16px;padding:8px 11px;font-size:18px}.content{display:flex;flex:1;min-height:0}.chat{flex:1;min-width:0;padding:12px 0 120px}.stream{display:none}.stream.active{display:block}.message{margin:0 0 18px;line-height:1.55}.message .meta{color:#777;font-size:12px;margin-bottom:6px}.message .body{white-space:pre-wrap;word-break:break-word}.explore{color:#bbb;font-size:13px;margin:12px 0 18px}.explore span{color:#666;margin:0 6px}.command-card{background:rgba(45,45,45,.8);border:1px solid var(--line);border-radius:17px;padding:12px;margin:13px 0 20px;box-shadow:0 10px 34px rgba(0,0,0,.16)}.command-card .eyebrow{color:#aaa;font-size:13px;margin-bottom:10px}.command-card .approval{color:#aaa;margin:7px 0 11px}.command{background:rgba(15,15,15,.7);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;white-space:pre-wrap;overflow:auto;font:14px ui-monospace,SFMono-Regular,Menlo,monospace;color:#e8e8e8}.command .prompt{color:#aaa}.approval-actions{display:flex;gap:8px;align-items:center;margin-top:11px}.approval-actions button{border-radius:11px;padding:10px 13px;background:#eee;color:#161616;font-weight:650}.approval-actions button.secondary{background:rgba(255,255,255,.12);color:#eee}.approval-actions button.danger{background:rgba(255,117,107,.16);color:#ffb4ae}.terminal{background:#0b0b0b;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px;min-height:150px;max-height:48vh;overflow:auto;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:#e8e8e8;white-space:pre-wrap;word-break:break-word}.terminal:focus{outline:2px solid rgba(255,255,255,.35);outline-offset:2px}.quick{display:flex;gap:7px;overflow:auto;padding:10px 0;scrollbar-width:none}.quick::-webkit-scrollbar{display:none}.quick button{background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:9px;padding:8px 11px;white-space:nowrap;color:#ddd}.composer{position:fixed;left:14px;right:14px;bottom:max(12px,env(safe-area-inset-bottom));margin:auto;max-width:952px;background:rgba(44,44,44,.9);border:1px solid rgba(255,255,255,.16);border-radius:16px;padding:8px;display:flex;gap:7px;box-shadow:0 12px 40px rgba(0,0,0,.35);backdrop-filter:blur(18px)}.composer input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#fff;padding:8px}.composer input::placeholder{color:#777}.composer button{width:42px;height:38px;border-radius:11px;background:rgba(255,255,255,.1);font-size:17px}.composer button.send{background:#f5f5f5;color:#111;font-weight:700}.empty{color:#999;padding:35px 8px;text-align:center}.badge{color:#999;font-size:12px;margin:5px 0 15px}.modal{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:20px;z-index:3}.modal.hidden{display:none}.modal-card{width:min(420px,100%);background:#2b2b2b;border:1px solid rgba(255,255,255,.18);border-radius:18px;padding:18px;box-shadow:0 18px 70px #000}.modal-card h2{margin:0 0 7px;font-size:20px}.modal-card p{color:#aaa;line-height:1.45}.modal-card input{width:100%;background:#171717;border:1px solid var(--line);border-radius:10px;padding:12px;color:#fff;letter-spacing:.18em;text-align:center}.modal-card button{margin-top:12px;border-radius:11px;padding:11px 14px;background:#eee;color:#111;font-weight:650}.modal-card .error{color:#ffaaa4;min-height:18px;font-size:13px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(min-width:720px){.shell{padding-left:28px;padding-right:28px}.composer{left:28px;right:28px}.terminal{max-height:50vh}.chat{padding-top:20px}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
@@ -1230,7 +1368,7 @@ private enum BrowserControlWebAssets {
 </div>
 <div class="modal" id="pair"><div class="modal-card"><h2>Open this workspace</h2><p>Scan the QR code from Vamp Host, or enter the six-digit code shown in Settings → Browser control. The code expires after ten minutes.</p><input id="code" inputmode="numeric" maxlength="18" placeholder="000000" aria-label="Pairing code" autocomplete="one-time-code"><div class="error" id="pair-error"></div><button id="pair-button">Pair browser</button></div></div>
 <div class="modal hidden" id="launch-modal"><div class="modal-card more-card"><div class="more-kicker">New session</div><h2 id="launch-title">Choose workspace</h2><p id="launch-copy">Every session keeps its own working directory.</p><div class="workspace-list" id="workspace-list"></div><div class="more-footer"><button id="launch-cancel" class="secondary" type="button">Cancel</button></div></div></div>
-<div class="modal hidden" id="more-modal"><div class="modal-card more-card"><div class="more-kicker">Terminal actions</div><h2>Open a session</h2><p>Start a fresh shell, attach a persistent tmux or screen session, or open a coding agent in a new tab.</p><div class="more-actions"><button id="more-shell" type="button"><span class="provider-mark" style="--provider:#e8e8e8">›_</span><span><b>New shell</b><br><small>Open an independent terminal tab</small></span></button><button id="more-tmux" type="button" class="secondary"><span class="provider-mark" style="--provider:#9dd6ff">▣</span><span><b>Attach / create tmux</b><br><small>Resume a named workspace</small></span></button><button id="more-screen" type="button" class="secondary"><span class="provider-mark" style="--provider:#b8a6ff">▤</span><span><b>Attach screen</b><br><small>Resume a GNU screen session</small></span></button></div><div class="provider-title">Agent launchers</div><div class="provider-grid"><button type="button" data-provider="opencode" style="--provider:#00c8ce"><span class="provider-mark">◈</span><span>OpenCode</span></button><button type="button" data-provider="pi" style="--provider:#f57a48"><span class="provider-mark">π</span><span>Pi</span></button><button type="button" data-provider="commandcode" style="--provider:#b883ff"><span class="provider-mark">⌘</span><span>CommandCode</span></button><button type="button" data-provider="chatgpt" style="--provider:#10a37f"><span class="provider-mark">◌</span><span>ChatGPT CLI</span></button><button type="button" data-provider="claude" style="--provider:#dc6a42"><span class="provider-mark">✦</span><span>Claude Code</span></button><button type="button" data-provider="kimi" style="--provider:#4c8dff"><span class="provider-mark">K</span><span>Kimi</span></button><button type="button" data-provider="qwen" style="--provider:#4678f2"><span class="provider-mark">Q</span><span>Qwen Code</span></button><button type="button" data-provider="codex" style="--provider:#10a37f"><span class="provider-mark">⌘</span><span>Codex CLI</span></button><button type="button" data-provider="aider" style="--provider:#66c28c"><span class="provider-mark">A</span><span>Aider</span></button><button type="button" data-provider="grok" style="--provider:#e6a94f"><span class="provider-mark">G</span><span>Grok CLI</span></button></div><label class="more-command">Custom command or session<input id="more-command" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tmux attach -t work"></label><div class="more-footer"><button id="more-cancel" class="secondary" type="button">Cancel</button><button id="more-open" type="button">Open tab</button></div></div></div>
+<div class="modal hidden" id="more-modal"><div class="modal-card more-card"><div class="more-kicker">Terminal actions</div><h2>Open a session</h2><p>Start a fresh shell, attach a persistent tmux or screen session, or open a coding agent in a new tab.</p><div class="more-actions"><button id="more-shell" type="button"><span class="provider-mark" style="--provider:#e8e8e8">›_</span><span><b>New shell</b><br><small>Open an independent terminal tab</small></span></button><button id="more-tmux" type="button" class="secondary"><span class="provider-mark" style="--provider:#9dd6ff">▣</span><span><b>Attach / create tmux</b><br><small>Resume a named workspace</small></span></button><button id="more-screen" type="button" class="secondary"><span class="provider-mark" style="--provider:#b8a6ff">▤</span><span><b>Attach screen</b><br><small>Resume a GNU screen session</small></span></button></div><div class="provider-title">Agent launchers</div><div class="provider-grid"><button type="button" data-provider="opencode" style="--provider:#00c8ce"><img class="provider-logo" src="/assets/providers/opencode.png" alt=""><span>OpenCode</span></button><button type="button" data-provider="pi" style="--provider:#f57a48"><span class="provider-mark">π</span><span>Pi</span></button><button type="button" data-provider="commandcode" style="--provider:#b883ff"><span class="provider-mark">⌘</span><span>CommandCode</span></button><button type="button" data-provider="chatgpt" style="--provider:#10a37f"><img class="provider-logo" src="/assets/providers/openai.jpg" alt=""><span>ChatGPT CLI</span></button><button type="button" data-provider="claude" style="--provider:#dc6a42"><img class="provider-logo" src="/assets/providers/claude.jpg" alt=""><span>Claude Code</span></button><button type="button" data-provider="kimi" style="--provider:#4c8dff"><img class="provider-logo" src="/assets/providers/kimi.jpg" alt=""><span>Kimi</span></button><button type="button" data-provider="qwen" style="--provider:#4678f2"><span class="provider-mark">Q</span><span>Qwen Code</span></button><button type="button" data-provider="codex" style="--provider:#10a37f"><img class="provider-logo" src="/assets/providers/openai.jpg" alt=""><span>Codex CLI</span></button><button type="button" data-provider="aider" style="--provider:#66c28c"><span class="provider-mark">A</span><span>Aider</span></button><button type="button" data-provider="grok" style="--provider:#e6a94f"><img class="provider-logo" src="/assets/providers/grok.jpg" alt=""><span>Grok CLI</span></button></div><label class="more-command">Custom command or session<input id="more-command" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tmux attach -t work"></label><div class="more-footer"><button id="appearance-toggle" class="secondary appearance-toggle" type="button">Appearance · System</button><button id="more-cancel" class="secondary" type="button">Cancel</button><button id="more-open" type="button">Open tab</button></div></div></div>
 <script>
 const $=id=>document.getElementById(id);
 let ws=null,token=null,sessionId=null,active=null,order=[],tabs=new Map();
@@ -2143,6 +2281,7 @@ createTab = (startup = null, title = null, agent = null, workspace = null) => {
     responseText: '',
     lastSubmittedCommand: null,
     pendingCommand: null,
+    turnState: 'idle',
     pendingInput: null,
     pendingAgentPrompt: null,
     unread: false,
@@ -2559,10 +2698,12 @@ connect = () => {
         tab.readyNotified = true;
         tab.opened = true;
         tab.state = 'open';
+        if (tab.turnState === 'opening') tab.turnState = 'idle';
         tab.terminal ||= new VampBrowserVT(value.cols, value.rows);
         tab.terminal.resize(value.cols, value.rows);
         ensureStream(terminalID);
         if (typeof window.vampEnsureTerminalPreview === 'function') window.vampEnsureTerminalPreview(terminalID);
+        if (typeof window.vampRefreshTerminalCard === 'function') window.vampRefreshTerminalCard(terminalID);
         vampResizeTerminal(terminalID);
         renderTabs();
         // The semantic response card can be created after the prior tab
@@ -2592,7 +2733,11 @@ connect = () => {
         if (workspace && workspace.path && !byPath.has(workspace.path)) byPath.set(workspace.path, workspace);
       });
       vampWorkspaces = [...byPath.values()];
-      if (!active && vampWorkspaces.length) chooseWorkspaceForLaunch(null, 'Shell');
+      if (!$('launch-modal').classList.contains('hidden')) {
+        chooseWorkspaceForLaunch(vampPendingLaunch.command, vampPendingLaunch.title, vampPendingLaunch.agent);
+      } else if (!active && vampWorkspaces.length) {
+        chooseWorkspaceForLaunch(null, 'Shell');
+      }
     } else if (value.type === 'output') {
       vampAppendOutputChunk(vampTerminalKey(value.terminalID), value.data);
     } else if (value.type === 'taskPlanEvent') {
@@ -2610,18 +2755,22 @@ connect = () => {
       if (value.eventType === 'messageDelta') {
         tab.responseText = (tab.responseText || '') + String(value.text || '');
         tab.pendingCommand = tab.pendingCommand || 'agent';
+        tab.turnState = 'working';
         scheduleTerminalRender(terminalID);
       } else if (value.eventType === 'thinkingDelta') {
         tab.agentState = 'Working';
+        tab.turnState = 'working';
         scheduleTerminalRender(terminalID);
       } else if (value.eventType === 'completed') {
         tab.pendingCommand = null;
         tab.agentState = 'Ready';
+        tab.turnState = 'completed';
         if (typeof window.vampRefreshTerminalCard === 'function') window.vampRefreshTerminalCard(terminalID);
         else scheduleTerminalRender(terminalID);
       } else if (value.eventType === 'failed') {
         tab.pendingCommand = null;
         tab.agentState = 'Failed';
+        tab.turnState = 'failed';
         addMessage('<div class="badge">' + esc(value.text || 'The agent request failed.') + '</div>', terminalID);
         if (typeof window.vampRefreshTerminalCard === 'function') window.vampRefreshTerminalCard(terminalID);
         else scheduleTerminalRender(terminalID);
@@ -2733,7 +2882,24 @@ $('paste').onclick = async () => {
 };
 const moreModal = $('more-modal');
 const moreCommand = $('more-command');
-let vampWorkspaces = [];
+const vampAppearanceOrder = ['system', 'light', 'dark'];
+const vampAppearanceMedia = matchMedia('(prefers-color-scheme: dark)');
+let vampAppearance = document.documentElement.dataset.theme || 'system';
+const vampApplyAppearance = (value) => {
+  vampAppearance = vampAppearanceOrder.includes(value) ? value : 'system';
+  document.documentElement.dataset.theme = vampAppearance;
+  const resolved = vampAppearance === 'system' ? (vampAppearanceMedia.matches ? 'dark' : 'light') : vampAppearance;
+  document.documentElement.dataset.resolvedTheme = resolved;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'light' ? '#eeeae3' : '#151515');
+  const button = $('appearance-toggle');
+  if (button) button.textContent = 'Appearance · ' + vampAppearance.charAt(0).toUpperCase() + vampAppearance.slice(1);
+  try { localStorage.setItem('vamp.appearance', vampAppearance); } catch (_) {}
+};
+vampAppearanceMedia.addEventListener?.('change', () => { if (vampAppearance === 'system') vampApplyAppearance('system'); });
+vampApplyAppearance(vampAppearance);
+$('appearance-toggle').onclick = () => vampApplyAppearance(vampAppearanceOrder[(vampAppearanceOrder.indexOf(vampAppearance) + 1) % vampAppearanceOrder.length]);
+var vampWorkspaces = [];
+let vampPendingLaunch = { command: null, title: 'Shell', agent: null };
 const closeMoreModal = () => moreModal.classList.add('hidden');
 let vampModalPresentationToken = 0;
 const vampEndComposerEditing = () => {
@@ -2781,6 +2947,9 @@ const openMoreTab = (command, title, agent = null, workspace = null) => {
   createTab(command || null, title || null, agent, workspace);
 };
 const chooseWorkspaceForLaunch = (command, title, agent = null) => {
+  vampPendingLaunch.command = command;
+  vampPendingLaunch.title = title;
+  vampPendingLaunch.agent = agent;
   $('launch-title').textContent = agent ? 'Choose workspace for ' + title : 'Choose shell workspace';
   $('launch-copy').textContent = agent ? title + ' starts directly in this folder.' : 'The shell starts directly in the selected folder.';
   const list = $('workspace-list'); list.innerHTML = '';
@@ -2792,6 +2961,19 @@ const chooseWorkspaceForLaunch = (command, title, agent = null) => {
     button.onclick = () => { closeLaunchModal(); openMoreTab(command, title, agent, item); };
     list.append(button);
   });
+  const addFolder = document.createElement('button');
+  addFolder.type = 'button'; addFolder.className = 'workspace-choice workspace-add';
+  addFolder.innerHTML = '<strong>＋ Add Mac folder…</strong><small>A secure folder chooser opens on the connected Mac</small>';
+  addFolder.onclick = () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      addFolder.querySelector('small').textContent = 'Reconnect to the Mac and try again.';
+      return;
+    }
+    addFolder.disabled = true;
+    addFolder.querySelector('small').textContent = 'Waiting for selection on the Mac…';
+    ws.send(JSON.stringify({type:'addWorkspace'}));
+  };
+  list.append(addFolder);
   vampPresentAfterKeyboard(() => $('launch-modal').classList.remove('hidden'));
 };
 $('more').onclick = openMoreModal;
@@ -3896,6 +4078,94 @@ if (vampPairFromURL) {
     .workspace-choice { min-height: 64px !important; border-radius: 14px !important; }
     .provider-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
     .provider-grid button { min-height: 48px !important; border-radius: 13px !important; }
+    .provider-logo {
+      flex: 0 0 30px !important;
+      width: 30px !important;
+      height: 30px !important;
+      border: 1px solid color-mix(in srgb, var(--provider) 42%, transparent) !important;
+      border-radius: 9px !important;
+      object-fit: cover !important;
+      background: color-mix(in srgb, var(--provider) 14%, transparent) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08) !important;
+    }
+    .appearance-toggle { margin-right: auto !important; }
+
+    html[data-resolved-theme="light"] {
+      color-scheme: light;
+      --bg: #f3f1ec;
+      --panel: rgba(255,255,255,.74);
+      --panel2: rgba(250,249,246,.94);
+      --line: rgba(29,27,24,.12);
+      --muted: #6e6a64;
+      --text: #191817;
+      --accent: #191817;
+      --bc-page: #eeeae3;
+      --bc-panel: rgba(255,255,255,.72);
+      --bc-panel-strong: rgba(255,255,255,.94);
+      --bc-raised: rgba(255,255,255,.68);
+      --bc-line: rgba(34,31,28,.12);
+      --bc-line-strong: rgba(34,31,28,.20);
+      --bc-text: #191817;
+      --bc-secondary: #69655f;
+      --bc-tertiary: #918b83;
+    }
+    html[data-resolved-theme="light"] body {
+      background-image:
+        linear-gradient(rgba(44,39,34,.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(44,39,34,.045) 1px, transparent 1px),
+        radial-gradient(circle at 50% -16%, rgba(255,255,255,.96), transparent 46%) !important;
+    }
+    html[data-resolved-theme="light"] .shell,
+    html[data-resolved-theme="light"] .shell.vamp-keyboard-open { background: rgba(248,246,241,.78) !important; }
+    html[data-resolved-theme="light"] .back,
+    html[data-resolved-theme="light"] .task-context .workspace,
+    html[data-resolved-theme="light"] .context-pill,
+    html[data-resolved-theme="light"] .context-icon,
+    html[data-resolved-theme="light"] .tab.active,
+    html[data-resolved-theme="light"] .mode-switch button[aria-pressed="true"],
+    html[data-resolved-theme="light"] .message .body { color: #22201d !important; }
+    html[data-resolved-theme="light"] .top .state,
+    html[data-resolved-theme="light"] .context-pill,
+    html[data-resolved-theme="light"] .context-icon,
+    html[data-resolved-theme="light"] .tab,
+    html[data-resolved-theme="light"] .mode-switch,
+    html[data-resolved-theme="light"] .mode-switch button[aria-pressed="true"] { background: rgba(255,255,255,.58) !important; }
+    html[data-resolved-theme="light"] .tab.active { background: rgba(255,255,255,.94) !important; box-shadow: 0 5px 18px rgba(57,48,40,.09) !important; }
+    html[data-resolved-theme="light"] .tab.active::after { background: #26231f !important; }
+    html[data-resolved-theme="light"] .newtab { background: rgba(250,248,243,.98) !important; box-shadow: -14px 0 18px rgba(238,234,227,.92) !important; }
+    html[data-resolved-theme="light"] .stream-card,
+    html[data-resolved-theme="light"] .stream-card.output-message.structured-output,
+    html[data-resolved-theme="light"] .command-card,
+    html[data-resolved-theme="light"] .task-plan-card {
+      background: linear-gradient(145deg, rgba(255,255,255,.91), rgba(244,241,235,.92)) !important;
+      box-shadow: 0 18px 44px rgba(62,52,43,.09), inset 0 1px 0 rgba(255,255,255,.9) !important;
+    }
+    html[data-resolved-theme="light"] .stream-card.output-message:not(.structured-output) { background: rgba(255,255,255,.72) !important; }
+    html[data-resolved-theme="light"] .composer,
+    html[data-resolved-theme="light"] .shell.vamp-keyboard-open .composer,
+    html[data-resolved-theme="light"] .modal-card,
+    html[data-resolved-theme="light"] .shell.vamp-keyboard-open .modal-card {
+      background: rgba(252,250,246,.94) !important;
+      box-shadow: 0 22px 60px rgba(53,44,36,.16), inset 0 1px 0 #fff !important;
+    }
+    html[data-resolved-theme="light"] .composer input,
+    html[data-resolved-theme="light"] .modal-card,
+    html[data-resolved-theme="light"] .more-actions button,
+    html[data-resolved-theme="light"] .provider-grid button,
+    html[data-resolved-theme="light"] .workspace-choice { color: #211f1c !important; }
+    html[data-resolved-theme="light"] .more-actions button,
+    html[data-resolved-theme="light"] .provider-grid button,
+    html[data-resolved-theme="light"] .workspace-choice,
+    html[data-resolved-theme="light"] .composer button { background: rgba(40,35,30,.06) !important; }
+    html[data-resolved-theme="light"] .composer .send { background: #24211e !important; color: #fff !important; }
+    html[data-resolved-theme="light"] .command,
+    html[data-resolved-theme="light"] .terminal,
+    html[data-resolved-theme="light"] body.vamp-terminal-mode .stream-card.output-message,
+    html[data-resolved-theme="light"] body.vamp-terminal-mode .stream-card.output-message .rich-body {
+      background: #11100f !important;
+      color: #f4f1eb !important;
+    }
+    html[data-resolved-theme="light"] .modal { background: rgba(72,64,56,.28) !important; }
 
     @media (min-width: 720px) {
       .shell,
@@ -4377,6 +4647,37 @@ if (vampPairFromURL) {
     return tab.outputCard;
   };
   window.vampEnsureTerminalPreview = (id) => ensureOutputCard(id);
+  const vampResponsePresentation = (tab, terminalMode) => {
+    if (terminalMode) {
+      return {
+        html: tab.terminal?.renderHTML() || '<div class="rich-empty">Waiting for terminal output…</div>',
+        state: tab.opened ? 'Live' : 'Opening',
+        caption: 'Interactive terminal'
+      };
+    }
+    const response = String(tab.responseText || '');
+    if (response.trim()) {
+      return {
+        html: renderBlocks(response),
+        state: tab.turnState === 'working' ? 'Working' : 'Ready',
+        caption: tab.turnState === 'working' ? 'Streaming response' : 'Response'
+      };
+    }
+    if (tab.state === 'error' || tab.state === 'closed' || tab.state === 'offline' || tab.turnState === 'failed') {
+      return { html: '<div class="rich-empty">This session is unavailable. Retry or open a new tab.</div>', state: 'Failed', caption: 'Session' };
+    }
+    if (!tab.opened || tab.state === 'opening') {
+      return { html: '<div class="rich-empty">Opening terminal…</div>', state: 'Opening', caption: 'Starting session' };
+    }
+    if (tab.turnState === 'working' || tab.pendingCommand) {
+      return { html: '<div class="rich-empty">' + esc(tab.agent ? tab.title + ' is working…' : 'Running command…') + '</div>', state: 'Working', caption: 'Live activity' };
+    }
+    const readyMessage = tab.agent
+      ? tab.title + ' is ready. Send a message to begin.'
+      : 'Shell ready. Type a command here or open Terminal for direct control.';
+    return { html: '<div class="rich-empty ready-empty">' + esc(readyMessage) + '</div>', state: 'Ready', caption: tab.agent ? 'Agent session' : 'Shell session' };
+  };
+  window.vampResponsePresentation = vampResponsePresentation;
   const updateOutputCard = (id, text, replace = true) => {
     const tab = tabs.get(id);
     if (!tab) return;
@@ -4403,15 +4704,26 @@ if (vampPairFromURL) {
   };
   const terminalRenderQueue = new Set();
   let terminalRenderFrame = 0;
+  var terminalRenderFallback = 0;
   const scheduleTerminalRender = (id) => {
     terminalRenderQueue.add(id);
     if (terminalRenderFrame) return;
-    terminalRenderFrame = requestAnimationFrame(() => {
+    const flushTerminalRender = () => {
+      if (terminalRenderFrame) cancelAnimationFrame(terminalRenderFrame);
+      terminalRenderFrame = 0;
+      if (terminalRenderFallback) clearTimeout(terminalRenderFallback);
+      terminalRenderFallback = 0;
       terminalRenderFrame = 0;
       const pending = [...terminalRenderQueue];
       terminalRenderQueue.clear();
       pending.forEach((terminalID) => updateTerminalCard(terminalID));
-    });
+    };
+    terminalRenderFrame = requestAnimationFrame(flushTerminalRender);
+    // Safari and Chromium can throttle requestAnimationFrame while browser
+    // chrome is animating, the keyboard is settling, or the window is partly
+    // occluded. Semantic Chat must still stream in those states. This bounded
+    // fallback keeps rendering coalesced while guaranteeing visible progress.
+    terminalRenderFallback = setTimeout(flushTerminalRender, 80);
   };
   const updateTerminalCard = (id) => {
     const tab = tabs.get(id);
@@ -4436,16 +4748,17 @@ if (vampPairFromURL) {
         if (lines.length > 1 && /^\s*(?:[^\n]*[%$#❯]|>)\s*$/.test(lines[lines.length - 1])) lines.pop();
         semanticSnapshot = lines.join('\n').trimEnd();
       }
-      body.innerHTML = terminalMode
-        ? (tab.terminal.renderHTML() || '<div class="rich-empty">Waiting for terminal output…</div>')
-        : (renderBlocks(semanticSnapshot) || '<div class="rich-empty">Waiting for agent response…</div>');
+      if (!terminalMode) tab.responseText = semanticSnapshot;
+      const presentation = vampResponsePresentation(tab, terminalMode);
+      body.innerHTML = presentation.html;
       body.scrollTop = bodyWasNearBottom ? body.scrollHeight : Math.min(previousBodyScrollTop, body.scrollHeight);
       if (!terminalMode && semanticSnapshot.trim()) window.vampInferTaskPlan?.(id, semanticSnapshot);
     }
+    const presentation = vampResponsePresentation(tab, terminalMode);
     const state = card.querySelector('.stream-state');
-    if (state) state.textContent = tab.pendingCommand ? 'Streaming' : (terminalMode ? 'Live' : 'Ready');
+    if (state) state.textContent = presentation.state;
     const caption = card.querySelector('.stream-caption');
-    if (caption) caption.textContent = tab.pendingCommand ? 'Streaming response' : 'Response';
+    if (caption) caption.textContent = presentation.caption;
     filterTabContent();
     if (stickToLatest) scrollLatest(true);
   };
@@ -4516,6 +4829,7 @@ if (vampPairFromURL) {
     const tab = tabs.get(tabID);
     if (tab) {
       tab.pendingCommand = value;
+      tab.turnState = tab.opened ? 'working' : 'queued';
       tab.pendingOutputFrames = 0;
       tab.followOutput = true;
       tab.semanticBaseline = tab.semanticText || '';
