@@ -36,6 +36,11 @@ PAIRING_TTL_SECONDS = 600
 PAIRED_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
 PAIRING_MAX_ATTEMPTS = 8
 PAIRING_ATTEMPT_WINDOW_SECONDS = 60
+# Subprotocol name used to carry the bearer token during the WebSocket
+# handshake. The client offers this name followed by the token; the server
+# validates the token and echoes only the name back. Keeping the token out of
+# the URL avoids leaking it into browser history, referrers, and logs.
+WEBSOCKET_AUTH_PROTOCOL = "vamp-auth"
 ROOT = Path(__file__).resolve().parent
 
 
@@ -572,7 +577,17 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _upgrade_websocket(self, parsed: urllib.parse.ParseResult) -> None:
-        token = urllib.parse.parse_qs(parsed.query).get("token", [""])[0]
+        # The bearer token travels in the Sec-WebSocket-Protocol handshake
+        # header (a subprotocol list: fixed name followed by the token) rather
+        # than a ?token= URL query. URLs leak into browser history, referrer
+        # headers, and any intermediary logs; handshake headers do not.
+        protocols = [
+            part.strip()
+            for part in (self.headers.get("Sec-WebSocket-Protocol") or "").split(",")
+        ]
+        token = ""
+        if len(protocols) >= 2 and protocols[0] == WEBSOCKET_AUTH_PROTOCOL:
+            token = protocols[1]
         if not self.server.host.pairing.valid_token(token):
             self._send_json(403, {"error": "pair-first"})
             return
@@ -587,6 +602,8 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Upgrade", "websocket")
         self.send_header("Connection", "Upgrade")
         self.send_header("Sec-WebSocket-Accept", accept)
+        # Echo the negotiated subprotocol name only; never the token.
+        self.send_header("Sec-WebSocket-Protocol", WEBSOCKET_AUTH_PROTOCOL)
         self.end_headers()
         self.close_connection = True
         connection = TerminalConnection(self.server.host, self.connection)

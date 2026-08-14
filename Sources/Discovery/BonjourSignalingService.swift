@@ -530,12 +530,17 @@ public final class BonjourSignalingService: @unchecked Sendable {
         lock.withLock { _isConnected }
     }
 
-    private func shouldAcceptMessage(_ message: VersionedSignalingMessage) -> Bool {
+    /// Internal (not private) so the replay-window behavior is unit-testable.
+    func shouldAcceptMessage(_ message: VersionedSignalingMessage) -> Bool {
         lock.lock()
         defer { lock.unlock() }
 
         let now = Date()
-        let oldestAllowed = now.addingTimeInterval(-replayWindowSeconds)
+        // Retain seen IDs for window + skew: an envelope stamped up to
+        // `clockSkewAllowanceSeconds` in the future is still accepted for that
+        // long after its ID would otherwise have been pruned, so pruning at
+        // `replayWindowSeconds` alone left a replay gap for future-dated IDs.
+        let oldestAllowed = now.addingTimeInterval(-(replayWindowSeconds + clockSkewAllowanceSeconds))
         seenEnvelopeIDs = seenEnvelopeIDs.filter { $0.value >= oldestAllowed }
         if seenEnvelopeIDs.count > 500 {
             let overflow = seenEnvelopeIDs.count - 500

@@ -31,6 +31,17 @@ final class HostTerminalServiceTests: XCTestCase {
         XCTAssertNil(HostBrowserPairingCode.normalize("12a456"))
     }
 
+    func testBrowserPairingCodeGenerateIsSixDigitsAndNormalizable() {
+        // Draw a batch; every code must be exactly six ASCII digits and must
+        // round-trip through the same normalizer the pair endpoint applies.
+        for _ in 0..<64 {
+            let code = HostBrowserPairingCode.generate()
+            XCTAssertEqual(code.count, HostBrowserPairingCode.length)
+            XCTAssertTrue(code.allSatisfy { $0.isNumber && $0.isASCII }, "code was \(code)")
+            XCTAssertEqual(HostBrowserPairingCode.normalize(code), code)
+        }
+    }
+
     func testBrowserPairingCodeExpiryUsesTheExactLifetimeBoundary() {
         let issuedAt = Date(timeIntervalSince1970: 1_000)
         XCTAssertFalse(HostBrowserPairingCode.isExpired(
@@ -99,9 +110,11 @@ final class HostTerminalServiceTests: XCTestCase {
         // the race that previously made a valid QR/manual code appear broken:
         // the second HTTP exchange succeeded, but its WebSocket was rejected
         // because the old socket still occupied the single browser slot.
-        let firstSocket = URLSession.shared.webSocketTask(
-            with: URL(string: "ws://127.0.0.1:\(port)/socket?token=\(firstToken)")!
-        )
+        // The bearer token rides in the Sec-WebSocket-Protocol handshake
+        // header (fixed name + token), never in the URL.
+        var firstSocketRequest = URLRequest(url: URL(string: "ws://127.0.0.1:\(port)/socket")!)
+        firstSocketRequest.setValue("vamp-auth, \(firstToken)", forHTTPHeaderField: "Sec-WebSocket-Protocol")
+        let firstSocket = URLSession.shared.webSocketTask(with: firstSocketRequest)
         firstSocket.resume()
         _ = try await firstSocket.receive()
 
@@ -113,9 +126,9 @@ final class HostTerminalServiceTests: XCTestCase {
         XCTAssertEqual((manualResponse as? HTTPURLResponse)?.statusCode, 200)
         let token = try JSONDecoder().decode(PairResponse.self, from: manualBody).token
 
-        let socket = URLSession.shared.webSocketTask(
-            with: URL(string: "ws://127.0.0.1:\(port)/socket?token=\(token)")!
-        )
+        var socketRequest = URLRequest(url: URL(string: "ws://127.0.0.1:\(port)/socket")!)
+        socketRequest.setValue("vamp-auth, \(token)", forHTTPHeaderField: "Sec-WebSocket-Protocol")
+        let socket = URLSession.shared.webSocketTask(with: socketRequest)
         socket.resume()
         let hello = try await socket.receive()
         guard case let .string(helloJSON) = hello,
@@ -195,6 +208,56 @@ final class HostTerminalServiceTests: XCTestCase {
         XCTAssertTrue(receivedMarker, "Browser input must execute and stream output over the same terminal ID")
         firstSocket.cancel(with: .goingAway, reason: nil)
         socket.cancel(with: .goingAway, reason: nil)
+    }
+
+    func testBrowserWebSocketRejectsTokenInURLQueryAndMissingSubprotocol() async throws {
+        let service = HostBrowserControlService()
+        service.terminalModeProvider = { true }
+        let port: UInt16 = 19076
+        service.start(port: port)
+        defer { service.stop() }
+
+        let deadline = Date().addingTimeInterval(3)
+        var status = service.currentStatus()
+        while !status.running && Date() < deadline {
+            try await Task.sleep(for: .milliseconds(25))
+            status = service.currentStatus()
+        }
+        XCTAssertTrue(status.running)
+
+        var pairRequest = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/api/pair")!)
+        pairRequest.httpMethod = "POST"
+        pairRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        pairRequest.httpBody = Data("{\"code\":\"\(status.pairingCode)\"}".utf8)
+        let (body, response) = try await URLSession.shared.data(for: pairRequest)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        struct PairResponse: Decodable { let token: String }
+        let token = try JSONDecoder().decode(PairResponse.self, from: body).token
+
+        // The legacy path put the bearer token in the URL query. It must no
+        // longer authenticate: URLs leak to history, referrers, and logs.
+        let legacySocket = URLSession.shared.webSocketTask(
+            with: URL(string: "ws://127.0.0.1:\(port)/socket?token=\(token)")!
+        )
+        legacySocket.resume()
+        do {
+            _ = try await legacySocket.receive()
+            XCTFail("A token in the URL query must not authenticate the WebSocket")
+        } catch {
+            // Expected: the upgrade is refused (401) so the task fails to open.
+        }
+
+        // A handshake offering no auth subprotocol at all must also be refused.
+        let bareSocket = URLSession.shared.webSocketTask(
+            with: URL(string: "ws://127.0.0.1:\(port)/socket")!
+        )
+        bareSocket.resume()
+        do {
+            _ = try await bareSocket.receive()
+            XCTFail("A WebSocket without the auth subprotocol must not open")
+        } catch {
+            // Expected.
+        }
     }
 
     func testIndependentTerminalsCanResizeInterleaveOutputAndCloseOne() throws {

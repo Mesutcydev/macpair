@@ -13,10 +13,47 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
   macOS client no longer resolves or embeds Sparkle, removing the launch-time
   library-validation crash caused by the framework's mismatched Team ID.
 
+### Security
+
+- Enforce the freshness timestamp for every authenticated data-channel command
+  in one gate instead of relying on each handler to remember the check.
+- Keep signaling envelope IDs for the full replay window plus clock-skew
+  allowance, closing a replay gap for future-dated envelope IDs.
+- Throttle browser pairing guesses per remote IP instead of globally, and rotate
+  the pairing code once an address exhausts its guess budget.
+- Draw browser pairing codes and tokens from `SecRandomCopyBytes` explicitly.
+- Move the browser WebSocket bearer token out of the URL query into the
+  `Sec-WebSocket-Protocol` handshake header (macOS host and Linux host), so it
+  no longer leaks into browser history, referrers, or logs.
+- Add a client→PTY input byte budget mirroring the existing output budget.
+
 ### Changed
 
 - Refresh the Vamp Terminal, Vamp Host, and website icon with the supplied glass terminal mark.
 - Bump the Vamp Terminal sideload build to build 3 after the release rebase and host hardening audit.
+- CI: run the core suite on an arm64 runner and build the unsigned iOS device
+  slice on every run; run all test suites before packaging a release; verify
+  release checksums round-trip and fail loudly when the SBOM generator is missing.
+
+## [2.1.0] - 2026-08-14
+
+### Added
+
+- Vamp Suite 2.1: unified clients and terminal hosts, terminal workspace and
+  semantic chat overhaul, unified Vamp interface design.
+- Agent CLI resolution outside Homebrew paths.
+
+### Security
+
+- Require a verified `--fingerprint` for every `vamp approve-*` action and make
+  `vamphost://` approval links inert (fingerprint-bound approval only).
+- Wire the Linux host and browser VT test suites into CI.
+
+### Fixed
+
+- Broken download links on thevamp.app.
+- Safari terminal ready routing; terminal chat stability.
+- iOS terminal error banner no longer overlaps content; clearer missing-tool text.
 
 ## [1.0.10] - 2026-08-04
 
@@ -147,9 +184,13 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
-[Unreleased]: https://github.com/Mesutcydev/macpair/compare/v1.0.9...HEAD
+[Unreleased]: https://github.com/Mesutcydev/macpair/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.0-build-33
+[1.0.10]: https://github.com/Mesutcydev/macpair/compare/v1.0.9...v1.0.10
 [1.0.9]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.9
 [1.0.8]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.8
+[1.0.7]: https://github.com/Mesutcydev/macpair/compare/v1.0.6...v1.0.7
+[1.0.6]: https://github.com/Mesutcydev/macpair/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.2...v1.0.3

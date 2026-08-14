@@ -267,6 +267,12 @@ final class HostAppEnvironment: ObservableObject {
             productMode: productMode,
             secureTLSPortProvider: { [signalingService] in
                 (signalingService as? BonjourSignalingService)?.tlsListeningPort
+            },
+            keyAgreementPublicKeyProvider: { [signalingService] in
+                guard let bonjour = signalingService as? BonjourSignalingService,
+                      let identity = bonjour.identityService else { return nil }
+                return SessionTokenSealing.deriveKeyAgreementKey(from: identity.privateKey)
+                    .publicKey.x963Representation
             }
         )
         self.sessionCoordinator = HostSessionCoordinator(
@@ -285,6 +291,12 @@ final class HostAppEnvironment: ObservableObject {
             performanceStateController: self.performanceStateController,
             fileTransferManager: self.fileTransferManager,
             productMode: productMode,
+            sessionTokenUnsealer: { [signalingService] sealed in
+                guard let bonjour = signalingService as? BonjourSignalingService,
+                      let identity = bonjour.identityService else { return nil }
+                let key = SessionTokenSealing.deriveKeyAgreementKey(from: identity.privateKey)
+                return SessionTokenSealing.open(sealed, with: key)
+            },
             ensureDiscoveryAdvertising: { [weak discoveryAdvertiserViewModel = self.discoveryAdvertiserViewModel] in
                 await discoveryAdvertiserViewModel?.ensureAdvertising()
             }

@@ -25,7 +25,11 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [
         .macOS(.v13),
-        .iOS(.v16)
+        // The shipping iOS app (and its IPA manifest) targets iOS 18.0; keep the
+        // SwiftPM floor aligned so availability assumptions match the real deploy
+        // target instead of silently allowing iOS 16-only builds. (String form:
+        // .v18 does not exist in the swift-tools-version 5.9 platform enum.)
+        .iOS(.init("18.0"))
     ],
     products: [
         .library(name: "SharedModels", targets: ["SharedModels"]),
@@ -45,7 +49,15 @@ let package = Package(
         .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.15.0")
     ],
     targets: [
-        .target(name: "SharedModels"),
+        .target(
+            name: "SharedModels",
+            swiftSettings: [
+                // Leaf target: begin the strict-concurrency rollout here so the
+                // compiler verifies Sendable correctness for the shared session
+                // models instead of relying on manual isolation alone.
+                .enableUpcomingFeature("StrictConcurrency")
+            ]
+        ),
         // Vendored opus 1.4 (Xiph) C codec, float build. SIMD/fixed-point/test/demo
         // sources are excluded; the kept sources are pure portable C. Hung off
         // SharedProtocol (below) because both the host encode path and the client decode
@@ -64,7 +76,13 @@ let package = Package(
                 .headerSearchPath("silk/float")
             ]
         ),
-        .target(name: "SharedProtocol", dependencies: ["SharedModels", "Copus"]),
+        .target(
+            name: "SharedProtocol",
+            dependencies: ["SharedModels", "Copus"],
+            swiftSettings: [
+                .enableUpcomingFeature("StrictConcurrency")
+            ]
+        ),
         // Tiny ObjC helpers (NSException catch / AVAudioPlayerNode start). Kept as its
         // own target because SwiftPM rejects mixed-language sources in one target.
         .target(

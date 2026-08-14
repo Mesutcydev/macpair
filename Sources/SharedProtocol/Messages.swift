@@ -31,6 +31,12 @@ public struct SessionOfferMessage: Codable, Hashable, Sendable {
     public var qualityPreset: StreamQualityPreset
     /// Session token (hex) for binding the data channel to this signaling session.
     public var sessionToken: String?
+    /// ECIES-sealed session token (see `SessionTokenSealing`). Mutually exclusive
+    /// with `sessionToken`: a client that knows the host's key-agreement public
+    /// key seals the token so a passive observer on plaintext signaling cannot
+    /// read it; the host opens it with its identity-derived key. Older hosts
+    /// that predate sealing read only the plaintext `sessionToken`.
+    public var sealedSessionToken: Data?
     /// Decoder-side capabilities the client advertises for this session (e.g. HEVC
     /// hardware-decode support). `nil` from older clients that predate capability
     /// advertisement; the host then falls back to its assumed-client baseline.
@@ -47,6 +53,7 @@ public struct SessionOfferMessage: Codable, Hashable, Sendable {
         requestedDisplayID: String? = nil,
         qualityPreset: StreamQualityPreset,
         sessionToken: String? = nil,
+        sealedSessionToken: Data? = nil,
         clientCapabilities: HostCapabilityFlags? = nil,
         clientProductRole: ClientProductRole? = nil,
         preferredDynamicRange: StreamDynamicRange? = nil
@@ -56,6 +63,7 @@ public struct SessionOfferMessage: Codable, Hashable, Sendable {
         self.requestedDisplayID = requestedDisplayID
         self.qualityPreset = qualityPreset
         self.sessionToken = sessionToken
+        self.sealedSessionToken = sealedSessionToken
         self.clientCapabilities = clientCapabilities
         self.clientProductRole = clientProductRole
         self.preferredDynamicRange = preferredDynamicRange

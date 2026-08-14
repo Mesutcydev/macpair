@@ -71,6 +71,12 @@ public struct HostAdvertisementMetadata: Codable, Hashable, Sendable {
     /// 100.x.y.z Tailscale IP (CGNAT range) when the host is on a tailnet. Used as a fallback
     /// when MagicDNS isn't resolvable.
     public var tailscaleIP: String?
+    /// x963 P-256 public half of the key-agreement key deterministically
+    /// derived from the host's identity signing key. Clients that hold this
+    /// can ECIES-seal the offer's session token so a passive observer on the
+    /// plaintext signaling port cannot read it. `nil` for hosts without an
+    /// identity (legacy) — clients then fall back to the plaintext token.
+    public var keyAgreementPublicKey: Data?
 
     public init(
         protocolVersion: Int,
@@ -87,7 +93,8 @@ public struct HostAdvertisementMetadata: Codable, Hashable, Sendable {
         wakeSupported: Bool? = nil,
         magicWakeCapable: Bool? = nil,
         tailscaleHostname: String? = nil,
-        tailscaleIP: String? = nil
+        tailscaleIP: String? = nil,
+        keyAgreementPublicKey: Data? = nil
     ) {
         self.protocolVersion = protocolVersion
         self.hostID = hostID
@@ -104,6 +111,7 @@ public struct HostAdvertisementMetadata: Codable, Hashable, Sendable {
         self.magicWakeCapable = magicWakeCapable
         self.tailscaleHostname = tailscaleHostname
         self.tailscaleIP = tailscaleIP
+        self.keyAgreementPublicKey = keyAgreementPublicKey
     }
 }
 
@@ -129,6 +137,7 @@ public extension HostAdvertisementMetadata {
         public static let magicWakeCapable = "mwc"
         public static let tailscaleHostname = "tsName"
         public static let tailscaleIP = "tsIP"
+        public static let keyAgreementPublicKey = "kapk"
     }
 
     init(txtRecord: [String: Data]) throws {
@@ -153,6 +162,8 @@ public extension HostAdvertisementMetadata {
             .map { $0 == "1" || $0.lowercased() == "true" }
         let tailscaleHostname = try Self.optionalStringValue(for: TXTKey.tailscaleHostname, in: txtRecord)
         let tailscaleIP = try Self.optionalStringValue(for: TXTKey.tailscaleIP, in: txtRecord)
+        let keyAgreementPublicKey = try Self.optionalStringValue(for: TXTKey.keyAgreementPublicKey, in: txtRecord)
+            .flatMap { Data(base64Encoded: $0) }
 
         guard let hostID = UUID(uuidString: hostIDString) else {
             throw HostAdvertisementMetadataError.invalidValue(TXTKey.hostID)
@@ -176,7 +187,8 @@ public extension HostAdvertisementMetadata {
             wakeSupported: wakeSupported,
             magicWakeCapable: magicWakeCapable,
             tailscaleHostname: tailscaleHostname,
-            tailscaleIP: tailscaleIP
+            tailscaleIP: tailscaleIP,
+            keyAgreementPublicKey: keyAgreementPublicKey
         )
     }
 
@@ -211,6 +223,9 @@ public extension HostAdvertisementMetadata {
         }
         if let tsIP = tailscaleIP, !tsIP.isEmpty {
             record[TXTKey.tailscaleIP] = Data(tsIP.utf8)
+        }
+        if let kapk = keyAgreementPublicKey, !kapk.isEmpty {
+            record[TXTKey.keyAgreementPublicKey] = Data(kapk.base64EncodedString().utf8)
         }
         return record
     }

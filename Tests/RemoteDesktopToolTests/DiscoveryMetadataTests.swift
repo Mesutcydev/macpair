@@ -1,3 +1,4 @@
+import CryptoKit
 import XCTest
 @testable import Discovery
 @testable import SharedModels
@@ -36,6 +37,26 @@ final class DiscoveryMetadataTests: XCTestCase {
         XCTAssertTrue(parsed.capabilities.contains(.supportsTerminalChat))
         XCTAssertTrue(parsed.capabilities.contains(.supportsTaskPlans))
         XCTAssertTrue(parsed.capabilities.contains(.supportsWorkspaces))
+    }
+
+    func testKeyAgreementPublicKeyRoundTripsThroughTXTRecord() throws {
+        let kapk = P256.KeyAgreement.PrivateKey().publicKey.x963Representation
+        let metadata = HostAdvertisementMetadata(
+            protocolVersion: 1,
+            hostID: UUID(),
+            displayName: "Secure Mac",
+            appVersion: "0.1",
+            signalingPort: 9471,
+            capabilities: [.supportsTerminal],
+            keyAgreementPublicKey: kapk
+        )
+
+        let parsed = try HostAdvertisementMetadata(txtRecord: metadata.txtRecord)
+
+        XCTAssertEqual(parsed, metadata)
+        XCTAssertEqual(parsed.keyAgreementPublicKey, kapk)
+        // The base64 payload must actually be present in the TXT record.
+        XCTAssertNotNil(metadata.txtRecord[HostAdvertisementMetadata.TXTKey.keyAgreementPublicKey])
     }
 
     func testHostAdvertisementMetadataRejectsMissingProtocolVersion() {

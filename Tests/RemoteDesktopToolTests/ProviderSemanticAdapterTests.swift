@@ -204,4 +204,53 @@ final class ProviderSemanticAdapterTests: XCTestCase {
         XCTAssertTrue(ProviderSemanticEvent.completed.isTerminalProviderEvent)
         XCTAssertTrue(ProviderSemanticEvent.failed("No access").isTerminalProviderEvent)
     }
+
+    func testPiAdapterConsumesJSONEventStream() {
+        let adapter = PiAdapter()
+        let data = Data((
+            #"{"type":"session","version":3,"id":"pi-1","cwd":"/tmp"}"# + "\n" +
+            #"{"type":"agent_start"}"# + "\n" +
+            #"{"type":"message_update","assistantMessageEvent":{"type":"text_delta","contentIndex":0,"delta":"Hello"}}"# + "\n" +
+            #"{"type":"message_update","assistantMessageEvent":{"type":"thinking_delta","contentIndex":0,"delta":"Reasoning"}}"# + "\n" +
+            #"{"type":"agent_end","messages":[]}"# + "\n"
+        ).utf8)
+        let events = adapter.consume(data, sessionID: sessionID, terminalID: terminalID)
+        XCTAssertTrue(events.contains(.sessionIdentifier("pi-1")))
+        XCTAssertTrue(events.contains(.messageDelta("Hello")))
+        XCTAssertTrue(events.contains(.thinkingDelta("Reasoning")))
+        XCTAssertTrue(events.contains(.completed))
+    }
+
+    func testPiAdapterParsesSplitLinesAndErrors() {
+        let adapter = PiAdapter()
+        XCTAssertTrue(adapter.consume(Data(#"{"type":"sessio"# .utf8), sessionID: sessionID, terminalID: terminalID).isEmpty)
+        let events = adapter.consume(
+            Data(("n\"}\n" + #"{"type":"message_update","assistantMessageEvent":{"type":"text_delta","delta":"ok"}}"# + "\n").utf8),
+            sessionID: sessionID,
+            terminalID: terminalID
+        )
+        XCTAssertTrue(events.contains(.messageDelta("ok")))
+        let failed = adapter.consume(
+            Data((#"{"type":"error","message":"boom"}"# + "\n").utf8),
+            sessionID: sessionID,
+            terminalID: terminalID
+        )
+        XCTAssertTrue(failed.contains(.failed("boom")))
+    }
+
+    func testCommandCodeAdapterStreamsPlainTextLines() {
+        let adapter = CommandCodeAdapter()
+        let first = adapter.consume(Data("Here is the answer:\n".utf8), sessionID: sessionID, terminalID: terminalID)
+        XCTAssertTrue(first.contains(.messageDelta("Here is the answer:\n")))
+        let partial = adapter.consume(Data("still typing".utf8), sessionID: sessionID, terminalID: terminalID)
+        XCTAssertTrue(partial.isEmpty)
+        let finished = adapter.finish(sessionID: sessionID, terminalID: terminalID)
+        XCTAssertTrue(finished.contains(.messageDelta("still typing")))
+    }
+
+    func testCommandCodeAdapterStripsCarriageReturns() {
+        let adapter = CommandCodeAdapter()
+        let events = adapter.consume(Data("Line one\r\nLine two\r\n".utf8), sessionID: sessionID, terminalID: terminalID)
+        XCTAssertTrue(events.contains(.messageDelta("Line one\nLine two\n")))
+    }
 }

@@ -65,6 +65,10 @@ final class HostSessionCoordinator: ObservableObject {
     private let performanceStateController: HostPerformanceStateController
     private let fileTransferManager: HostFileTransferManager
     private let productMode: HostProductMode
+    /// Opens an ECIES-sealed session token (raw 32 bytes) with the host's
+    /// identity-derived key-agreement key. `nil` when the host has no identity
+    /// (legacy), in which case offers fall back to the plaintext token.
+    private let sessionTokenUnsealer: ((Data) -> Data?)?
     #if os(macOS)
     var audioPipeline: HostAudioCapturePipeline?
     /// Extra displays streamed in parallel to the primary, keyed by display ID. The primary
@@ -163,6 +167,7 @@ final class HostSessionCoordinator: ObservableObject {
         performanceStateController: HostPerformanceStateController,
         fileTransferManager: HostFileTransferManager,
         productMode: HostProductMode = .full,
+        sessionTokenUnsealer: ((Data) -> Data?)? = nil,
         ensureDiscoveryAdvertising: @escaping @MainActor @Sendable () async -> Void = {}
     ) {
         self.hostIdentity = hostIdentity
@@ -180,6 +185,7 @@ final class HostSessionCoordinator: ObservableObject {
         self.performanceStateController = performanceStateController
         self.fileTransferManager = fileTransferManager
         self.productMode = productMode
+        self.sessionTokenUnsealer = sessionTokenUnsealer
         self.ensureDiscoveryAdvertising = ensureDiscoveryAdvertising
         self.connectionDebugger = ConnectionDebugger(role: "host", eventLogStore: eventLogStore)
         self.connectionDebugger.snapshotProvider = { [weak self] in
@@ -550,17 +556,9 @@ final class HostSessionCoordinator: ObservableObject {
             return
         }
 
-        guard let sessionTokenHex = offer.sessionToken,
-              let sessionTokenData = ConnectionSecurity.tokenFromHex(sessionTokenHex),
-              sessionTokenData.count == 32 else {
-            logger.warning("Rejected offer with missing/invalid session token from \(clientName)")
+        guard let sessionTokenHex = await resolveSessionToken(from: offer, clientName: clientName) else {
             signalingService.dropCurrentConnection()
             phase = .awaitingClient
-            await eventLogStore.append(EventLogItem(
-                severity: .warning,
-                category: "Trust",
-                message: "Rejected connection from \(clientName) due to invalid session token"
-            ))
             return
         }
         webRTCSessionManager.configureControlChannelAuth(sessionTokenHex: sessionTokenHex)
@@ -605,7 +603,13 @@ final class HostSessionCoordinator: ObservableObject {
 
             // Apply client offer and generate answer
             var answer = try await webRTCSessionManager.applyRemoteOffer(offer)
-            answer.sessionToken = sessionTokenHex
+            // Echo the token only when it arrived in the clear. A sealed token
+            // must never be echoed back on plaintext signaling — that would
+            // re-expose exactly what the seal protected. The client that
+            // sealed the token does not expect an echo.
+            if offer.sealedSessionToken == nil {
+                answer.sessionToken = sessionTokenHex
+            }
 
             // Start the streaming coordinator and state observers BEFORE
             // sending the answer so we don't miss early transport transitions.
@@ -635,7 +639,12 @@ final class HostSessionCoordinator: ObservableObject {
             logger.info("SDP answer sent for session \(sessionID.uuidString)")
 
             // Start the capture → encode → transport pipeline
-            await startPipeline(sessionID: sessionID, offer: offer, terminalOnly: isTerminalSession)
+            await startPipeline(
+                sessionID: sessionID,
+                offer: offer,
+                sessionTokenHex: sessionTokenHex,
+                terminalOnly: isTerminalSession
+            )
 
         } catch {
             let diagnostic = "\(String(reflecting: type(of: error))): \(error.localizedDescription)"
@@ -659,11 +668,48 @@ final class HostSessionCoordinator: ObservableObject {
         }
     }
 
+    /// Resolve the session token from an offer. Prefers the ECIES-sealed form
+    /// (which only this host's identity key can open) and rejects the offer if
+    /// it cannot be opened, so a client cannot silently downgrade to the
+    /// plaintext path. Falls back to the legacy plaintext token only when the
+    /// offer carries no seal at all.
+    private func resolveSessionToken(from offer: SessionOfferMessage, clientName: String) async -> String? {
+        if let sealed = offer.sealedSessionToken {
+            guard let unseal = sessionTokenUnsealer,
+                  let opened = unseal(sealed),
+                  opened.count == 32 else {
+                logger.warning("Rejected offer with unopenable sealed session token from \(clientName)")
+                await eventLogStore.append(EventLogItem(
+                    severity: .warning,
+                    category: "Trust",
+                    message: "Rejected connection from \(clientName): sealed session token could not be opened"
+                ))
+                return nil
+            }
+            let hex = ConnectionSecurity.tokenToHex(opened)
+            logger.info("Offer session token opened from ECIES seal (\(clientName))")
+            return hex
+        }
+        guard let plain = offer.sessionToken,
+              let data = ConnectionSecurity.tokenFromHex(plain),
+              data.count == 32 else {
+            logger.warning("Rejected offer with missing/invalid session token from \(clientName)")
+            await eventLogStore.append(EventLogItem(
+                severity: .warning,
+                category: "Trust",
+                message: "Rejected connection from \(clientName) due to invalid session token"
+            ))
+            return nil
+        }
+        return plain
+    }
+
     // MARK: - Pipeline
 
     private func startPipeline(
         sessionID: UUID,
         offer: SessionOfferMessage,
+        sessionTokenHex: String?,
         terminalOnly: Bool
     ) async {
         phase = .pipelineStarting
@@ -677,7 +723,7 @@ final class HostSessionCoordinator: ObservableObject {
         // Start the input command router regardless of capture/encode success
         inputCommandRouter.startListening(
             sessionID: sessionID,
-            expectedSessionTokenHex: offer.sessionToken,
+            expectedSessionTokenHex: sessionTokenHex,
             terminalOnly: terminalOnly
         )
         inputCommandRouter.onQualityAdjust = { [weak self] preset in

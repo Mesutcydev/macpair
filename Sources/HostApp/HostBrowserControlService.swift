@@ -3,6 +3,7 @@ import AppKit
 import CryptoKit
 import Foundation
 import Network
+import Security
 import SharedProtocol
 import TransportWebRTC
 import os
@@ -52,7 +53,26 @@ enum HostBrowserPairingCode {
     }
 
     static func generate() -> String {
-        String(format: "%06d", Int.random(in: 0...999_999))
+        // Draw from the CSPRNG explicitly rather than `Int.random(in:)` so the
+        // pairing code's entropy source is auditable and guaranteed not to fall
+        // back to a non-cryptographic generator on any platform. Rejection
+        // sampling keeps the draw uniform: 4_294_000_000 is the largest
+        // multiple of one million that fits in UInt32.
+        let unbiasedLimit: UInt32 = 4_294_000_000
+        var value: UInt32 = 0
+        repeat {
+            let drawn = withUnsafeMutableBytes(of: &value) { buffer -> Bool in
+                guard let base = buffer.baseAddress else { return false }
+                return SecRandomCopyBytes(kSecRandomDefault, buffer.count, base) == errSecSuccess
+            }
+            guard drawn else {
+                // SecRandomCopyBytes failing is effectively impossible on Apple
+                // platforms; fall back to the system RNG rather than returning
+                // a predictable code.
+                return String(format: "%06d", Int.random(in: 0...999_999))
+            }
+        } while value >= unbiasedLimit
+        return String(format: "%06d", value % 1_000_000)
     }
 
     static func isExpired(
@@ -95,6 +115,16 @@ final class HostBrowserControlService: @unchecked Sendable {
     static let maxBrowserClients = 1
     static let pairingCodeLifetime: TimeInterval = 10 * 60
     static let browserTokenLifetime: TimeInterval = 30 * 60
+    /// Wrong-code guesses a single remote IP may make within one window before
+    /// being throttled. Per-IP (not global) so an attacker cannot lock out the
+    /// legitimate user by burning a shared budget.
+    static let maxPairFailuresPerWindow = 8
+    static let pairFailureWindowSeconds: TimeInterval = 60
+    /// Subprotocol name used to carry the bearer token during the WebSocket
+    /// handshake, keeping the token out of the URL (which leaks to history,
+    /// referrer headers, and logs). The client sends this name followed by the
+    /// token; the server validates the token and echoes only the name back.
+    static let webSocketAuthProtocol = "vamp-auth"
     static let maxHTTPBodyBytes = 4 * 1024
     static let maxWebSocketFrameBytes = 64 * 1024
 
@@ -112,8 +142,14 @@ final class HostBrowserControlService: @unchecked Sendable {
     private var pairingCodeExpiryWorkItem: DispatchWorkItem?
     private var browserToken: String?
     private var browserTokenExpiresAt: Date?
-    private var failedPairAttempts = 0
-    private var firstFailedPairAttemptAt: Date?
+    private struct PairFailureWindow {
+        var count: Int
+        var firstAt: Date
+    }
+    /// Pairing failures keyed by remote IP. Throttling per address (instead of
+    /// globally) stops an attacker's guesses from consuming the legitimate
+    /// user's attempt budget and locking them out.
+    private var pairFailuresByAddress: [String: PairFailureWindow] = [:]
 
     /// These providers are installed by HostAppEnvironment after all of its
     /// dependencies have been initialized.
@@ -490,7 +526,8 @@ final class HostBrowserControlService: @unchecked Sendable {
             sendHTTP(.forbidden, contentType: "application/json", body: "{\"error\":\"terminal-disabled\"}", to: client)
             return
         }
-        guard canAttemptPairing() else {
+        let remoteAddress = remoteAddress(of: client)
+        guard canAttemptPairing(address: remoteAddress) else {
             sendHTTP(.tooManyRequests, body: "Too many pairing attempts", to: client)
             return
         }
@@ -505,7 +542,7 @@ final class HostBrowserControlService: @unchecked Sendable {
                   lifetime: Self.pairingCodeLifetime
               ) else {
             logger.warning("Browser pairing rejected: invalid or expired code")
-            recordPairFailure()
+            recordPairFailure(address: remoteAddress)
             sendHTTP(.unauthorized, contentType: "application/json", body: "{\"error\":\"invalid-code\"}", to: client)
             return
         }
@@ -517,8 +554,7 @@ final class HostBrowserControlService: @unchecked Sendable {
         // guard and immediately closed, making QR/manual pairing appear to
         // have failed.
         revokeWebSocketSessions(reason: "browser-replaced")
-        failedPairAttempts = 0
-        firstFailedPairAttemptAt = nil
+        pairFailuresByAddress.removeValue(forKey: remoteAddress)
         let token = Self.makeToken()
         browserToken = token
         browserTokenExpiresAt = Date().addingTimeInterval(Self.browserTokenLifetime)
@@ -527,18 +563,44 @@ final class HostBrowserControlService: @unchecked Sendable {
         sendHTTP(.ok, contentType: "application/json", body: Self.jsonString(response), to: client)
     }
 
-    private func canAttemptPairing() -> Bool {
-        if let first = firstFailedPairAttemptAt,
-           Date().timeIntervalSince(first) >= 60 {
-            failedPairAttempts = 0
-            firstFailedPairAttemptAt = nil
-        }
-        return failedPairAttempts < 8
+    private func canAttemptPairing(address: String) -> Bool {
+        pruneExpiredPairFailures()
+        guard let window = pairFailuresByAddress[address] else { return true }
+        return window.count < Self.maxPairFailuresPerWindow
     }
 
-    private func recordPairFailure() {
-        firstFailedPairAttemptAt = firstFailedPairAttemptAt ?? Date()
-        failedPairAttempts += 1
+    private func recordPairFailure(address: String) {
+        pruneExpiredPairFailures()
+        let now = Date()
+        var window = pairFailuresByAddress[address] ?? PairFailureWindow(count: 0, firstAt: now)
+        window.count += 1
+        pairFailuresByAddress[address] = window
+
+        // Once a single address exhausts its guess budget, rotate the code so
+        // any partial progress from the brute-force attempt is invalidated.
+        // This is deliberately aggressive: a full budget of wrong guesses from
+        // one IP is an attack, not a typo.
+        if window.count >= Self.maxPairFailuresPerWindow {
+            logger.warning("Pairing guess budget exhausted from \(address); rotating pairing code")
+            issuePairingCode()
+            publishStatus()
+        }
+    }
+
+    private func pruneExpiredPairFailures() {
+        let now = Date()
+        pairFailuresByAddress = pairFailuresByAddress.filter {
+            now.timeIntervalSince($0.value.firstAt) < Self.pairFailureWindowSeconds
+        }
+    }
+
+    private func remoteAddress(of client: BrowserClient) -> String {
+        switch client.connection.endpoint {
+        case .hostPort(let host, _):
+            return "\(host)"
+        default:
+            return "unknown"
+        }
     }
 
     private func statusJSON() -> String {
@@ -574,7 +636,17 @@ final class HostBrowserControlService: @unchecked Sendable {
             sendHTTP(.forbidden, body: "Origin not allowed", to: client)
             return
         }
-        guard let token = request.query["token"],
+        // The bearer token travels in the Sec-WebSocket-Protocol handshake
+        // header instead of a `?token=` URL query: URLs leak into browser
+        // history, referrer headers, and any intermediary logs, while
+        // handshake headers do not. The client offers the fixed protocol name
+        // followed by the token; we validate the token and echo the protocol
+        // name back in the 101 response.
+        let subprotocols = (headers["sec-websocket-protocol"] ?? "")
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        guard subprotocols.first == Self.webSocketAuthProtocol,
+              let token = subprotocols.dropFirst().first,
               let storedToken = browserToken,
               let expiresAt = browserTokenExpiresAt,
               Date() < expiresAt,
@@ -595,10 +667,13 @@ final class HostBrowserControlService: @unchecked Sendable {
         }
 
         let accept = Self.websocketAcceptValue(key: key)
+        // Echo the negotiated subprotocol back so the browser completes the
+        // handshake; the token itself is never echoed.
         let response = "HTTP/1.1 101 Switching Protocols\r\n"
             + "Upgrade: websocket\r\n"
             + "Connection: Upgrade\r\n"
-            + "Sec-WebSocket-Accept: \(accept)\r\n\r\n"
+            + "Sec-WebSocket-Accept: \(accept)\r\n"
+            + "Sec-WebSocket-Protocol: \(Self.webSocketAuthProtocol)\r\n\r\n"
 
         // Switch the client into WebSocket mode before writing the 101
         // response. Chrome can send the first terminal-open frame as soon as
@@ -870,6 +945,8 @@ final class HostBrowserControlService: @unchecked Sendable {
         case "opencode", "open-code": return .openCode
         case "claude": return .claude
         case "codex", "chatgpt": return .codex
+        case "pi": return .pi
+        case "commandcode", "command-code", "cmd": return .commandCode
         default: return nil
         }
     }
@@ -1045,8 +1122,7 @@ final class HostBrowserControlService: @unchecked Sendable {
         pairingCodeIssuedAt = Date()
         browserToken = nil
         browserTokenExpiresAt = nil
-        failedPairAttempts = 0
-        firstFailedPairAttemptAt = nil
+        pairFailuresByAddress.removeAll()
 
         // Keep the host's displayed code and the listener's accepted code in
         // lockstep. Previously the code simply stayed on screen forever after
@@ -1109,7 +1185,14 @@ final class HostBrowserControlService: @unchecked Sendable {
     }
 
     private static func makeToken() -> String {
-        Data((0..<32).map { _ in UInt8.random(in: 0...255) }).map { String(format: "%02x", $0) }.joined()
+        var bytes = [UInt8](repeating: 0, count: 32)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        if status != errSecSuccess {
+            // Effectively unreachable on Apple platforms; fall back to the
+            // system CSPRNG rather than weakening the token.
+            bytes = (0..<32).map { _ in UInt8.random(in: 0...255) }
+        }
+        return bytes.map { String(format: "%02x", $0) }.joined()
     }
 
     private static func constantTimeEqual(_ lhs: String, _ rhs: String) -> Bool {
@@ -2261,6 +2344,8 @@ createTab = (startup = null, title = null, agent = null, workspace = null) => {
   // not guess an agent from arbitrary terminal output or user commands.
   const knownAgentTitles = {
     'OpenCode': 'opencode',
+    'Pi': 'pi',
+    'CommandCode': 'commandcode',
     'ChatGPT / Codex CLI': 'chatgpt',
     'Claude Code': 'claude',
     'Codex CLI': 'codex',
@@ -2583,8 +2668,14 @@ connect = () => {
   if (!token) return;
   setState('Connecting');
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  // Carry the bearer token in the Sec-WebSocket-Protocol handshake header
+  // (a subprotocol list) rather than a ?token= URL query. URLs are written to
+  // browser history, referrer headers, and any intermediary logs; handshake
+  // headers are not. The server validates the token and echoes only the
+  // fixed 'vamp-auth' name back.
   const connection = new WebSocket(
-    protocol + '//' + location.host + '/socket?token=' + encodeURIComponent(token)
+    protocol + '//' + location.host + '/socket',
+    ['vamp-auth', token]
   );
   ws = connection;
   connection.onopen = () => {
@@ -4290,6 +4381,27 @@ if (vampPairFromURL) {
       body:not(.vamp-terminal-mode) .stream-card.output-message .rich-body { max-height: 110px !important; }
     }
 
+    /* When the iOS keyboard opens, the visible viewport is roughly half the
+       screen. The workspace row and tab strip are not needed while typing;
+       collapsing them returns that height to the conversation so the composer
+       never floats over chat content and the latest message stays readable
+       above the keyboard. The mode switch and composer remain in normal flow. */
+    @media (max-width: 719px) {
+      .shell.vamp-keyboard-open .task-context,
+      .shell.vamp-keyboard-open .tabs {
+        flex: 0 0 0 !important;
+        min-height: 0 !important;
+        height: 0 !important;
+        max-height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: 0 !important;
+        overflow: hidden !important;
+        visibility: hidden !important;
+      }
+      .shell.vamp-keyboard-open .chat { padding-bottom: 24px !important; }
+    }
+
     @media (prefers-reduced-transparency: reduce) {
       .shell, .composer, .modal-card, .top .state { backdrop-filter: none !important; background: #181818 !important; }
     }
@@ -4812,7 +4924,7 @@ if (vampPairFromURL) {
     if (active !== id) { tab.unread = true; renderTabs(); }
   };
 
-  const vampStructuredProviders = new Set(['grok', 'opencode', 'claude', 'codex', 'chatgpt']);
+  const vampStructuredProviders = new Set(['grok', 'opencode', 'claude', 'codex', 'chatgpt', 'pi', 'commandcode']);
   const sendAgentPrompt = (tabID, value) => {
     const tab = tabs.get(tabID);
     if (!tab || !tab.agent || !vampStructuredProviders.has(tab.agent)) return false;

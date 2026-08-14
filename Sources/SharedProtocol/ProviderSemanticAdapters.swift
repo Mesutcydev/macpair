@@ -30,6 +30,8 @@ public enum AgentProviderKind: String, Codable, CaseIterable, Sendable {
     case openCode
     case claude
     case codex
+    case pi
+    case commandCode
 }
 
 /// A Chat submission routed to a provider's machine-readable runner. The
@@ -419,5 +421,78 @@ public final class CodexAdapter: ProviderSemanticAdapter, @unchecked Sendable {
             events.append(.failed(BaseProviderAdapter.string(object["message"]) ?? BaseProviderAdapter.string(BaseProviderAdapter.nested(object, "error", "message"))))
         }
         return events
+    }
+}
+
+/// Pi (`pi --mode json`) emits a documented NDJSON event stream. The session
+/// header carries the resumable session id; `message_update` records carry
+/// delta-only text (`assistantMessageEvent.type` + `delta`); `agent_end` marks
+/// the final answer. See pi-mono `docs/json.md`.
+public final class PiAdapter: ProviderSemanticAdapter, @unchecked Sendable {
+    private let base = BaseProviderAdapter()
+    public init() {}
+    public func consume(_ data: Data, sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        base.framer.append(data).flatMap { parse($0, sessionID: sessionID, terminalID: terminalID) }
+    }
+    public func finish(sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        base.framer.flush().flatMap { parse($0, sessionID: sessionID, terminalID: terminalID) }
+    }
+    private func parse(_ object: [String: Any], sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        var events = base.planEvents(from: object, sessionID: sessionID, terminalID: terminalID)
+        let type = BaseProviderAdapter.string(object["type"])?.lowercased()
+        if type == "session",
+           let event = base.sessionIdentifierEvent(BaseProviderAdapter.string(object["id"])) {
+            events.append(event)
+        }
+        let deltaType = BaseProviderAdapter.string(BaseProviderAdapter.nested(object, "assistantMessageEvent", "type"))?.lowercased()
+        if deltaType == "text_delta", let text = BaseProviderAdapter.string(BaseProviderAdapter.nested(object, "assistantMessageEvent", "delta")) {
+            events.append(.messageDelta(text))
+        } else if deltaType == "thinking_delta", let text = BaseProviderAdapter.string(BaseProviderAdapter.nested(object, "assistantMessageEvent", "delta")) {
+            events.append(.thinkingDelta(text))
+        }
+        if type == "agent_end" { events.append(.completed) }
+        if type == "error" {
+            events.append(.failed(BaseProviderAdapter.string(object["message"]) ?? BaseProviderAdapter.string(object["error"])))
+        }
+        return events
+    }
+}
+
+/// CommandCode print mode (`command-code -p`) streams the agent's answer as
+/// plain text on stdout, so a line-oriented text adapter is the honest
+/// projection. `command-code -p` runs the full tool loop non-interactively and
+/// exits once the answer is complete.
+public final class CommandCodeAdapter: ProviderSemanticAdapter, @unchecked Sendable {
+    private var partial = Data()
+    public init() {}
+    public func consume(_ data: Data, sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        partial.append(data)
+        let lines = partial.split(separator: 0x0A, omittingEmptySubsequences: false)
+        guard !lines.isEmpty else { return [] }
+        // The final segment is either the trailing empty string (the data
+        // ended with a newline, so every line is complete) or a partial line.
+        // In both cases it stays buffered for the next chunk; only complete
+        // lines are emitted.
+        let complete = lines.dropLast()
+        partial = Data(lines.last!)
+        var events: [ProviderSemanticEvent] = []
+        var buffer = ""
+        for line in complete {
+            buffer += (String(data: Data(line), encoding: .utf8) ?? "").replacingOccurrences(of: "\r", with: "")
+            buffer += "\n"
+            if buffer.count >= 512 {
+                events.append(.messageDelta(buffer))
+                buffer = ""
+            }
+        }
+        if !buffer.isEmpty { events.append(.messageDelta(buffer)) }
+        return events
+    }
+    public func finish(sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        guard !partial.isEmpty,
+              let text = String(data: partial, encoding: .utf8),
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+        partial = Data()
+        return [.messageDelta(text.replacingOccurrences(of: "\r", with: ""))]
     }
 }

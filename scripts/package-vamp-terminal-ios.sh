@@ -137,6 +137,10 @@ rm -f "$IPA"
 
 unzip -tq "$IPA" >/dev/null || fail "IPA ZIP integrity check failed"
 (cd "$OUTPUT_DIR" && shasum -a 256 "$ARTIFACT_NAME" > "$(basename "$SHA_FILE")")
+# Round-trip the checksum immediately so a truncated or corrupt write of the
+# .sha256 file fails the release instead of being discovered at download time.
+(cd "$OUTPUT_DIR" && shasum -a 256 -c "$(basename "$SHA_FILE")" >/dev/null) \
+  || fail "SHA-256 round-trip verification failed for $ARTIFACT_NAME"
 SHA256="$(awk '{print $1}' "$SHA_FILE")"
 SIZE_BYTES="$(stat -f '%z' "$IPA")"
 TREE_STATE="clean"
@@ -178,10 +182,12 @@ with open(os.environ["MANIFEST"], "w", encoding="utf-8") as handle:
     handle.write("\n")
 PY
 
-if [[ -x "$ROOT/scripts/generate-vamp-sbom.sh" ]]; then
+# The release process promises a CycloneDX SBOM per artifact; skipping it
+# silently when the generator is missing would ship that promise broken.
+[[ -x "$ROOT/scripts/generate-vamp-sbom.sh" ]] \
+  || fail "SBOM generator missing or not executable: scripts/generate-vamp-sbom.sh"
 "$ROOT/scripts/generate-vamp-sbom.sh" \
     "$IPA" vamp-terminal "$VERSION" "$BUILD" "$COMMIT" "$SBOM"
-fi
 
 log "Verified bundle: $BUNDLE_ID, iOS/iPadOS 18+, arm64, unsigned, AltStore-ready"
 log "IPA: $IPA"

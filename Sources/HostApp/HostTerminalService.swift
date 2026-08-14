@@ -45,6 +45,16 @@ final class HostTerminalService: @unchecked Sendable {
     private var connectionBudgetWindowStart = Date()
     private var connectionBudgetSpent = 0
 
+    /// Symmetric defensive limits on client→PTY input. Output was already
+    /// budgeted, but a compromised or malicious authenticated client could
+    /// otherwise flood the PTY (and the child process) with input. Keystrokes
+    /// and even large pastes are far below these caps, so legitimate use is
+    /// unaffected.
+    private let inputByteBudgetPerTerminalPerSecond = 1 * 1024 * 1024
+    private let inputByteBudgetPerConnectionPerSecond = 2 * 1024 * 1024
+    private var connectionInputBudgetWindowStart = Date()
+    private var connectionInputBudgetSpent = 0
+
     /// Pump read buffer — 16 KB is a good balance between throughput on
     /// `cat large.txt` and latency for keystroke echo.
     private let readBufferSize = 16 * 1024
@@ -295,8 +305,39 @@ final class HostTerminalService: @unchecked Sendable {
               message.data.count <= TerminalInputMessage.maxChunkBytes else {
             return
         }
+        guard let chunk = claimInputBudget(message.data, session: session) else {
+            logger.warning("Dropping terminal input: input byte budget exhausted")
+            return
+        }
 
-        write(message.data, to: session)
+        write(chunk, to: session)
+    }
+
+    /// Mirrors `dispatchOutput`'s rate budget for the input direction.
+    /// Refills both the connection-wide and per-terminal windows each second
+    /// and returns the bytes the caller may write, or nil when saturated.
+    private func claimInputBudget(_ data: Data, session: ActiveSession) -> Data? {
+        let now = Date()
+        if now.timeIntervalSince(connectionInputBudgetWindowStart) >= 1.0 {
+            connectionInputBudgetWindowStart = now
+            connectionInputBudgetSpent = 0
+        }
+        if now.timeIntervalSince(session.inputBudgetWindowStart) >= 1.0 {
+            session.inputBudgetWindowStart = now
+            session.inputBudgetSpent = 0
+        }
+        guard connectionInputBudgetSpent < inputByteBudgetPerConnectionPerSecond,
+              session.inputBudgetSpent < inputByteBudgetPerTerminalPerSecond else {
+            return nil
+        }
+        let headroom = min(
+            inputByteBudgetPerConnectionPerSecond - connectionInputBudgetSpent,
+            inputByteBudgetPerTerminalPerSecond - session.inputBudgetSpent
+        )
+        let chunk = data.count > headroom ? data.prefix(headroom) : data
+        connectionInputBudgetSpent += chunk.count
+        session.inputBudgetSpent += chunk.count
+        return chunk
     }
 
     private func writeStartupCommand(_ command: String, to session: ActiveSession) {
@@ -752,6 +793,8 @@ final class HostTerminalService: @unchecked Sendable {
         var outputSequence: UInt64
         var budgetWindowStart = Date()
         var budgetSpent = 0
+        var inputBudgetWindowStart = Date()
+        var inputBudgetSpent = 0
         var readSource: DispatchSourceRead?
         var reaperTask: Task<Void, Never>?
 

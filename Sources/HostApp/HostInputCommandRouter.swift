@@ -880,6 +880,13 @@ final class HostInputCommandRouter: @unchecked Sendable {
     }
 
     private func validateControlEnvelopeAuth(_ envelope: DataChannelEnvelope) -> Bool {
+        // Every authenticated command must also be fresh. The monotonic counter
+        // already blocks replays, but enforcing the timestamp window here keeps
+        // the invariant uniform for all handlers (chat/quality/display/keyframe
+        // previously skipped it) instead of relying on each call site to remember.
+        guard envelope.hasAcceptableTimestamp else {
+            return false
+        }
         let state = withLock { (_controlChannelAuthenticated, _expectedSessionTokenHex, _lastAcceptedAuthCounter) }
         guard state.0, let expectedToken = state.1 else {
             return false

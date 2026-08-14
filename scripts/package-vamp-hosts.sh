@@ -166,6 +166,10 @@ package_host() {
   sha256="$(shasum -a 256 "$artifact" | awk '{print $1}')"
   size="$(stat -f '%z' "$artifact")"
   printf '%s  %s\n' "$sha256" "$(basename "$artifact")" > "$sha_file"
+  # Round-trip the checksum immediately so a corrupt .sha256 write fails the
+  # release instead of being discovered at download time.
+  (cd "$OUTPUT_DIR" && shasum -a 256 -c "$(basename "$sha_file")" >/dev/null) \
+    || fail "SHA-256 round-trip verification failed for $(basename "$artifact")"
   tree_state="clean"
   [[ -z "$(git -C "$ROOT" status --porcelain --untracked-files=normal)" ]] || tree_state="dirty"
 

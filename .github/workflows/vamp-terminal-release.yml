@@ -46,6 +46,16 @@ jobs:
           ref: ${{ steps.meta.outputs.tag }}
           fetch-depth: 0
 
+      - name: Run core tests
+        # Never package a release from a tag whose tests do not pass.
+        run: swift test
+
+      - name: Run Linux host tests
+        run: python3 -m unittest discover -s Tests -p 'test_*.py'
+
+      - name: Run browser VT regression
+        run: node Tests/BrowserTerminalVTTests.mjs
+
       - name: Build unsigned AltStore IPA
         run: scripts/package-vamp-terminal-ios.sh --clean
 

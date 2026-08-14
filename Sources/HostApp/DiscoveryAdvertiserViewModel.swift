@@ -2,6 +2,7 @@ import Foundation
 import Discovery
 import SharedModels
 import SharedUtilities
+import TransportWebRTC
 
 @MainActor
 final class DiscoveryAdvertiserViewModel: ObservableObject {
@@ -12,6 +13,7 @@ final class DiscoveryAdvertiserViewModel: ObservableObject {
     private let advertiser: any HostDiscoveryAdvertiserProtocol
     private let productMode: HostProductMode
     private let secureTLSPortProvider: () -> UInt16?
+    private let keyAgreementPublicKeyProvider: () -> Data?
     private var eventsTask: Task<Void, Never>?
     private var tailscaleHostname: String?
     private var tailscaleIP: String?
@@ -43,12 +45,14 @@ final class DiscoveryAdvertiserViewModel: ObservableObject {
         hostIdentity: HostIdentity,
         advertiser: any HostDiscoveryAdvertiserProtocol,
         productMode: HostProductMode = .full,
-        secureTLSPortProvider: @escaping () -> UInt16? = { nil }
+        secureTLSPortProvider: @escaping () -> UInt16? = { nil },
+        keyAgreementPublicKeyProvider: @escaping () -> Data? = { nil }
     ) {
         self.hostIdentity = hostIdentity
         self.advertiser = advertiser
         self.productMode = productMode
         self.secureTLSPortProvider = secureTLSPortProvider
+        self.keyAgreementPublicKeyProvider = keyAgreementPublicKeyProvider
     }
 
     /// Update the Tailscale identity broadcast in the mDNS TXT record. Triggers a re-advertise
@@ -213,7 +217,8 @@ final class DiscoveryAdvertiserViewModel: ObservableObject {
             wakeSupported: wakeSupported,
             magicWakeCapable: magicWakeCapable,
             tailscaleHostname: tailscaleHostname,
-            tailscaleIP: tailscaleIP
+            tailscaleIP: tailscaleIP,
+            keyAgreementPublicKey: keyAgreementPublicKeyProvider()
         )
     }
 

@@ -267,6 +267,8 @@ final class HostAgentSemanticService: @unchecked Sendable {
         case .openCode: return OpenCodeAdapter()
         case .claude: return ClaudeAdapter()
         case .codex: return CodexAdapter()
+        case .pi: return PiAdapter()
+        case .commandCode: return CommandCodeAdapter()
         }
     }
 
@@ -295,6 +297,24 @@ final class HostAgentSemanticService: @unchecked Sendable {
             if let previousSessionID { args += ["resume", previousSessionID] }
             args += ["--json", "--skip-git-repo-check", prompt]
             return ("codex", args)
+        case .pi:
+            // JSON event mode is Pi's documented machine-readable stream; the
+            // session header carries the id used to resume the same
+            // conversation on the next Chat turn. Non-interactive modes never
+            // show a project-trust prompt, and Vamp has already resolved the
+            // user's explicit approval for this turn.
+            var args = ["--mode", "json"]
+            if let previousSessionID { args += ["--session", previousSessionID] }
+            args.append(prompt)
+            return ("pi", args)
+        case .commandCode:
+            // Print mode runs the full agent loop non-interactively and prints
+            // the answer on stdout. --auto-accept mirrors the approval already
+            // granted in Chat; onboarding and auto-update are suppressed so a
+            // headless turn is deterministic.
+            var args = ["-p", "--auto-accept", "--skip-onboarding", "--no-auto-update"]
+            args.append(prompt)
+            return ("cmd", args)
         }
     }
 

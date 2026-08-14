@@ -1,3 +1,4 @@
+import CryptoKit
 import Diagnostics
 import Discovery
 import Foundation
@@ -180,6 +181,11 @@ final class ClientSessionCoordinator: ObservableObject {
     private let pathMonitor = NWPathMonitor()
     private let pathMonitorQueue = DispatchQueue(label: "com.mesutcy.remotedesktop.terminal.vpnmonitor")
     private var expectedSessionTokenHex: String?
+    /// True when the current offer's session token was ECIES-sealed to the
+    /// host's advertised key instead of sent in the clear. The host then
+    /// omits the legacy token echo from its answer (echoing would re-expose
+    /// the token on plaintext signaling), so the answer comparison is skipped.
+    private var offerWasSealed = false
     /// Monotonic counter for authenticated host → client control messages.
     /// Host terminal and clipboard events must not be accepted merely because
     /// their payload/session IDs decode correctly.
@@ -470,7 +476,19 @@ final class ClientSessionCoordinator: ObservableObject {
                 displayID: nil
             )
             let sessionTokenHex = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
-            offer.sessionToken = sessionTokenHex
+            offerWasSealed = false
+            if let kaPublicKey = endpoint.metadata.keyAgreementPublicKey,
+               let kaKey = try? P256.KeyAgreement.PublicKey(x963Representation: kaPublicKey),
+               let tokenData = ConnectionSecurity.tokenFromHex(sessionTokenHex),
+               let sealed = try? SessionTokenSealing.seal(tokenData, to: kaKey) {
+                // Seal the token to the host's advertised key-agreement key.
+                // A passive observer on plaintext signaling never sees it.
+                offer.sealedSessionToken = sealed
+                offerWasSealed = true
+            }
+            if !offerWasSealed {
+                offer.sessionToken = sessionTokenHex
+            }
             offer.clientCapabilities = .currentClient(isMacClient: false)
             offer.clientProductRole = clientProductRole
             if effectiveQualityPreset == .ultra,
@@ -857,6 +875,7 @@ final class ClientSessionCoordinator: ObservableObject {
         self.lastUpgradeRequestPreset = nil
         self.lastDowngradeRequestPreset = nil
         self.expectedSessionTokenHex = nil
+        self.offerWasSealed = false
         self.lastAcceptedInboundAuthCounter = 0
         self.expectedHostFingerprint = nil
         self.webRTCSessionManager.configureControlChannelAuth(sessionTokenHex: nil)
@@ -1024,7 +1043,11 @@ final class ClientSessionCoordinator: ObservableObject {
                 logger.debug("Ignoring host answer for inactive session \(sessionID.uuidString)")
                 return
             }
-            if let expected = expectedSessionTokenHex,
+            // The legacy echo applies only to plaintext tokens. A sealed token
+            // is never echoed (the host omits it to avoid re-exposing it), so
+            // possession is proven by the TLS-PSK + control-auth handshakes.
+            if !offerWasSealed,
+               let expected = expectedSessionTokenHex,
                answer.sessionToken != expected {
                 throw RemoteDesktopError.negotiationFailed("Host session token mismatch")
             }

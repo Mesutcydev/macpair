@@ -42,7 +42,9 @@ enum VampAgentProvider: String, CaseIterable, Identifiable {
         case .openCode: return .openCode
         case .claude: return .claude
         case .codex, .chatGPT: return .codex
-        case .pi, .commandCode, .kimi, .qwen, .aider: return nil
+        case .pi: return .pi
+        case .commandCode: return .commandCode
+        case .kimi, .qwen, .aider: return nil
         }
     }
 }
