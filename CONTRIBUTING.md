@@ -12,7 +12,8 @@ Thanks for helping improve Vamp Terminal.
 
    ```bash
    swift test
-   python3 -m unittest discover -s tests -p 'test_*.py' -v
+   python3 -m unittest discover -s Tests -p 'test_*.py' -v
+   node Tests/BrowserTerminalVTTests.mjs
    ```
 
 4. Build the `MacHost`, `VampTerminalHost`, and `VampTerminalApp` schemes with

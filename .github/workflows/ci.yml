@@ -73,3 +73,26 @@ jobs:
           -destination 'generic/platform=iOS Simulator'
           CODE_SIGNING_ALLOWED=NO
           build
+
+  host-scripts:
+    # The Linux host and the browser VT emulator are not Swift and never ran in
+    # CI, so regressions in them shipped unnoticed. Exercise both cheap suites on
+    # a Linux runner. Uses the runner's preinstalled python3/node to avoid adding
+    # unpinned setup actions.
+    name: Host scripts (Linux host + browser VT)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Linux host unit tests
+        run: python3 -m unittest discover -s Tests -p 'test_*.py' -v
+
+      - name: Browser VT regression
+        run: node Tests/BrowserTerminalVTTests.mjs

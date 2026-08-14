@@ -479,6 +479,29 @@ PY
     exit 5
   fi
 
+  # Approving a peer without checking its fingerprint defeats the trust model:
+  # a bare `vamp approve-pairing` blindly approves whatever request is pending,
+  # including one an attacker raced in. Require --fingerprint for every approve
+  # action so approval is always bound to a fingerprint the operator verified.
+  case "$action" in
+    approve-*)
+      if [[ -z "$expected_fingerprint" ]]; then
+        if [[ "$JSON" -eq 1 ]]; then
+          python3 - <<'PY'
+import json
+print(json.dumps({
+    "ok": False,
+    "error": "--fingerprint is required to approve. Run 'vamp pending' to read the fingerprint, then approve only when it matches.",
+}, indent=2))
+PY
+        else
+          err "--fingerprint is required to approve. Run 'vamp pending' to read the fingerprint, then approve only when it matches."
+        fi
+        exit 2
+      fi
+      ;;
+  esac
+
   if [[ -n "$expected_fingerprint" ]]; then
     pending_json=$(read_pending_json)
     actual_fingerprint=$(python3 - "$pending_json" <<'PY'
