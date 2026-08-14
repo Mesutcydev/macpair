@@ -60,7 +60,7 @@ struct VampTerminalWorkspaceView: View {
             tabBar
             presentationBar
 
-            ZStack {
+            ZStack(alignment: .top) {
                 VStack(spacing: 0) {
                     // Every VT stays mounted for stable PTY state, but Chat is
                     // a semantic card feed—not a terminal embedded above a
@@ -142,10 +142,16 @@ struct VampTerminalWorkspaceView: View {
                     if let message = workspace.lastTerminalError { terminalErrorBanner(message) }
                     if let message = workspace.clipboardStatusMessage { clipboardToast(message) }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                // Hug the banner's own height and pin it to the top via the
+                // parent ZStack. A full-height, hit-test-disabled overlay used
+                // to float translucently over the pane status bar and chat rows
+                // (so their text bled through and looked overlapped) and it
+                // swallowed the Retry button's taps. Sizing to content keeps the
+                // terminal geometry untouched while leaving only this strip
+                // interactive, so Retry works and the surface below stays live.
+                .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.horizontal, VampTerminalDesign.space3)
                 .padding(.top, VampTerminalDesign.space3)
-                .allowsHitTesting(false)
                 .zIndex(2)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -274,6 +280,9 @@ struct VampTerminalWorkspaceView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, VampTerminalDesign.space3)
         .padding(.vertical, VampTerminalDesign.space2)
+        // Opaque base under the glass so the pane status bar / chat rows behind
+        // the floating banner never bleed through and read as overlapping text.
+        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: VampTerminalDesign.cardRadius, style: .continuous))
         .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
         .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: VampGlassPalette.warning.opacity(0.30))
     }
@@ -291,6 +300,9 @@ struct VampTerminalWorkspaceView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, VampTerminalDesign.space3)
         .padding(.vertical, VampTerminalDesign.space2)
+        // Opaque base under the glass so content behind the floating toast never
+        // bleeds through and reads as overlapping text.
+        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: VampTerminalDesign.cardRadius, style: .continuous))
         .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
         .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius)
     }

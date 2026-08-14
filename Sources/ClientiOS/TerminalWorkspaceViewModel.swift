@@ -312,6 +312,7 @@ final class TerminalChatStore: ObservableObject {
             || normalizedReason == "shell-exited"
             || normalizedReason?.hasPrefix("forkpty failed") == true
             || normalizedReason?.hasPrefix("read-error") == true
+            || normalizedReason?.hasSuffix("-not-installed") == true
         let text: String
         if normalizedReason == "terminal-disabled" {
             text = "Terminal Mode is disabled on the host. Enable it in Vamp Host settings and retry."
@@ -329,6 +330,14 @@ final class TerminalChatStore: ObservableObject {
             text = "The host could not create a shell. Check macOS permissions, then retry this tab."
         } else if normalizedReason?.hasPrefix("read-error") == true {
             text = "The host shell stopped reading before it became ready. Retry this tab."
+        } else if let normalizedReason, normalizedReason.hasSuffix("-not-installed") {
+            // The host reports a launcher whose CLI is missing as
+            // "<tool>-not-installed" (e.g. "opencode-not-installed"). Surface a
+            // plain, actionable message instead of the raw reason token. Agent
+            // presets also run inside tmux, so name it as a likely prerequisite.
+            let tool = String(normalizedReason.dropLast("-not-installed".count))
+            let toolName = tool.isEmpty ? tabTitle : tool
+            text = "\(toolName) isn't installed on the Mac. Install it (and tmux, which the agent launchers use) on the host, then retry this tab."
         } else if let normalizedReason, !normalizedReason.isEmpty {
             text = "\(tabTitle) closed · \(normalizedReason)"
         } else {
