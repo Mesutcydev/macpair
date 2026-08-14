@@ -25,11 +25,11 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [
         .macOS(.v13),
-        // The shipping iOS app (and its IPA manifest) targets iOS 18.0; keep the
-        // SwiftPM floor aligned so availability assumptions match the real deploy
-        // target instead of silently allowing iOS 16-only builds. (String form:
-        // .v18 does not exist in the swift-tools-version 5.9 platform enum.)
-        .iOS(.init("18.0"))
+        // The shared packages are linked by both the iOS 18 Vamp Terminal app
+        // and the iOS 16.1 Vamp Control app, so the package floor must stay at
+        // the lowest consumer. Each Xcode target sets its own
+        // IPHONEOS_DEPLOYMENT_TARGET (Vamp Terminal = 18.0, Vamp Control = 16.1).
+        .iOS(.v16)
     ],
     products: [
         .library(name: "SharedModels", targets: ["SharedModels"]),
