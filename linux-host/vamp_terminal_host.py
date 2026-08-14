@@ -191,7 +191,11 @@ class TerminalConnection:
             self.send_error("duplicate-terminal", "That terminal tab is already open", terminal_id)
             return
         if len(self.terminals) >= self.host.max_terminals:
-            self.send_error("capacity", f"This connection is limited to {self.host.max_terminals} terminals")
+            self.send_error(
+                "capacity",
+                f"This connection is limited to {self.host.max_terminals} terminals",
+                terminal_id,
+            )
             return
 
         title = str(payload.get("title") or "Terminal")[:80]

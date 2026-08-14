@@ -365,7 +365,7 @@ struct VampTerminalBackdrop: View {
                 LinearGradient(
                     colors: [
                         groupedBackground,
-                        Color.primary.opacity(colorScheme == .dark ? 0.035 : 0.018),
+                         Color.primary.opacity(colorScheme == .dark ? 0.035 : 0.010),
                         groupedBackground
                     ],
                     startPoint: .topLeading,
@@ -377,13 +377,13 @@ struct VampTerminalBackdrop: View {
                 // colorless glass treatment and lets the system material do
                 // the visual work inside cards and controls.
                 Circle()
-                    .fill(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.08))
+                    .fill(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.045))
                     .frame(width: 460, height: 460)
                     .blur(radius: 105)
                     .offset(x: -150, y: -260)
 
                 Circle()
-                    .fill(Color.secondary.opacity(colorScheme == .dark ? 0.10 : 0.07))
+                    .fill(Color.secondary.opacity(colorScheme == .dark ? 0.10 : 0.04))
                     .frame(width: 400, height: 400)
                     .blur(radius: 115)
                     .offset(x: 170, y: 300)
@@ -429,7 +429,7 @@ private struct VampTerminalBackdropGrid: View {
 
             context.stroke(
                 path,
-                with: .color(Color.primary.opacity(colorScheme == .dark ? 0.07 : 0.05)),
+                with: .color(Color.primary.opacity(colorScheme == .dark ? 0.07 : 0.028)),
                 lineWidth: 0.5
             )
         }

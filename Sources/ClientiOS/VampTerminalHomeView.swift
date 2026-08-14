@@ -95,16 +95,7 @@ struct VampTerminalHomeView: View {
                             hero
                                 .id("vamp-terminal-home-top")
 
-                            guideEntry
-
-                            if !hostPromoDismissed {
-                                VampHostPromoCard {
-                                    hostPromoDismissed = true
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            } else {
-                                hostSetupRecovery
-                            }
+                            hostSection
 
                             if isConnecting {
                                 connectionProgressCard
@@ -128,7 +119,16 @@ struct VampTerminalHomeView: View {
                                 )
                             }
 
-                            hostSection
+                            guideEntry
+
+                            if !hostPromoDismissed {
+                                VampHostPromoCard {
+                                    hostPromoDismissed = true
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            } else {
+                                hostSetupRecovery
+                            }
 
                             pairingNote
                         }

@@ -74,6 +74,18 @@ class LinuxHostTests(unittest.TestCase):
         self.assertIn("crypto.getRandomValues", browser)
         self.assertNotIn("crypto.randomUUID", browser)
 
+    def test_browser_tab_capacity_is_preflighted_and_failed_tabs_are_rolled_back(self):
+        browser = (Path(__file__).resolve().parents[1] / "linux-host" / "index.html").read_text()
+        host = (Path(__file__).resolve().parents[1] / "linux-host" / "vamp_terminal_host.py").read_text()
+        self.assertIn("let maxTerminals = 8", browser)
+        self.assertIn("if (tabs.size >= maxTerminals)", browser)
+        self.assertIn("button.disabled = atCapacity", browser)
+        self.assertIn("if(node?.state==='opening')", browser)
+        self.assertIn("removeTab(terminalId,text)", browser)
+        self.assertIn("message.type==='error'", browser)
+        self.assertIn('"capacity"', host)
+        self.assertIn("terminal_id,\n            )", host)
+
 
 if __name__ == "__main__":
     unittest.main()

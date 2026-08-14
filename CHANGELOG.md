@@ -6,6 +6,18 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 
 ## [Unreleased]
 
+### Fixed
+
+- Enforce browser terminal capacity before opening a tab and roll back pending
+  tabs when the host rejects an open request.
+
+### Changed
+
+- Group browser terminal keys and session controls, and size the terminal
+  viewport to keep the workspace usable across screen sizes.
+- Make the Vamp Terminal home screen connection-first, with a more subdued
+  light-mode backdrop.
+
 ## [2.1.1] - 2026-08-14
 
 ### Fixed
