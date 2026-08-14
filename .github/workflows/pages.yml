@@ -3,6 +3,8 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: [main]
+  release:
+    types: [published, edited, released, deleted]
   workflow_dispatch:
 
 permissions:

@@ -20,11 +20,11 @@ ASSET_PATTERNS = {
     "vamp-terminal-ios": re.compile(
         r"^VampTerminal-iOS-.+-build-\d+-altstore-unsigned\.ipa$"
     ),
-    "vamp-remote-ios": re.compile(
-        r"^VampRemote-iOS-.+-build-\d+-altstore-unsigned(?:-r\d+)?\.ipa$"
+    "vamp-control-ios": re.compile(
+        r"^VampControl-iOS-.+-build-\d+-altstore-unsigned(?:-r\d+)?\.ipa$"
     ),
-    "vamp-remote-macos": re.compile(
-        r"^VampRemote-macOS-.+-build-\d+-unsigned\.zip$"
+    "vamp-control-macos": re.compile(
+        r"^VampControl-macOS-.+-build-\d+-adhoc\.zip$"
     ),
 }
 
