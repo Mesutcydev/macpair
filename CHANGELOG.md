@@ -6,12 +6,18 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-08-14
+
 ### Fixed
 
 - Drop the orphaned Sparkle (and swift-argument-parser) pins from `Package.resolved`
   so the dependency lock matches the real graph (SwiftTerm only). The Vamp Control
   macOS client no longer resolves or embeds Sparkle, removing the launch-time
   library-validation crash caused by the framework's mismatched Team ID.
+- Pi and CommandCode now answer Chat prompts through machine-readable adapters
+  instead of silently ignoring them in chat mode.
+- Collapse the workspace row and tab strip while the mobile keyboard is open so
+  the composer no longer floats over the conversation.
 
 ### Security
 
@@ -184,7 +190,8 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
-[Unreleased]: https://github.com/Mesutcydev/macpair/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/Mesutcydev/macpair/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.1-build-34
 [2.1.0]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.0-build-33
 [1.0.10]: https://github.com/Mesutcydev/macpair/compare/v1.0.9...v1.0.10
 [1.0.9]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.9

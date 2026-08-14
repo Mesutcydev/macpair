@@ -41,6 +41,14 @@ BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw "$INFO")"; DISPLAY="$(plutil
 [[ "$BUNDLE_ID" == com.mesutcy.remotedesktop.macclient ]] || fail "Unexpected bundle ID: $BUNDLE_ID"
 [[ "$DISPLAY" == 'Vamp Control' ]] || fail "Unexpected display name: $DISPLAY"
 file "$APP/Contents/MacOS/Vamp Control macOS" | grep -q arm64 || fail "Executable is not arm64"
+# The direct-distribution client must not ship Sparkle: macOS rejects the bundled
+# framework signature in an ad-hoc distributed app (dyld aborts at launch).
+if otool -L "$APP/Contents/MacOS/Vamp Control macOS" | grep -qi "Sparkle"; then
+  fail "Sparkle must not be linked into the Vamp Control macOS client"
+fi
+if find "$APP" -iname '*Sparkle*' -print -quit | grep -q .; then
+  fail "Sparkle files must not be embedded in the Vamp Control macOS client"
+fi
 # Sign the whole bundle inside-out with a single ad-hoc identity. Signing every
 # nested framework/xpc/app with the same (empty) Team ID as the app keeps macOS
 # library validation happy at launch: a bundled framework signed by a different
