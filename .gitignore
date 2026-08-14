@@ -12,9 +12,15 @@ Build/
 .packaging-macclient/
 .packaging-macclient-appstore/
 .packaging-ios/
+.packaging-vamp-control-ios/
+.packaging-vamp-control-macos/
 .screenharbor-packaging/
 .dmg-staging/
 .pkg-verify/
+.local-host-install/
+.qa-*/
+.release-control-ios/
+.release-control-macos/
 dist/
 exports/
 *_pkg_extract/
