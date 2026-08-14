@@ -90,10 +90,48 @@ def main() -> int:
         "assets": assets,
     }
 
-    output = Path(__file__).resolve().parents[1] / "docs" / "release.json"
+    docs = Path(__file__).resolve().parents[1] / "docs"
+    output = docs / "release.json"
     output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {output}")
+
+    rewrite_static_links(docs / "index.html", assets, release["html_url"])
     return 0
+
+
+def rewrite_static_links(index_path: Path, assets: dict, release_url: str) -> None:
+    """Point the static hrefs at the current release.
+
+    The page's JavaScript rewrites the download buttons from release.json at
+    runtime, but the hardcoded hrefs embed a versioned filename. Without this
+    step, the pre-JS / no-JS fallback would 404 the moment a new build ships
+    with a different filename. Rewriting the hrefs here keeps the static markup
+    in sync with the resolved latest release on every Pages deploy.
+    """
+    if not index_path.exists():
+        print(f"Skipped static link rewrite: {index_path} not found", file=sys.stderr)
+        return
+    html = index_path.read_text(encoding="utf-8")
+
+    def rewrite_href(tag: str, url: str) -> str:
+        if 'href="' in tag:
+            return re.sub(r'href="[^"]*"', f'href="{url}"', tag, count=1)
+        return tag[:2] + f' href="{url}"' + tag[2:]
+
+    for key, asset in assets.items():
+        url = asset["url"]
+        pattern = re.compile(r'<a\b[^>]*\bdata-release-asset="' + re.escape(key) + r'"[^>]*>')
+        html = pattern.sub(lambda m, u=url: rewrite_href(m.group(0), u), html)
+
+    # Point any "open the latest release" links at the resolved release page.
+    html = re.sub(
+        r'href="https://github\.com/[^"]*/releases/latest"',
+        f'href="{release_url}"',
+        html,
+    )
+
+    index_path.write_text(html, encoding="utf-8")
+    print(f"Rewrote static download links in {index_path}")
 
 
 if __name__ == "__main__":
