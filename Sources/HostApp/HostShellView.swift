@@ -1190,6 +1190,48 @@ private struct HostLightNotification: View {
     }
 }
 
+/// Guidance for the common post-rebuild state where Screen Recording /
+/// Accessibility still read as not approved. A rebuilt host carries a fresh
+/// ad-hoc code signature, so macOS keeps the grants attached to the previous
+/// app entry and the new binary looks like a different app — removing and
+/// re-adding Vamp Host re-anchors the grants.
+private struct HostPermissionReGrantNote: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label {
+                Text("Permissions not sticking after an update? A rebuilt app has a new signature, so macOS may still list the old Vamp Host entry.")
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } icon: {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(AppColor.primaryAccent)
+            }
+            stepRow(1, "In each pane (Screen Recording, Accessibility), select the old Vamp Host entry and press the − button.")
+            stepRow(2, "Press + and add Vamp Host from Applications.")
+            stepRow(3, "Quit and reopen Vamp Host.")
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hostGlassSurface(
+            in: RoundedRectangle(cornerRadius: AppRadius.medium, style: .continuous),
+            isInteractive: false
+        )
+    }
+
+    private func stepRow(_ number: Int, _ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\(number)")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(AppColor.primaryAccent)
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
 private struct HostSettingsView: View {
     @ObservedObject var environment: HostAppEnvironment
     let showOnboarding: () -> Void
@@ -1630,6 +1672,8 @@ private struct HostOnboardingView: View {
                                     .controlSize(.small)
                                     Spacer()
                                 }
+
+                                HostPermissionReGrantNote()
                             }
                         }
                     }
@@ -2039,6 +2083,11 @@ private struct HostPermissionsView: View {
                                 }
                             }
                         }
+                    }
+
+                    // Re-grant guidance when something is still blocking.
+                    if !viewModel.blockers.isEmpty {
+                        HostPermissionReGrantNote()
                     }
 
                     // Actions
