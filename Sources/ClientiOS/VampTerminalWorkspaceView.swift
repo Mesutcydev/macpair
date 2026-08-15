@@ -1984,18 +1984,25 @@ private struct TerminalChatContentView: View {
     var body: some View {
         if isTable {
             tableContent
+        } else if usesProseTypography {
+            // An agent's answer is a conversation message, not a terminal pane:
+            // let it flow at full height in the main chat scroll so the whole
+            // reply is readable, rather than a middle slice in a nested scroll.
+            // (Matches the browser task-chat, which no longer clamps responses.)
+            Text(text)
+                .font(.system(size: 15, weight: .regular, design: .rounded))
+                .foregroundStyle(color)
+                .lineSpacing(5)
+                .textSelection(.enabled)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
         } else {
             ScrollView(.vertical) {
                 Text(text)
-                    .font(
-                        .system(
-                            size: usesProseTypography ? 15 : 13,
-                            weight: .regular,
-                            design: usesProseTypography ? .rounded : .monospaced
-                        )
-                    )
+                    .font(.system(size: 13, weight: .regular, design: .monospaced))
                     .foregroundStyle(color)
-                    .lineSpacing(usesProseTypography ? 5 : 3)
+                    .lineSpacing(3)
                     .textSelection(.enabled)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)

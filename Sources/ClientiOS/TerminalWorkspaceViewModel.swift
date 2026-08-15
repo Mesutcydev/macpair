@@ -470,8 +470,18 @@ final class TerminalChatStore: ObservableObject {
             } else {
                 append(Block(role: .output, title: identity, text: text, isStreaming: true))
             }
-        case .thinkingDelta:
-            markWorking(provider: provider)
+        case .thinkingDelta(let text):
+            // Surface the agent's reasoning live so the user sees the process,
+            // not just the final answer. It streams into the working block and
+            // is replaced by the response once the answer starts.
+            guard !text.isEmpty else { markWorking(provider: provider); return }
+            if let index = blocks.lastIndex(where: { $0.role == .progress && $0.isStreaming }) {
+                let base = blocks[index].text == "\(identity) is working…" ? "" : blocks[index].text
+                blocks[index].title = "\(identity) · thinking"
+                blocks[index].text = String((base + text).suffix(800))
+            } else {
+                append(Block(role: .progress, title: "\(identity) · thinking", text: String(text.suffix(800)), isStreaming: true))
+            }
         case .taskPlan(let taskEvent):
             applyTaskPlanEvent(taskEvent)
         case .permissionRequested(let command):

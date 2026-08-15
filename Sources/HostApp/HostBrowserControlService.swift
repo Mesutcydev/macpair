@@ -1449,7 +1449,7 @@ enum BrowserControlWebAssets {
 <div class="terminal-keybar" id="terminal-keybar" aria-label="Terminal controls" aria-hidden="true" hidden><button type="button" data-terminal-key="\u001b">Esc</button><button type="button" data-terminal-key="\u0003">Ctrl-C</button><button type="button" data-terminal-key="\u0009">Tab</button><button type="button" data-terminal-key="\u001b[A">↑</button><button type="button" data-terminal-key="\u001b[B">↓</button><button type="button" data-terminal-key="\u001b[D">←</button><button type="button" data-terminal-key="\u001b[C">→</button></div>
 <div class="composer" id="composer"><div class="clipboard-wrap"><button id="clipboard" class="clipboard-trigger" type="button" title="Clipboard actions" aria-label="Clipboard actions" aria-expanded="false"><span class="clipboard-glyph" aria-hidden="true">⧉</span></button><div id="clipboard-menu" class="clipboard-menu hidden" role="menu" aria-label="Clipboard actions"><button id="paste" type="button" role="menuitem">Paste into terminal</button><button id="copyhost" type="button" role="menuitem">Copy Mac clipboard to Safari</button><button id="sethost" type="button" role="menuitem">Send Safari clipboard to Mac</button></div></div><input id="input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command…"><button id="more" type="button" title="More controls" aria-label="More controls">•••</button><button class="send" id="send" type="button" title="Review command" aria-label="Review command">↑</button></div>
 </div>
-<div class="modal" id="pair" role="dialog" aria-modal="true" aria-labelledby="pair-title"><div class="modal-card"><h2 id="pair-title">Open this workspace</h2><p id="pair-help">Scan the QR code from Vamp Host, or enter the six-digit code shown in Settings → Browser control. The code expires after ten minutes.</p><label class="field-label" for="code">Pairing code</label><input id="code" inputmode="numeric" maxlength="6" placeholder="000000" aria-describedby="pair-help pair-error" autocomplete="one-time-code"><div class="error" id="pair-error" role="alert" aria-live="polite"></div><button id="pair-button" type="button">Pair browser</button></div></div>
+<div class="modal" id="pair" role="dialog" aria-modal="true" aria-labelledby="pair-title"><div class="modal-card"><div class="pair-mark" aria-hidden="true">⌁</div><h2 id="pair-title">Open this workspace</h2><p id="pair-help">Scan the QR code from Vamp Host, or enter the six-digit code shown in Settings → Browser control. The code expires after ten minutes.</p><label class="field-label" for="code">Pairing code</label><input id="code" inputmode="numeric" maxlength="6" placeholder="000000" aria-describedby="pair-help pair-error" autocomplete="one-time-code"><div class="error" id="pair-error" role="alert" aria-live="polite"></div><button id="pair-button" type="button">Pair browser</button></div></div>
 <div class="modal hidden" id="launch-modal"><div class="modal-card more-card"><div class="more-kicker">New session</div><h2 id="launch-title">Choose workspace</h2><p id="launch-copy">Every session keeps its own working directory.</p><div class="workspace-list" id="workspace-list"></div><div class="more-footer"><button id="launch-cancel" class="secondary" type="button">Cancel</button></div></div></div>
 <div class="modal hidden" id="more-modal"><div class="modal-card more-card"><div class="more-kicker">Terminal actions</div><h2>Open a session</h2><p>Start a fresh shell, attach a persistent tmux or screen session, or open a coding agent in a new tab.</p><div class="more-actions"><button id="more-shell" type="button"><span class="provider-mark" style="--provider:#e8e8e8">›_</span><span><b>New shell</b><br><small>Open an independent terminal tab</small></span></button><button id="more-tmux" type="button" class="secondary"><span class="provider-mark" style="--provider:#9dd6ff">▣</span><span><b>Attach / create tmux</b><br><small>Resume a named workspace</small></span></button><button id="more-screen" type="button" class="secondary"><span class="provider-mark" style="--provider:#b8a6ff">▤</span><span><b>Attach screen</b><br><small>Resume a GNU screen session</small></span></button></div><div class="provider-title">Agent launchers</div><div class="provider-grid"><button type="button" data-provider="opencode" style="--provider:#00c8ce"><img class="provider-logo" src="/assets/providers/opencode.png" alt=""><span>OpenCode</span></button><button type="button" data-provider="pi" style="--provider:#f57a48"><span class="provider-mark">π</span><span>Pi</span></button><button type="button" data-provider="commandcode" style="--provider:#b883ff"><span class="provider-mark">⌘</span><span>CommandCode</span></button><button type="button" data-provider="chatgpt" style="--provider:#10a37f"><img class="provider-logo" src="/assets/providers/openai.jpg" alt=""><span>ChatGPT CLI</span></button><button type="button" data-provider="claude" style="--provider:#dc6a42"><img class="provider-logo" src="/assets/providers/claude.jpg" alt=""><span>Claude Code</span></button><button type="button" data-provider="kimi" style="--provider:#4c8dff"><img class="provider-logo" src="/assets/providers/kimi.jpg" alt=""><span>Kimi</span></button><button type="button" data-provider="qwen" style="--provider:#4678f2"><span class="provider-mark">Q</span><span>Qwen Code</span></button><button type="button" data-provider="codex" style="--provider:#10a37f"><img class="provider-logo" src="/assets/providers/openai.jpg" alt=""><span>Codex CLI</span></button><button type="button" data-provider="aider" style="--provider:#66c28c"><span class="provider-mark">A</span><span>Aider</span></button><button type="button" data-provider="grok" style="--provider:#e6a94f"><img class="provider-logo" src="/assets/providers/grok.jpg" alt=""><span>Grok CLI</span></button></div><label class="more-command">Custom command or session<input id="more-command" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tmux attach -t work"></label><div class="more-footer"><button id="appearance-toggle" class="secondary appearance-toggle" type="button">Appearance · System</button><button id="more-cancel" class="secondary" type="button">Cancel</button><button id="more-open" type="button">Open tab</button></div></div></div>
 <script>
@@ -2366,6 +2366,7 @@ createTab = (startup = null, title = null, agent = null, workspace = null) => {
     semanticBaseline: '',
     responseSemantic: null,
     responseText: '',
+    thinkingText: '',
     lastSubmittedCommand: null,
     pendingCommand: null,
     turnState: 'idle',
@@ -2859,6 +2860,7 @@ connect = () => {
         tab.turnState = 'working';
         scheduleTerminalRender(terminalID);
       } else if (value.eventType === 'thinkingDelta') {
+        tab.thinkingText = ((tab.thinkingText || '') + String(value.text || '')).slice(-8000);
         tab.agentState = 'Working';
         tab.turnState = 'working';
         scheduleTerminalRender(terminalID);
@@ -2872,7 +2874,7 @@ connect = () => {
         tab.pendingCommand = null;
         tab.agentState = 'Failed';
         tab.turnState = 'failed';
-        addMessage('<div class="badge">' + esc(value.text || 'The agent request failed.') + '</div>', terminalID);
+        addMessage('<div class="agent-error-card"><div class="agent-error-head"><span class="agent-error-glyph" aria-hidden="true">⚠</span><strong>' + esc(tab.title) + ' — run failed</strong></div><div class="agent-error-body">' + esc(value.text || 'The agent request failed.') + '</div><div class="agent-error-hint">Check that the ' + esc(tab.title) + ' CLI is installed and signed in, then send again. Open Terminal to inspect the raw session.</div></div>', terminalID);
         if (typeof window.vampRefreshTerminalCard === 'function') window.vampRefreshTerminalCard(terminalID);
         else scheduleTerminalRender(terminalID);
       } else if (value.eventType === 'permissionRequested') {
@@ -3637,8 +3639,8 @@ if (vampPairFromURL) {
     body.vamp-terminal-mode .stream-card.output-message .stream-caption { margin-bottom: 9px; }
     body:not(.vamp-terminal-mode) .stream-card.output-message { max-height: none; overflow: visible; }
     body:not(.vamp-terminal-mode) .stream-card.output-message .rich-body {
-      max-height: min(46dvh, 440px);
-      overflow: auto;
+      max-height: none;
+      overflow: visible;
       pointer-events: auto;
     }
     .open-terminal-preview {
@@ -4048,10 +4050,10 @@ if (vampPairFromURL) {
     .stream-card-head { min-height: 34px !important; }
     .stream-caption { margin: 7px 0 10px 37px !important; }
     body:not(.vamp-terminal-mode) .stream-card.output-message .rich-body {
-      max-height: min(32dvh, 260px) !important;
+      max-height: none !important;
       padding: 0 0 2px 37px !important;
-      overflow: auto !important;
-      mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
+      overflow: visible !important;
+      mask-image: none !important;
     }
     body:not(.vamp-terminal-mode) .stream-card.output-message.structured-output .rich-body {
       padding-left: 0 !important;
@@ -4331,7 +4333,8 @@ if (vampPairFromURL) {
       .stream-card-actions { gap: 5px !important; }
       .stream-state { font-size: 10px !important; }
       body:not(.vamp-terminal-mode) .stream-card.output-message .rich-body {
-        max-height: min(24dvh, 190px) !important;
+        max-height: none !important;
+        overflow: visible !important;
         padding-left: 0 !important;
       }
       .stream-caption { margin-left: 0 !important; }
@@ -4394,7 +4397,7 @@ if (vampPairFromURL) {
       .tabs { flex-basis: 46px !important; min-height: 46px !important; }
       .mode-switch { flex-basis: 40px !important; min-height: 40px !important; }
       .chat { padding-top: 8px !important; }
-      body:not(.vamp-terminal-mode) .stream-card.output-message .rich-body { max-height: 110px !important; }
+      body:not(.vamp-terminal-mode) .stream-card.output-message .rich-body { max-height: none !important; overflow: visible !important; }
     }
 
     /* When the iOS keyboard opens, the visible viewport is roughly half the
@@ -4437,19 +4440,112 @@ if (vampPairFromURL) {
       backdrop-filter: none !important;
     }
     body.pairing .modal#pair .modal-card {
-      width: min(440px, 100%) !important;
+      width: min(420px, 100%) !important;
       max-height: none !important;
-      padding: 24px !important;
-      border-radius: 20px !important;
+      padding: 28px 24px !important;
+      border-radius: 22px !important;
+      border: 1px solid var(--bc-line) !important;
       background: var(--bc-panel-strong) !important;
-      box-shadow: 0 24px 70px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.08) !important;
+      box-shadow: 0 30px 80px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.06) !important;
+      text-align: center !important;
     }
-    .field-label { display: block; margin: 18px 0 7px; color: var(--bc-secondary); font-size: 12px; font-weight: 650; }
-    #code { width: 100%; min-height: 52px; padding: 0 16px; border: 1px solid var(--bc-line-strong); border-radius: 13px; background: rgba(0,0,0,.28); color: var(--bc-text); font: 650 22px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .22em; text-align: center; }
+    .pair-mark { width: 56px; height: 56px; margin: 0 auto 4px; display: grid; place-items: center; border-radius: 16px; background: var(--bc-raised); border: 1px solid var(--bc-line); color: var(--bc-text); font-size: 27px; }
+    #pair-title { margin-top: 14px !important; font-size: 21px !important; letter-spacing: -.01em !important; }
+    #pair-help { margin: 8px auto 0 !important; max-width: 330px !important; color: var(--bc-secondary) !important; font-size: 13.5px !important; line-height: 1.5 !important; }
+    .field-label { display: block; text-align: center; margin: 22px 0 9px; color: var(--bc-tertiary); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; }
+    #code { width: 100%; min-height: 58px; padding: 0 16px; border: 1px solid var(--bc-line-strong); border-radius: 15px; background: var(--bc-page); color: var(--bc-text); font: 650 26px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .42em; text-indent: .42em; text-align: center; }
     #code:focus-visible { outline: 2px solid var(--bc-text); outline-offset: 3px; }
-    #pair-button { width: 100%; min-height: 48px; margin-top: 16px; border-radius: 13px; background: var(--bc-text); color: var(--bc-page); font-weight: 750; }
+    #pair-button { width: 100%; min-height: 52px; margin-top: 18px; border-radius: 15px; background: var(--bc-text); color: var(--bc-page); font-weight: 750; font-size: 15px; }
     #pair-button:disabled { opacity: .55; }
-    .error:not(:empty) { margin-top: 10px; color: var(--danger); font-size: 13px; }
+    .error:not(:empty) { margin-top: 11px; text-align: center; color: var(--danger); font-size: 13px; }
+
+    /* ============================================================
+       Chat card redesign — calmer, theme-aware surfaces that read in
+       both light and dark. These win over the earlier heavy card
+       styling (gradient boxes, clamped bodies, uppercase captions).
+       ============================================================ */
+
+    /* Assistant response: a calm glass surface, not a heavy gradient box. */
+    .stream-card.output-message.structured-output,
+    .stream-card.output-message:not(.structured-output) {
+      padding: 15px 16px 13px !important;
+      border: 1px solid var(--bc-line) !important;
+      border-radius: var(--bc-radius, 18px) !important;
+      background: var(--bc-panel) !important;
+      box-shadow: none !important;
+      -webkit-backdrop-filter: blur(16px) !important;
+      backdrop-filter: blur(16px) !important;
+    }
+    .stream-card-head { align-items: center !important; gap: 10px !important; min-height: 32px !important; }
+    .stream-card-title { gap: 10px !important; font-weight: 650 !important; font-size: 15px !important; color: var(--bc-text) !important; }
+    .card-glyph { width: 30px !important; height: 30px !important; flex: 0 0 30px !important; border-radius: 9px !important; background: var(--bc-raised) !important; color: var(--bc-secondary) !important; border: 1px solid var(--bc-line) !important; font-size: 15px !important; }
+    .stream-state { font-size: 11px !important; letter-spacing: .01em !important; text-transform: none !important; color: var(--bc-secondary) !important; font-weight: 600 !important; }
+    .stream-state::before { content: '' !important; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--good, #57d69b) !important; margin-right: 6px; vertical-align: middle; }
+    .open-terminal-preview { background: transparent !important; border: 1px solid var(--bc-line-strong) !important; color: var(--bc-secondary) !important; border-radius: 10px !important; font-size: 12px !important; min-height: 30px !important; padding: 0 11px !important; }
+    /* The provider name already labels the card; the "Response" caption is noise. */
+    .stream-caption { display: none !important; }
+    .stream-card.output-message .rich-body { margin-top: 12px !important; padding-left: 0 !important; }
+    .rich-body p { font-size: 15.5px !important; line-height: 1.72 !important; margin: 0 0 13px !important; color: var(--bc-text) !important; }
+    .rich-body p:last-child { margin-bottom: 0 !important; }
+    .inline-code { background: var(--bc-raised) !important; border-color: var(--bc-line) !important; color: var(--bc-text) !important; }
+    .rich-body .rich-code { border: 1px solid var(--bc-line) !important; border-radius: 12px !important; }
+
+    /* Agent reasoning ("process"): a slim, dim accent above the answer. */
+    .rich-thinking { margin: 0 0 14px !important; padding-left: 0 !important; border: 0 !important; border-left: 2px solid var(--bc-line-strong) !important; border-radius: 0 !important; background: transparent !important; overflow: visible !important; }
+    .rich-thinking > summary { list-style: none; cursor: pointer; padding: 2px 0 2px 12px; color: var(--bc-tertiary); font-size: 12px; font-weight: 600; letter-spacing: .01em; display: flex; align-items: center; gap: 7px; min-height: 24px; }
+    .rich-thinking > summary::-webkit-details-marker { display: none; }
+    .rich-thinking > summary::before { content: '✳'; }
+    .rich-thinking[open] > summary { margin-bottom: 6px; }
+    .rich-thinking-body { padding: 0 0 0 12px; color: var(--bc-secondary); font-size: 13px; line-height: 1.55; }
+    .rich-thinking-body p { margin: 0 0 8px; }
+    .rich-thinking-body p:last-child { margin-bottom: 0; }
+
+    /* User message: a compact bubble so the turn reads like a conversation. */
+    .message.user-message { margin: 20px 0 16px !important; }
+    .message.user-message .meta { margin-bottom: 7px !important; color: var(--bc-tertiary) !important; }
+    .message.user-message .body { display: inline-block; background: var(--bc-raised); border: 1px solid var(--bc-line); border-radius: 15px; padding: 10px 14px; font-size: 15.5px; line-height: 1.55; color: var(--bc-text); }
+
+    /* Explore row */
+    .explore-row { color: var(--bc-secondary) !important; }
+    .explore-row .explore-kind { color: var(--bc-text) !important; }
+
+    /* Task-plan card: theme-aware (previously white-on-white in light mode). */
+    .task-plan-card { background: var(--bc-panel) !important; border: 1px solid var(--bc-line) !important; box-shadow: none !important; }
+    .task-plan-header strong, .task-plan-title { color: var(--bc-text) !important; }
+    .task-plan-row { color: var(--bc-secondary) !important; }
+    .task-plan-row.running .task-plan-title { color: var(--bc-text) !important; }
+    .task-plan-row.completed, .task-plan-row.skipped { color: var(--bc-tertiary) !important; }
+    .task-plan-status, .task-plan-progress, .task-plan-chevron { color: var(--bc-secondary) !important; }
+    .task-plan-symbol { color: var(--bc-tertiary) !important; }
+    .task-plan-row.completed .task-plan-symbol { color: var(--good, #57d69b) !important; }
+    .task-plan-row.failed .task-plan-symbol { color: var(--danger, #ff8d85) !important; }
+    .task-plan-detail { color: var(--bc-tertiary) !important; }
+    .task-plan-footer { color: var(--bc-tertiary) !important; }
+    .task-plan-interrupt, .task-plan-resume { border: 1px solid var(--bc-line-strong) !important; color: var(--bc-text) !important; background: var(--bc-raised) !important; }
+
+    /* Approval / permission card: theme-aware. */
+    .command-card { background: var(--bc-panel) !important; border: 1px solid var(--bc-line) !important; box-shadow: none !important; }
+    .command-card .eyebrow { color: var(--bc-text) !important; }
+    .command-card .approval { color: var(--bc-secondary) !important; }
+    .command-card .command { background: var(--bc-page) !important; border: 1px solid var(--bc-line) !important; color: var(--bc-text) !important; }
+    .approval-choice { border: 1px solid var(--bc-line) !important; background: var(--bc-raised) !important; color: var(--bc-text) !important; }
+    .approval-choice.selected { border-color: var(--good, #57d69b) !important; background: color-mix(in srgb, var(--good, #57d69b) 14%, transparent) !important; }
+    .approval-choice strong { color: var(--bc-text) !important; }
+    .approval-choice small { color: var(--bc-secondary) !important; }
+    .approval-choice .choice-number { color: var(--bc-secondary) !important; }
+    .approval-footer .hint { color: var(--bc-secondary) !important; }
+    .approval-footer .confirm { background: var(--bc-text) !important; color: var(--bc-page) !important; }
+
+    /* Error card: a clear, readable failure surface for every provider. */
+    .agent-error-card { margin: 12px 0 20px; padding: 13px 14px; border: 1px solid rgba(255,117,107,.32); border-radius: 15px; background: rgba(255,117,107,.08); }
+    .agent-error-head { display: flex; align-items: center; gap: 8px; color: #ffb4ae; font-size: 14px; font-weight: 700; }
+    .agent-error-glyph { font-size: 15px; }
+    .agent-error-body { margin-top: 8px; color: #f2dede; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .agent-error-hint { margin-top: 9px; color: #c0a3a0; font-size: 12px; line-height: 1.45; }
+    html[data-resolved-theme="light"] .agent-error-card { border-color: rgba(200,40,30,.35); background: rgba(220,70,58,.09); }
+    html[data-resolved-theme="light"] .agent-error-head { color: #b3271b; }
+    html[data-resolved-theme="light"] .agent-error-body { color: #7a2620; }
+    html[data-resolved-theme="light"] .agent-error-hint { color: #8f5751; }
   `;
   document.head.appendChild(browserControlDesign);
 
@@ -4813,9 +4909,16 @@ let latestScrollFrame = 0;
       };
     }
     const response = String(tab.responseText || '');
+    // The agent's reasoning is part of the process, not just the final answer.
+    // Surface it as a dim, native <details> disclosure — open while it is the
+    // only thing streaming, collapsible once the answer starts.
+    const thinking = String(tab.thinkingText || '').trim();
+    const thinkingHtml = thinking
+      ? '<details class="rich-thinking"' + (tab.turnState === 'working' && !response.trim() ? ' open' : '') + '><summary>Thinking</summary><div class="rich-thinking-body">' + renderBlocks(thinking) + '</div></details>'
+      : '';
     if (response.trim()) {
       return {
-        html: renderBlocks(response),
+        html: thinkingHtml + renderBlocks(response),
         state: tab.turnState === 'working' ? 'Working' : 'Ready',
         caption: tab.turnState === 'working' ? 'Streaming response' : 'Response'
       };
@@ -4827,7 +4930,7 @@ let latestScrollFrame = 0;
       return { html: '<div class="rich-empty">Opening terminal…</div>', state: 'Opening', caption: 'Starting session' };
     }
     if (tab.turnState === 'working' || tab.pendingCommand) {
-      return { html: '<div class="rich-empty">' + esc(tab.agent ? tab.title + ' is working…' : 'Running command…') + '</div>', state: 'Working', caption: 'Live activity' };
+      return { html: thinkingHtml + '<div class="rich-empty">' + esc(tab.agent ? tab.title + ' is working…' : 'Running command…') + '</div>', state: 'Working', caption: 'Live activity' };
     }
     const readyMessage = tab.agent
       ? tab.title + ' is ready. Send a message to begin.'
@@ -4992,6 +5095,7 @@ let latestScrollFrame = 0;
       tab.semanticBaseline = tab.semanticText || '';
       tab.responseSemantic = new VampSemanticStream();
       tab.responseText = '';
+      tab.thinkingText = '';
       tab.lastSubmittedCommand = value;
       tab.commandCount = (tab.commandCount || 0) + 1;
     }

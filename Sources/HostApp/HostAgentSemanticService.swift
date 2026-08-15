@@ -133,6 +133,16 @@ final class HostAgentSemanticService: @unchecked Sendable {
         var environment = ProcessInfo.processInfo.environment
         environment["TERM"] = "dumb"
         environment["NO_COLOR"] = "1"
+        // Interpreter-based provider CLIs run through a `#!/usr/bin/env node`
+        // (or python/bun) shebang. Resolving the launcher's own path is not
+        // enough: the interpreter is looked up in the child's PATH at exec
+        // time. A GUI-launched host inherits only a minimal PATH, so
+        // `command-code` (a node script) dies with "env: node: No such file or
+        // directory" while self-contained binaries like opencode keep working.
+        // Give the child the same augmented PATH used to resolve the launcher,
+        // mirroring the PTY (see HostTerminalService) so Chat and Terminal
+        // behave identically.
+        environment["PATH"] = Self.launcherSearchDirectories().joined(separator: ":")
         process.environment = environment
 
         // Install the termination observer before launch so a very short
@@ -318,15 +328,14 @@ final class HostAgentSemanticService: @unchecked Sendable {
         }
     }
 
-    private static func resolveExecutable(_ name: String) -> String? {
+    /// PATH search directories for provider launchers. GUI apps launched by
+    /// launchd do not inherit a login-shell PATH, so a tool installed by
+    /// Homebrew, npm, bun, cargo, or an agent's own installer (e.g. `opencode`
+    /// lands in ~/.opencode/bin) would otherwise look "not installed" even when
+    /// it is present. Used both to resolve the launcher and as the child's
+    /// runtime PATH, so interpreter shebangs resolve too.
+    private static func launcherSearchDirectories() -> [String] {
         let home = NSHomeDirectory()
-        // Start from whatever PATH the host process actually inherited, then add
-        // the conventional install locations. GUI apps launched by launchd do
-        // not inherit a login-shell PATH, so a tool installed by Homebrew, npm,
-        // bun, cargo, or an agent's own installer (e.g. `opencode` lands in
-        // ~/.opencode/bin) would otherwise look "not installed" even when it is
-        // present. This mirrors the PATH the terminal PTY is given so Chat and
-        // Terminal resolve launchers identically.
         let inherited = (ProcessInfo.processInfo.environment["PATH"] ?? "")
             .split(separator: ":").map(String.init)
         let common = [
@@ -342,8 +351,12 @@ final class HostAgentSemanticService: @unchecked Sendable {
             "\(home)/.volta/bin"
         ]
         var seen = Set<String>()
-        let dirs = (inherited + common).filter { seen.insert($0).inserted }
-        return dirs.map { URL(fileURLWithPath: $0).appendingPathComponent(name).path }
+        return (inherited + common).filter { seen.insert($0).inserted }
+    }
+
+    private static func resolveExecutable(_ name: String) -> String? {
+        launcherSearchDirectories()
+            .map { URL(fileURLWithPath: $0).appendingPathComponent(name).path }
             .first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 

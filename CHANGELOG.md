@@ -6,6 +6,31 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 
 ## [Unreleased]
 
+## [2.1.3] - 2026-08-15
+
+### Fixed
+
+- CommandCode (and any interpreter-based agent CLI) now actually answers Chat
+  prompts. The Chat semantic runner launched the resolved agent binary with the
+  app's minimal GUI PATH, so `command-code`'s `#!/usr/bin/env node` shebang died
+  with "env: node: No such file or directory" while self-contained binaries
+  (opencode, claude, codex, grok) kept working. The child now inherits the same
+  augmented PATH used to resolve the launcher, matching the Terminal PTY.
+- Chat responses are no longer clipped to a scrolling middle slice. The browser
+  task-chat and the iOS Chat both render the full agent answer inline and follow
+  the stream, instead of a fixed-height nested scroll.
+
+### Changed
+
+- Surface the agent's reasoning ("thinking") while it works, in both the browser
+  task-chat and the iOS app, so the process is visible rather than only the final
+  answer.
+- Redesign the browser chat cards — calmer, theme-aware glass surfaces with clean
+  headers, readable in both light and dark; clear per-provider error cards; and a
+  redesigned, centered pairing card.
+- New app icons across the suite: a blood-bag mark for the hosts and a fang mark
+  for the clients, full-bleed and premium.
+
 ## [2.1.2] - 2026-08-15
 
 ### Fixed
