@@ -73,7 +73,9 @@ for tool in xcodebuild codesign ditto plutil file shasum python3; do
 done
 
 [[ -d "$PROJECT" ]] || fail "Active Xcode project not found: $PROJECT"
-[[ -d "$ROOT/.git" ]] || fail "Run this script from the Vamp project Git checkout"
+# `.git` is a directory in a normal checkout and a file in a git worktree; accept
+# both so packaging works from a worktree (all git commands below use `git -C`).
+[[ -e "$ROOT/.git" ]] || fail "Run this script from the Vamp project Git checkout"
 
 COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
 if [[ "$ALLOW_DIRTY" -ne 1 ]] && [[ -n "$(git -C "$ROOT" status --porcelain --untracked-files=normal)" ]]; then
