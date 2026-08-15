@@ -1275,7 +1275,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/MacHost-AppStore.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 34;
+			CURRENT_PROJECT_VERSION = 35;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1286,7 +1286,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.1.1;
+				MARKETING_VERSION = 2.1.2;
 				OTHER_LDFLAGS = "$(inherited) -framework AppIntents";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.host;
 				PRODUCT_NAME = "Vamp Host";
@@ -1412,7 +1412,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/MacHost-AppStore.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 34;
+			CURRENT_PROJECT_VERSION = 35;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1423,7 +1423,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.1.1;
+				MARKETING_VERSION = 2.1.2;
 				OTHER_LDFLAGS = "$(inherited) -framework AppIntents";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.host;
 				PRODUCT_NAME = "Vamp Host";
@@ -1488,7 +1488,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminal.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_POINTER_AUTHENTICATION = NO;
-			CURRENT_PROJECT_VERSION = 34;
+			CURRENT_PROJECT_VERSION = 35;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Configuration/VampTerminal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1497,7 +1497,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.1.1;
+				MARKETING_VERSION = 2.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.terminal;
 				PRODUCT_NAME = "Vamp Terminal";
 				SDKROOT = iphoneos;
@@ -1514,7 +1514,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminal.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_POINTER_AUTHENTICATION = NO;
-			CURRENT_PROJECT_VERSION = 34;
+			CURRENT_PROJECT_VERSION = 35;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Configuration/VampTerminal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1523,7 +1523,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.1.1;
+				MARKETING_VERSION = 2.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.terminal;
 				PRODUCT_NAME = "Vamp Terminal";
 				SDKROOT = iphoneos;
@@ -1541,7 +1541,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminalHost.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 34;
+			CURRENT_PROJECT_VERSION = 35;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1552,7 +1552,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.1.1;
+				MARKETING_VERSION = 2.1.2;
 				OTHER_LDFLAGS = "$(inherited) -framework AppIntents";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.terminalhost;
 				PRODUCT_NAME = "Vamp Terminal Host";
@@ -1568,7 +1568,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminalHost.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 34;
+			CURRENT_PROJECT_VERSION = 35;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1579,7 +1579,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 2.1.1;
+				MARKETING_VERSION = 2.1.2;
 				OTHER_LDFLAGS = "$(inherited) -framework AppIntents";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.terminalhost;
 				PRODUCT_NAME = "Vamp Terminal Host";

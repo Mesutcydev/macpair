@@ -6,6 +6,8 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-08-15
+
 ### Fixed
 
 - Enforce browser terminal capacity before opening a tab and roll back pending
@@ -202,7 +204,8 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
-[Unreleased]: https://github.com/Mesutcydev/macpair/compare/v2.1.1...HEAD
+[Unreleased]: https://github.com/Mesutcydev/macpair/compare/v2.1.2...HEAD
+[2.1.2]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.2-build-35
 [2.1.1]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.1-build-34
 [2.1.0]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.0-build-33
 [1.0.10]: https://github.com/Mesutcydev/macpair/compare/v1.0.9...v1.0.10
