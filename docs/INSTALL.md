@@ -5,22 +5,22 @@ four separate install surfaces:
 
 | Surface | Artifact | Use it for |
 | --- | --- | --- |
-| iPhone / iPad | `VampTerminal-iOS-2.1.3-build-37-altstore-unsigned.ipa` | Multi-tab terminal client |
+| iPhone / iPad | `VampTerminal-iOS-2.2.0-build-38-altstore-unsigned.ipa` | Multi-tab terminal client |
 | iPhone / iPad | `VampControl-iOS-3.7.4-build-38-altstore-unsigned.ipa` | Vamp Host remote-control client |
 | macOS | `VampControl-macOS-1.3.17-build-34-adhoc.zip` | Vamp Host remote-control client |
-| macOS | `VampHost-macOS-2.1.3-build-37-adhoc.zip` | Full Vamp Host: remote clients plus optional Terminal Mode |
-| macOS | `VampTerminalHost-macOS-2.1.3-build-37-adhoc.zip` | Terminal-only host with Safari control and Tailscale |
+| macOS | `VampHost-macOS-2.2.0-build-38-adhoc.zip` | Full Vamp Host: remote clients plus optional Terminal Mode |
+| macOS | `VampTerminalHost-macOS-2.2.0-build-38-adhoc.zip` | Terminal-only host with Safari control and Tailscale |
 | Linux | `linux-host/vamp_terminal_host.py` | Browser-only terminal host |
 
 The current downloads are in the [latest Vamp Suite GitHub release](https://github.com/Mesutcydev/macpair/releases/latest).
 
 ## 1. Install the iPhone or iPad client
 
-1. Download the [latest Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.1.3-build-37-altstore-unsigned.ipa) and its `.sha256` file from the same release.
+1. Download the [latest Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.2.0-build-38-altstore-unsigned.ipa) and its `.sha256` file from the same release.
 2. Verify the download:
 
    ```sh
-   shasum -a 256 -c VampTerminal-iOS-2.1.3-build-37-altstore-unsigned.ipa.sha256
+   shasum -a 256 -c VampTerminal-iOS-2.2.0-build-38-altstore-unsigned.ipa.sha256
    ```
 
 3. Import the IPA in AltStore with **+ → Sideload IPA**.
@@ -45,8 +45,8 @@ The current Vamp Control builds are attached to the [latest Vamp Suite release](
 
 Download one of the ad-hoc signed ZIPs:
 
-- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.1.3-build-37-adhoc.zip) for remote display, remote input, remote clients, and optional Terminal Mode.
-- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.1.3-build-37-adhoc.zip) for terminal tabs, Safari control, pairing, and Tailscale only.
+- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.2.0-build-38-adhoc.zip) for remote display, remote input, remote clients, and optional Terminal Mode.
+- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.2.0-build-38-adhoc.zip) for terminal tabs, Safari control, pairing, and Tailscale only.
 
 Then:
 
