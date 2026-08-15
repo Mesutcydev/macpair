@@ -59,14 +59,37 @@ final class HostTerminalService: @unchecked Sendable {
     /// `cat large.txt` and latency for keystroke echo.
     private let readBufferSize = 16 * 1024
 
+    /// How long a detached session's terminals keep running with no client
+    /// attached. Long enough that backgrounding the phone (or a network
+    /// change) for hours never kills work; short enough that abandoned
+    /// shells cannot accumulate on the host forever.
+    /// Step B replaces this with the durable registry's retention policy.
+    let detachedRetentionSeconds: Double
+
+    /// Per-terminal byte budget for the reattach replay buffer. Eight tabs
+    /// at this budget cost at most ~2 MB of host memory.
+    private let reattachReplayByteBudget = 256 * 1024
+
     private var activeTerminals: [UUID: ActiveSession] = [:]
+    /// Sessions whose transport ended but whose terminals keep running.
+    private var detachedSessions: Set<UUID> = []
+    private var detachTimers: [UUID: Task<Void, Never>] = [:]
 
     /// Set by the environment; called whenever the service produces an
     /// outgoing envelope (output chunk or close notice).
     var sendEnvelope: ((DataChannelEnvelope) -> Void)?
 
-    init(workspaceService: HostWorkspaceService? = nil) {
+    /// Durable session registry (step B). Optional so the browser-control
+    /// per-client instances and tests can run without one.
+    var registry: HostSessionRegistry?
+
+    /// Durable semantic journal (step C). Optional for tests/browser
+    /// per-client instances.
+    var journal: HostSessionJournal?
+
+    init(workspaceService: HostWorkspaceService? = nil, detachedRetentionSeconds: Double = 6 * 60 * 60) {
         self.workspaceService = workspaceService
+        self.detachedRetentionSeconds = detachedRetentionSeconds
     }
 
     // MARK: - API
@@ -147,16 +170,73 @@ final class HostTerminalService: @unchecked Sendable {
         }
     }
 
+    /// The transport that served `sessionID` ended. Terminals keep running —
+    /// session ownership is independent of the socket. A reconnect presenting
+    /// the same session and terminal IDs reattaches without spawning shells.
+    /// An abandoned session is torn down after `detachedRetentionSeconds`.
+    func transportDetached(sessionID: UUID) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            guard !self.detachedSessions.contains(sessionID),
+                  self.activeTerminals.values.contains(where: { $0.sessionID == sessionID }) else { return }
+            self.detachedSessions.insert(sessionID)
+            let count = self.activeTerminals.values.filter { $0.sessionID == sessionID }.count
+            let retentionNanos = UInt64(self.detachedRetentionSeconds * 1_000_000_000)
+            self.logger.info("Transport detached — \(count) terminal(s) keep running for session \(sessionID.uuidString)")
+            self.registry?.markSessionDetached(sessionID)
+            self.journal?.append(sessionID: sessionID, type: .sessionDetached, payload: Data())
+            self.detachTimers[sessionID] = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: retentionNanos)
+                guard !Task.isCancelled, let self else { return }
+                self.queue.async {
+                    self.detachTimers.removeValue(forKey: sessionID)
+                    guard self.detachedSessions.contains(sessionID) else { return }
+                    for session in self.activeTerminals.values.filter({ $0.sessionID == sessionID }) {
+                        self._teardown(session, reason: "detached-retention-expired", notifyClient: false)
+                    }
+                    self.detachedSessions.remove(sessionID)
+                    self.logger.info("Detached retention expired — session \\(sessionID.uuidString) terminals torn down")
+                }
+            }
+        }
+    }
+
+    /// A new transport took over `sessionID` — cancel any pending detached
+    /// retention teardown so the reconnecting client can reattach.
+    func transportAttached(sessionID: UUID) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.detachTimers[sessionID]?.cancel()
+            self.detachTimers.removeValue(forKey: sessionID)
+            self.registry?.markSessionAttached(sessionID)
+            self.journal?.append(sessionID: sessionID, type: .sessionAttached, payload: Data())
+            if self.detachedSessions.remove(sessionID) != nil {
+                let count = self.activeTerminals.values.filter { $0.sessionID == sessionID }.count
+                self.logger.info("Transport reattached — \\(count) terminal(s) resume for session \\(sessionID.uuidString)")
+            }
+        }
+    }
+
+    /// Number of live PTYs across all sessions. Diagnostics/tests only;
+    /// synchronous read on the service queue.
+    var activeTerminalCount: Int {
+        queue.sync { activeTerminals.count }
+    }
+
     /// Called by the coordinator when the session ends, the data channel
     /// drops, or the host pipeline resets. Kills the shell and cleans up.
     ///
-    /// A transport/session teardown normally has no live client to notify. A
-    /// feature toggle is different: the authenticated data channel is still
-    /// alive, so the client should receive a close for every tab instead of
-    /// leaving mounted panes looking connected to a dead PTY.
+    /// This is the EXPLICIT teardown path (host quit, Terminal Mode disabled,
+    /// per-tab close): transport loss alone must never reach here — use
+    /// `transportDetached(sessionID:)` for that so backgrounding a client
+    /// cannot kill remote work.
     func sessionDidEnd(notifyClient: Bool = false, reason: String = "session-ended") {
         queue.async { [weak self] in
-            self?._teardownAll(reason: reason, notifyClient: notifyClient)
+            guard let self else { return }
+            for timer in self.detachTimers.values { timer.cancel() }
+            self.detachTimers.removeAll()
+            self.detachedSessions.removeAll()
+            self._teardownAll(reason: reason, notifyClient: notifyClient)
         }
     }
 
@@ -170,13 +250,46 @@ final class HostTerminalService: @unchecked Sendable {
                 logger.warning("Rejecting terminal open with mismatched session for \(message.terminalID.uuidString)")
                 return
             }
-            logger.info("Re-acknowledging terminal \(existing.terminalID.uuidString) on retry")
-            sendReady(for: existing)
+            logger.info("Re-acknowledging terminal \(existing.terminalID.uuidString) on retry/reattach")
+            registry?.markSessionAttached(existing.sessionID)
+            registry?.recordTerminalOpened(
+                HostSessionRegistry.TerminalRecord(
+                    terminalID: existing.terminalID,
+                    workspaceID: existing.workspaceID,
+                    workspacePath: existing.workingDirectory,
+                    cols: existing.cols,
+                    rows: existing.rows,
+                    lastSequence: existing.outputSequence,
+                    state: .running,
+                    createdAt: Date(),
+                    lastActivityAt: Date()
+                ),
+                sessionID: existing.sessionID
+            )
+            sendReady(for: existing, isReopen: true)
+            // Replay the bounded output tail so a reattaching client restores
+            // its screen instead of starting blank. Sequences are preserved,
+            // so a client that already applied these chunks drops them.
+            for entry in existing.recentOutput {
+                let message = TerminalOutputMessage(
+                    sessionID: existing.sessionID,
+                    terminalID: existing.terminalID,
+                    data: entry.data,
+                    sequence: entry.sequence
+                )
+                if let envelope = try? DataChannelEnvelope.terminalOutput(message) {
+                    sendEnvelope?(envelope)
+                }
+            }
             return
         }
 
-        guard activeTerminals.count < Self.maxActiveTerminals else {
-            logger.warning("Rejecting terminal open: capacity limit \(Self.maxActiveTerminals) reached")
+        // Cap terminals per authenticated session. A reconnect reattaching the
+        // same IDs consumes no extra capacity, but one session can never turn
+        // the host into an unbounded process/fd farm.
+        let sameSessionCount = activeTerminals.values.filter { $0.sessionID == message.sessionID }.count
+        guard sameSessionCount < Self.maxActiveTerminals else {
+            logger.warning("Rejecting terminal open: capacity limit \(Self.maxActiveTerminals) reached for session \(message.sessionID.uuidString)")
             sendCloseNotice(
                 sessionID: message.sessionID,
                 terminalID: message.terminalID,
@@ -266,6 +379,24 @@ final class HostTerminalService: @unchecked Sendable {
         )
         activeTerminals[session.terminalID] = session
         logger.info("Spawned PTY shell pid=\(pid) for terminal \(message.terminalID.uuidString)")
+        registry?.upsertSession(session.sessionID)
+        if let payload = try? JSONEncoder().encode(message) {
+            journal?.append(sessionID: session.sessionID, type: .terminalOpened, payload: payload)
+        }
+        registry?.recordTerminalOpened(
+            HostSessionRegistry.TerminalRecord(
+                terminalID: session.terminalID,
+                workspaceID: session.workspaceID,
+                workspacePath: session.workingDirectory,
+                cols: session.cols,
+                rows: session.rows,
+                lastSequence: 0,
+                state: .running,
+                createdAt: Date(),
+                lastActivityAt: Date()
+            ),
+            sessionID: session.sessionID
+        )
 
         // Start consuming the PTY before acknowledging it. A login shell can
         // emit bytes immediately (and a launcher can be sent immediately by
@@ -385,6 +516,13 @@ final class HostTerminalService: @unchecked Sendable {
         } else {
             session.cols = ws.ws_col
             session.rows = ws.ws_row
+            registry?.recordTerminalProgress(
+                sessionID: session.sessionID,
+                terminalID: session.terminalID,
+                lastSequence: session.outputSequence,
+                cols: session.cols,
+                rows: session.rows
+            )
         }
     }
 
@@ -415,6 +553,22 @@ final class HostTerminalService: @unchecked Sendable {
             _ = kill(session.childPID, SIGHUP)
         }
         close(session.masterFD)
+
+        registry?.markTerminalReaped(
+            sessionID: session.sessionID,
+            terminalID: session.terminalID,
+            lastSequence: session.outputSequence
+        )
+        journalTerminalClosed(
+            sessionID: session.sessionID,
+            terminalID: session.terminalID,
+            reason: reason
+        )
+        let sessionStillHasTerminals = activeTerminals.values.contains { $0.sessionID == session.sessionID }
+        if !sessionStillHasTerminals {
+            registry?.removeSession(session.sessionID)
+            journal?.remove(sessionID: session.sessionID)
+        }
 
         if notifyClient {
             sendCloseNotice(
@@ -503,6 +657,25 @@ final class HostTerminalService: @unchecked Sendable {
             if let envelope = try? DataChannelEnvelope.terminalOutput(message) {
                 sendEnvelope?(envelope)
             }
+            // Maintain the bounded reattach tail regardless of whether a
+            // client is currently attached, so a reconnect can restore the
+            // screen instead of starting blank.
+            session.recentOutput.append((session.outputSequence, slice))
+            session.recentOutputBytes += slice.count
+            while session.recentOutputBytes > reattachReplayByteBudget, let oldest = session.recentOutput.first {
+                session.recentOutput.removeFirst()
+                session.recentOutputBytes -= oldest.data.count
+            }
+            // Durable registry progress, throttled so streaming output does
+            // not turn into a disk-write storm (once per 10 s per terminal).
+            if now.timeIntervalSince(session.lastRegistryFlushAt) >= 10.0 {
+                session.lastRegistryFlushAt = now
+                registry?.recordTerminalProgress(
+                    sessionID: session.sessionID,
+                    terminalID: session.terminalID,
+                    lastSequence: session.outputSequence
+                )
+            }
             offset = end
         }
     }
@@ -548,6 +721,17 @@ final class HostTerminalService: @unchecked Sendable {
             self.activeTerminals.removeValue(forKey: terminalID)
             session.readSource?.cancel()
             close(session.masterFD)
+            self.registry?.markTerminalReaped(
+                sessionID: sessionID,
+                terminalID: terminalID,
+                lastSequence: session.outputSequence
+            )
+            self.journalTerminalClosed(sessionID: sessionID, terminalID: terminalID, reason: "shell-exited")
+            let sessionStillHasTerminals = self.activeTerminals.values.contains { $0.sessionID == sessionID }
+            if !sessionStillHasTerminals {
+                self.registry?.removeSession(sessionID)
+                self.journal?.remove(sessionID: sessionID)
+            }
             self.sendCloseNotice(
                 sessionID: sessionID,
                 terminalID: terminalID,
@@ -571,8 +755,30 @@ final class HostTerminalService: @unchecked Sendable {
         }
     }
 
+    /// Appends a `.terminalClosed` semantic event to the durable journal.
+    private func journalTerminalClosed(sessionID: UUID, terminalID: UUID, reason: String) {
+        let message = TerminalCloseMessage(
+            sessionID: sessionID,
+            terminalID: terminalID,
+            exitCode: nil,
+            signal: nil,
+            reason: reason
+        )
+        if let payload = try? JSONEncoder().encode(message) {
+            journal?.append(sessionID: sessionID, type: .terminalClosed, payload: payload)
+        }
+    }
+
     private func sendTaskPlanEvent(_ message: SessionTaskEventMessage) {
-        guard let envelope = try? DataChannelEnvelope.taskPlanEvent(message) else {
+        var sequenced = message
+        if let journal {
+            sequenced.journalSequence = journal.append(
+                sessionID: message.sessionID,
+                type: .taskPlan,
+                payload: (try? JSONEncoder().encode(message)) ?? Data()
+            )
+        }
+        guard let envelope = try? DataChannelEnvelope.taskPlanEvent(sequenced) else {
             logger.error("Could not encode task-plan event")
             return
         }
@@ -581,12 +787,13 @@ final class HostTerminalService: @unchecked Sendable {
 
     // MARK: - Child exec
 
-    private func sendReady(for session: ActiveSession) {
+    private func sendReady(for session: ActiveSession, isReopen: Bool = false) {
         let ready = TerminalReadyMessage(
             sessionID: session.sessionID,
             terminalID: session.terminalID,
             cols: session.cols,
-            rows: session.rows
+            rows: session.rows,
+            isReopen: isReopen
         )
         if let envelope = try? DataChannelEnvelope.terminalReady(ready) {
             logger.info("Dispatching terminal-ready envelope")
@@ -797,6 +1004,12 @@ final class HostTerminalService: @unchecked Sendable {
         var inputBudgetSpent = 0
         var readSource: DispatchSourceRead?
         var reaperTask: Task<Void, Never>?
+        /// Bounded recent output kept for reattach replay. Sequence numbers are
+        /// preserved so a reattaching client can dedupe chunks it already has.
+        var recentOutput: [(sequence: UInt64, data: Data)] = []
+        var recentOutputBytes = 0
+        /// Last time durable registry progress was flushed for this terminal.
+        var lastRegistryFlushAt = Date.distantPast
 
         init(
             sessionID: UUID,

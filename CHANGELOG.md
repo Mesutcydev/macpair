@@ -6,6 +6,22 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 
 ## [Unreleased]
 
+### Added
+
+- Persistent remote sessions: a transport loss now detaches instead of tearing
+  down PTYs, so backgrounding the client, network flaps, or app relaunch never
+  kill remote shells or agents. Reconnects reattach to the same PTYs (stable
+  session/terminal IDs) and replay a bounded, sequence-deduped output tail.
+- Durable host session registry (`HostSessionRegistry`) and bounded semantic
+  event journal (`HostSessionJournal`) under Application Support — the Mac is
+  authoritative across restarts. Raw terminal bytes are never persisted.
+- Resume/sync protocol (`sessionSyncRequest` / `sessionSnapshot` /
+  `sessionSyncEvent`) that replays missed task-plan and agent events exactly
+  once; live semantic messages now carry monotonic `journalSequence` numbers.
+- iOS: suspended-workspace lifecycle (tabs stay mounted), background
+  checkpointing of the journal baseline, and a quiet "Reconnecting" grace
+  state instead of a disconnection flash.
+
 ## [2.1.3] - 2026-08-15
 
 ### Fixed

@@ -106,6 +106,33 @@ final class ClientSessionCoordinator: ObservableObject {
     /// The Mac client uses this to keep its session view mounted during the brief
     /// `.idle` phase produced by `disconnect()` inside a reconnect attempt.
     @Published private(set) var isReconnectInProgress = false
+
+    /// Terminal-session lifecycle, decoupled from the transport state. Views
+    /// react to this instead of inferring end-of-session from socket events:
+    /// a transient transport loss becomes `.suspended` (tabs stay mounted,
+    /// remote shells keep running) while only an explicit user end becomes
+    /// `.ended`.
+    enum TerminalSessionLifecycle: Equatable {
+        case inactive
+        case connecting
+        case active(UUID)
+        case suspended(UUID)
+        case ended
+    }
+
+    @Published private(set) var terminalSessionLifecycle: TerminalSessionLifecycle = .inactive
+    /// The session ID preserved across transport reconnects so the host can
+    /// reattach terminals to the same PTYs instead of spawning new shells.
+    private var resumableSessionID: UUID?
+    /// Highest journal sequence applied for the active session. Live events
+    /// at or below this are duplicates (replay overlap) and are dropped.
+    /// A live event ABOVE `lastApplied + 1` reveals a gap — the coordinator
+    /// requests a sync replay to close it.
+    private var lastAppliedJournalSequence: UInt64 = 0
+    /// Whether the sync request for the current session activation was sent.
+    private var syncRequestedForSessionID: UUID?
+    /// UserDefaults key prefix for the per-session applied journal baseline.
+    private static let journalBaselineKeyPrefix = "client.journal.baseline."
     var currentSessionTokenHex: String? { expectedSessionTokenHex }
     /// Called on MainActor when an audio frame arrives. Set by RemoteDesktopView.
     var onAudioFrame: ((AudioFrameMessage) -> Void)?
@@ -127,6 +154,11 @@ final class ClientSessionCoordinator: ObservableObject {
     /// authenticated session plus terminal ID.
     var onTaskPlanEvent: ((SessionTaskEventMessage) -> Void)?
     var onProviderSemanticEvent: ((ProviderSemanticEventMessage) -> Void)?
+    /// Called on MainActor with the host's authoritative session snapshot
+    /// (step E resume sync).
+    var onSessionSnapshot: ((SessionSnapshotMessage) -> Void)?
+    /// Called on MainActor with one replayed journal event (step E).
+    var onSessionSyncEvent: ((SessionSyncEventMessage) -> Void)?
     var refreshEndpoint: ((ResolvedHostEndpoint) -> ResolvedHostEndpoint?)?
     /// Returns every distinct address we know for the physical host behind an endpoint
     /// (LAN + Tailscale relay sibling), ordered best-first. Used so reconnect can sweep
@@ -317,6 +349,7 @@ final class ClientSessionCoordinator: ObservableObject {
         lastQualityPreset = qualityPreset
 
         phase = .connecting
+        terminalSessionLifecycle = .connecting
         errorMessage = nil
         blockedState = nil
         negotiatedCapabilities = nil
@@ -456,8 +489,24 @@ final class ClientSessionCoordinator: ObservableObject {
 
             // Start listening for signaling messages BEFORE sending the offer
             // so we don't miss the host's answer due to a race.
-            let sessionID = UUID()
+            // Reconnects reuse the prior session ID so the host can reattach
+            // existing PTYs; a deliberate new connect starts a fresh session.
+            let sessionID = isReconnect ? (resumableSessionID ?? UUID()) : UUID()
+            resumableSessionID = sessionID
             activeSessionID = sessionID
+            // A deliberate new session starts a fresh journal baseline; a
+            // reconnect keeps the baseline so replay can resume exactly where
+            // the client left off (including across app relaunches via the
+            // persisted baseline).
+            if !isReconnect {
+                lastAppliedJournalSequence = 0
+                syncRequestedForSessionID = nil
+            } else {
+                lastAppliedJournalSequence = max(
+                    lastAppliedJournalSequence,
+                    persistedJournalBaseline(for: sessionID)
+                )
+            }
             lastAcceptedInboundAuthCounter = 0
             listenForSignalingMessages(sessionID: sessionID, qualityPreset: qualityPreset)
             observeConnectionState(sessionID: sessionID)
@@ -538,6 +587,9 @@ final class ClientSessionCoordinator: ObservableObject {
             if phase == .connecting || phase == .signalingConnected || phase == .negotiating {
                 phase = .error
                 errorMessage = userFacingConnectionError(error, endpoint: endpoint)
+                if terminalSessionLifecycle == .connecting {
+                    terminalSessionLifecycle = .inactive
+                }
             }
             logger.error("Connection failed: \(error.localizedDescription)")
             await eventLogStore.append(EventLogItem(
@@ -668,7 +720,11 @@ final class ClientSessionCoordinator: ObservableObject {
         resumeTask?.cancel()
         resumeTask = nil
         lastEndpoint = nil
+        resumableSessionID = nil
+        lastAppliedJournalSequence = 0
+        syncRequestedForSessionID = nil
         await disconnect()
+        terminalSessionLifecycle = .ended
     }
 
     /// Attempt to re-establish the most recent session — used when the app
@@ -826,6 +882,17 @@ final class ClientSessionCoordinator: ObservableObject {
         let latencyTask = latencyProbeTask
 
         self.activeSessionID = nil
+        // Transient transport end: the terminal workspace stays mounted and
+        // the remote session keeps running. Only `endSession()` (user action)
+        // produces `.ended` and tears tabs down.
+        switch terminalSessionLifecycle {
+        case .active(let sessionID):
+            terminalSessionLifecycle = .suspended(sessionID)
+        case .connecting:
+            terminalSessionLifecycle = .inactive
+        case .inactive, .suspended, .ended:
+            break
+        }
 
         signalingListenTask?.cancel()
         signalingListenTask = nil
@@ -1370,6 +1437,18 @@ final class ClientSessionCoordinator: ObservableObject {
                     if let message = try? envelope.decodeTerminalReady() {
                         guard envelope.sessionID == message.sessionID,
                               message.sessionID == self.activeSessionID else { break }
+                        if let activeSessionID = self.activeSessionID {
+                            self.terminalSessionLifecycle = .active(activeSessionID)
+                            if self.syncRequestedForSessionID != activeSessionID {
+                                self.syncRequestedForSessionID = activeSessionID
+                                // Resume sync (step E): ask the host for the
+                                // snapshot + journaled events we missed.
+                                self.requestSessionSync(
+                                    sessionID: activeSessionID,
+                                    afterSequence: self.lastAppliedJournalSequence
+                                )
+                            }
+                        }
                         self.onTerminalReady?(message)
                     }
                 case .terminalClose:
@@ -1405,14 +1484,36 @@ final class ClientSessionCoordinator: ObservableObject {
                     if let message = try? envelope.decodeTaskPlanEvent(),
                        envelope.sessionID == message.sessionID,
                        message.sessionID == self.activeSessionID {
-                        self.onTaskPlanEvent?(message)
+                        if self.applyJournaledLiveEvent(sequence: message.journalSequence, sessionID: sessionID) {
+                            self.onTaskPlanEvent?(message)
+                        }
                     }
                 case .providerSemanticEvent:
                     guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
                     if let message = try? envelope.decodeProviderSemanticEvent(),
                        envelope.sessionID == message.sessionID,
                        message.sessionID == self.activeSessionID {
-                        self.onProviderSemanticEvent?(message)
+                        if self.applyJournaledLiveEvent(sequence: message.journalSequence, sessionID: sessionID) {
+                            self.onProviderSemanticEvent?(message)
+                        }
+                    }
+                case .sessionSnapshot:
+                    guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
+                    if let message = try? envelope.decodeSessionSnapshot(),
+                       envelope.sessionID == message.sessionID,
+                       message.sessionID == self.activeSessionID {
+                        self.onSessionSnapshot?(message)
+                    }
+                case .sessionSyncEvent:
+                    guard self.acceptAuthenticatedInboundControl(envelope, sessionID: sessionID) else { break }
+                    if let message = try? envelope.decodeSessionSyncEvent(),
+                       envelope.sessionID == message.sessionID,
+                       message.sessionID == self.activeSessionID {
+                        if message.journalSequence > self.lastAppliedJournalSequence {
+                            self.lastAppliedJournalSequence = message.journalSequence
+                            self.persistJournalBaseline(message.journalSequence, sessionID: sessionID)
+                            self.onSessionSyncEvent?(message)
+                        }
                     }
                 default:
                     break
@@ -1468,6 +1569,49 @@ final class ClientSessionCoordinator: ObservableObject {
     func sendClipboardEnvelope(_ envelope: DataChannelEnvelope) {
         guard webRTCSessionManager.connectionState == .connected else { return }
         try? webRTCSessionManager.sendDataMessage(envelope)
+    }
+
+    /// Dedupes a live semantic event against the applied journal baseline.
+    /// - sequence 0 (unsequenced host): always deliver.
+    /// - at/below baseline: duplicate from replay overlap — drop.
+    /// - exactly baseline + 1: deliver and advance.
+    /// - above baseline + 1: gap — request a sync replay and DROP this
+    ///   occurrence; the replay delivers it (and anything missed) in order.
+    private func applyJournaledLiveEvent(sequence: UInt64, sessionID: UUID) -> Bool {
+        guard sequence > 0 else { return true }
+        if sequence <= lastAppliedJournalSequence { return false }
+        if sequence > lastAppliedJournalSequence + 1 {
+            requestSessionSync(sessionID: sessionID, afterSequence: lastAppliedJournalSequence)
+            return false
+        }
+        lastAppliedJournalSequence = sequence
+        persistJournalBaseline(sequence, sessionID: sessionID)
+        return true
+    }
+
+    /// Asks the host for the snapshot plus journaled events after a sequence.
+    private func requestSessionSync(sessionID: UUID, afterSequence: UInt64) {
+        let request = SessionSyncRequestMessage(sessionID: sessionID, afterSequence: afterSequence)
+        if let envelope = try? DataChannelEnvelope.sessionSyncRequest(request) {
+            try? webRTCSessionManager.sendDataMessage(envelope)
+        }
+    }
+
+    /// The journal baseline survives app relaunches so a force-quit + reopen
+    /// can still resume the same session without replaying (or missing) any
+    /// semantic event. Host snapshot state wins on reconnect — this only
+    /// seeds the local replay cursor.
+    func checkpointForBackground() {
+        guard let sessionID = activeSessionID ?? resumableSessionID else { return }
+        persistJournalBaseline(lastAppliedJournalSequence, sessionID: sessionID)
+    }
+
+    private func persistedJournalBaseline(for sessionID: UUID) -> UInt64 {
+        (UserDefaults.standard.object(forKey: Self.journalBaselineKeyPrefix + sessionID.uuidString) as? NSNumber)?.uint64Value ?? 0
+    }
+
+    private func persistJournalBaseline(_ value: UInt64, sessionID: UUID) {
+        UserDefaults.standard.set(NSNumber(value: value), forKey: Self.journalBaselineKeyPrefix + sessionID.uuidString)
     }
 
     /// Terminal opens are created as soon as the workspace mounts, which can

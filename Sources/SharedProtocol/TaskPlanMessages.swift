@@ -248,11 +248,28 @@ public struct SessionTaskEventMessage: Codable, Hashable, Sendable {
     public let sessionID: UUID
     public let terminalID: UUID
     public let event: SessionTaskEvent
+    /// Monotonic host journal sequence (step D). Lets a reconnecting client
+    /// dedupe live events against its last-applied baseline. 0 when the host
+    /// predates sequencing (or the event was never journaled).
+    public var journalSequence: UInt64
 
-    public init(sessionID: UUID, terminalID: UUID, event: SessionTaskEvent) {
+    public init(sessionID: UUID, terminalID: UUID, event: SessionTaskEvent, journalSequence: UInt64 = 0) {
         self.sessionID = sessionID
         self.terminalID = terminalID
         self.event = event
+        self.journalSequence = journalSequence
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sessionID, terminalID, event, journalSequence
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sessionID = try container.decode(UUID.self, forKey: .sessionID)
+        terminalID = try container.decode(UUID.self, forKey: .terminalID)
+        event = try container.decode(SessionTaskEvent.self, forKey: .event)
+        journalSequence = try container.decodeIfPresent(UInt64.self, forKey: .journalSequence) ?? 0
     }
 }
 

@@ -59,12 +59,30 @@ public struct ProviderSemanticEventMessage: Codable, Equatable, Sendable {
     public let terminalID: UUID
     public let provider: AgentProviderKind
     public let event: ProviderSemanticEvent
+    /// Monotonic host journal sequence (step D). Lets a reconnecting client
+    /// dedupe live events against its last-applied baseline. 0 when the host
+    /// predates sequencing (or the event was never journaled).
+    public var journalSequence: UInt64
 
-    public init(sessionID: UUID, terminalID: UUID, provider: AgentProviderKind, event: ProviderSemanticEvent) {
+    public init(sessionID: UUID, terminalID: UUID, provider: AgentProviderKind, event: ProviderSemanticEvent, journalSequence: UInt64 = 0) {
         self.sessionID = sessionID
         self.terminalID = terminalID
         self.provider = provider
         self.event = event
+        self.journalSequence = journalSequence
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sessionID, terminalID, provider, event, journalSequence
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sessionID = try container.decode(UUID.self, forKey: .sessionID)
+        terminalID = try container.decode(UUID.self, forKey: .terminalID)
+        provider = try container.decode(AgentProviderKind.self, forKey: .provider)
+        event = try container.decode(ProviderSemanticEvent.self, forKey: .event)
+        journalSequence = try container.decodeIfPresent(UInt64.self, forKey: .journalSequence) ?? 0
     }
 }
 

@@ -56,12 +56,17 @@ final class HostAgentSemanticService: @unchecked Sendable {
     private let logger = Logger(subsystem: "com.remotedesktop.host", category: "AgentSemantic")
     private var states: [AgentKey: State] = [:]
     var sendEnvelope: ((DataChannelEnvelope) -> Void)?
+    /// Durable semantic journal (step C). Optional for tests/browser instances.
+    var journal: HostSessionJournal?
 
     init(workspaceService: HostWorkspaceService? = nil) {
         self.workspaceService = workspaceService
     }
 
     func handlePrompt(_ message: AgentPromptMessage) {
+        if let payload = try? JSONEncoder().encode(message) {
+            journal?.append(sessionID: message.sessionID, type: .agentPrompt, payload: payload)
+        }
         queue.async { [weak self] in self?._handlePrompt(message) }
     }
 
@@ -257,17 +262,31 @@ final class HostAgentSemanticService: @unchecked Sendable {
     }
 
     private func send(_ event: ProviderSemanticEvent, for message: AgentPromptMessage) {
-        let value = ProviderSemanticEventMessage(
+        var value = ProviderSemanticEventMessage(
             sessionID: message.sessionID,
             terminalID: message.terminalID,
             provider: message.provider,
             event: event
         )
+        if let journal {
+            value.journalSequence = journal.append(
+                sessionID: message.sessionID,
+                type: .providerSemantic,
+                payload: (try? JSONEncoder().encode(value)) ?? Data()
+            )
+        }
         if let envelope = try? DataChannelEnvelope.providerSemanticEvent(value) { sendEnvelope?(envelope) }
     }
 
     private func sendTaskPlan(_ event: SessionTaskEvent, message: AgentPromptMessage) {
-        let value = SessionTaskEventMessage(sessionID: message.sessionID, terminalID: message.terminalID, event: event)
+        var value = SessionTaskEventMessage(sessionID: message.sessionID, terminalID: message.terminalID, event: event)
+        if let journal {
+            value.journalSequence = journal.append(
+                sessionID: message.sessionID,
+                type: .taskPlan,
+                payload: (try? JSONEncoder().encode(value)) ?? Data()
+            )
+        }
         if let envelope = try? DataChannelEnvelope.taskPlanEvent(value) { sendEnvelope?(envelope) }
     }
 

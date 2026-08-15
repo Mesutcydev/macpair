@@ -892,6 +892,10 @@ final class TerminalWorkspaceViewModel: ObservableObject {
     @Published private(set) var activeSessionID: UUID?
     @Published private(set) var lastTerminalError: String?
     @Published private(set) var clipboardStatusMessage: String?
+    /// Session ID the mounted tabs belonged to when the transport suspended.
+    /// If a reconnect presents the same ID, tabs reattach instead of starting
+    /// a fresh workspace.
+    private var suspendedSessionID: UUID?
 
     private let coordinator: ClientSessionCoordinator
     let workspaceStore: VampWorkspaceStore
@@ -925,6 +929,12 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         }
         coordinator.onProviderSemanticEvent = { [weak self] message in
             self?.receiveProviderSemanticEvent(message)
+        }
+        coordinator.onSessionSnapshot = { [weak self] message in
+            self?.receiveSessionSnapshot(message)
+        }
+        coordinator.onSessionSyncEvent = { [weak self] message in
+            self?.receiveSessionSyncEvent(message)
         }
         coordinator.onClipboardSync = { [weak self] message in
             self?.receiveClipboard(message)
@@ -976,9 +986,41 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         }
     }
 
+    /// True while the transport is away but the remote session is NOT over:
+    /// tabs stay mounted, shells keep running on the Mac. The UI shows a
+    /// quiet "Reconnecting…" state instead of declaring the session dead.
+    var isConnectionSuspended: Bool {
+        if case .suspended = coordinator.terminalSessionLifecycle { return true }
+        return coordinator.isReconnectInProgress
+    }
+
     func activate(sessionID: UUID) {
         guard activeSessionID != sessionID else {
             retryOpeningTabs(for: coordinator.phase)
+            return
+        }
+
+        // Reattach branch: tabs survived a transport loss and this is the same
+        // session coming back. Reopen each tab against its preserved terminal
+        // ID — the host re-acknowledges the existing PTY and replays its
+        // bounded output tail instead of spawning a new shell.
+        if suspendedSessionID == sessionID, !tabs.isEmpty {
+            suspendedSessionID = nil
+            activeSessionID = sessionID
+            lastTerminalError = nil
+            clipboardStatusMessage = nil
+            clipboardSync.activate(sessionID: sessionID) { [weak self] envelope in
+                guard let self else { throw WebRTCSessionError.dataChannelUnavailable }
+                try self.coordinator.sendTerminalEnvelope(envelope)
+            }
+            workspaceStore.activate()
+            for tab in tabs {
+                _ = tab.session.reattach(sessionID: sessionID) { [weak coordinator] envelope in
+                    guard let coordinator else { throw WebRTCSessionError.dataChannelUnavailable }
+                    try coordinator.sendTerminalEnvelope(envelope)
+                }
+                scheduleOpeningRetry(for: tab.id)
+            }
             return
         }
 
@@ -993,8 +1035,31 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         workspaceStore.activate()
     }
 
-    /// Clears the workspace when the authenticated connection ends. Shells are
-    /// intentionally not persisted; reconnecting starts a fresh workspace.
+    /// The transport ended without user action. Tabs stay mounted with their
+    /// terminal IDs and backlogs intact; a reconnect with the same session ID
+    /// reattaches them instead of starting fresh.
+    func suspendForReattach() {
+        guard activeSessionID != nil else { return }
+        openingRetryTasks.values.forEach { $0.cancel() }
+        openingRetryTasks.removeAll()
+        viewUpdateTask?.cancel()
+        viewUpdateTask = nil
+        activityFlushTasks.values.forEach { $0.cancel() }
+        activityFlushTasks.removeAll()
+        pendingOutputActivityCounts.removeAll()
+        for tab in tabs {
+            tab.session.suspendForReattach()
+        }
+        suspendedSessionID = activeSessionID
+        activeSessionID = nil
+        clipboardSync.deactivate()
+        clipboardStatusMessage = nil
+    }
+
+    /// Clears the workspace when the session is explicitly ended. Tabs send a
+    /// polite close so the host tears the shells down. Transient transport
+    /// loss must use `suspendForReattach()` instead — reconnecting starts a
+    /// fresh workspace only when there is nothing to reattach.
     func stop() {
         openingRetryTasks.values.forEach { $0.cancel() }
         openingRetryTasks.removeAll()
@@ -1012,6 +1077,7 @@ final class TerminalWorkspaceViewModel: ObservableObject {
         chatObservations.removeAll()
         selectedTabID = nil
         activeSessionID = nil
+        suspendedSessionID = nil
         clipboardSync.deactivate()
         clipboardStatusMessage = nil
     }
@@ -1360,6 +1426,45 @@ final class TerminalWorkspaceViewModel: ObservableObject {
               let tab = tabs.first(where: { $0.session.terminalID == message.terminalID }),
               tab.provider?.semanticProvider == message.provider else { return }
         tab.chat.applyProviderSemanticEvent(message.event, provider: tab.provider)
+    }
+
+    /// Applies one replayed journal event (step E). The coordinator already
+    /// deduped by journal sequence, so this is exactly-once by construction.
+    private func receiveSessionSyncEvent(_ message: SessionSyncEventMessage) {
+        switch message.kind {
+        case "taskPlan":
+            if let event = try? JSONDecoder().decode(SessionTaskEventMessage.self, from: message.payload) {
+                receiveTaskPlanEvent(event)
+            }
+        case "providerSemantic":
+            if let event = try? JSONDecoder().decode(ProviderSemanticEventMessage.self, from: message.payload) {
+                receiveProviderSemanticEvent(event)
+            }
+        case "terminalClosed":
+            // A shell died while the client was away; surface it on the tab.
+            if let event = try? JSONDecoder().decode(TerminalCloseMessage.self, from: message.payload) {
+                receiveClose(event)
+            }
+        default:
+            break
+        }
+    }
+
+    /// Reconciles tabs against the host's authoritative snapshot (step E).
+    /// Reaped terminals that a tab still believes are open are closed, so a
+    /// relaunched client never shows a live pane for a dead shell.
+    private func receiveSessionSnapshot(_ snapshot: SessionSnapshotMessage) {
+        for terminal in snapshot.terminals where terminal.state == "reaped" {
+            guard let tab = tabs.first(where: { $0.session.terminalID == terminal.terminalID }) else { continue }
+            let close = TerminalCloseMessage(
+                sessionID: snapshot.sessionID,
+                terminalID: terminal.terminalID,
+                exitCode: nil,
+                signal: nil,
+                reason: "shell-exited-while-away"
+            )
+            _ = tab.session.receiveClose(close)
+        }
     }
 
     private func receiveClipboard(_ message: ClipboardSyncMessage) {

@@ -95,6 +95,11 @@ struct ClientiOSApp: App {
                 case .background:
                     appLock.handleSceneBackground()
                     if environment.sessionCoordinator.lastEndpoint != nil {
+                        // Checkpoint, don't fight suspension: flush the local
+                        // journal baseline inside iOS's short background
+                        // window. The remote session keeps running on the Mac
+                        // regardless — the socket is a view, not the session.
+                        environment.sessionCoordinator.checkpointForBackground()
                         keepaliveService.begin()
                     }
                 case .inactive:

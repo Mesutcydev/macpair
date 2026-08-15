@@ -67,6 +67,13 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
     case agentPrompt
     /// Host → client: provider-native semantic output for Chat/task cards.
     case providerSemanticEvent
+    /// Client → host: resumable-session sync — replay journaled semantic
+    /// events after the given sequence and send the current snapshot.
+    case sessionSyncRequest
+    /// Host → client: authoritative current session state (step D).
+    case sessionSnapshot
+    /// Host → client: one replayed journal event (step D).
+    case sessionSyncEvent
 
     /// One source of truth for the control-channel authentication contract.
     /// Any kind that can inject input, change host state, read/write host data,
@@ -81,7 +88,8 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
              .workspaceListResponse, .workspaceDirectoryRequest,
              .workspaceDirectoryResponse, .workspaceAccessRequest,
              .workspaceAccessResponse, .taskPlanEvent, .agentPrompt,
-             .providerSemanticEvent:
+             .providerSemanticEvent, .sessionSyncRequest, .sessionSnapshot,
+             .sessionSyncEvent:
             return true
         default:
             return false
@@ -399,6 +407,30 @@ extension DataChannelEnvelope {
             payload: try makeEncoder().encode(message)
         )
     }
+
+    public static func sessionSyncRequest(_ message: SessionSyncRequestMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .sessionSyncRequest,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func sessionSnapshot(_ message: SessionSnapshotMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .sessionSnapshot,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func sessionSyncEvent(_ message: SessionSyncEventMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .sessionSyncEvent,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
 }
 
 // MARK: - Decoding Helpers
@@ -513,6 +545,18 @@ extension DataChannelEnvelope {
 
     public func decodeProviderSemanticEvent() throws -> ProviderSemanticEventMessage {
         try Self.makeDecoder().decode(ProviderSemanticEventMessage.self, from: payload)
+    }
+
+    public func decodeSessionSyncRequest() throws -> SessionSyncRequestMessage {
+        try Self.makeDecoder().decode(SessionSyncRequestMessage.self, from: payload)
+    }
+
+    public func decodeSessionSnapshot() throws -> SessionSnapshotMessage {
+        try Self.makeDecoder().decode(SessionSnapshotMessage.self, from: payload)
+    }
+
+    public func decodeSessionSyncEvent() throws -> SessionSyncEventMessage {
+        try Self.makeDecoder().decode(SessionSyncEventMessage.self, from: payload)
     }
 
     public func decodeWorkspaceListRequest() throws -> WorkspaceListRequestMessage {

@@ -350,12 +350,32 @@ public struct TerminalReadyMessage: Codable, Hashable, Sendable {
     public let terminalID: UUID
     public let cols: UInt16
     public let rows: UInt16
+    /// True when this ready acknowledges a REOPEN of an existing PTY (reattach
+    /// after reconnect). The client uses it to keep its sequence baseline —
+    /// a fresh PTY restarts sequences at 0 and would otherwise be mistaken
+    /// for stale output.
+    public let isReopen: Bool
 
-    public init(sessionID: UUID, terminalID: UUID, cols: UInt16, rows: UInt16) {
+    public init(sessionID: UUID, terminalID: UUID, cols: UInt16, rows: UInt16, isReopen: Bool = false) {
         self.sessionID = sessionID
         self.terminalID = terminalID
         self.cols = cols
         self.rows = rows
+        self.isReopen = isReopen
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sessionID, terminalID, cols, rows, isReopen
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sessionID = try container.decode(UUID.self, forKey: .sessionID)
+        terminalID = try container.decode(UUID.self, forKey: .terminalID)
+        cols = try container.decode(UInt16.self, forKey: .cols)
+        rows = try container.decode(UInt16.self, forKey: .rows)
+        // Older hosts/clients predate this field; treat missing as fresh open.
+        isReopen = try container.decodeIfPresent(Bool.self, forKey: .isReopen) ?? false
     }
 }
 

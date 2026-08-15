@@ -140,6 +140,7 @@ struct VampTerminalWorkspaceView: View {
                 // geometry, so errors cannot move the viewport or composer.
                 VStack(spacing: VampTerminalDesign.space2) {
                     if let message = workspace.lastTerminalError { terminalErrorBanner(message) }
+                    if workspace.isConnectionSuspended { reconnectingBanner() }
                     if let message = workspace.clipboardStatusMessage { clipboardToast(message) }
                 }
                 // Hug the banner's own height and pin it to the top via the
@@ -173,16 +174,23 @@ struct VampTerminalWorkspaceView: View {
                 presentation = .terminal
             }
         }
-        .onChange(of: coordinator.activeSessionID) { _, sessionID in
-            if let sessionID {
+        .onChange(of: coordinator.terminalSessionLifecycle) { _, lifecycle in
+            switch lifecycle {
+            case .active(let sessionID):
                 workspace.activate(sessionID: sessionID)
-            } else {
+            case .suspended:
+                // Transient transport loss: keep tabs mounted, remote shells
+                // keep running on the Mac.
+                workspace.suspendForReattach()
+            case .ended:
+                // Explicit user end: tear tabs down (polite close).
                 workspace.stop()
+            case .connecting, .inactive:
+                break
             }
         }
-        .onDisappear {
-            workspace.stop()
-        }
+        // Navigating away must NOT end the remote session: the workspace
+        // stays mounted and the transport (app-level) keeps running.
         .fullScreenCover(item: $selectedAgentForWorkspace) { provider in
             VampWorkspaceChooserView(
                 store: workspace.workspaceStore,
@@ -285,6 +293,27 @@ struct VampTerminalWorkspaceView: View {
         .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: VampTerminalDesign.cardRadius, style: .continuous))
         .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
         .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: VampGlassPalette.warning.opacity(0.30))
+    }
+
+    /// Quiet grace-state chip: the transport is away but the remote session is
+    /// NOT over. Never flashes "Disconnected" for a brief app-switch or path
+    /// flap — the Mac keeps running and tabs stay mounted.
+    private func reconnectingBanner() -> some View {
+        HStack(spacing: VampTerminalDesign.space2) {
+            ProgressView()
+                .controlSize(.small)
+            Text("Reconnecting to Mac — sessions are still running")
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(VampGlassPalette.inkSecondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, VampTerminalDesign.space3)
+        .padding(.vertical, VampTerminalDesign.space2)
+        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: VampTerminalDesign.cardRadius, style: .continuous))
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: VampGlassPalette.inkSecondary.opacity(0.25))
     }
 
     private func clipboardToast(_ message: String) -> some View {

@@ -24,6 +24,14 @@ import IOKit.pwr_mgt
 import ApplicationServices
 #endif
 
+/// Journal directory for a product: sibling of the session registry's
+/// `sessions/` directory (`<App Support>/<Product>/journal`).
+func sessionRegistryRootURL(registryProductName: String) -> URL {
+    HostSessionRegistry.standardRootURL(productName: registryProductName)
+        .deletingLastPathComponent()
+        .appendingPathComponent("journal", isDirectory: true)
+}
+
 @MainActor
 final class HostAppEnvironment: ObservableObject {
     private let logger = Logger(subsystem: "com.remotedesktop.host", category: "Environment")
@@ -82,6 +90,8 @@ final class HostAppEnvironment: ObservableObject {
     let terminalService: HostTerminalService
     let agentSemanticService: HostAgentSemanticService
     let browserControlService: HostBrowserControlService
+    let sessionRegistry: HostSessionRegistry
+    let sessionJournal: HostSessionJournal
     #endif
 
     private let pathMonitor = NWPathMonitor()
@@ -240,6 +250,27 @@ final class HostAppEnvironment: ObservableObject {
         self.terminalService = HostTerminalService(workspaceService: workspaceService)
         self.agentSemanticService = HostAgentSemanticService(workspaceService: workspaceService)
         self.browserControlService = HostBrowserControlService()
+        // Durable session registry (step B): the Mac is authoritative about
+        // which sessions and PTYs exist — running, detached, or reaped —
+        // even across app restarts.
+        let registryProductName = productMode.isTerminalOnly ? "Terminal Host" : "Vamp Host"
+        let sessionRegistry = HostSessionRegistry(
+            rootURL: HostSessionRegistry.standardRootURL(productName: registryProductName)
+        )
+        sessionRegistry.load()
+        self.sessionRegistry = sessionRegistry
+        self.terminalService.registry = sessionRegistry
+        // Durable semantic journal (step C): bounded, sequence-numbered
+        // history of task-plan, agent, and terminal-lifecycle events per
+        // session so a reconnecting client can replay exactly the delta it
+        // missed. Raw terminal bytes are NOT journaled.
+        let sessionJournal = HostSessionJournal(
+            rootURL: sessionRegistryRootURL(registryProductName: registryProductName)
+        )
+        sessionJournal.load()
+        self.sessionJournal = sessionJournal
+        self.terminalService.journal = sessionJournal
+        self.agentSemanticService.journal = sessionJournal
         #endif
         self.manualLowPowerModeEnabled = storedLowPower
         self.terminalModeEnabled = storedTerminalMode
@@ -404,6 +435,45 @@ final class HostAppEnvironment: ObservableObject {
         self.inputCommandRouter.onAgentPrompt = { [weak agentSemanticService = self.agentSemanticService] message in
             agentSemanticService?.handlePrompt(message)
         }
+        // Resumable-session sync (step D): answer a reconnecting client with
+        // the authoritative snapshot plus a bounded replay of the journaled
+        // semantic events it missed while away.
+        self.inputCommandRouter.onSessionSyncRequest = { [weak self] message in
+            guard let self else { return }
+            let record = self.sessionRegistry.sessionRecord(message.sessionID)
+            let terminals = (record?.terminals ?? []).map { terminal in
+                SessionSnapshotMessage.TerminalSnapshot(
+                    terminalID: terminal.terminalID,
+                    workspaceID: terminal.workspaceID,
+                    workspacePath: terminal.workspacePath,
+                    cols: terminal.cols,
+                    rows: terminal.rows,
+                    state: terminal.state.rawValue,
+                    lastSequence: terminal.lastSequence
+                )
+            }
+            let snapshot = SessionSnapshotMessage(
+                sessionID: message.sessionID,
+                sessionState: record?.state.rawValue ?? "reaped",
+                lastJournalSequence: self.sessionJournal.lastSequence(sessionID: message.sessionID),
+                terminals: terminals
+            )
+            if let envelope = try? DataChannelEnvelope.sessionSnapshot(snapshot) {
+                try? self.webRTCSessionManager.sendDataMessage(envelope)
+            }
+            let events = self.sessionJournal.events(sessionID: message.sessionID, after: message.afterSequence)
+            for event in events {
+                let syncEvent = SessionSyncEventMessage(
+                    sessionID: message.sessionID,
+                    journalSequence: event.sequence,
+                    kind: event.type.rawValue,
+                    payload: event.payload
+                )
+                if let envelope = try? DataChannelEnvelope.sessionSyncEvent(syncEvent) {
+                    try? self.webRTCSessionManager.sendDataMessage(envelope)
+                }
+            }
+        }
         self.inputCommandRouter.onWorkspaceListRequest = { [weak self] message in
             Task { @MainActor [weak self] in
                 guard let self,
@@ -488,9 +558,15 @@ final class HostAppEnvironment: ObservableObject {
                 }
             }
         }
-        self.inputCommandRouter.onSessionEnded = { [weak terminalService = self.terminalService, weak agentSemanticService = self.agentSemanticService] in
-            terminalService?.sessionDidEnd()
-            agentSemanticService?.sessionDidEnd()
+        self.inputCommandRouter.onSessionStarted = { [weak terminalService = self.terminalService] sessionID in
+            terminalService?.transportAttached(sessionID: sessionID)
+        }
+        // Transport loss must NEVER tear remote shells down: mark the session
+        // detached so its PTYs keep running and a reconnect can reattach.
+        // Explicit ends (per-tab close, Terminal Mode off, host quit) reach
+        // the service through sessionDidEnd/handleClose instead.
+        self.inputCommandRouter.onSessionTransportEnded = { [weak terminalService = self.terminalService] sessionID in
+            terminalService?.transportDetached(sessionID: sessionID)
         }
 
         #if os(macOS)
@@ -961,6 +1037,7 @@ final class HostAppEnvironment: ObservableObject {
         // Turning the feature off mid-session must kill any live shell.
         if !isEnabled {
             terminalService.sessionDidEnd(notifyClient: true, reason: "terminal-disabled")
+            agentSemanticService.sessionDidEnd()
         }
         #endif
         Task {

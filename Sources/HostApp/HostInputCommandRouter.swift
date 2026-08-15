@@ -72,6 +72,9 @@ final class HostInputCommandRouter: @unchecked Sendable {
     var onTerminalResize: (@Sendable (TerminalResizeMessage) -> Void)?
     var onTerminalClose: (@Sendable (TerminalCloseMessage) -> Void)?
     var onAgentPrompt: (@Sendable (AgentPromptMessage) -> Void)?
+    /// Resumable-session sync (step D): replay journaled semantic events
+    /// after the requested sequence and push the current snapshot.
+    var onSessionSyncRequest: (@Sendable (SessionSyncRequestMessage) -> Void)?
     /// Workspace discovery is host-local; these callbacks are only reached
     /// after the same authenticated session/timestamp validation as terminal
     /// input, so an unauthenticated peer cannot browse the filesystem.
@@ -79,7 +82,13 @@ final class HostInputCommandRouter: @unchecked Sendable {
     var onWorkspaceDirectoryRequest: (@Sendable (WorkspaceDirectoryRequestMessage) -> Void)?
     var onWorkspaceAccessRequest: (@Sendable (WorkspaceAccessRequestMessage) -> Void)?
     /// Called from `stopListening` so per-session services (terminal, etc.) can clean up.
-    var onSessionEnded: (@Sendable () -> Void)?
+    var onSessionStarted: (@Sendable (UUID) -> Void)?
+    /// Fired when listening stops because the transport session ended, with
+    /// the session ID that was active. Terminals are deliberately NOT torn
+    /// down here — the terminal service detaches them so a reconnect can
+    /// reattach. Explicit teardown (per-tab close, Terminal Mode disabled,
+    /// host quit) reaches the service through its dedicated API instead.
+    var onSessionTransportEnded: (@Sendable (UUID) -> Void)?
 
     private func withLock<T>(_ body: () -> T) -> T {
         lock.lock()
@@ -287,6 +296,8 @@ final class HostInputCommandRouter: @unchecked Sendable {
                     await self.handleTerminalCloseEnvelope(envelope)
                 case .agentPrompt:
                     await self.handleAgentPromptEnvelope(envelope)
+                case .sessionSyncRequest:
+                    await self.handleSessionSyncRequestEnvelope(envelope)
                 case .workspaceListRequest:
                     await self.handleWorkspaceListRequestEnvelope(envelope)
                 case .workspaceDirectoryRequest:
@@ -306,6 +317,7 @@ final class HostInputCommandRouter: @unchecked Sendable {
         traceHandler?("router.startListening")
         #endif
         logger.info("Input router started for session \(sessionID.uuidString)")
+        onSessionStarted?(sessionID)
         Task {
             await eventLogStore.append(EventLogItem(
                 severity: .info,
@@ -325,6 +337,7 @@ final class HostInputCommandRouter: @unchecked Sendable {
         #endif
 
         lock.lock()
+        let endedSessionID = _activeSessionID
         let processed = _commandsProcessed
         let rejected = _commandsRejected
         _activeSessionID = nil
@@ -342,7 +355,9 @@ final class HostInputCommandRouter: @unchecked Sendable {
         // button-up can't leave the Mac stuck dragging after disconnect.
         inputService.releaseHeldPointerButton()
 
-        onSessionEnded?()
+        if let endedSessionID {
+            onSessionTransportEnded?(endedSessionID)
+        }
 
         logger.info("Input router stopped (processed: \(processed), rejected: \(rejected))")
         Task {
@@ -362,7 +377,7 @@ final class HostInputCommandRouter: @unchecked Sendable {
              .clipboardSync, .clipboardRequest,
              .terminalOpen, .terminalInput, .terminalResize, .terminalClose,
              .workspaceListRequest, .workspaceDirectoryRequest,
-             .workspaceAccessRequest, .agentPrompt:
+             .workspaceAccessRequest, .agentPrompt, .sessionSyncRequest:
             return true
         default:
             return false
@@ -481,6 +496,18 @@ final class HostInputCommandRouter: @unchecked Sendable {
             return
         }
         onAgentPrompt?(message)
+    }
+
+    private func handleSessionSyncRequestEnvelope(_ envelope: DataChannelEnvelope) async {
+        guard validateControlEnvelopeAuth(envelope),
+              let activeSessionID = withLock({ _activeSessionID }),
+              let message = try? envelope.decodeSessionSyncRequest(),
+              envelope.sessionID == activeSessionID,
+              message.sessionID == activeSessionID else {
+            rejectCommand(reason: "Invalid session sync request")
+            return
+        }
+        onSessionSyncRequest?(message)
     }
 
     private func handleQualityAdjustEnvelope(_ envelope: DataChannelEnvelope) async {

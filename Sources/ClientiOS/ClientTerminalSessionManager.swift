@@ -70,10 +70,10 @@ final class ClientTerminalSessionManager: ObservableObject {
         self.currentTerminalSize = nil
     }
 
-    func deactivate() {
+    func deactivate(notifyHost: Bool = true) {
         pendingInputRetryTask?.cancel()
         pendingInputRetryTask = nil
-        if let terminalID, let sessionID, (state == .open || state == .opening) {
+        if notifyHost, let terminalID, let sessionID, (state == .open || state == .opening) {
             // Best-effort polite close so the host can teardown the shell.
             let message = TerminalCloseMessage(sessionID: sessionID, terminalID: terminalID, reason: "client-disconnect")
             if let envelope = try? DataChannelEnvelope.terminalClose(message) {
@@ -94,6 +94,47 @@ final class ClientTerminalSessionManager: ObservableObject {
         pendingInput.removeAll(keepingCapacity: true)
         lastRequestedResize = nil
         currentTerminalSize = nil
+    }
+
+    /// The transport ended without user action. Keep the terminal identity,
+    /// startup context, and local output backlog so a reconnect can reattach
+    /// to the same host-side PTY. Deliberately sends NO polite close — the
+    /// remote shell must keep running while this client is away.
+    func suspendForReattach() {
+        pendingInputRetryTask?.cancel()
+        pendingInputRetryTask = nil
+        sessionID = nil
+        sendEnvelope = nil
+        state = .idle
+        // terminalID, startupCommand, workspaceID, workingDirectory,
+        // launchExecutable/Arguments, output backlog, and lastObservedSequence
+        // are intentionally preserved for the reattach.
+    }
+
+    /// Reattaches this tab to its preserved host-side PTY after a reconnect.
+    /// Re-sends TerminalOpen with the same terminal ID; the host acknowledges
+    /// with TerminalReady (isReopen) and replays its bounded output tail,
+    /// which this manager dedupes against `lastObservedSequence`.
+    @discardableResult
+    func reattach(sessionID: UUID, send: @escaping (DataChannelEnvelope) throws -> Void) -> Bool {
+        guard let terminalID else { return false }
+        pendingInputRetryTask?.cancel()
+        pendingInputRetryTask = nil
+        self.sessionID = sessionID
+        self.sendEnvelope = send
+        state = .opening
+        return sendOpen(
+            cols: currentTerminalSize?.cols ?? 80,
+            rows: currentTerminalSize?.rows ?? 24,
+            sessionID: sessionID,
+            terminalID: terminalID,
+            startupCommand: startupCommand,
+            workspaceID: workspaceID,
+            workingDirectory: workingDirectory,
+            launchExecutable: launchExecutable,
+            launchArguments: launchArguments,
+            sendEnvelope: send
+        )
     }
 
     // MARK: - Outgoing
@@ -317,6 +358,11 @@ final class ClientTerminalSessionManager: ObservableObject {
         guard message.sessionID == sessionID,
               message.terminalID == terminalID,
               state == .opening else { return false }
+        if !message.isReopen {
+            // A fresh PTY restarts its output sequence at 0; drop the old
+            // baseline so the new shell's output is not mistaken for stale.
+            lastObservedSequence = 0
+        }
         state = .open
         flushPendingInput()
         return true

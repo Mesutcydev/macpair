@@ -93,6 +93,24 @@ action did not resolve, `7` for a fingerprint mismatch, and `8` on timeout.
 - Terminal-only mode must reject display, pointer, keyboard, microphone, and
   file-transfer commands.
 
+## Persistent sessions (architecture contract)
+
+- A transport disconnect is an ATTACHMENT event, never a session event.
+  Transport loss marks the session detached (`HostTerminalService`); it must
+  never tear down PTYs, agent processes, or task state.
+- The Mac is authoritative. `HostSessionRegistry` (session/terminal metadata)
+  and `HostSessionJournal` (bounded semantic event history with monotonic
+  sequences) persist under `<App Support>/<Product>/sessions` and `…/journal`
+  and survive app restarts. Reconnects reattach to the same PTYs by stable
+  session/terminal IDs and replay missed semantic events via the
+  SESSION_SYNC_REQUEST/SNAPSHOT/SYNC_EVENT data-channel protocol.
+- Raw terminal bytes must NEVER be persisted to disk. They live only in the
+  bounded in-memory reattach buffer in `HostTerminalService`.
+- Semantic events carry monotonic journal sequences; clients dedupe by
+  sequence. Never weaken sequence validation or dedupe logic.
+- Explicit teardown paths are: per-tab close, Terminal Mode disabled, host
+  quit, and detached-retention expiry. Everything else detaches.
+
 ## Source map
 
 - `Sources/HostApp`: full host, light host mode, terminal PTY service, and Safari control
