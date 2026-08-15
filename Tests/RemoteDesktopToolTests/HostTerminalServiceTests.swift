@@ -42,6 +42,18 @@ final class HostTerminalServiceTests: XCTestCase {
         }
     }
 
+    func testBrowserAssetKeepsPairingSurfaceStableAndViewportWorkCoalesced() {
+        let source = BrowserControlWebAssets.indexHTML
+        XCTAssertTrue(source.contains("<body class=\"pairing\">") )
+        XCTAssertTrue(source.contains("class=\"field-label\" for=\"code\""))
+        XCTAssertTrue(source.contains("maxlength=\"6\""))
+        XCTAssertTrue(source.contains("body.pairing .modal#pair"))
+        XCTAssertTrue(source.contains("backdrop-filter: none !important"))
+        XCTAssertTrue(source.contains("const vampScheduleViewportUpdate"))
+        XCTAssertFalse(source.contains("vampContentResizeObserver = new ResizeObserver(() =>"))
+        XCTAssertTrue(source.contains("const existing = new Map([...navigation.querySelectorAll('.tab')"))
+    }
+
     func testBrowserPairingCodeExpiryUsesTheExactLifetimeBoundary() {
         let issuedAt = Date(timeIntervalSince1970: 1_000)
         XCTAssertFalse(HostBrowserPairingCode.isExpired(

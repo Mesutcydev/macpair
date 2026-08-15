@@ -323,11 +323,11 @@ enum VampGlassRole {
     var cornerRadius: CGFloat {
         switch self {
         case .card: return VampTerminalDesign.largeCardRadius
-        case .button: return VampTerminalDesign.controlRadius
-        case .field: return VampTerminalDesign.controlRadius
-        case .icon: return VampTerminalDesign.cardRadius
+        case .button: return 14
+        case .field: return 16
+        case .icon: return 16
         case .toolbar: return 0
-        case .tab: return VampTerminalDesign.controlRadius
+        case .tab: return 12
         case .capsule: return 999
         }
     }
@@ -343,12 +343,12 @@ enum VampGlassRole {
     var materialOpacity: Double {
         switch self {
         case .card: return 0.30
-        case .button: return 0.34
-        case .field: return 0.42
-        case .icon: return 0.42
-        case .toolbar: return 0.30
-        case .tab: return 0.38
-        case .capsule: return 0.44
+        case .button: return 0.38
+        case .field: return 0.34
+        case .icon: return 0.38
+        case .toolbar: return 0.26
+        case .tab: return 0.34
+        case .capsule: return 0.40
         }
     }
 }

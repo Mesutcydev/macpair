@@ -10,11 +10,21 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 
 ### Fixed
 
-- Enforce browser terminal capacity before opening a tab and roll back pending
-  tabs when the host rejects an open request.
+- Stabilize the browser-control workspace by coalescing viewport, resize, scroll,
+  terminal-output, and tab updates so Safari and Chromium no longer visibly flutter
+  during keyboard transitions or streamed terminal output.
+- Keep browser pairing in a stable, opaque dialog with a labeled six-digit field,
+  keyboard submission, inline errors, and an isolated accessibility focus path.
+- Coalesce iOS Terminal workspace invalidations and output activity updates per tab,
+  and stop repeated animated scroll corrections from moving the conversation while
+  output streams.
 
 ### Changed
 
+- Unify Vamp Terminal's iOS Liquid Glass surfaces, control radii, toolbar density,
+  and button treatment across the workspace.
+- Center the iOS composer controls vertically, add a clear ready state for empty Chat,
+  center the empty Terminal state, and show the idle voice action as a mic-only control.
 - Group browser terminal keys and session controls, and size the terminal
   viewport to keep the workspace usable across screen sizes.
 - Make the Vamp Terminal home screen connection-first, with a more subdued
@@ -204,8 +214,8 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
-[Unreleased]: https://github.com/Mesutcydev/macpair/compare/v2.1.2...HEAD
-[2.1.2]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.2-build-35
+[Unreleased]: https://github.com/Mesutcydev/macpair/compare/vamp-suite-2.1.2-build-36...HEAD
+[2.1.2]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.2-build-36
 [2.1.1]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.1-build-34
 [2.1.0]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.0-build-33
 [1.0.10]: https://github.com/Mesutcydev/macpair/compare/v1.0.9...v1.0.10

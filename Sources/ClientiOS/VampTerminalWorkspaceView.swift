@@ -95,6 +95,10 @@ struct VampTerminalWorkspaceView: View {
                             .opacity(workspace.selectedTabID == tab.id ? 1 : 0.001)
                             .id(tab.id)
                         }
+                        if presentation == .terminal, workspace.tabs.isEmpty {
+                            emptyWorkspaceState
+                                .padding(.horizontal, VampTerminalDesign.space4)
+                        }
                     }
                     .frame(maxWidth: .infinity, maxHeight: presentation == .chat ? 0 : .infinity)
                     .opacity(presentation == .chat ? 0 : 1)
@@ -129,10 +133,6 @@ struct VampTerminalWorkspaceView: View {
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .background(Color(uiColor: .systemBackground))
                         }
-                    } else if workspace.tabs.isEmpty {
-                        emptyWorkspaceState
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(Color(uiColor: .systemBackground))
                     }
                 }
 
@@ -442,7 +442,7 @@ struct VampTerminalWorkspaceView: View {
         }
         .padding(.horizontal, VampTerminalDesign.space4)
         .padding(.vertical, VampTerminalDesign.space1)
-        .frame(minHeight: 44)
+        .frame(height: 44)
         .vampGlassSurface(.toolbar, cornerRadius: 0)
         .overlay(alignment: .bottom) {
             Rectangle()
@@ -559,6 +559,7 @@ struct VampTerminalWorkspaceView: View {
                 scrollSelectedTabIntoView(proxy, animated: true)
             }
         }
+        .frame(height: 52)
         .vampGlassSurface(.toolbar, cornerRadius: 0)
         .overlay(alignment: .bottom) {
             Rectangle().fill(VampGlassPalette.ruleStrong).frame(height: 0.5)
@@ -732,12 +733,20 @@ private struct TerminalChatFeedView: View {
 
     @FocusState private var composerFocused: Bool
     @State private var isNearLatest = true
+    @State private var pendingScrollTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     LazyVStack(alignment: .leading, spacing: VampTerminalDesign.space4) {
+                        if chat.blocks.isEmpty {
+                            TerminalChatReadyCard(
+                                title: provider?.sessionDisplayName ?? "Shell",
+                                onOpenTerminal: onOpenTerminal
+                            )
+                            .id("chat-ready")
+                        }
                         ForEach(chat.blocks) { block in
                             TerminalChatBlockView(block: block, provider: provider)
                                 .id(block.id)
@@ -787,11 +796,11 @@ private struct TerminalChatFeedView: View {
                 }
                 .onChange(of: chat.blocks) { _, _ in
                     guard isNearLatest else { return }
-                    scrollToLatestAfterLayout(proxy, animated: true)
+                    scrollToLatestAfterLayout(proxy, animated: false)
                 }
                 .onChange(of: chat.taskPlan) { _, _ in
                     guard isNearLatest else { return }
-                    scrollToLatestAfterLayout(proxy, animated: true)
+                    scrollToLatestAfterLayout(proxy, animated: false)
                 }
                 .onChange(of: chat.pendingApproval) { _, _ in
                     guard let approval = chat.pendingApproval else { return }
@@ -813,6 +822,10 @@ private struct TerminalChatFeedView: View {
                 } action: { _, nearLatest in
                     isNearLatest = nearLatest
                 }
+            }
+            .onDisappear {
+                pendingScrollTask?.cancel()
+                pendingScrollTask = nil
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // The conversation owns the scrolling region. The composer uses
@@ -852,11 +865,11 @@ private struct TerminalChatFeedView: View {
 
     private func scrollToLatestAfterLayout(_ proxy: ScrollViewProxy, animated: Bool) {
         isNearLatest = true
-        DispatchQueue.main.async {
+        pendingScrollTask?.cancel()
+        pendingScrollTask = Task { @MainActor in
+            await Task.yield()
+            guard !Task.isCancelled else { return }
             scrollToLatest(proxy, animated: animated)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
-                scrollToLatest(proxy, animated: false)
-            }
         }
     }
 
@@ -1799,6 +1812,48 @@ private struct VampWorkspaceBrowserView: View {
     }
 }
 
+private struct TerminalChatReadyCard: View {
+    let title: String
+    let onOpenTerminal: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
+            HStack(spacing: VampTerminalDesign.space2) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(VampGlassPalette.good)
+                Text("Ready")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .tracking(1.1)
+                    .foregroundStyle(VampGlassPalette.inkSecondary)
+            }
+            Text(title + " is ready")
+                .font(.system(size: 21, weight: .semibold, design: .rounded))
+                .foregroundStyle(VampGlassPalette.ink)
+            Text(title == "Shell"
+                 ? "Type a command below, or open Terminal for direct shell control."
+                 : "Send a message below to start this session, or open Terminal for direct control.")
+                .font(.subheadline)
+                .foregroundStyle(VampGlassPalette.inkSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(action: onOpenTerminal) {
+                Label("Open Terminal", systemImage: "terminal")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(VampGlassPalette.ink)
+                    .padding(.horizontal, VampTerminalDesign.space3)
+                    .frame(minHeight: VampTerminalDesign.minTapTarget)
+                    .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                    .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
+            }
+            .buttonStyle(VampGlassPressStyle())
+        }
+        .padding(VampTerminalDesign.space5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.largeCardRadius)
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.largeCardRadius, color: VampGlassPalette.good.opacity(0.24))
+        .accessibilityElement(children: .contain)
+    }
+}
+
 private struct TerminalChatBlockView: View {
     let block: TerminalChatStore.Block
     let provider: VampAgentProvider?
@@ -2012,11 +2067,12 @@ private struct TerminalChatComposer: View {
     @State private var showingSpeechError = false
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: VampTerminalDesign.space2) {
+        HStack(alignment: .center, spacing: VampTerminalDesign.space2) {
             Button(action: onOpenTerminal) {
                 Image(systemName: "terminal")
                     .font(.system(size: 15, weight: .semibold))
                     .frame(width: VampTerminalDesign.minTapTarget, height: VampTerminalDesign.minTapTarget)
+                    .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
             .foregroundStyle(VampGlassPalette.inkSecondary)
@@ -2060,6 +2116,7 @@ private struct TerminalChatComposer: View {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 15, weight: .bold))
                     .frame(width: VampTerminalDesign.minTapTarget, height: VampTerminalDesign.minTapTarget)
+                    .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
             .foregroundStyle(VampGlassPalette.inkSecondary)
@@ -2067,13 +2124,10 @@ private struct TerminalChatComposer: View {
 
             Button(action: performPrimaryAction) {
                 Image(systemName: primaryActionSymbol)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(primaryActionForeground)
                     .frame(width: VampTerminalDesign.minTapTarget, height: VampTerminalDesign.minTapTarget)
-                    .background(
-                        primaryActionBackground,
-                        in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous)
-                    )
+                    .background(primaryActionBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .buttonStyle(VampGlassPressStyle())
             .disabled(!isEnabled || (!speech.isRecording && hasDraft && !canSend))
@@ -2082,11 +2136,10 @@ private struct TerminalChatComposer: View {
         .padding(.horizontal, VampTerminalDesign.space2)
         .padding(.vertical, VampTerminalDesign.space2)
         .frame(minHeight: 60)
-        .vampGlassSurface(.field, cornerRadius: VampTerminalDesign.largeCardRadius)
-        .vampGlassOutline(cornerRadius: VampTerminalDesign.largeCardRadius, color: VampGlassPalette.ruleStrong)
+        .vampGlassSurface(.field, cornerRadius: 18)
+        .vampGlassOutline(cornerRadius: 18, color: VampGlassPalette.ruleStrong)
         .padding(.horizontal, VampTerminalDesign.space3)
         .padding(.vertical, VampTerminalDesign.space2)
-        .background(.ultraThinMaterial)
         .onChange(of: speech.errorMessage) { _, message in
             showingSpeechError = message != nil
         }
@@ -2109,14 +2162,14 @@ private struct TerminalChatComposer: View {
 
     private var primaryActionForeground: Color {
         if speech.isRecording { return .white }
-        if hasDraft && canSend { return .black }
+        if hasDraft && canSend { return VampGlassPalette.ink }
         return VampGlassPalette.inkSecondary
     }
 
     private var primaryActionBackground: Color {
         if speech.isRecording { return VampGlassPalette.bad }
-        if hasDraft && canSend { return VampGlassPalette.ink }
-        return Color.primary.opacity(0.10)
+        if hasDraft && canSend { return VampGlassPalette.ink.opacity(0.92) }
+        return .clear
     }
 
     private var primaryActionAccessibilityLabel: String {

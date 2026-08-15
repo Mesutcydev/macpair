@@ -73,6 +73,11 @@ class LinuxHostTests(unittest.TestCase):
         self.assertIn("white-space:pre", browser)
         self.assertIn("crypto.getRandomValues", browser)
         self.assertNotIn("crypto.randomUUID", browser)
+        self.assertIn('id="pair-form"', browser)
+        self.assertIn('maxlength="6"', browser)
+        self.assertIn("function scheduleOutput", browser)
+        self.assertIn("const existing=new Map", browser)
+        self.assertIn("let viewportFrame=0", browser)
 
     def test_browser_tab_capacity_is_preflighted_and_failed_tabs_are_rolled_back(self):
         browser = (Path(__file__).resolve().parents[1] / "linux-host" / "index.html").read_text()

@@ -379,6 +379,7 @@ private struct VampTerminalTrustApprovalCard: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
             Spacer(minLength: 8)
 

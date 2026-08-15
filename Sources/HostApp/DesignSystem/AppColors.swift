@@ -87,5 +87,6 @@ struct AppBackground: View {
             .accessibilityHidden(true)
         }
         .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 }

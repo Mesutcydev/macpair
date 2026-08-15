@@ -890,6 +890,10 @@ final class TerminalWorkspaceViewModel: ObservableObject {
     private var chatObservations: [UUID: AnyCancellable] = [:]
     private var phaseObservation: AnyCancellable?
     private var dataChannelObservation: Task<Void, Never>?
+    private var viewUpdateTask: Task<Void, Never>?
+    private var lastActivityOutputSequence: [UUID: UInt64] = [:]
+    private var pendingOutputActivityCounts: [UUID: Int] = [:]
+    private var activityFlushTasks: [UUID: Task<Void, Never>] = [:]
     private var openingRetryTasks: [UUID: Task<Void, Never>] = [:]
     private var clipboardStatusTask: Task<Void, Never>?
 
@@ -984,6 +988,12 @@ final class TerminalWorkspaceViewModel: ObservableObject {
     func stop() {
         openingRetryTasks.values.forEach { $0.cancel() }
         openingRetryTasks.removeAll()
+        viewUpdateTask?.cancel()
+        viewUpdateTask = nil
+        activityFlushTasks.values.forEach { $0.cancel() }
+        activityFlushTasks.removeAll()
+        pendingOutputActivityCounts.removeAll()
+        lastActivityOutputSequence.removeAll()
         for tab in tabs {
             tab.session.deactivate()
         }
@@ -1267,11 +1277,27 @@ final class TerminalWorkspaceViewModel: ObservableObject {
     private func receiveOutput(_ message: TerminalOutputMessage) {
         for index in tabs.indices where tabs[index].session.receiveOutput(message) {
             tabs[index].chat.appendOutput(message.data, provider: tabs[index].provider)
-            tabs[index].chat.recordActivity("Terminal output received")
+            scheduleOutputActivity(tabID: tabs[index].id, sequence: message.sequence)
             if tabs[index].id != selectedTabID {
                 tabs[index].hasUnreadOutput = true
             }
             return
+        }
+    }
+
+    private func scheduleOutputActivity(tabID: UUID, sequence: UInt64) {
+        guard sequence > (lastActivityOutputSequence[tabID] ?? 0) else { return }
+        lastActivityOutputSequence[tabID] = sequence
+        pendingOutputActivityCounts[tabID, default: 0] += 1
+        guard activityFlushTasks[tabID] == nil else { return }
+        activityFlushTasks[tabID] = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(180))
+            guard !Task.isCancelled, let self else { return }
+            let count = self.pendingOutputActivityCounts.removeValue(forKey: tabID) ?? 0
+            self.activityFlushTasks[tabID] = nil
+            if let tab = self.tabs.first(where: { $0.id == tabID }) {
+                tab.chat.recordActivity(count == 1 ? "Terminal output received" : "Terminal output updated")
+            }
         }
     }
 
@@ -1345,13 +1371,23 @@ final class TerminalWorkspaceViewModel: ObservableObject {
 
     private func observe(session: ClientTerminalSessionManager, tabID: UUID) {
         sessionObservations[tabID] = session.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
+            self?.scheduleViewUpdate()
         }
     }
 
     private func observe(chat: TerminalChatStore, tabID: UUID) {
         chatObservations[tabID] = chat.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
+            self?.scheduleViewUpdate()
+        }
+    }
+
+    private func scheduleViewUpdate() {
+        guard viewUpdateTask == nil else { return }
+        viewUpdateTask = Task { [weak self] in
+            await Task.yield()
+            guard !Task.isCancelled, let self else { return }
+            self.viewUpdateTask = nil
+            self.objectWillChange.send()
         }
     }
 

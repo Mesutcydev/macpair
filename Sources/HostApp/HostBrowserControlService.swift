@@ -1416,7 +1416,7 @@ private extension Data {
     }
 }
 
-private enum BrowserControlWebAssets {
+enum BrowserControlWebAssets {
     static let indexHTML = #"""
 <!doctype html>
 <html lang="en">
@@ -1433,7 +1433,7 @@ private enum BrowserControlWebAssets {
 .tab{min-height:40px}.newtab{min-width:44px;min-height:44px}.quick button{min-height:40px}.composer{z-index:4}.composer input{min-height:44px}.clipboard-wrap{position:relative;flex:0 0 44px;width:44px;min-width:44px;overflow:visible}.clipboard-trigger{box-sizing:border-box;width:44px!important;min-width:44px;padding:0!important;display:flex;align-items:center;justify-content:center;font-size:0!important;overflow:hidden}.clipboard-trigger .clipboard-label{display:none!important}.clipboard-glyph{display:block;width:18px;height:18px;line-height:18px;font-size:19px!important;font-weight:500;text-align:center}.clipboard-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:6;min-width:230px;padding:8px;background:rgba(43,43,43,.96);border:1px solid rgba(255,255,255,.18);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.42);backdrop-filter:blur(18px)}.clipboard-menu.hidden{display:none}.clipboard-menu button{width:100%!important;height:auto!important;min-height:40px;padding:10px 12px;text-align:left;background:transparent;border-radius:9px;font-size:14px}.clipboard-menu button:hover,.clipboard-menu button:focus-visible{background:rgba(255,255,255,.12)}.approval-actions{flex-wrap:wrap}.tab-dot{color:var(--muted);font-size:11px}.tab-dot.open{color:var(--good)}.tab-dot.opening{color:var(--warn)}.modal-card input,.modal-card button{min-height:44px}
 .workspace-list{display:grid;gap:8px;max-height:min(52vh,420px);overflow:auto}.workspace-choice{display:flex!important;flex-direction:column;align-items:flex-start;gap:4px;width:100%;margin:0!important;padding:12px 14px!important;background:rgba(255,255,255,.08)!important;color:#fff!important;text-align:left}.workspace-choice small{color:#aaa;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
 </style></head>
-<body><div class="shell">
+<body class="pairing"><div class="shell">
 <header class="top"><button class="back" id="back" aria-label="Open sessions dashboard" title="Open sessions dashboard" onclick="vampToggleDashboard()">‹</button><div class="title" id="page-title">Task chat</div><div class="state"><span class="dot"></span><span id="state">Pairing</span></div></header>
 <nav class="tabs" id="tabs" aria-label="Terminal tabs"><button class="newtab" id="newtab" aria-label="New terminal">＋</button></nav>
 <nav class="mode-switch" id="mode-switch" aria-label="Session mode"><button id="mode-chat" type="button" aria-pressed="true"><span aria-hidden="true">▤</span> Chat</button><button id="mode-terminal" type="button" aria-pressed="false"><span aria-hidden="true">›_</span> Terminal</button></nav>
@@ -1449,7 +1449,7 @@ private enum BrowserControlWebAssets {
 <div class="terminal-keybar" id="terminal-keybar" aria-label="Terminal controls" aria-hidden="true" hidden><button type="button" data-terminal-key="\u001b">Esc</button><button type="button" data-terminal-key="\u0003">Ctrl-C</button><button type="button" data-terminal-key="\u0009">Tab</button><button type="button" data-terminal-key="\u001b[A">↑</button><button type="button" data-terminal-key="\u001b[B">↓</button><button type="button" data-terminal-key="\u001b[D">←</button><button type="button" data-terminal-key="\u001b[C">→</button></div>
 <div class="composer" id="composer"><div class="clipboard-wrap"><button id="clipboard" class="clipboard-trigger" type="button" title="Clipboard actions" aria-label="Clipboard actions" aria-expanded="false"><span class="clipboard-glyph" aria-hidden="true">⧉</span></button><div id="clipboard-menu" class="clipboard-menu hidden" role="menu" aria-label="Clipboard actions"><button id="paste" type="button" role="menuitem">Paste into terminal</button><button id="copyhost" type="button" role="menuitem">Copy Mac clipboard to Safari</button><button id="sethost" type="button" role="menuitem">Send Safari clipboard to Mac</button></div></div><input id="input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command…"><button id="more" type="button" title="More controls" aria-label="More controls">•••</button><button class="send" id="send" type="button" title="Review command" aria-label="Review command">↑</button></div>
 </div>
-<div class="modal" id="pair"><div class="modal-card"><h2>Open this workspace</h2><p>Scan the QR code from Vamp Host, or enter the six-digit code shown in Settings → Browser control. The code expires after ten minutes.</p><input id="code" inputmode="numeric" maxlength="18" placeholder="000000" aria-label="Pairing code" autocomplete="one-time-code"><div class="error" id="pair-error"></div><button id="pair-button">Pair browser</button></div></div>
+<div class="modal" id="pair" role="dialog" aria-modal="true" aria-labelledby="pair-title"><div class="modal-card"><h2 id="pair-title">Open this workspace</h2><p id="pair-help">Scan the QR code from Vamp Host, or enter the six-digit code shown in Settings → Browser control. The code expires after ten minutes.</p><label class="field-label" for="code">Pairing code</label><input id="code" inputmode="numeric" maxlength="6" placeholder="000000" aria-describedby="pair-help pair-error" autocomplete="one-time-code"><div class="error" id="pair-error" role="alert" aria-live="polite"></div><button id="pair-button" type="button">Pair browser</button></div></div>
 <div class="modal hidden" id="launch-modal"><div class="modal-card more-card"><div class="more-kicker">New session</div><h2 id="launch-title">Choose workspace</h2><p id="launch-copy">Every session keeps its own working directory.</p><div class="workspace-list" id="workspace-list"></div><div class="more-footer"><button id="launch-cancel" class="secondary" type="button">Cancel</button></div></div></div>
 <div class="modal hidden" id="more-modal"><div class="modal-card more-card"><div class="more-kicker">Terminal actions</div><h2>Open a session</h2><p>Start a fresh shell, attach a persistent tmux or screen session, or open a coding agent in a new tab.</p><div class="more-actions"><button id="more-shell" type="button"><span class="provider-mark" style="--provider:#e8e8e8">›_</span><span><b>New shell</b><br><small>Open an independent terminal tab</small></span></button><button id="more-tmux" type="button" class="secondary"><span class="provider-mark" style="--provider:#9dd6ff">▣</span><span><b>Attach / create tmux</b><br><small>Resume a named workspace</small></span></button><button id="more-screen" type="button" class="secondary"><span class="provider-mark" style="--provider:#b8a6ff">▤</span><span><b>Attach screen</b><br><small>Resume a GNU screen session</small></span></button></div><div class="provider-title">Agent launchers</div><div class="provider-grid"><button type="button" data-provider="opencode" style="--provider:#00c8ce"><img class="provider-logo" src="/assets/providers/opencode.png" alt=""><span>OpenCode</span></button><button type="button" data-provider="pi" style="--provider:#f57a48"><span class="provider-mark">π</span><span>Pi</span></button><button type="button" data-provider="commandcode" style="--provider:#b883ff"><span class="provider-mark">⌘</span><span>CommandCode</span></button><button type="button" data-provider="chatgpt" style="--provider:#10a37f"><img class="provider-logo" src="/assets/providers/openai.jpg" alt=""><span>ChatGPT CLI</span></button><button type="button" data-provider="claude" style="--provider:#dc6a42"><img class="provider-logo" src="/assets/providers/claude.jpg" alt=""><span>Claude Code</span></button><button type="button" data-provider="kimi" style="--provider:#4c8dff"><img class="provider-logo" src="/assets/providers/kimi.jpg" alt=""><span>Kimi</span></button><button type="button" data-provider="qwen" style="--provider:#4678f2"><span class="provider-mark">Q</span><span>Qwen Code</span></button><button type="button" data-provider="codex" style="--provider:#10a37f"><img class="provider-logo" src="/assets/providers/openai.jpg" alt=""><span>Codex CLI</span></button><button type="button" data-provider="aider" style="--provider:#66c28c"><span class="provider-mark">A</span><span>Aider</span></button><button type="button" data-provider="grok" style="--provider:#e6a94f"><img class="provider-logo" src="/assets/providers/grok.jpg" alt=""><span>Grok CLI</span></button></div><label class="more-command">Custom command or session<input id="more-command" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tmux attach -t work"></label><div class="more-footer"><button id="appearance-toggle" class="secondary appearance-toggle" type="button">Appearance · System</button><button id="more-cancel" class="secondary" type="button">Cancel</button><button id="more-open" type="button">Open tab</button></div></div></div>
 <script>
@@ -1632,13 +1632,15 @@ const vampTerminalSize = (id = active) => {
   };
 };
 
+let vampChatScrollFrame = 0;
 const vampScrollChatToLatest = () => {
   const content = document.querySelector('.content');
-  if (!content) return;
-  requestAnimationFrame(() => {
+  if (!content || vampChatScrollFrame) return;
+  vampChatScrollFrame = requestAnimationFrame(() => {
+    vampChatScrollFrame = 0;
     // Keep the latest assistant/approval card visible while output streams.
-    // This is deliberately an immediate scroll: a long command must not
-    // queue dozens of overlapping smooth animations in Safari.
+    // Coalescing this work prevents a burst of PTY packets from queueing
+    // competing scroll layouts in Safari.
     content.scrollTop = content.scrollHeight;
   });
 };
@@ -2221,35 +2223,34 @@ const vampResizeTerminal = (id) => {
 
 renderTabs = () => {
   const navigation = $('tabs');
-  navigation.querySelectorAll('.tab').forEach((element) => element.remove());
+  const existing = new Map([...navigation.querySelectorAll('.tab')].map((element) => [element.dataset.id, element]));
+  const visible = new Set();
   order.forEach((id) => {
     const tab = tabs.get(id);
     if (!tab) return;
-    const button = document.createElement('button');
-    button.type = 'button';
+    visible.add(id);
+    const button = existing.get(id) || document.createElement('button');
+    if (!button.parentNode) {
+      button.type = 'button';
+      button.dataset.id = id;
+      button.onclick = (event) => event.target.closest('.close') ? closeTab(id) : selectTab(id);
+      button.oncontextmenu = (event) => {
+        event.preventDefault();
+        const title = prompt('Rename terminal', tabs.get(id)?.title || 'Terminal');
+        if (title && title.trim()) { const current = tabs.get(id); if (current) current.title = title.trim().slice(0, 48); renderTabs(); }
+      };
+      navigation.insertBefore(button, $('newtab'));
+    }
     button.className = 'tab ' + (id === active ? 'active' : '');
-    button.dataset.id = id;
     button.setAttribute('aria-pressed', String(id === active));
     const stateClass = tab.opened ? 'open' : (tab.state || 'opening');
-      button.innerHTML = '<span class="tab-dot ' + stateClass + '" aria-hidden="true">●</span>' +
+    button.innerHTML = '<span class="tab-dot ' + stateClass + '" aria-hidden="true">●</span>' +
       '<span>' + esc(tab.title) + '</span>' +
       (tab.taskPlan && tab.taskPlan.state !== 'completed' && tab.taskPlan.state !== 'cancelled' ? '<span class="tab-plan-progress">' + esc(vampTaskPlanProgress(tab.taskPlan)) + '</span>' : '') +
       (tab.unread ? '<span class="tab-dot" aria-label="Unread output">•</span>' : '') +
       '<span class="close" aria-label="Close">×</span>';
-    button.onclick = (event) => {
-      if (event.target.classList.contains('close')) closeTab(id);
-      else selectTab(id);
-    };
-    button.oncontextmenu = (event) => {
-      event.preventDefault();
-      const title = prompt('Rename terminal', tab.title);
-      if (title && title.trim()) {
-        tab.title = title.trim().slice(0, 48);
-        renderTabs();
-      }
-    };
-    navigation.insertBefore(button, $('newtab'));
   });
+  existing.forEach((button, id) => { if (!visible.has(id)) button.remove(); });
   const selected = navigation.querySelector('.tab.active');
   if (selected) {
     requestAnimationFrame(() => {
@@ -2278,7 +2279,8 @@ renderTabs = () => {
 function renderDashboard() {
   const grid = $('session-grid');
   const count = $('dashboard-count');
-  if (!grid || !count) return;
+  const dashboard = $('dashboard');
+  if (!grid || !count || dashboard?.classList.contains('hidden')) return;
   count.textContent = order.length + ' / 8';
   const status = vampStatus;
   // The WebSocket is the authoritative signal once a browser is paired. The
@@ -2565,10 +2567,14 @@ reviewCommand = () => {
 };
 
 showPair = () => {
+  document.body.classList.add('pairing');
+  const shell = document.querySelector('.shell');
+  shell?.setAttribute('aria-hidden', 'true');
+  if (shell) shell.inert = true;
   $('pair').classList.remove('hidden');
   $('composer').classList.add('hidden');
   $('pair-error').textContent = '';
-  if (!$('pair-button').disabled) $('code').focus();
+  if (!$('pair-button').disabled && !matchMedia('(pointer: coarse)').matches) $('code').focus();
 };
 
 const vampRefreshStatus = async () => {
@@ -2652,6 +2658,10 @@ pair = async (pairingCodeFromURL = null) => {
     const result = await response.json();
     if (!result.token) throw new Error('missing-pair-token');
     token = result.token;
+    document.body.classList.remove('pairing');
+    const shell = document.querySelector('.shell');
+    shell?.removeAttribute('aria-hidden');
+    if (shell) shell.inert = false;
     $('pair').classList.add('hidden');
     $('composer').classList.remove('hidden');
     vampRestoreShellPosition();
@@ -3106,29 +3116,35 @@ $('launch-cancel').onclick = closeLaunchModal;
 $('launch-modal').addEventListener('click', (event) => { if (event.target === $('launch-modal')) closeLaunchModal(); });
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMoreModal(); });
 moreCommand.addEventListener('keydown', (event) => { if (event.key === 'Enter') openMoreTab(moreCommand.value.trim(), null); });
-document.addEventListener('visibilitychange', vampUpdateViewportInset);
-window.addEventListener('resize', () => {
-  vampUpdateViewportInset();
-  cancelAnimationFrame(vampResizeFrame);
-  vampResizeFrame = requestAnimationFrame(() => { if (active) vampResizeTerminal(active); });
-});
-window.visualViewport?.addEventListener('resize', () => {
-  vampUpdateViewportInset();
-  cancelAnimationFrame(vampResizeFrame);
-  vampResizeFrame = requestAnimationFrame(() => { if (active) vampResizeTerminal(active); });
-});
-window.visualViewport?.addEventListener('scroll', vampUpdateViewportInset);
-window.addEventListener('orientationchange', vampUpdateViewportInset);
+$('code').addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); pair(); } });
+$('code').addEventListener('input', () => { $('code').value = $('code').value.replace(/[^0-9٠-٩۰-۹]/g, '').slice(0, 6); });
+let vampViewportFrame = 0;
+let vampViewportDirty = true;
+const vampScheduleViewportUpdate = () => {
+  vampViewportDirty = true;
+  if (vampViewportFrame) return;
+  vampViewportFrame = requestAnimationFrame(() => {
+    vampViewportFrame = 0;
+    if (!vampViewportDirty) return;
+    vampViewportDirty = false;
+    vampUpdateViewportInset();
+    if (active) {
+      cancelAnimationFrame(vampResizeFrame);
+      vampResizeFrame = requestAnimationFrame(() => { vampResizeFrame = 0; vampResizeTerminal(active); });
+    }
+  });
+};
+document.addEventListener('visibilitychange', vampScheduleViewportUpdate);
+window.addEventListener('resize', vampScheduleViewportUpdate, { passive: true });
+window.visualViewport?.addEventListener('resize', vampScheduleViewportUpdate, { passive: true });
+window.visualViewport?.addEventListener('scroll', vampScheduleViewportUpdate, { passive: true });
+window.addEventListener('orientationchange', vampScheduleViewportUpdate, { passive: true });
 if (globalThis.ResizeObserver) {
   const vampContentElement = document.querySelector('.content');
-  const vampContentResizeObserver = new ResizeObserver(() => {
-    vampUpdateViewportInset();
-    cancelAnimationFrame(vampResizeFrame);
-    vampResizeFrame = requestAnimationFrame(() => { if (active) vampResizeTerminal(active); });
-  });
+  const vampContentResizeObserver = new ResizeObserver(vampScheduleViewportUpdate);
   if (vampContentElement) vampContentResizeObserver.observe(vampContentElement);
 }
-vampUpdateViewportInset();
+vampScheduleViewportUpdate();
 if (!$('pair').classList.contains('hidden')) $('composer').classList.add('hidden');
 renderDashboard();
 window.addEventListener('beforeunload', () => ws?.close());
@@ -4411,6 +4427,29 @@ if (vampPairFromURL) {
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
     }
+    body.pairing .shell { visibility: hidden !important; }
+    body.pairing .modal#pair {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 20px !important;
+      background: var(--bc-page) !important;
+      backdrop-filter: none !important;
+    }
+    body.pairing .modal#pair .modal-card {
+      width: min(440px, 100%) !important;
+      max-height: none !important;
+      padding: 24px !important;
+      border-radius: 20px !important;
+      background: var(--bc-panel-strong) !important;
+      box-shadow: 0 24px 70px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.08) !important;
+    }
+    .field-label { display: block; margin: 18px 0 7px; color: var(--bc-secondary); font-size: 12px; font-weight: 650; }
+    #code { width: 100%; min-height: 52px; padding: 0 16px; border: 1px solid var(--bc-line-strong); border-radius: 13px; background: rgba(0,0,0,.28); color: var(--bc-text); font: 650 22px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .22em; text-align: center; }
+    #code:focus-visible { outline: 2px solid var(--bc-text); outline-offset: 3px; }
+    #pair-button { width: 100%; min-height: 48px; margin-top: 16px; border-radius: 13px; background: var(--bc-text); color: var(--bc-page); font-weight: 750; }
+    #pair-button:disabled { opacity: .55; }
+    .error:not(:empty) { margin-top: 10px; color: var(--danger); font-size: 13px; }
   `;
   document.head.appendChild(browserControlDesign);
 
@@ -4594,14 +4633,20 @@ if (vampPairFromURL) {
     requestAnimationFrame(() => { document.documentElement.scrollTop = 0; document.body.scrollTop = 0; window.scrollTo(0, 0); });
   };
   const isNearBottom = () => content.scrollHeight - content.scrollTop - content.clientHeight < 96;
-  const scrollLatest = (force = false) => {
-    if (!force && !isNearBottom()) return;
-    requestAnimationFrame(() => {
-      content.dataset.vampProgrammatic = '1';
-      content.scrollTop = content.scrollHeight;
-      requestAnimationFrame(() => { delete content.dataset.vampProgrammatic; });
-    });
-  };
+let latestScrollFrame = 0;
+   let latestScrollForce = false;
+   const scrollLatest = (force = false) => {
+     if (!force && !isNearBottom()) return;
+     latestScrollForce = latestScrollForce || force;
+     if (latestScrollFrame) return;
+     latestScrollFrame = requestAnimationFrame(() => {
+       latestScrollFrame = 0;
+       latestScrollForce = false;
+       content.dataset.vampProgrammatic = '1';
+       content.scrollTop = content.scrollHeight;
+       requestAnimationFrame(() => { delete content.dataset.vampProgrammatic; });
+     });
+   };
   content.addEventListener('scroll', () => {
     if (!content.dataset.vampProgrammatic) {
       const nearBottom = isNearBottom();

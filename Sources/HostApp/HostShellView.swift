@@ -148,27 +148,6 @@ struct HostShellView: View {
                     .frame(width: 320)
             }
             .alert(
-                environment.pendingTrustPrompt.map { "Allow \($0.displayName)?" } ?? "Allow Client?",
-                isPresented: Binding(
-                    get: { environment.pendingTrustPrompt != nil },
-                    set: { isPresented in
-                        if !isPresented, environment.pendingTrustPrompt != nil {
-                            environment.resolveTrustPrompt(approved: false)
-                        }
-                    }
-                ),
-                presenting: environment.pendingTrustPrompt
-            ) { _ in
-                Button("Reject", role: .destructive) {
-                    environment.resolveTrustPrompt(approved: false)
-                }
-                Button("Approve") {
-                    environment.resolveTrustPrompt(approved: true)
-                }
-            } message: { prompt in
-                Text("Approve pairing for \(prompt.displayName). Fingerprint: \(prompt.fingerprint)")
-            }
-            .alert(
                 environment.fileTransferStore.pendingPrompt.map { "Save \($0.fileName)?" } ?? "Incoming File",
                 isPresented: Binding(
                     get: { environment.fileTransferStore.pendingPrompt != nil },
@@ -379,6 +358,7 @@ private struct HostMinimalDashboard: View {
                     .padding(.trailing, 14)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .zIndex(3)
+                    .allowsHitTesting(false)
             }
         }
         // Keep a stable, screen-safe dashboard frame. The content scrolls instead
