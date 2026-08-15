@@ -71,7 +71,7 @@ for tool in xcodebuild ditto plutil file otool shasum python3 unzip zip; do
 done
 
 [[ -d "$PROJECT" ]] || fail "Active Xcode project not found: $PROJECT"
-[[ -d "$ROOT/.git" ]] || fail "Run this script from the Vamp project Git checkout"
+[[ -e "$ROOT/.git" ]] || fail "Run this script from the Vamp project Git checkout"
 
 COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
 if [[ "$ALLOW_DIRTY" -ne 1 ]] && [[ -n "$(git -C "$ROOT" status --porcelain)" ]]; then
