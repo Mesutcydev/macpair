@@ -1,33 +1,33 @@
 {
   "repository": "Mesutcydev/macpair",
-  "tag": "vamp-suite-2.1.2-build-36",
-  "name": "Vamp Suite 2.1.2 build 36",
-  "url": "https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.2-build-36",
-  "published_at": "2026-08-15T13:12:15Z",
+  "tag": "vamp-suite-2.1.3-build-37",
+  "name": "Vamp Suite 2.1.3 build 37",
+  "url": "https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.3-build-37",
+  "published_at": "2026-08-15T21:25:24Z",
   "assets": {
     "vamp-host": {
-      "name": "VampHost-macOS-2.1.2-build-36-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.1.2-build-36/VampHost-macOS-2.1.2-build-36-adhoc.zip",
-      "label": "2.1.2 \u00b7 build 36"
+      "name": "VampHost-macOS-2.1.3-build-37-adhoc.zip",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.1.3-build-37/VampHost-macOS-2.1.3-build-37-adhoc.zip",
+      "label": "2.1.3 \u00b7 build 37"
     },
     "vamp-terminal-host": {
-      "name": "VampTerminalHost-macOS-2.1.2-build-36-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.1.2-build-36/VampTerminalHost-macOS-2.1.2-build-36-adhoc.zip",
-      "label": "2.1.2 \u00b7 build 36"
+      "name": "VampTerminalHost-macOS-2.1.3-build-37-adhoc.zip",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.1.3-build-37/VampTerminalHost-macOS-2.1.3-build-37-adhoc.zip",
+      "label": "2.1.3 \u00b7 build 37"
     },
     "vamp-terminal-ios": {
-      "name": "VampTerminal-iOS-2.1.2-build-36-altstore-unsigned.ipa",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.1.2-build-36/VampTerminal-iOS-2.1.2-build-36-altstore-unsigned.ipa",
-      "label": "2.1.2 \u00b7 build 36"
+      "name": "VampTerminal-iOS-2.1.3-build-37-altstore-unsigned.ipa",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.1.3-build-37/VampTerminal-iOS-2.1.3-build-37-altstore-unsigned.ipa",
+      "label": "2.1.3 \u00b7 build 37"
     },
     "vamp-control-ios": {
       "name": "VampControl-iOS-3.7.4-build-38-altstore-unsigned.ipa",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.1.2-build-36/VampControl-iOS-3.7.4-build-38-altstore-unsigned.ipa",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.1.3-build-37/VampControl-iOS-3.7.4-build-38-altstore-unsigned.ipa",
       "label": "3.7.4 \u00b7 build 38"
     },
     "vamp-control-macos": {
       "name": "VampControl-macOS-1.3.17-build-34-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.1.2-build-36/VampControl-macOS-1.3.17-build-34-adhoc.zip",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.1.3-build-37/VampControl-macOS-1.3.17-build-34-adhoc.zip",
       "label": "1.3.17 \u00b7 build 34"
     }
   }
