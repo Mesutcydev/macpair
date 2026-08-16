@@ -6,7 +6,7 @@ four separate install surfaces:
 | Surface | Artifact | Use it for |
 | --- | --- | --- |
 | iPhone / iPad | `VampTerminal-iOS-2.2.0-build-38-altstore-unsigned.ipa` | Multi-tab terminal client |
-| iPhone / iPad | `VampControl-iOS-3.7.5-build-39-altstore-unsigned.ipa` | Vamp Host remote-control client |
+| iPhone / iPad | `VampControl-iOS-3.7.5-build-40-altstore-unsigned.ipa` | Vamp Host remote-control client |
 | macOS | `VampControl-macOS-1.3.19-build-37-adhoc.zip` | Vamp Host remote-control client |
 | macOS | `VampHost-macOS-2.2.0-build-38-adhoc.zip` | Full Vamp Host: remote clients plus optional Terminal Mode |
 | macOS | `VampTerminalHost-macOS-2.2.0-build-38-adhoc.zip` | Terminal-only host with Safari control and Tailscale |
@@ -36,8 +36,8 @@ profile is distributed.
 
 The current Vamp Control builds are attached to the [latest Vamp Suite release](https://github.com/Mesutcydev/macpair/releases/latest):
 
-- [iOS IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-iOS-3.7.5-build-39-altstore-unsigned.ipa) — unsigned; import with AltStore or another compatible sideloader.
-- [iOS checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-iOS-3.7.5-build-39-altstore-unsigned.ipa.sha256)
+- [iOS IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-iOS-3.7.5-build-40-altstore-unsigned.ipa) — unsigned; import with AltStore or another compatible sideloader.
+- [iOS checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-iOS-3.7.5-build-40-altstore-unsigned.ipa.sha256)
 - [macOS ZIP](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-macOS-1.3.19-build-37-adhoc.zip) — unzip and move Vamp Control to Applications.
 - [macOS checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-macOS-1.3.19-build-37-adhoc.zip.sha256)
 
