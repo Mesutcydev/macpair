@@ -26,6 +26,47 @@ enum PR {
     static let r12: CGFloat = 16
 }
 
+/// User-selectable accent palette. The root view applies the chosen color as
+/// `.tint`, and every `PR.accent` (which reads `Color.accentColor`) follows
+/// automatically — no per-screen theming needed.
+enum PRPalette: String, CaseIterable, Identifiable {
+    case blood
+    case ice
+    case ember
+    case plasma
+    case venom
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .blood:  return "blood"
+        case .ice:    return "ice"
+        case .ember:  return "ember"
+        case .plasma: return "plasma"
+        case .venom:  return "venom"
+        }
+    }
+
+    var hex: UInt32 {
+        switch self {
+        case .blood:  return 0xE5484D
+        case .ice:    return 0x35C6D3
+        case .ember:  return 0xF59E0B
+        case .plasma: return 0x8B5CF6
+        case .venom:  return 0x30D158
+        }
+    }
+
+    var color: Color { Color(hex: hex) }
+
+    static let storageKey = "client.ui.palette"
+
+    static var selected: PRPalette {
+        PRPalette(rawValue: UserDefaults.standard.string(forKey: storageKey) ?? "") ?? .blood
+    }
+}
+
 /// A restrained, neutral canvas behind every system-rendered glass surface.
 ///
 /// Clear Liquid Glass needs real spatial detail behind it to refract. The grid

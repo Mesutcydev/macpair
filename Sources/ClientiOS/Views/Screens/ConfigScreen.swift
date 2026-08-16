@@ -14,6 +14,7 @@ struct ConfigScreen: View {
     @ObservedObject private var sessionCoordinator: ClientSessionCoordinator
     @Environment(\.openURL) private var openURL
     @AppStorage("client.ui.whiteMode") private var whiteModeEnabled = false
+    @AppStorage(PRPalette.storageKey) private var paletteRaw = PRPalette.blood.rawValue
     @AppStorage("client.ui.inlineStreamPreview") private var inlineStreamPreview = false
     @AppStorage("client.ui.streamingUITheme") private var streamingUITheme = "classic"
     @AppStorage("client.liveActivity.enabled") private var liveActivityEnabled = true
@@ -42,6 +43,21 @@ struct ConfigScreen: View {
                             qualityButton(.quality, label: "quality", hint: "sharp · 60 fps")
                             qualityButton(.ultra, label: "ultra", hint: "native · 60 fps")
                         }
+                    }
+
+                    PRCard("color palette") {
+                        LazyVGrid(
+                            columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())],
+                            spacing: 8
+                        ) {
+                            ForEach(PRPalette.allCases) { palette in
+                                paletteButton(palette)
+                            }
+                        }
+                        Text("applies everywhere — buttons, toggles, stream chrome, and the header glow")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(PR.dim)
+                            .padding(.top, 6)
                     }
 
                     PRCard("runtime") {
@@ -385,6 +401,40 @@ struct ConfigScreen: View {
             get: { environment.showsStatsOverlay },
             set: { environment.showsStatsOverlay = $0 }
         )
+    }
+
+    private func paletteButton(_ palette: PRPalette) -> some View {
+        let active = palette.rawValue == paletteRaw
+        return Button {
+            paletteRaw = palette.rawValue
+            AppHaptics.selection()
+        } label: {
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(palette.color)
+                    .frame(width: 14, height: 14)
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
+                Text(palette.title)
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundColor(active ? PR.accent : PR.fg)
+                Spacer(minLength: 0)
+                if active {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(palette.color)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(active ? palette.color.opacity(0.12) : PR.bg2)
+            .overlay(
+                RoundedRectangle(cornerRadius: PR.r8)
+                    .strokeBorder(active ? palette.color.opacity(0.55) : PR.border)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: PR.r8))
+        }
+        .buttonStyle(.plain)
     }
 
     private var lowPowerBinding: Binding<Bool> {
