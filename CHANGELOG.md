@@ -4,6 +4,23 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-08-16
+
+### Changed
+
+- Unified suite versioning: Vamp Host, Vamp Terminal Host, Vamp Terminal
+  (iOS), Vamp Control (iOS + macOS), and the Linux companion now all report
+  **2.3.0 (build 41)** so the family reads as one release line.
+- Vamp Control (iOS + macOS): new app icon and splash mark.
+
+### Fixed
+
+- Vamp Control iOS: color palette selection now repaints the whole app
+  immediately. The accent was a cached static color that never followed the
+  runtime tint; it now resolves fresh from a published palette manager.
+- Vamp Control iOS: added 17 accent palettes with a colorless glass option
+  as the default.
+
 ## [Unreleased]
 
 ### Fixed
