@@ -13,8 +13,8 @@ struct ConfigScreen: View {
     @ObservedObject private var hostsVM: HostsListViewModel
     @ObservedObject private var sessionCoordinator: ClientSessionCoordinator
     @Environment(\.openURL) private var openURL
+    @EnvironmentObject private var paletteManager: PaletteManager
     @AppStorage("client.ui.whiteMode") private var whiteModeEnabled = false
-    @AppStorage(PRPalette.storageKey) private var paletteRaw = PRPalette.blood.rawValue
     @AppStorage("client.ui.inlineStreamPreview") private var inlineStreamPreview = false
     @AppStorage("client.ui.streamingUITheme") private var streamingUITheme = "classic"
     @AppStorage("client.liveActivity.enabled") private var liveActivityEnabled = true
@@ -404,9 +404,9 @@ struct ConfigScreen: View {
     }
 
     private func paletteButton(_ palette: PRPalette) -> some View {
-        let active = palette.rawValue == paletteRaw
+        let active = paletteManager.selected == palette
         return Button {
-            paletteRaw = palette.rawValue
+            paletteManager.selected = palette
             AppHaptics.selection()
         } label: {
             HStack(spacing: 7) {
@@ -484,6 +484,7 @@ struct ConfigScreen: View {
         environment: ClientAppEnvironment.makeDefault(clientName: "Vamp Control"),
         appLock: AppLockService()
     )
+    .environmentObject(PaletteManager.shared)
 }
 
 // MARK: - Vamp Host promo + explainer

@@ -11,14 +11,10 @@ import SharedModels
 struct RootTabView: View {
     @ObservedObject var environment: ClientAppEnvironment
     let appLock: AppLockService
+    @ObservedObject private var paletteManager = PaletteManager.shared
     @AppStorage("client.ui.whiteMode") private var whiteModeEnabled = false
-    @AppStorage(PRPalette.storageKey) private var paletteRaw = PRPalette.blood.rawValue
     @AppStorage("hasOnboarded") private var hasOnboarded = false
     @State private var showWelcome = false
-
-    private var palette: PRPalette {
-        PRPalette(rawValue: paletteRaw) ?? .blood
-    }
 
     var body: some View {
         ZStack {
@@ -36,10 +32,11 @@ struct RootTabView: View {
             }
         }
         .preferredColorScheme(whiteModeEnabled ? .light : .dark)
-        // The chosen color palette becomes the app-wide accent: PR.accent reads
-        // Color.accentColor, which SwiftUI resolves from this tint everywhere,
-        // including sheets and the fullscreen stream.
-        .tint(palette.color)
+        // The chosen palette repaints the whole tree: PR.accent resolves from
+        // the observed manager on every access, and this tint keeps native
+        // controls (switches, links, spinners) in the same color.
+        .tint(paletteManager.selected.color)
+        .environmentObject(paletteManager)
         .task {
             CrashSafeStartupDiagnostics.mark("root.startup.begin")
             if !hasOnboarded {

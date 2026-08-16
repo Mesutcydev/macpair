@@ -16,8 +16,11 @@ enum PR {
     static let fg2 = Color.secondary
     static let dim = Color.secondary.opacity(0.68)
 
-    static let accent = Color.accentColor
-    static let accent2 = Color.accentColor
+    /// Accent is resolved fresh from the palette manager on every access.
+    /// `static let` here would cache the first environment-resolved value and
+    /// freeze the app on the launch color — the original palette bug.
+    static var accent: Color { PaletteManager.shared.selected.color }
+    static var accent2: Color { PaletteManager.shared.selected.color }
     static let warn = Color.orange
     static let err = Color.red
 
@@ -26,44 +29,82 @@ enum PR {
     static let r12: CGFloat = 16
 }
 
-/// User-selectable accent palette. The root view applies the chosen color as
-/// `.tint`, and every `PR.accent` (which reads `Color.accentColor`) follows
-/// automatically — no per-screen theming needed.
+/// User-selectable accent palette. `glass` (colorless) is the default;
+/// picking any palette repaints the accent app-wide without a restart.
 enum PRPalette: String, CaseIterable, Identifiable {
+    case glass
     case blood
+    case rose
+    case coral
+    case amber
+    case gold
+    case lime
+    case green
+    case mint
     case ice
-    case ember
-    case plasma
-    case venom
+    case sky
+    case blue
+    case indigo
+    case violet
+    case purple
+    case fuchsia
+    case pink
 
     var id: String { rawValue }
 
-    var title: String {
-        switch self {
-        case .blood:  return "blood"
-        case .ice:    return "ice"
-        case .ember:  return "ember"
-        case .plasma: return "plasma"
-        case .venom:  return "venom"
-        }
-    }
+    var title: String { rawValue }
 
     var hex: UInt32 {
         switch self {
+        case .glass:  return 0xF5F5F7
         case .blood:  return 0xE5484D
+        case .rose:   return 0xF43F5E
+        case .coral:  return 0xF9703E
+        case .amber:  return 0xF59E0B
+        case .gold:   return 0xEAB308
+        case .lime:   return 0x84CC16
+        case .green:  return 0x22C55E
+        case .mint:   return 0x2DD4BF
         case .ice:    return 0x35C6D3
-        case .ember:  return 0xF59E0B
-        case .plasma: return 0x8B5CF6
-        case .venom:  return 0x30D158
+        case .sky:    return 0x38BDF8
+        case .blue:   return 0x3B82F6
+        case .indigo: return 0x6366F1
+        case .violet: return 0x8B5CF6
+        case .purple: return 0xA855F7
+        case .fuchsia: return 0xD946EF
+        case .pink:   return 0xEC4899
         }
     }
 
-    var color: Color { Color(hex: hex) }
+    /// The colorless option adapts to the active scheme: near-black on light,
+    /// bright neutral on dark — reads as untinted Liquid Glass.
+    var color: Color {
+        switch self {
+        case .glass:
+            return Color.dynamic(light: 0x1A1A1A, dark: 0xF5F5F7)
+        default:
+            return Color(hex: hex)
+        }
+    }
 
     static let storageKey = "client.ui.palette"
+}
 
-    static var selected: PRPalette {
-        PRPalette(rawValue: UserDefaults.standard.string(forKey: storageKey) ?? "") ?? .blood
+/// Single source of truth for the selected palette. Published so every view
+/// that renders `PR.accent` (and the root `.tint`) repaints when it changes.
+final class PaletteManager: ObservableObject {
+    static let shared = PaletteManager()
+
+    @Published var selected: PRPalette {
+        didSet {
+            UserDefaults.standard.set(selected.rawValue, forKey: PRPalette.storageKey)
+        }
+    }
+
+    init() {
+        selected = PRPalette(
+            rawValue: UserDefaults.standard.string(forKey: PRPalette.storageKey) ?? ""
+        ) ?? .glass
     }
 }
 
