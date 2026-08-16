@@ -1,4 +1,5 @@
 import CoreGraphics
+import SharedUtilities
 import XCTest
 
 final class SessionControlBarLayoutTests: XCTestCase {
@@ -49,5 +50,13 @@ final class SessionControlBarLayoutTests: XCTestCase {
             expanded,
             26 + SessionControlBarMetrics.pillHeight + 120 + SessionControlBarMetrics.expandedSectionSpacing
         )
+    }
+
+    func testDisplayModeMenuExposesFitDisplayAsFirstClassOption() {
+        let titles = DisplayMappingEngine.DisplayMode.allCases.map(\.title)
+        XCTAssertTrue(titles.contains("Fit Display"))
+        XCTAssertTrue(titles.contains("Fill Screen"))
+        XCTAssertTrue(titles.contains("Actual Size"))
+        XCTAssertEqual(DisplayMappingEngine.DisplayMode.fitDisplay.title, "Fit Display")
     }
 }

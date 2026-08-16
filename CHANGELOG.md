@@ -6,6 +6,14 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 
 ## [Unreleased]
 
+### Fixed
+
+- Vamp Control macOS: Fit Display is a labeled top-bar control again. It used
+  to live in an unlabeled icon menu packed into the same toolbar item as
+  Screen AI, so hovering Screen AI showed “Fit display” and the sizing button
+  looked missing. Fit Display, Fill Window, and Actual Size are also under
+  View (⌘0 / ⌘1 / ⌘2).
+
 ### Added
 
 - Persistent remote sessions: a transport loss now detaches instead of tearing

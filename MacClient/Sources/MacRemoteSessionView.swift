@@ -231,49 +231,95 @@ struct MacRemoteSessionView: View {
         }
 
         ToolbarItem(placement: .primaryAction) {
-            HStack(spacing: 8) {
-                sessionToolbarToolsCluster
-                sessionToolbarTogglesCluster
-                SessionToolbarDisconnectButton {
-                    Task { await coordinator.endSession() }
-                }
+            sessionToolbarDisplaySizingMenu
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+            sessionToolbarToolsCluster
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+            sessionToolbarScreenAIButton
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+            sessionToolbarTogglesCluster
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+            SessionToolbarDisconnectButton {
+                Task { await coordinator.endSession() }
             }
+        }
+    }
+
+    /// First-class Fit Display control. Kept as its own toolbar item so its
+    /// help tag cannot leak onto Screen AI (AppKit collapses `.help` when
+    /// several buttons share one `ToolbarItem`).
+    private var sessionToolbarDisplaySizingMenu: some View {
+        Menu {
+            Button {
+                displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
+            } label: {
+                Label("Fit Display", systemImage: displayMode == .fitDisplay ? "checkmark" : "rectangle.inset.filled")
+            }
+
+            Button {
+                displayModeRaw = DisplayMappingEngine.DisplayMode.fillScreen.rawValue
+            } label: {
+                Label("Fill Window", systemImage: displayMode == .fillScreen ? "checkmark" : "arrow.up.left.and.arrow.down.right")
+            }
+
+            Button {
+                displayModeRaw = DisplayMappingEngine.DisplayMode.actualSize.rawValue
+            } label: {
+                Label("Actual Size", systemImage: displayMode == .actualSize ? "checkmark" : "1.magnifyingglass")
+            }
+
+            Divider()
+
+            Button("Match Window to Display", systemImage: "aspectratio", action: matchWindowToDisplay)
+                .disabled(rendererVM.frameSize == nil)
+        } label: {
+            SessionToolbarToggleLabel(
+                title: displaySizingTitle,
+                systemImage: displaySizingSymbol,
+                isActive: displayMode != .fitDisplay
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .help(displaySizingHelp)
+        .accessibilityLabel("Remote display sizing")
+        .accessibilityValue(displaySizingTitle)
+    }
+
+    private var displaySizingTitle: String {
+        switch displayMode {
+        case .fitDisplay: return "Fit Display"
+        case .fillScreen: return "Fill Window"
+        case .actualSize: return "Actual Size"
+        }
+    }
+
+    private var displaySizingSymbol: String {
+        switch displayMode {
+        case .fitDisplay: return "rectangle.inset.filled"
+        case .fillScreen: return "arrow.up.left.and.arrow.down.right"
+        case .actualSize: return "1.magnifyingglass"
+        }
+    }
+
+    private var displaySizingHelp: String {
+        switch displayMode {
+        case .fitDisplay: return "Fit Display — show the whole remote screen"
+        case .fillScreen: return "Fill Window — edges may be cropped"
+        case .actualSize: return "Actual Size — 1:1 remote pixels"
         }
     }
 
     @ViewBuilder
     private var sessionToolbarToolsCluster: some View {
         HStack(spacing: 2) {
-            Menu {
-                Button {
-                    displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
-                } label: {
-                    Label("Fit Display", systemImage: displayMode == .fitDisplay ? "checkmark" : "rectangle.inset.filled")
-                }
-
-                Button {
-                    displayModeRaw = DisplayMappingEngine.DisplayMode.fillScreen.rawValue
-                } label: {
-                    Label("Fill Window", systemImage: displayMode == .fillScreen ? "checkmark" : "arrow.up.left.and.arrow.down.right")
-                }
-
-                Divider()
-
-                Button("Match Window to Display", systemImage: "aspectratio", action: matchWindowToDisplay)
-                    .disabled(rendererVM.frameSize == nil)
-            } label: {
-                SessionToolbarIconLabel(
-                    systemImage: displayMode == .fillScreen
-                        ? "arrow.up.left.and.arrow.down.right"
-                        : "aspectratio",
-                    isActive: displayMode == .fillScreen
-                )
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .help(displayMode == .fillScreen ? "Fill window — edges may be cropped" : "Fit display")
-            .accessibilityLabel("Remote display sizing")
-
             if displayLayoutVM.displays.count > 1 {
                 Menu {
                     ForEach(displayLayoutVM.displays) { display in
@@ -335,18 +381,24 @@ struct MacRemoteSessionView: View {
             .disabled(coordinator.activeSessionID == nil)
             .help("Open a terminal on the host")
             .accessibilityLabel("Open a terminal on the host")
-
-            Button { showScreenAI = true } label: {
-                SessionToolbarIconLabel(systemImage: "sparkles", isActive: showScreenAI)
-            }
-            .buttonStyle(SessionToolbarIconButtonStyle(active: showScreenAI))
-            .disabled(!rendererVM.isReceiving)
-            .help("Screen AI — read text, ask, automate")
-            .accessibilityLabel("Screen AI")
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 3)
         .sessionToolbarClusterChrome()
+    }
+
+    private var sessionToolbarScreenAIButton: some View {
+        Button { showScreenAI = true } label: {
+            SessionToolbarToggleLabel(
+                title: "Screen AI",
+                systemImage: "sparkles",
+                isActive: showScreenAI
+            )
+        }
+        .buttonStyle(SessionToolbarToggleButtonStyle(active: showScreenAI))
+        .disabled(!rendererVM.isReceiving)
+        .help("Screen AI — read text, ask, automate")
+        .accessibilityLabel("Screen AI")
     }
 
     private func matchWindowToDisplay() {

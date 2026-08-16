@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import SharedModels
+import SharedUtilities
 
 enum ConnectionControlsPresentation: String, CaseIterable, Identifiable {
     static let storageKey = "client.connectionControls.presentation"
@@ -60,6 +61,9 @@ struct MacClientApp: App {
                 MacRefreshCommand(environment: environment)
                 Divider()
                 MacDisconnectCommand(environment: environment)
+            }
+            CommandMenu("View") {
+                MacDisplayModeCommands()
             }
         }
 
@@ -131,5 +135,26 @@ private struct MacDisconnectCommand: View {
         }
         .keyboardShortcut("d", modifiers: [.command, .shift])
         .disabled(coordinator.phase == .idle)
+    }
+}
+
+/// View-menu display sizing. Same AppStorage key the session toolbar uses, so
+/// the menu bar and the Fit Display button stay in sync.
+private struct MacDisplayModeCommands: View {
+    @AppStorage("client.displayMode") private var displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
+
+    var body: some View {
+        Button("Fit Display") {
+            displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
+        }
+        .keyboardShortcut("0", modifiers: .command)
+        Button("Fill Window") {
+            displayModeRaw = DisplayMappingEngine.DisplayMode.fillScreen.rawValue
+        }
+        .keyboardShortcut("1", modifiers: .command)
+        Button("Actual Size") {
+            displayModeRaw = DisplayMappingEngine.DisplayMode.actualSize.rawValue
+        }
+        .keyboardShortcut("2", modifiers: .command)
     }
 }
