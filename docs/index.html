@@ -169,7 +169,7 @@
     .suite-app .dl.unavailable { cursor: not-allowed; opacity: .52; pointer-events: none; }
     .suite-app .ver { color: var(--text-faint); font: 10.5px var(--mono); }
     .hero-visual { position: relative; min-height: 560px; display: grid; place-items: center; }
-    .hero-visual::before { position: absolute; width: 460px; height: 460px; border: 1px solid var(--line-soft); border-radius: 50%; content: ""; box-shadow: 0 0 0 36px rgba(255,255,255,.018), 0 0 0 72px rgba(255,255,255,.012); }
+    .hero-visual::before { position: absolute; inset: 0; margin: auto; width: 460px; height: 460px; border: 1px solid var(--line-soft); border-radius: 50%; content: ""; box-shadow: 0 0 0 36px rgba(255,255,255,.018), 0 0 0 72px rgba(255,255,255,.012); }
     .ws-stack { position: relative; z-index: 1; }
     .ws-tabs { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); }
     .ws-tab { padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: 8px; color: var(--text-faint); background: var(--surface); font: 11px var(--mono); white-space: nowrap; }
@@ -199,7 +199,7 @@
     .iphone-island { position: absolute; z-index: 3; top: 11px; left: 50%; width: 92px; height: 28px; border-radius: 16px; background: #000; transform: translateX(-50%); }
     .iphone-status { display: flex; justify-content: space-between; align-items: center; padding: 14px 24px 6px; color: #f0f0ed; font-size: 11px; font-weight: 700; }
     .iphone-title { padding: 26px 20px 14px; border-bottom: 1px solid rgba(255,255,255,.09); font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
-    .signal-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin: 0 0 100px; border: 1px solid var(--line-soft); border-radius: 20px; overflow: hidden; background: var(--line-soft); }
+    .signal-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin: 0 auto 100px; border: 1px solid var(--line-soft); border-radius: 20px; overflow: hidden; background: var(--line-soft); }
     .signal { padding: 20px 22px; background: var(--surface); }
     .signal strong { display: block; margin-bottom: 3px; font-size: 22px; letter-spacing: -.045em; }
     .signal span { color: var(--text-faint); font-size: 13px; }
@@ -324,7 +324,7 @@
     .security-list { display: grid; gap: 11px; margin: 22px 0 0; padding: 0; list-style: none; color: var(--text-soft); font-size: 14px; }
     .security-list li { display: flex; gap: 10px; padding-bottom: 11px; border-bottom: 1px solid var(--line-soft); }
     .security-list li::before { width: 7px; height: 7px; flex: 0 0 auto; margin-top: 8px; border: 1px solid var(--text-soft); border-radius: 50%; content: ""; }
-    .resources { margin: 110px 0 90px; }
+    .resources { margin: 110px auto 90px; }
     .resource-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
     .resource { display: flex; min-height: 126px; flex-direction: column; justify-content: space-between; padding: 20px; border-radius: 18px; }
     .resource h3 { margin: 0; font-size: 16px; letter-spacing: -.03em; }
@@ -371,7 +371,7 @@
       .hero-visual::before { width: 300px; height: 300px; }
       .iphone { width: min(290px, 84vw); }
       .ws-term { font-size: 11px; }
-      .signal-strip { margin-bottom: 74px; }
+      .signal-strip { margin: 0 auto 74px; }
       .suite-card { margin-bottom: 74px; }
       .suite-grid { grid-template-columns: 1fr; }
       .suite-app { border-right: 0 !important; border-bottom: 1px solid var(--line-soft) !important; }
