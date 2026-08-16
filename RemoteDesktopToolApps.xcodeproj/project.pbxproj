@@ -1241,7 +1241,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 38;
+				CURRENT_PROJECT_VERSION = 39;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_ENHANCED_SECURITY = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1316,7 +1316,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 3.7.4;
+				MARKETING_VERSION = 3.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.ios.liveactivity;
 				PRODUCT_NAME = iOSRemoteLiveActivity;
 				SDKROOT = iphoneos;
@@ -1342,7 +1342,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.7.4;
+				MARKETING_VERSION = 3.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.ios;
 				PRODUCT_NAME = "Vamp Control iOS";
 				SDKROOT = iphoneos;
@@ -1385,7 +1385,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 38;
+				CURRENT_PROJECT_VERSION = 39;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_ENHANCED_SECURITY = YES;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1457,7 +1457,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.7.4;
+				MARKETING_VERSION = 3.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.ios;
 				PRODUCT_NAME = "Vamp Control iOS";
 				SDKROOT = iphoneos;
@@ -1480,7 +1480,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 3.7.4;
+				MARKETING_VERSION = 3.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.ios.liveactivity;
 				PRODUCT_NAME = iOSRemoteLiveActivity;
 				SDKROOT = iphoneos;
