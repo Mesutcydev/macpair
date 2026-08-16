@@ -10,8 +10,10 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 
 - Unified suite versioning: Vamp Host, Vamp Terminal Host, Vamp Terminal
   (iOS), Vamp Control (iOS + macOS), and the Linux companion now all report
-  **2.3.0 (build 41)** so the family reads as one release line.
-- Vamp Control (iOS + macOS): new app icon and splash mark.
+  **2.3.0 (build 42)** so the family reads as one release line.
+- New app icons across the suite: Vamp Host, Vamp Terminal Host, Vamp
+  Terminal (iOS), and Vamp Control (iOS + macOS).
+- New brand wallpaper behind the glass surfaces of both iOS apps.
 
 ### Fixed
 

@@ -362,6 +362,15 @@ struct VampTerminalBackdrop: View {
             groupedBackground
 
             if !reduceTransparency {
+                // Brand wallpaper backdrop, shared with the Vamp Control app.
+                Image("AppBackdrop")
+                    .resizable()
+                    .scaledToFill()
+                    .opacity(colorScheme == .dark ? 0.85 : 0.55)
+
+                // Legibility scrim keeps glass cards readable over the art.
+                Color.black.opacity(colorScheme == .dark ? 0.22 : 0.04)
+
                 LinearGradient(
                     colors: [
                         groupedBackground,
