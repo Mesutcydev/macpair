@@ -13,6 +13,17 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
   Screen AI, so hovering Screen AI showed “Fit display” and the sizing button
   looked missing. Fit Display, Fill Window, and Actual Size are also under
   View (⌘0 / ⌘1 / ⌘2).
+- Vamp Control macOS: Actual Size now renders the stream 1:1 instead of
+  stretching it, and the input mapping clamps to the viewport exactly like
+  the renderer. Before, the two disagreed, so the remote pointer drew offset
+  from the local cursor (the double-cursor “calibration” problem) when
+  Actual Size was selected.
+- Vamp Control macOS: the local cursor hides while tracking over stream
+  content (and returns when it leaves), so only the remote cursor is visible
+  during a session.
+- Vamp Control macOS: selecting Actual Size resizes the session window to the
+  stream's native size (clamped to the screen), and “Match Window to
+  Display” is mode-aware (1:1 in Actual Size, aspect-fit otherwise).
 
 ### Added
 

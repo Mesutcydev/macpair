@@ -139,16 +139,7 @@ public struct DisplayMappingEngine: Sendable, Hashable {
 
         switch displayMode {
         case .fitDisplay:
-            let width: Double
-            let height: Double
-            if streamAspect > availableAspect {
-                width = available.size.width
-                height = width / streamAspect
-            } else {
-                height = available.size.height
-                width = height * streamAspect
-            }
-            return centeredRect(width: width, height: height, in: available)
+            return aspectFitRect(in: available)
 
         case .fillScreen:
             let width: Double
@@ -163,10 +154,39 @@ public struct DisplayMappingEngine: Sendable, Hashable {
             return centeredRect(width: width, height: height, in: available)
 
         case .actualSize:
+            // 1:1 pixel size in view points. When the stream is smaller than the
+            // viewport the content is centered at native size; when it is larger,
+            // scale down uniformly so the content rect never overflows the view.
+            // The render layer must use this exact rect (see RemoteStreamNSView),
+            // otherwise the visual video and the input mapping disagree and the
+            // remote pointer lands offset from the local one.
             let width = stream.width / viewPixelScale
             let height = stream.height / viewPixelScale
-            return centeredRect(width: width, height: height, in: available)
+            if width <= available.size.width, height <= available.size.height {
+                return centeredRect(width: width, height: height, in: available)
+            }
+            return aspectFitRect(in: available)
         }
+    }
+
+    /// Aspect-fit rect of the stream inside `rect` (fitDisplay / actualSize fallback).
+    private func aspectFitRect(in rect: DesktopRect) -> DesktopRect {
+        let stream = streamSize
+        guard rect.size.width > 0, rect.size.height > 0, stream.width > 0, stream.height > 0 else {
+            return rect
+        }
+        let streamAspect = stream.width / stream.height
+        let rectAspect = rect.size.width / rect.size.height
+        let width: Double
+        let height: Double
+        if streamAspect > rectAspect {
+            width = rect.size.width
+            height = width / streamAspect
+        } else {
+            height = rect.size.height
+            width = height * streamAspect
+        }
+        return centeredRect(width: width, height: height, in: rect)
     }
 
     public func viewPointToNormalizedStream(_ viewPoint: DesktopPoint) -> DesktopPoint? {

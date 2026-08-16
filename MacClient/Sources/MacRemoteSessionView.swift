@@ -272,14 +272,29 @@ struct MacRemoteSessionView: View {
 
             Button {
                 displayModeRaw = DisplayMappingEngine.DisplayMode.actualSize.rawValue
+                // A window smaller than the stream silently degrades Actual
+                // Size to aspect-fit; matching the window to the 1:1 size
+                // makes the mode deliver what it promises.
+                resizeWindowToActualSize()
             } label: {
                 Label("Actual Size", systemImage: displayMode == .actualSize ? "checkmark" : "1.magnifyingglass")
             }
 
             Divider()
 
-            Button("Match Window to Display", systemImage: "aspectratio", action: matchWindowToDisplay)
-                .disabled(rendererVM.frameSize == nil)
+            Button {
+                if displayMode == .actualSize {
+                    resizeWindowToActualSize()
+                } else {
+                    matchWindowToDisplay()
+                }
+            } label: {
+                Label("Match Window to Display", systemImage: "aspectratio")
+            }
+            .disabled(rendererVM.frameSize == nil)
+            .help(displayMode == .actualSize
+                  ? "Resize the window so the stream renders 1:1"
+                  : "Resize the window to the display's aspect ratio")
         } label: {
             SessionToolbarToggleLabel(
                 title: displaySizingTitle,
@@ -419,6 +434,47 @@ struct MacRemoteSessionView: View {
         if targetContentSize.height > maximumContentHeight {
             targetContentSize.height = maximumContentHeight
             targetContentSize.width = maximumContentHeight * streamAspect
+        }
+
+        var targetContent = currentContent
+        targetContent.size = targetContentSize
+        var targetFrame = window.frameRect(forContentRect: targetContent)
+        targetFrame.origin.x = min(
+            max(window.frame.minX, screen.visibleFrame.minX),
+            screen.visibleFrame.maxX - targetFrame.width
+        )
+        targetFrame.origin.y = min(
+            max(window.frame.maxY - targetFrame.height, screen.visibleFrame.minY),
+            screen.visibleFrame.maxY - targetFrame.height
+        )
+        window.setFrame(targetFrame, display: true, animate: true)
+    }
+
+    /// Resizes the session window so the stream renders at its native 1:1
+    /// size (Actual Size). If the stream is larger than the visible screen
+    /// area, the window clamps to the largest aspect-preserving size that
+    /// fits — the same fallback the content-rect mapper uses.
+    private func resizeWindowToActualSize() {
+        guard let frameSize = rendererVM.frameSize,
+              frameSize.width > 0,
+              frameSize.height > 0,
+              let window = NSApp.keyWindow,
+              let screen = window.screen ?? NSScreen.main else { return }
+
+        let scale = screen.backingScaleFactor
+        let currentContent = window.contentRect(forFrameRect: window.frame)
+        let chromeHeight = window.frame.height - currentContent.height
+        let maximumContentHeight = max(320, screen.visibleFrame.height - chromeHeight)
+        let maximumContentWidth = screen.visibleFrame.width
+
+        var targetContentSize = NSSize(
+            width: frameSize.width / scale,
+            height: frameSize.height / scale
+        )
+        if targetContentSize.width > maximumContentWidth || targetContentSize.height > maximumContentHeight {
+            let streamAspect = frameSize.width / frameSize.height
+            targetContentSize.width = min(maximumContentWidth, maximumContentHeight * streamAspect)
+            targetContentSize.height = targetContentSize.width / streamAspect
         }
 
         var targetContent = currentContent

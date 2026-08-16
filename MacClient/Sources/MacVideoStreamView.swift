@@ -48,6 +48,7 @@ struct MacVideoStreamView: NSViewRepresentable {
 
     static func dismantleNSView(_ nsView: RemoteStreamNSView, coordinator: Coordinator) {
         coordinator.cancellable?.cancel()
+        nsView.setLocalCursorHidden(false)
         nsView.display(pixelBuffer: nil)
     }
 
@@ -70,12 +71,16 @@ final class RemoteStreamNSView: NSView {
     var localChromeBottomInset: CGFloat = 0
     var onBackgroundPointerActivity: (() -> Void)?
 
-    private var displayLayer: AVSampleBufferDisplayLayer { layer as! AVSampleBufferDisplayLayer }
+    private var displayLayer = AVSampleBufferDisplayLayer()
     private var formatDescription: CMVideoFormatDescription?
     private var trackingArea: NSTrackingArea?
     /// Set when a double-click was forwarded as `.doubleClick` so the matching
     /// local mouse-up isn't also forwarded (the host posts the full pair itself).
     private var suppressNextUpForButton: Set<MouseButton> = []
+    /// Whether the local cursor is currently hidden over the stream content.
+    /// `NSCursor.hide()`/`unhide()` are counter-balanced app-wide, so every
+    /// hide must be matched by exactly one unhide.
+    private var isLocalCursorHidden = false
 
     /// Cmd-shortcuts that stay local instead of going to the remote Mac. ⌘W is
     /// NOT reserved: in a session it should close a window on the *remote* Mac,
@@ -87,15 +92,13 @@ final class RemoteStreamNSView: NSView {
         wantsLayer = true
         layerContentsRedrawPolicy = .duringViewResize
         layer?.backgroundColor = NSColor.black.cgColor
+        displayLayer.videoGravity = .resizeAspect
+        layer?.addSublayer(displayLayer)
         updateVideoGravity()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
-
-    override func makeBackingLayer() -> CALayer {
-        AVSampleBufferDisplayLayer()
-    }
 
     private func updateVideoGravity() {
         switch displayMode {
@@ -104,6 +107,7 @@ final class RemoteStreamNSView: NSView {
         case .fitDisplay, .actualSize:
             displayLayer.videoGravity = .resizeAspect
         }
+        layoutDisplayLayer()
     }
 
     /// Top-left origin so view coordinates match the shared coordinate mapper.
@@ -124,6 +128,28 @@ final class RemoteStreamNSView: NSView {
     override func layout() {
         super.layout()
         notifyGeometry()
+        layoutDisplayLayer()
+    }
+
+    /// Positions the video layer for the current display mode. In `.actualSize`
+    /// the layer is pinned to the mapper's 1:1 content rect so the rendered
+    /// pixels and the input mapping always agree (the source of the
+    /// offset/double-cursor bug); other modes fill the view bounds.
+    private func layoutDisplayLayer() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        if displayMode == .actualSize, let mapper = input?.mapper {
+            let rect = mapper.fittedContentRect
+            displayLayer.frame = NSRect(
+                x: rect.origin.x,
+                y: rect.origin.y,
+                width: rect.size.width,
+                height: rect.size.height
+            )
+        } else {
+            displayLayer.frame = bounds
+        }
     }
 
     override func viewDidMoveToWindow() {
@@ -219,12 +245,46 @@ final class RemoteStreamNSView: NSView {
         convert(event.locationInWindow, from: nil)
     }
 
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        if newWindow == nil {
+            setLocalCursorHidden(false)
+        }
+    }
+
+    /// Balanced hide/unhide of the local cursor. Hidden while it tracks over
+    /// stream content so only the remote (host) cursor is visible — no
+    /// doubled/offset pointers.
+    func setLocalCursorHidden(_ hidden: Bool) {
+        guard hidden != isLocalCursorHidden else { return }
+        isLocalCursorHidden = hidden
+        if hidden {
+            NSCursor.hide()
+        } else {
+            NSCursor.unhide()
+        }
+    }
+
     override func mouseMoved(with event: NSEvent) {
         let point = viewPoint(for: event)
-        guard !isPointInLocalChrome(point) else { return }
+        guard !isPointInLocalChrome(point) else {
+            setLocalCursorHidden(false)
+            return
+        }
         onBackgroundPointerActivity?()
-        guard isInputEnabled else { return }
+        guard isInputEnabled else {
+            setLocalCursorHidden(false)
+            return
+        }
         input?.pointerMoved(to: point)
+        let insideContent = input?.mapper?.viewToDisplayLocal(
+            DesktopPoint(x: Double(point.x), y: Double(point.y))
+        ) != nil
+        setLocalCursorHidden(insideContent)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        setLocalCursorHidden(false)
     }
 
     override func mouseDragged(with event: NSEvent) {

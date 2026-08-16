@@ -310,6 +310,98 @@ final class ViewportCoordinateMapperTests: XCTestCase {
         let result = mapper.displayLocalToView(DesktopPoint(x: 0, y: 0))
         XCTAssertNil(result)
     }
+
+    // MARK: - Actual Size Content Rect (offset/double-cursor regression)
+
+    /// A stream smaller than the viewport renders 1:1, centered — the content
+    /// rect must be that exact centered rect, never aspect-stretched.
+    func testActualSizeContentRectCentersNativeSizeWhenItFits() {
+        // 1920×1080@2x → stream pixels 3840×2160 → 1:1 rect = 1920×1080 points
+        // inside a 2560×1600 view: centered at (320, 260).
+        let display = makeDisplay(width: 1920, height: 1080, scale: 2)
+        let mapper = ViewportCoordinateMapper(
+            display: display,
+            viewSize: DesktopSize(width: 2560, height: 1600),
+            viewPixelScale: 2,
+            displayMode: .actualSize,
+            interactionMode: .absolute
+        )
+        let rect = mapper.fittedContentRect
+        XCTAssertEqual(rect.size.width, 1920, accuracy: 0.01)
+        XCTAssertEqual(rect.size.height, 1080, accuracy: 0.01)
+        XCTAssertEqual(rect.origin.x, 320, accuracy: 0.01)
+        XCTAssertEqual(rect.origin.y, 260, accuracy: 0.01)
+
+        // A view point at the content center maps to the display center.
+        let mapped = mapper.viewToDisplayLocal(DesktopPoint(
+            x: rect.origin.x + rect.size.width / 2,
+            y: rect.origin.y + rect.size.height / 2
+        ))
+        XCTAssertNotNil(mapped)
+        XCTAssertEqual(mapped!.x, 960, accuracy: 0.5)
+        XCTAssertEqual(mapped!.y, 540, accuracy: 0.5)
+    }
+
+    /// A stream larger than the viewport must scale down to fit instead of
+    /// overflowing the view — the old bug left the rect bigger than the view,
+    /// so rendered pixels and input mapping disagreed (offset remote pointer).
+    func testActualSizeContentRectClampsToViewportWhenStreamIsLarger() {
+        // 1920×1080@2x stream (1:1 = 1920×1080) inside a 1200×800 view.
+        let display = makeDisplay(width: 1920, height: 1080, scale: 2)
+        let mapper = ViewportCoordinateMapper(
+            display: display,
+            viewSize: DesktopSize(width: 1200, height: 800),
+            viewPixelScale: 2,
+            displayMode: .actualSize,
+            interactionMode: .absolute
+        )
+        let rect = mapper.fittedContentRect
+        // Clamped: width fills, height = 1200 / (16/9) = 675, centered vertically.
+        XCTAssertEqual(rect.size.width, 1200, accuracy: 0.01)
+        XCTAssertEqual(rect.size.height, 675, accuracy: 0.01)
+        XCTAssertEqual(rect.origin.x, 0, accuracy: 0.01)
+        XCTAssertEqual(rect.origin.y, 62.5, accuracy: 0.01)
+        // Never overflows the viewport.
+        XCTAssertGreaterThanOrEqual(rect.minX, 0)
+        XCTAssertGreaterThanOrEqual(rect.minY, 0)
+        XCTAssertLessThanOrEqual(rect.maxX, 1200)
+        XCTAssertLessThanOrEqual(rect.maxY, 800)
+
+        // Corner-to-corner mapping agrees with the clamped rect: the top-left
+        // of the content is display (0,0) and the bottom-right is (1920,1080).
+        let topLeft = mapper.viewToDisplayLocal(DesktopPoint(x: rect.minX, y: rect.minY))
+        let bottomRight = mapper.viewToDisplayLocal(DesktopPoint(x: rect.maxX, y: rect.maxY))
+        XCTAssertNotNil(topLeft)
+        XCTAssertNotNil(bottomRight)
+        XCTAssertEqual(topLeft!.x, 0, accuracy: 0.5)
+        XCTAssertEqual(topLeft!.y, 0, accuracy: 0.5)
+        XCTAssertEqual(bottomRight!.x, 1920, accuracy: 0.5)
+        XCTAssertEqual(bottomRight!.y, 1080, accuracy: 0.5)
+    }
+
+    /// Actual Size must agree with Fit Display when the 1:1 rect does not fit
+    /// (both degrade to aspect-fit), so switching modes cannot shift the pointer.
+    func testActualSizeFallsBackToFitDisplayRectWhenOversized() {
+        let display = makeDisplay(width: 1920, height: 1080, scale: 2)
+        let fit = ViewportCoordinateMapper(
+            display: display,
+            viewSize: DesktopSize(width: 1200, height: 800),
+            viewPixelScale: 2,
+            displayMode: .fitDisplay,
+            interactionMode: .absolute
+        )
+        let actual = ViewportCoordinateMapper(
+            display: display,
+            viewSize: DesktopSize(width: 1200, height: 800),
+            viewPixelScale: 2,
+            displayMode: .actualSize,
+            interactionMode: .absolute
+        )
+        XCTAssertEqual(fit.fittedContentRect.origin.x, actual.fittedContentRect.origin.x, accuracy: 0.001)
+        XCTAssertEqual(fit.fittedContentRect.origin.y, actual.fittedContentRect.origin.y, accuracy: 0.001)
+        XCTAssertEqual(fit.fittedContentRect.size.width, actual.fittedContentRect.size.width, accuracy: 0.001)
+        XCTAssertEqual(fit.fittedContentRect.size.height, actual.fittedContentRect.size.height, accuracy: 0.001)
+    }
 }
 
 // MARK: - Gesture Interpreter Tests
