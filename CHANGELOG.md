@@ -4,6 +4,33 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-08-17 — build 44
+
+### Added
+
+- Vamp Terminal iOS: agent replies render Markdown — inline emphasis, links,
+  headings, and lists — with copyable code cards, tables, and a live streaming
+  caret.
+- Long-press "Copy message" on any chat block.
+- Browser task chat: inline emphasis and links, a Copy button on code blocks,
+  and a live streaming caret.
+
+### Changed
+
+- Vamp Terminal iOS: the reconnect banner offers "Retry now" and distinguishes
+  "Waiting for network" from "Reconnecting to Mac"; connection errors are shown
+  in plain language with a next step.
+
+### Fixed
+
+- Vamp Terminal iOS: agent chat text now uses the adaptive label color instead
+  of the dark terminal's cream, so agent replies are legible in the light
+  appearance (they were previously near-invisible).
+- Vamp Terminal iOS: chat output no longer traps scrolling in a nested region.
+- Browser control: the clipboard popover actions stack cleanly instead of
+  overlapping.
+- Linux companion host is branded "Lite" to state its terminal-only scope.
+
 ## [2.3.0] - 2026-08-17
 
 ### Added
