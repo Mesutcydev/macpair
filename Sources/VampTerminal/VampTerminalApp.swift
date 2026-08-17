@@ -3,7 +3,7 @@ import SwiftUI
 @main
 struct VampTerminalApp: App {
     @StateObject private var environment: ClientAppEnvironment
-    @AppStorage("vampTerminal.appearance") private var appearance = "system"
+    @AppStorage("vampTerminal.appearance") private var appearance = "light"
 
     init() {
         _environment = StateObject(

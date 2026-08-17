@@ -49,15 +49,33 @@ enum VampTerminalDesign {
 
 enum VampGlassPalette {
     static let ink = Color.primary
-    static let inkSecondary = Color.secondary
-    static let inkTertiary = Color.secondary.opacity(0.78)
-    static let inkSubtle = Color.secondary.opacity(0.56)
+    static let inkSecondary = adaptive(light: Color(white: 0.44), dark: Color(white: 0.63))
+    static let inkTertiary = adaptive(light: Color(white: 0.63), dark: Color(white: 0.44))
+    static let inkSubtle = adaptive(light: Color(white: 0.72), dark: Color(white: 0.51))
+
+    /// Hairlines read as a 1px rule on the flat surfaces below them.
     static let rule = Color.primary.opacity(0.12)
     static let ruleStrong = Color.primary.opacity(0.22)
+
+    /// Flat card/panel fills: white cards on light grouped background, zinc
+    /// panels on a near-black page. Surfaces are opaque, not materials.
+    static let surfaceFill = adaptive(light: .white, dark: Color(red: 0.094, green: 0.094, blue: 0.102))
+    static let surfaceRaised = adaptive(light: Color(red: 0.957, green: 0.961, blue: 0.965), dark: Color(red: 0.153, green: 0.157, blue: 0.169))
 
     static let good = Color.green
     static let warning = Color.orange
     static let bad = Color.red
+
+    /// Resolves a fixed light/dark pair against the current interface style.
+    static func adaptive(light: Color, dark: Color) -> Color {
+#if canImport(UIKit)
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
+        })
+#else
+        light
+#endif
+    }
 }
 
 /// Provider launch profiles are intentionally a UI concern. Vamp Terminal
@@ -354,51 +372,12 @@ enum VampGlassRole {
 }
 
 struct VampTerminalBackdrop: View {
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
     var body: some View {
         ZStack {
             groupedBackground
-
-            if !reduceTransparency {
-                // Brand wallpaper backdrop, shared with the Vamp Control app.
-                Image("AppBackdrop")
-                    .resizable()
-                    .scaledToFill()
-                    .opacity(colorScheme == .dark ? 0.85 : 0.55)
-
-                // Legibility scrim keeps glass cards readable over the art.
-                Color.black.opacity(colorScheme == .dark ? 0.22 : 0.04)
-
-                LinearGradient(
-                    colors: [
-                        groupedBackground,
-                         Color.primary.opacity(colorScheme == .dark ? 0.035 : 0.010),
-                        groupedBackground
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-
-                // Neutral ambient light keeps the backdrop refractive without
-                // introducing a brand hue. This mirrors the ForgeSign
-                // colorless glass treatment and lets the system material do
-                // the visual work inside cards and controls.
-                Circle()
-                    .fill(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.045))
-                    .frame(width: 460, height: 460)
-                    .blur(radius: 105)
-                    .offset(x: -150, y: -260)
-
-                Circle()
-                    .fill(Color.secondary.opacity(colorScheme == .dark ? 0.10 : 0.04))
-                    .frame(width: 400, height: 400)
-                    .blur(radius: 115)
-                    .offset(x: 170, y: 300)
-
-                VampTerminalBackdropGrid()
-            }
+            // The flat task surface needs no wallpaper, grid, or ambient light
+            // behind its white cards. The grouped background supplies the
+            // ZCode-style page field.
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
@@ -414,38 +393,6 @@ struct VampTerminalBackdrop: View {
     }
 }
 
-private struct VampTerminalBackdropGrid: View {
-    @Environment(\.colorScheme) private var colorScheme
-
-    private let spacing: CGFloat = 40
-
-    var body: some View {
-        Canvas { context, size in
-            var path = Path()
-            var x: CGFloat = 0
-            while x <= size.width + spacing {
-                path.move(to: CGPoint(x: x, y: 0))
-                path.addLine(to: CGPoint(x: x, y: size.height))
-                x += spacing
-            }
-
-            var y: CGFloat = 0
-            while y <= size.height + spacing {
-                path.move(to: CGPoint(x: 0, y: y))
-                path.addLine(to: CGPoint(x: size.width, y: y))
-                y += spacing
-            }
-
-            context.stroke(
-                path,
-                with: .color(Color.primary.opacity(colorScheme == .dark ? 0.07 : 0.028)),
-                lineWidth: 0.5
-            )
-        }
-        .allowsHitTesting(false)
-    }
-}
-
 #if os(iOS) && compiler(>=6.2)
 @available(iOS 26.0, *)
 private func vampNativeGlass(for role: VampGlassRole) -> Glass {
@@ -457,32 +404,12 @@ private struct VampGlassSurfaceModifier: ViewModifier {
     let role: VampGlassRole
     let cornerRadius: CGFloat?
 
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
     @ViewBuilder
     func body(content: Content) -> some View {
         let radius = cornerRadius ?? role.cornerRadius
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-
-#if os(iOS) && compiler(>=6.2)
-        if #available(iOS 26.0, *), !reduceTransparency {
-            content.background {
-                GeometryReader { geometry in
-                    Color.clear
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .glassEffect(
-                            vampNativeGlass(for: role),
-                            in: .rect(cornerRadius: radius)
-                        )
-                        .opacity(role.materialOpacity)
-                }
-            }
-        } else {
-            content.background(.ultraThinMaterial, in: shape)
-        }
-#else
-        content.background(.ultraThinMaterial, in: shape)
-#endif
+        let fill = role == .toolbar ? VampGlassPalette.surfaceRaised : VampGlassPalette.surfaceFill
+        content.background(fill, in: shape)
     }
 }
 

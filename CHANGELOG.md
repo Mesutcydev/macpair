@@ -4,13 +4,26 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.3.0] - 2026-08-16
+## [2.3.0] - 2026-08-17
+
+### Added
+
+- Live "Working" status in the Vamp Terminal workspace and the browser task
+  chat: any tab with a streaming agent block counts as working, and the header
+  shows a running "Working for Xm" timer while activity continues.
+- Vamp Terminal iOS now defaults to the light appearance.
 
 ### Changed
 
+- Light theme across the browser-control surfaces: the embedded task chat
+  (host browser control) and the Linux host UI are now clean light-mode
+  interfaces with white panels, zinc borders, and ink accents.
+- Vamp Terminal iOS workspace controls use solid ink buttons with white text
+  instead of translucent glass, with a stronger selected-mode outline and
+  refined raised surfaces.
 - Unified suite versioning: Vamp Host, Vamp Terminal Host, Vamp Terminal
   (iOS), Vamp Control (iOS + macOS), and the Linux companion now all report
-  **2.3.0 (build 42)** so the family reads as one release line.
+  **2.3.0 (build 43)** so the family reads as one release line.
 - New app icons across the suite: Vamp Host, Vamp Terminal Host, Vamp
   Terminal (iOS), and Vamp Control (iOS + macOS).
 - New brand wallpaper behind the glass surfaces of both iOS apps.

@@ -425,11 +425,10 @@ struct VampTerminalHomeView: View {
             } label: {
                 Label("Connect", systemImage: "arrow.up.right")
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(VampGlassPalette.ink)
+                    .foregroundStyle(Color.white)
                     .padding(.horizontal, VampTerminalDesign.space3)
                     .frame(minHeight: VampTerminalDesign.minTapTarget)
-                    .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
-                    .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
+                    .background(VampGlassPalette.ink, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
             }
             .buttonStyle(VampGlassPressStyle())
             .accessibilityLabel("Connect to \(metadata.displayName)")
@@ -576,11 +575,10 @@ struct VampTerminalHomeView: View {
         } label: {
             Text("Add")
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(VampGlassPalette.ink)
+                .foregroundStyle(Color.white)
                 .padding(.horizontal, VampTerminalDesign.space3)
                 .frame(minHeight: VampTerminalDesign.minTapTarget)
-                .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
-                .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
+                .background(VampGlassPalette.ink, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
         }
         .buttonStyle(VampGlassPressStyle())
         .disabled(manualAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

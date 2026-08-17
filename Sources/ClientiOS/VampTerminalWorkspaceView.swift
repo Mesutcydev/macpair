@@ -49,6 +49,22 @@ struct VampTerminalWorkspaceView: View {
     @State private var showingActivity = false
     @State private var presentation: VampTerminalPresentation = .chat
     @AppStorage("vampTerminal.appearance") private var appearance = "system"
+    // ZCode-style working status: any tab with a streaming agent block counts
+    // as "Working". A 15-second tick keeps the elapsed minutes fresh without
+    // forcing the feed to re-render between message updates.
+    @State private var statusTick = Date()
+    @State private var workStartedAt: Date?
+    private let statusTimer = Timer.publish(every: 15, on: .main, in: .common).autoconnect()
+
+    private var isWorking: Bool {
+        workspace.tabs.contains { $0.chat.blocks.contains { $0.isStreaming } }
+    }
+
+    private var headerStatusText: String {
+        guard let started = workStartedAt else { return "Connected" }
+        let minutes = max(0, Int(statusTick.timeIntervalSince(started) / 60))
+        return minutes < 1 ? "Working" : "Working for \(minutes)m"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -167,6 +183,21 @@ struct VampTerminalWorkspaceView: View {
             // the semantic Chat projection until the user switches modes.
             if workspace.selectedTab?.provider == nil {
                 presentation = .terminal
+            }
+        }
+        .onReceive(statusTimer) { date in
+            statusTick = date
+            if isWorking {
+                if workStartedAt == nil { workStartedAt = date }
+            } else {
+                workStartedAt = nil
+            }
+        }
+        .onChange(of: isWorking) { _, working in
+            if working {
+                if workStartedAt == nil { workStartedAt = Date() }
+            } else {
+                workStartedAt = nil
             }
         }
         .onChange(of: workspace.selectedTabID) { _, _ in
@@ -406,9 +437,9 @@ struct VampTerminalWorkspaceView: View {
             } label: {
                 HStack(spacing: VampTerminalDesign.space2) {
                     Circle()
-                        .fill(VampGlassPalette.good)
+                        .fill(isWorking ? VampGlassPalette.ink : VampGlassPalette.good)
                         .frame(width: 7, height: 7)
-                    Text("Connected")
+                    Text(headerStatusText)
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .foregroundStyle(VampGlassPalette.inkSecondary)
                 }
@@ -455,17 +486,23 @@ struct VampTerminalWorkspaceView: View {
                             .frame(minHeight: VampTerminalDesign.compactControlHeight)
                             .background(
                                 presentation == mode
-                                    ? Color.primary.opacity(0.16)
+                                    ? VampGlassPalette.surfaceFill
                                     : Color.clear,
                                 in: RoundedRectangle(cornerRadius: VampTerminalDesign.smallRadius, style: .continuous)
                             )
+                            .overlay {
+                                if presentation == mode {
+                                    RoundedRectangle(cornerRadius: VampTerminalDesign.smallRadius, style: .continuous)
+                                        .stroke(VampGlassPalette.ruleStrong, lineWidth: 1)
+                                }
+                            }
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(presentation == mode ? .isSelected : [])
                 }
             }
             .padding(2)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
+            .background(VampGlassPalette.surfaceRaised, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
             .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius)
             Spacer(minLength: 0)
         }
@@ -498,11 +535,10 @@ struct VampTerminalWorkspaceView: View {
             } label: {
                 Label("Choose workspace", systemImage: "folder")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(VampGlassPalette.ink)
+                    .foregroundStyle(Color.white)
                     .padding(.horizontal, VampTerminalDesign.space4)
                     .frame(minHeight: VampTerminalDesign.minTapTarget)
-                    .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
-                    .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
+                    .background(VampGlassPalette.ink, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
             }
             .buttonStyle(VampGlassPressStyle())
             .disabled(!workspace.canCreateTab)
@@ -1100,7 +1136,11 @@ private struct TerminalApprovalCard: View {
                 .foregroundStyle(VampGlassPalette.ink)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(VampTerminalDesign.space3)
-                .background(Color.black.opacity(0.32), in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
+                .background(VampGlassPalette.surfaceRaised, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous)
+                        .stroke(VampGlassPalette.rule, lineWidth: 1)
+                }
 
             VStack(spacing: VampTerminalDesign.space2) {
                 approvalChoice(.once, number: "1", title: "Allow", detail: "Allow only this time")
@@ -1115,10 +1155,10 @@ private struct TerminalApprovalCard: View {
                 Spacer(minLength: 0)
                 Button("Confirm") { onResolve(selection) }
                     .font(.system(.subheadline, design: .rounded).weight(.bold))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(Color.white)
                     .padding(.horizontal, VampTerminalDesign.space4)
                     .frame(minHeight: VampTerminalDesign.minTapTarget)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
+                    .background(VampGlassPalette.ink, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
             }
         }
         .padding(VampTerminalDesign.space4)
@@ -1154,9 +1194,13 @@ private struct TerminalApprovalCard: View {
             .padding(.horizontal, VampTerminalDesign.space3)
             .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
             .background(
-                Color.white.opacity(selection == choice ? 0.11 : 0.045),
+                selection == choice ? VampGlassPalette.surfaceRaised : Color.clear,
                 in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous)
             )
+            .overlay {
+                RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous)
+                    .stroke(selection == choice ? VampGlassPalette.ruleStrong : VampGlassPalette.rule, lineWidth: 1)
+            }
         }
         .buttonStyle(.plain)
     }
@@ -1411,9 +1455,9 @@ struct VampWorkspaceChooserView: View {
                     } label: {
                         Label("Start \(provider.displayName)", systemImage: "arrow.up.right")
                             .font(.headline.weight(.semibold))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity, minHeight: VampTerminalDesign.controlHeight)
-                            .background(Color.white, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
+                            .background(VampGlassPalette.ink, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
                     }
                     .buttonStyle(VampGlassPressStyle())
                     .disabled(selectedWorkspace == nil)
@@ -1423,7 +1467,7 @@ struct VampWorkspaceChooserView: View {
                 .padding(.horizontal, VampTerminalDesign.space5)
                 .padding(.top, VampTerminalDesign.space3)
                 .padding(.bottom, VampTerminalDesign.space2)
-                .background(.ultraThinMaterial)
+                .background(VampGlassPalette.surfaceRaised)
                 .overlay(alignment: .top) {
                     Rectangle().fill(VampGlassPalette.rule).frame(height: 0.5)
                 }
@@ -1867,11 +1911,10 @@ private struct TerminalChatReadyCard: View {
             Button(action: onOpenTerminal) {
                 Label("Open Terminal", systemImage: "terminal")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(VampGlassPalette.ink)
+                    .foregroundStyle(Color.white)
                     .padding(.horizontal, VampTerminalDesign.space3)
                     .frame(minHeight: VampTerminalDesign.minTapTarget)
-                    .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
-                    .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius, color: VampGlassPalette.ruleStrong)
+                    .background(VampGlassPalette.ink, in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous))
             }
             .buttonStyle(VampGlassPressStyle())
         }
@@ -2108,7 +2151,7 @@ private struct TerminalChatComposer: View {
                 Image(systemName: "terminal")
                     .font(.system(size: 15, weight: .semibold))
                     .frame(width: VampTerminalDesign.minTapTarget, height: VampTerminalDesign.minTapTarget)
-                    .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(VampGlassPalette.surfaceRaised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
             .foregroundStyle(VampGlassPalette.inkSecondary)
@@ -2152,7 +2195,7 @@ private struct TerminalChatComposer: View {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 15, weight: .bold))
                     .frame(width: VampTerminalDesign.minTapTarget, height: VampTerminalDesign.minTapTarget)
-                    .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(VampGlassPalette.surfaceRaised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
             .foregroundStyle(VampGlassPalette.inkSecondary)
@@ -2198,14 +2241,13 @@ private struct TerminalChatComposer: View {
 
     private var primaryActionForeground: Color {
         if speech.isRecording { return .white }
-        if hasDraft && canSend { return VampGlassPalette.ink }
-        return VampGlassPalette.inkSecondary
+        return Color.white
     }
 
     private var primaryActionBackground: Color {
         if speech.isRecording { return VampGlassPalette.bad }
-        if hasDraft && canSend { return VampGlassPalette.ink.opacity(0.92) }
-        return .clear
+        if hasDraft && canSend { return VampGlassPalette.ink }
+        return VampGlassPalette.ink.opacity(0.22)
     }
 
     private var primaryActionAccessibilityLabel: String {
