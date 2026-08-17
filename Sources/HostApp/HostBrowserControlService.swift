@@ -1430,7 +1430,7 @@ enum BrowserControlWebAssets {
 /* The browser surface follows the same four-point rhythm as the iOS client.
    Keep the original CSS above intentionally small; these rules provide the
    responsive controls without making the embedded asset depend on a bundle. */
-.tab{min-height:40px}.newtab{min-width:44px;min-height:44px}.quick button{min-height:40px}.composer{z-index:4}.composer input{min-height:44px}.clipboard-wrap{position:relative;flex:0 0 44px;width:44px;min-width:44px;overflow:visible}.clipboard-trigger{box-sizing:border-box;width:44px!important;min-width:44px;padding:0!important;display:flex;align-items:center;justify-content:center;font-size:0!important;overflow:hidden}.clipboard-trigger .clipboard-label{display:none!important}.clipboard-glyph{display:block;width:18px;height:18px;line-height:18px;font-size:19px!important;font-weight:500;text-align:center}.clipboard-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:6;min-width:230px;padding:8px;background:rgba(43,43,43,.96);border:1px solid rgba(255,255,255,.18);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.42);backdrop-filter:blur(18px)}.clipboard-menu.hidden{display:none}.clipboard-menu button{width:100%!important;height:auto!important;min-height:40px;padding:10px 12px;text-align:left;background:transparent;border-radius:9px;font-size:14px}.clipboard-menu button:hover,.clipboard-menu button:focus-visible{background:rgba(255,255,255,.12)}.approval-actions{flex-wrap:wrap}.tab-dot{color:var(--muted);font-size:11px}.tab-dot.open{color:var(--good)}.tab-dot.opening{color:var(--warn)}.modal-card input,.modal-card button{min-height:44px}
+.tab{min-height:40px}.newtab{min-width:44px;min-height:44px}.quick button{min-height:40px}.composer{z-index:4}.composer input{min-height:44px}.clipboard-wrap{position:relative;flex:0 0 44px;width:44px;min-width:44px;overflow:visible}.clipboard-trigger{box-sizing:border-box;width:44px!important;min-width:44px;padding:0!important;display:flex;align-items:center;justify-content:center;font-size:0!important;overflow:hidden}.clipboard-trigger .clipboard-label{display:none!important}.clipboard-glyph{display:block;width:18px;height:18px;line-height:18px;font-size:19px!important;font-weight:500;text-align:center}.clipboard-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:6;display:flex;flex-direction:column;align-items:stretch;gap:2px;width:max-content;min-width:230px;max-width:calc(100vw - 40px);padding:8px;background:rgba(43,43,43,.96);border:1px solid rgba(255,255,255,.18);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.42);backdrop-filter:blur(18px)}.clipboard-menu.hidden{display:none}.clipboard-menu button{display:block;box-sizing:border-box;width:100%!important;height:auto!important;min-height:40px;margin:0;padding:10px 12px;text-align:left;white-space:nowrap;background:transparent;border-radius:9px;font-size:14px;color:#eee}.clipboard-menu button:hover,.clipboard-menu button:focus-visible{background:rgba(255,255,255,.12)}.approval-actions{flex-wrap:wrap}.tab-dot{color:var(--muted);font-size:11px}.tab-dot.open{color:var(--good)}.tab-dot.opening{color:var(--warn)}.modal-card input,.modal-card button{min-height:44px}
 .workspace-list{display:grid;gap:8px;max-height:min(52vh,420px);overflow:auto}.workspace-choice{display:flex!important;flex-direction:column;align-items:flex-start;gap:4px;width:100%;margin:0!important;padding:12px 14px!important;background:rgba(255,255,255,.08)!important;color:#fff!important;text-align:left}.workspace-choice small{color:#aaa;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
 </style></head>
 <body class="pairing"><div class="shell">
@@ -1676,6 +1676,12 @@ addMessage = (html, tabID = active) => {
 const vampMoreStyle = document.createElement('style');
 vampMoreStyle.textContent = `
   .tab-dot.closed,.tab-dot.error,.tab-dot.offline { color: var(--danger); }
+  .rich-code-wrap { position: relative; }
+  .rich-code-wrap .rich-code-copy { position: absolute; top: 8px; right: 8px; z-index: 2; min-height: 28px; padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.16); background: rgba(18,18,18,.72); color: #ddd; font-size: 12px; font-weight: 600; opacity: .82; }
+  .rich-code-wrap .rich-code-copy:hover, .rich-code-wrap .rich-code-copy:focus-visible { opacity: 1; background: rgba(42,42,42,.92); }
+  .rich-caret { display: inline-block; width: 8px; height: 15px; margin-left: 2px; vertical-align: text-bottom; border-radius: 2px; background: var(--good); animation: vampCaretBlink 1.1s steps(2, start) infinite; }
+  @keyframes vampCaretBlink { 50% { opacity: .16; } }
+  @media (prefers-reduced-motion: reduce) { .rich-caret { animation: none; } }
   .composer { box-sizing: border-box; width: calc(100% - 32px); min-height: 60px; height: 60px; padding: 8px; gap: 8px; }
   .composer input { box-sizing: border-box; height: 44px; min-height: 44px; padding: 8px 10px; }
   .composer > button { box-sizing: border-box; flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; padding: 0; }
@@ -4866,6 +4872,13 @@ let latestScrollFrame = 0;
   };
   window.vampFilterTabContent = filterTabContent;
 
+  // Inline emphasis on already-escaped text: markers (* _ [ ]) survive esc(),
+  // and links/text are HTML-safe because the whole segment was escaped first.
+  const inlineEmphasis = (escaped) => escaped
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+    .replace(/(^|[^\w_])_([^_\n]+)_(?![\w])/g, '$1<em>$2</em>');
   const inline = (value) => {
     const source = String(value || '');
     const matcher = /`([^`\n]+)`/g;
@@ -4873,11 +4886,11 @@ let latestScrollFrame = 0;
     let cursor = 0;
     let match;
     while ((match = matcher.exec(source))) {
-      result += esc(source.slice(cursor, match.index));
+      result += inlineEmphasis(esc(source.slice(cursor, match.index)));
       result += '<code class="inline-code">' + esc(match[1]) + '</code>';
       cursor = match.index + match[0].length;
     }
-    return result + esc(source.slice(cursor));
+    return result + inlineEmphasis(esc(source.slice(cursor)));
   };
   const cells = (line) => {
     let value = String(line || '').trim();
@@ -4907,7 +4920,7 @@ let latestScrollFrame = 0;
         const code = [];
         while (index < lines.length && !/^\s*```/.test(lines[index])) { code.push(lines[index]); index += 1; }
         if (index < lines.length) index += 1;
-        blocks.push('<pre class="rich-code"><span class="code-language">' + esc(language) + '</span>' + esc(code.join('\n')) + '</pre>');
+        blocks.push('<div class="rich-code-wrap"><button type="button" class="rich-code-copy" aria-label="Copy code">Copy</button><pre class="rich-code"><span class="code-language">' + esc(language) + '</span>' + esc(code.join('\n')) + '</pre></div>');
         continue;
       }
       if (index + 1 < lines.length && pipeRow(line) && delimiter(lines[index + 1])) {
@@ -4945,6 +4958,25 @@ let latestScrollFrame = 0;
     }
     return blocks.join('');
   };
+
+  // One delegated handler survives the innerHTML rewrites that stream output
+  // into each card, so every code block's Copy button stays live.
+  const chatSurface = $('chat');
+  if (chatSurface && !chatSurface.dataset.copyBound) {
+    chatSurface.dataset.copyBound = '1';
+    chatSurface.addEventListener('click', (event) => {
+      const copyButton = event.target.closest('.rich-code-copy');
+      if (!copyButton) return;
+      const pre = copyButton.parentElement?.querySelector('.rich-code');
+      if (!pre) return;
+      const clone = pre.cloneNode(true);
+      clone.querySelector('.code-language')?.remove();
+      const text = clone.textContent || '';
+      const done = () => { copyButton.textContent = 'Copied'; setTimeout(() => { copyButton.textContent = 'Copy'; }, 1400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(() => {});
+      else done();
+    });
+  }
 
   const ensureOutputCard = (id) => {
     const tab = tabs.get(id);
@@ -5018,6 +5050,11 @@ let latestScrollFrame = 0;
     if (body) {
       const rendered = renderBlocks(tab.outputText) || '<div class="rich-empty">Waiting for terminal output…</div>';
       body.innerHTML = rendered;
+      // A trailing blinking caret while a response streams, so the card reads
+      // as alive rather than frozen between chunks.
+      if (tab.pendingCommand && tab.outputText && tab.outputText.trim()) {
+        body.insertAdjacentHTML('beforeend', '<span class="rich-caret" aria-hidden="true"></span>');
+      }
       card.classList.toggle('structured-output', /rich-(?:code|box|table-wrap|step)/.test(rendered));
     }
     const state = card.querySelector('.stream-state');

@@ -106,6 +106,10 @@ final class ClientSessionCoordinator: ObservableObject {
     /// The Mac client uses this to keep its session view mounted during the brief
     /// `.idle` phase produced by `disconnect()` inside a reconnect attempt.
     @Published private(set) var isReconnectInProgress = false
+    /// Whether this device currently has a satisfied network path. Lets the UI
+    /// distinguish "your phone is offline" from "the Mac is quiet" while a
+    /// reconnect is in flight, instead of showing one generic spinner.
+    @Published private(set) var isNetworkPathSatisfied = true
 
     /// Terminal-session lifecycle, decoupled from the transport state. Views
     /// react to this instead of inferring end-of-session from socket events:
@@ -698,6 +702,7 @@ final class ClientSessionCoordinator: ObservableObject {
                 self.tailscaleVPNStatus = vpnActive ? .active : .inactive
                 let pathRecovered = !self.lastPathWasSatisfied && pathStatus == "satisfied"
                 self.lastPathWasSatisfied = pathStatus == "satisfied"
+                self.isNetworkPathSatisfied = pathStatus == "satisfied"
                 if oldStatus == .inactive && self.tailscaleVPNStatus == .active {
                     if self.phase == .error || self.phase == .idle {
                         await self.reconnectLast()

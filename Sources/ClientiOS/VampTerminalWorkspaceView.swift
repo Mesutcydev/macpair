@@ -330,21 +330,45 @@ struct VampTerminalWorkspaceView: View {
     /// NOT over. Never flashes "Disconnected" for a brief app-switch or path
     /// flap — the Mac keeps running and tabs stay mounted.
     private func reconnectingBanner() -> some View {
-        HStack(spacing: VampTerminalDesign.space2) {
-            ProgressView()
-                .controlSize(.small)
-            Text("Reconnecting to Mac — sessions are still running")
+        let online = coordinator.isNetworkPathSatisfied
+        return HStack(spacing: VampTerminalDesign.space2) {
+            // Offline is the device's fault and no spinner is honest about it;
+            // "reconnecting" (path up, host quiet) is where a spinner belongs.
+            if online {
+                ProgressView().controlSize(.small)
+            } else {
+                Image(systemName: "wifi.slash")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(VampGlassPalette.warning)
+            }
+            Text(online
+                 ? "Reconnecting to Mac — sessions are still running"
+                 : "Waiting for network — this device is offline")
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(VampGlassPalette.inkSecondary)
-                .lineLimit(1)
-            Spacer(minLength: 0)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: VampTerminalDesign.space2)
+            if online {
+                Button("Retry now") {
+                    Task { try? await coordinator.forceReconnectLast() }
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(VampGlassPalette.ink)
+                .padding(.horizontal, VampTerminalDesign.space3)
+                .frame(minHeight: VampTerminalDesign.minTapTarget)
+                .vampGlassSurface(.button, cornerRadius: VampTerminalDesign.controlRadius)
+                .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius)
+                .buttonStyle(VampGlassPressStyle())
+                .accessibilityHint("Forces an immediate reconnect instead of waiting")
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, VampTerminalDesign.space3)
         .padding(.vertical, VampTerminalDesign.space2)
         .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: VampTerminalDesign.cardRadius, style: .continuous))
         .vampGlassSurface(.card, cornerRadius: VampTerminalDesign.cardRadius)
-        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: VampGlassPalette.inkSecondary.opacity(0.25))
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.cardRadius, color: (online ? VampGlassPalette.inkSecondary : VampGlassPalette.warning).opacity(0.25))
     }
 
     private func clipboardToast(_ message: String) -> some View {
@@ -382,20 +406,16 @@ struct VampTerminalWorkspaceView: View {
             .accessibilityHint("Asks for confirmation before disconnecting")
 
             VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
-                Text("Task chat")
+                Text(presentation.title)
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(VampGlassPalette.ink)
                     .lineLimit(1)
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(VampGlassPalette.good)
-                        .frame(width: 6, height: 6)
-                        .accessibilityHidden(true)
-                    Text("\(coordinator.connectedHostName ?? "Vamp Terminal") · \(coordinator.connectionMode.label)")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(VampGlassPalette.inkTertiary)
-                        .lineLimit(1)
-                }
+                // Host context only — the live connection dot lives on the
+                // trailing status pill, so this line no longer repeats it.
+                Text("\(coordinator.connectedHostName ?? "Vamp Terminal") · \(coordinator.connectionMode.label)")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(VampGlassPalette.inkTertiary)
+                    .lineLimit(1)
             }
 
             Spacer(minLength: VampTerminalDesign.space2)
@@ -1931,6 +1951,18 @@ private struct TerminalChatBlockView: View {
     let provider: VampAgentProvider?
 
     var body: some View {
+        content
+            .contextMenu {
+                Button {
+                    UIPasteboard.general.string = block.text
+                } label: {
+                    Label("Copy message", systemImage: "doc.on.doc")
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         switch block.role {
         case .system:
             systemBlock
@@ -2014,9 +2046,15 @@ private struct TerminalChatBlockView: View {
             }
 
             TerminalChatContentView(
+                // Chat body text uses the adaptive label ink, never the
+                // provider's terminalText: that cream/coral is tuned for the
+                // dark terminal canvas and is nearly invisible on the light
+                // chat background. Provider identity stays on the avatar + caret.
                 text: block.text,
-                color: provider?.terminalText ?? VampGlassPalette.ink,
-                usesProseTypography: provider != nil
+                color: VampGlassPalette.ink,
+                usesProseTypography: provider != nil,
+                isStreaming: block.isStreaming,
+                caretColor: provider?.accent ?? statusColor
             )
             }
         }
@@ -2052,25 +2090,36 @@ private struct TerminalChatContentView: View {
     let text: String
     let color: Color
     let usesProseTypography: Bool
+    var isStreaming: Bool = false
+    var caretColor: Color = VampGlassPalette.ink
 
     var body: some View {
-        if isTable {
-            tableContent
-        } else if usesProseTypography {
-            // An agent's answer is a conversation message, not a terminal pane:
-            // let it flow at full height in the main chat scroll so the whole
-            // reply is readable, rather than a middle slice in a nested scroll.
-            // (Matches the browser task-chat, which no longer clamps responses.)
-            Text(text)
-                .font(.system(size: 15, weight: .regular, design: .rounded))
-                .foregroundStyle(color)
-                .lineSpacing(5)
-                .textSelection(.enabled)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
+        if usesProseTypography {
+            // An agent reply is Markdown, not a terminal pane. Split fenced code
+            // into copyable monospace cards and pipe tables into aligned grids,
+            // then render the rest as inline-styled prose. The whole reply flows
+            // in the main chat scroll (no nested vertical scroll that would
+            // fight the outer scroll for the same drag).
+            VStack(alignment: .leading, spacing: VampTerminalDesign.space3) {
+                ForEach(VampChatMarkdown.segments(from: text)) { segment in
+                    switch segment.kind {
+                    case .code(let code):
+                        VampCodeBlockCard(code: code)
+                    case .table(let rows):
+                        VampChatTableView(rows: rows, color: color)
+                    case .prose(let prose):
+                        VampMarkdownProseView(text: prose, color: color)
+                    }
+                }
+                if isStreaming { VampStreamingCaret(color: caretColor) }
+            }
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            ScrollView(.vertical) {
+            // Plain shell output is not Markdown. Keep it monospace and let it
+            // flow at natural height — a nested scroll region here trapped the
+            // drag that belongs to the chat feed.
+            VStack(alignment: .leading, spacing: VampTerminalDesign.space2) {
                 Text(text)
                     .font(.system(size: 13, weight: .regular, design: .monospaced))
                     .foregroundStyle(color)
@@ -2079,13 +2128,264 @@ private struct TerminalChatContentView: View {
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
+                if isStreaming { VampStreamingCaret(color: caretColor) }
             }
-            .scrollIndicators(.automatic)
-            .frame(maxHeight: VampTerminalDesign.chatOutputMaxHeight)
         }
     }
+}
 
-    private var rows: [[String]] {
+/// A trailing block cursor that blinks while a block is still streaming, so a
+/// long reply reads as alive rather than frozen behind a tiny title spinner.
+private struct VampStreamingCaret: View {
+    let color: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lit = true
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+            .fill(color)
+            .frame(width: 8, height: 15)
+            .opacity(lit ? 0.95 : 0.18)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                    lit = false
+                }
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+/// A copyable, horizontally scrollable code block. Language highlighting is
+/// intentionally out of scope; the win is monospace alignment, a real surface,
+/// and a Copy button on a phone.
+private struct VampCodeBlockCard: View {
+    let code: String
+    @State private var copied = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: VampTerminalDesign.space2) {
+                Text("CODE")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(1.1)
+                    .foregroundStyle(VampGlassPalette.inkTertiary)
+                Spacer(minLength: 0)
+                Button(action: copy) {
+                    Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(copied ? VampGlassPalette.good : VampGlassPalette.inkSecondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(copied ? "Copied" : "Copy code")
+            }
+            .padding(.horizontal, VampTerminalDesign.space3)
+            .padding(.vertical, VampTerminalDesign.space2)
+
+            Rectangle().fill(VampGlassPalette.rule).frame(height: 0.5)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(code)
+                    .font(.system(size: 12.5, weight: .regular, design: .monospaced))
+                    .foregroundStyle(VampGlassPalette.ink)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .padding(VampTerminalDesign.space3)
+            }
+        }
+        .background(
+            Color.black.opacity(0.30),
+            in: RoundedRectangle(cornerRadius: VampTerminalDesign.controlRadius, style: .continuous)
+        )
+        .vampGlassOutline(cornerRadius: VampTerminalDesign.controlRadius)
+    }
+
+    private func copy() {
+        UIPasteboard.general.string = code
+        withAnimation(.easeOut(duration: 0.15)) { copied = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            withAnimation(.easeOut(duration: 0.25)) { copied = false }
+        }
+    }
+}
+
+/// An aligned pipe-table grid. Flows at natural height (no inner vertical
+/// scroll) and scrolls horizontally when a table is wider than the phone.
+private struct VampChatTableView: View {
+    let rows: [[String]]
+    let color: Color
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            VStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                    HStack(alignment: .top, spacing: VampTerminalDesign.space3) {
+                        ForEach(Array(row.enumerated()), id: \.offset) { _, value in
+                            Text(value.isEmpty ? " " : value)
+                                .font(.system(size: 12, weight: index == 0 ? .semibold : .regular, design: .monospaced))
+                                .foregroundStyle(color.opacity(index == 1 ? 0.7 : 1))
+                                .frame(minWidth: 80, alignment: .leading)
+                        }
+                    }
+                    .padding(.vertical, VampTerminalDesign.space2)
+                    if index < rows.count - 1 {
+                        Rectangle().fill(VampGlassPalette.rule).frame(height: 0.5)
+                    }
+                }
+            }
+            .padding(.horizontal, VampTerminalDesign.space1)
+        }
+    }
+}
+
+/// Line-oriented Markdown block renderer: headings, bullet/numbered lists,
+/// blockquotes, and paragraphs, each with inline emphasis/code/links. It is
+/// deliberately not a full CommonMark engine — fenced code and tables are
+/// pulled out upstream by `VampChatMarkdown.segments`.
+private struct VampMarkdownProseView: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VampTerminalDesign.space1) {
+            ForEach(Array(text.components(separatedBy: "\n").enumerated()), id: \.offset) { _, line in
+                row(for: line)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func row(for line: String) -> some View {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty {
+            Color.clear.frame(height: 3)
+        } else if let heading = VampChatMarkdown.heading(trimmed) {
+            Text(VampChatMarkdown.inline(heading.text))
+                .font(.system(size: heading.size, weight: .semibold, design: .rounded))
+                .foregroundStyle(color)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, VampTerminalDesign.space1)
+        } else if let item = VampChatMarkdown.listItem(trimmed) {
+            HStack(alignment: .firstTextBaseline, spacing: VampTerminalDesign.space2) {
+                Text(item.marker)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(color.opacity(0.7))
+                    .frame(minWidth: 18, alignment: .trailing)
+                Text(VampChatMarkdown.inline(item.text))
+                    .font(.system(size: 15, design: .rounded))
+                    .foregroundStyle(color)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        } else if trimmed.hasPrefix(">") {
+            Text(VampChatMarkdown.inline(String(trimmed.drop(while: { $0 == ">" || $0 == " " }))))
+                .font(.system(size: 15, design: .rounded))
+                .foregroundStyle(color.opacity(0.82))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, VampTerminalDesign.space3)
+                .overlay(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 1).fill(color.opacity(0.3)).frame(width: 2)
+                }
+        } else {
+            Text(VampChatMarkdown.inline(line))
+                .font(.system(size: 15, design: .rounded))
+                .foregroundStyle(color)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+/// Splits an agent reply into fenced-code, table, and prose segments, and
+/// carries the small inline/block Markdown helpers used to render prose.
+enum VampChatMarkdown {
+    struct Segment: Identifiable {
+        let id = UUID()
+        let kind: Kind
+    }
+    enum Kind {
+        case prose(String)
+        case code(String)
+        case table([[String]])
+    }
+
+    static func segments(from text: String) -> [Segment] {
+        var segments: [Segment] = []
+        var prose: [String] = []
+        var code: [String] = []
+        var inCode = false
+
+        func flushProse() {
+            guard !prose.isEmpty else { return }
+            let joined = prose.joined(separator: "\n")
+            prose.removeAll()
+            let rows = tableRows(joined)
+            if isTable(rows) {
+                segments.append(Segment(kind: .table(rows)))
+            } else if !joined.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                segments.append(Segment(kind: .prose(joined)))
+            }
+        }
+
+        for line in text.components(separatedBy: "\n") {
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                if inCode {
+                    segments.append(Segment(kind: .code(code.joined(separator: "\n"))))
+                    code.removeAll()
+                    inCode = false
+                } else {
+                    flushProse()
+                    inCode = true
+                }
+                continue
+            }
+            if inCode { code.append(line) } else { prose.append(line) }
+        }
+        if inCode, !code.isEmpty {
+            // Unterminated fence: still surface the code captured so far.
+            segments.append(Segment(kind: .code(code.joined(separator: "\n"))))
+        }
+        flushProse()
+        return segments.isEmpty ? [Segment(kind: .prose(text))] : segments
+    }
+
+    static func inline(_ value: String) -> AttributedString {
+        (try? AttributedString(
+            markdown: value,
+            options: AttributedString.MarkdownParsingOptions(
+                interpretedSyntax: .inlineOnlyPreservingWhitespace,
+                failurePolicy: .returnPartiallyParsedIfPossible
+            )
+        )) ?? AttributedString(value)
+    }
+
+    static func heading(_ line: String) -> (text: String, size: CGFloat)? {
+        guard line.hasPrefix("#") else { return nil }
+        let hashes = line.prefix(while: { $0 == "#" }).count
+        guard hashes <= 6, line.dropFirst(hashes).first == " " else { return nil }
+        let content = String(line.dropFirst(hashes)).trimmingCharacters(in: .whitespaces)
+        let size: CGFloat = hashes <= 1 ? 20 : hashes == 2 ? 18 : 16
+        return (content, size)
+    }
+
+    static func listItem(_ line: String) -> (marker: String, text: String)? {
+        if line.hasPrefix("- ") || line.hasPrefix("* ") || line.hasPrefix("+ ") {
+            return ("•", String(line.dropFirst(2)))
+        }
+        let digits = line.prefix(while: { $0.isNumber })
+        if !digits.isEmpty {
+            let rest = line.dropFirst(digits.count)
+            if rest.hasPrefix(". ") || rest.hasPrefix(") ") {
+                return (digits + ".", String(rest.dropFirst(2)))
+            }
+        }
+        return nil
+    }
+
+    static func tableRows(_ text: String) -> [[String]] {
         text
             .split(omittingEmptySubsequences: true, whereSeparator: \.isNewline)
             .filter { !$0.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "|", with: "").isEmpty }
@@ -2096,36 +2396,10 @@ private struct TerminalChatContentView: View {
             }
     }
 
-    private var isTable: Bool {
-        let candidates = rows
-        guard candidates.count >= 2 else { return false }
-        return candidates.allSatisfy { $0.count >= 2 }
-            && candidates[1].allSatisfy { $0.allSatisfy { $0 == "-" || $0 == ":" || $0 == " " } }
-    }
-
-    private var tableContent: some View {
-        ScrollView(.vertical) {
-            VStack(spacing: 0) {
-                ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                    HStack(alignment: .top, spacing: VampTerminalDesign.space2) {
-                        ForEach(Array(row.enumerated()), id: \.offset) { _, value in
-                            Text(value.isEmpty ? " " : value)
-                                .font(.system(size: 12, weight: index == 0 ? .semibold : .regular, design: .monospaced))
-                                .foregroundStyle(color.opacity(index == 1 ? 0.7 : 1))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                    .padding(.vertical, VampTerminalDesign.space2)
-                    if index < rows.count - 1 {
-                        Rectangle()
-                            .fill(VampGlassPalette.rule)
-                            .frame(height: 0.5)
-                    }
-                }
-            }
-        }
-        .scrollIndicators(.automatic)
-        .frame(maxHeight: VampTerminalDesign.chatOutputMaxHeight)
+    static func isTable(_ rows: [[String]]) -> Bool {
+        guard rows.count >= 2 else { return false }
+        return rows.allSatisfy { $0.count >= 2 }
+            && rows[1].allSatisfy { $0.allSatisfy { $0 == "-" || $0 == ":" || $0 == " " } }
     }
 }
 

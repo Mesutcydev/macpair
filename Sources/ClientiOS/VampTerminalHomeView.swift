@@ -663,7 +663,7 @@ struct VampTerminalHomeView: View {
                     Text("Connection needs attention")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundStyle(VampGlassPalette.ink)
-                    Text(error)
+                    Text(humanizedConnectionError(error))
                         .font(.footnote)
                         .foregroundStyle(VampGlassPalette.inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -825,5 +825,28 @@ struct VampTerminalHomeView: View {
             return "Tailscale"
         }
         return "LAN"
+    }
+
+    /// Turns a raw transport/error string into a plain-language sentence with a
+    /// concrete next step. Unknown errors fall through to the original text, so
+    /// this only ever adds clarity.
+    private func humanizedConnectionError(_ raw: String) -> String {
+        let lower = raw.lowercased()
+        if lower.contains("pair") || lower.contains("approve") || lower.contains("trust") {
+            return "This device isn't paired yet. Open Vamp Host on the Mac, approve the pairing request, then retry."
+        }
+        if lower.contains("busy") || lower.contains("another client") || lower.contains("in use") {
+            return "Another client is already connected to this host. Disconnect it, or try again in a moment."
+        }
+        if lower.contains("fingerprint") || lower.contains("identity") || lower.contains("mismatch") || lower.contains("certificate") {
+            return "The host's identity didn't match the one saved on this device. If you reinstalled Vamp Host, forget the host and pair again."
+        }
+        if lower.contains("timeout") || lower.contains("timed out") {
+            return "The Mac didn't answer in time. Make sure Vamp Host is open and the Mac is awake, then retry."
+        }
+        if lower.contains("refused") || lower.contains("unreachable") || lower.contains("no route") || lower.contains("offline") || lower.contains("not reach") {
+            return "Couldn't reach the Mac. Check that both devices are on the same Wi-Fi or Tailscale network, then retry."
+        }
+        return raw
     }
 }
