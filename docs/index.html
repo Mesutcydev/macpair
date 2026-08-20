@@ -1218,6 +1218,181 @@
       .setup-panel[data-active="true"] { animation: none !important; }
       .primary-button, .secondary-button, .icon-button, .menu-button, .chooser-tab, .app-card, .mini-product, .product-window { transition-duration: 120ms; }
     }
+
+    /* App Store-style catalog: one calm row per installable surface. */
+    .apps-grid {
+      grid-template-columns: 1fr;
+      gap: 0;
+      overflow: hidden;
+      border: 2px solid var(--ink);
+      background: var(--ink);
+      box-shadow: 6px 6px 0 var(--ink);
+    }
+    .app-group-label {
+      grid-column: 1 / -1;
+      padding: 14px 20px 10px;
+      color: var(--surface);
+      background: var(--ink);
+      font: 700 10px/1 "IBM Plex Mono", monospace;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .app-card {
+      display: grid;
+      grid-template-columns: 60px minmax(0, 1fr) auto;
+      grid-template-rows: auto auto auto auto;
+      align-items: center;
+      column-gap: 16px;
+      row-gap: 4px;
+      min-height: 0;
+      padding: 18px 20px;
+      border: 0;
+      border-bottom: 1px solid var(--line-strong);
+      border-radius: 0;
+      background: var(--surface);
+      box-shadow: none;
+      transition: background-color 160ms ease, transform 180ms var(--ease-out);
+    }
+    .app-card:last-child { border-bottom: 0; }
+    .app-card:hover,
+    .app-card:focus-within {
+      border-color: var(--line-strong);
+      background: var(--surface-2);
+      box-shadow: none;
+      transform: none;
+    }
+    .app-card-top { display: contents; }
+    .app-icon {
+      grid-column: 1;
+      grid-row: 1 / span 4;
+      width: 58px;
+      height: 58px;
+      border: 2px solid var(--ink);
+      border-radius: 15px;
+      box-shadow: 0 3px 0 rgba(17, 17, 15, .18);
+    }
+    .app-platform {
+      grid-column: 2;
+      grid-row: 1;
+      align-self: end;
+      padding-top: 0;
+      text-align: left;
+      font-size: 9px;
+    }
+    .app-card h3 {
+      grid-column: 2;
+      grid-row: 2;
+      margin-top: 0;
+      font-size: 20px;
+      line-height: 1.08;
+    }
+    .app-card p {
+      grid-column: 2;
+      grid-row: 3;
+      max-width: 720px;
+      margin-top: 2px;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .app-meta {
+      grid-column: 2;
+      grid-row: 4;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .chip {
+      padding: 4px 7px;
+      border-radius: 999px;
+      font-size: 9px;
+    }
+    .app-footer {
+      grid-column: 3;
+      grid-row: 1 / span 4;
+      align-self: center;
+      align-items: flex-end;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 0;
+      padding-top: 0;
+    }
+    .app-footer .primary-button {
+      min-width: 84px;
+      min-height: 34px;
+      padding: 0 14px;
+      border-radius: 999px;
+      box-shadow: none;
+      font-size: 10px;
+    }
+    .version { order: 2; }
+    .app-card[data-has-preview="true"] {
+      grid-template-columns: 60px minmax(0, 1fr) 176px auto;
+    }
+    .app-card[data-has-preview="true"] .app-card-visual {
+      grid-column: 3;
+      grid-row: 1 / span 4;
+      width: 176px;
+      height: 86px;
+      margin: 0;
+      border: 1px solid var(--ink);
+      border-radius: 10px;
+      background: linear-gradient(145deg, #252a25, #080909);
+    }
+    .app-card[data-has-preview="true"] .app-card-visual::before {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      content: "";
+      background: linear-gradient(115deg, rgba(255,255,255,.12), transparent 35%);
+    }
+    .app-card[data-has-preview="true"] .app-card-visual img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 22%;
+    }
+
+    @media (max-width: 980px) and (min-width: 721px) {
+      .app-card[data-has-preview="true"] {
+        grid-template-columns: 56px minmax(0, 1fr) 138px auto;
+      }
+      .app-card[data-has-preview="true"] .app-card-visual { width: 138px; }
+    }
+    @media (max-width: 720px) {
+      .apps-grid { box-shadow: 4px 4px 0 var(--ink); }
+      .app-group-label { padding: 12px 14px 9px; }
+      .app-card,
+      .app-card[data-has-preview="true"] {
+        grid-template-columns: 52px minmax(0, 1fr) auto;
+        column-gap: 12px;
+        padding: 16px 14px;
+      }
+      .app-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 13px;
+      }
+      .app-card h3 { font-size: 18px; }
+      .app-card p {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        font-size: 10px;
+        line-height: 1.45;
+      }
+      .app-footer { grid-column: 3; grid-row: 1 / span 4; }
+      .app-card[data-has-preview="true"] .app-card-visual {
+        grid-column: 2 / -1;
+        grid-row: 5;
+        width: auto;
+        height: 96px;
+        margin-top: 10px;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .app-card { transition: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -1389,28 +1564,37 @@
         <p class="section-lead" data-i18n="download.lead">Current builds for hosts and clients. Install hosts on the Mac you control; clients on the device you use.</p>
       </div>
       <div class="apps-grid" id="download-grid">
-        <article class="surface-card app-card" data-platform="macos">
+        <div class="app-group-label" data-i18n="download.hosts">Hosts</div>
+        <article class="surface-card app-card" data-platform="macos" data-group="hosts">
           <div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-host.png?v=f87cd19" alt=""></span><span class="app-platform" data-i18n="app.platformMacHost">macOS · host</span></div>
           <h3>Vamp Host</h3>
           <p data-i18n="app.host">The full host for remote screen control, keyboard, pointer, clipboard, files, audio, and an opt-in terminal.</p>
           <div class="app-meta"><span class="chip" data-i18n="app.chipScreen">screen</span><span class="chip" data-i18n="app.chipTerminal">terminal</span><span class="chip" data-i18n="app.chipFiles">files</span></div>
           <div class="app-footer"><a class="primary-button" data-release-link="vamp-host" href="https://github.com/Mesutcydev/macpair/releases/latest" target="_blank" rel="noreferrer"><span data-i18n="app.download">Download</span><span aria-hidden="true">↓</span></a><span class="version" data-release-version="vamp-host">latest<br>release</span></div>
         </article>
-        <article class="surface-card app-card" data-platform="macos">
+        <article class="surface-card app-card" data-platform="macos" data-group="hosts">
           <div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-terminal.png?v=f87cd19" alt=""></span><span class="app-platform" data-i18n="app.platformMacHost">macOS · host</span></div>
           <h3>Vamp Terminal Host</h3>
           <p data-i18n="app.terminalHost">The lean host for opt-in terminal access on headless Macs and servers. No screen sharing surface.</p>
           <div class="app-meta"><span class="chip" data-i18n="app.chipTerminalOnly">terminal only</span><span class="chip" data-i18n="app.chipHeadless">headless</span><span class="chip" data-i18n="app.chipLightweight">lightweight</span></div>
           <div class="app-footer"><a class="primary-button" data-release-link="vamp-terminal-host" href="https://github.com/Mesutcydev/macpair/releases/latest" target="_blank" rel="noreferrer"><span data-i18n="app.download">Download</span><span aria-hidden="true">↓</span></a><span class="version" data-release-version="vamp-terminal-host">latest<br>release</span></div>
         </article>
-        <article class="surface-card app-card" data-platform="macos">
+        <article class="surface-card app-card" data-platform="linux" data-group="hosts">
+          <div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-terminal.png?v=f87cd19" alt=""></span><span class="app-platform" data-i18n="app.platformLinux">Linux · browser host</span></div>
+          <h3>Vamp Terminal · Linux Host</h3>
+          <p data-i18n="app.linux">A dependency-free, single-file Python host with browser access through Tailscale. No package manager required.</p>
+          <div class="app-meta"><span class="chip">Python 3</span><span class="chip">8 PTYs</span><span class="chip">Tailscale</span></div>
+          <div class="app-footer"><a class="primary-button" href="https://github.com/Mesutcydev/macpair/blob/main/linux-host/README.md" target="_blank" rel="noreferrer"><span data-i18n="app.readGuide">Read guide</span><span aria-hidden="true">↗</span></a><span class="version" data-i18n="app.sourceOnly">source<br>only</span></div>
+        </article>
+        <div class="app-group-label" data-i18n="download.clients">Clients</div>
+        <article class="surface-card app-card" data-platform="macos" data-group="clients">
           <div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-control.png?v=f87cd19" alt=""></span><span class="app-platform" data-i18n="app.platformMacClient">macOS · client</span></div>
           <h3>Vamp Control · macOS</h3>
           <p data-i18n="app.controlMac">The Mac client for low-latency screen control, clipboard sync, and a remote terminal over your own network.</p>
           <div class="app-meta"><span class="chip" data-i18n="app.chipScreenView">screen view</span><span class="chip" data-i18n="app.chipControl">control</span><span class="chip" data-i18n="app.chipClipboard">clipboard</span></div>
           <div class="app-footer"><a class="primary-button" data-release-link="vamp-control-macos" href="https://github.com/Mesutcydev/macpair/releases/latest" target="_blank" rel="noreferrer"><span data-i18n="app.download">Download</span><span aria-hidden="true">↓</span></a><span class="version" data-release-version="vamp-control-macos">latest<br>release</span></div>
         </article>
-        <article class="surface-card app-card" data-platform="mobile">
+        <article class="surface-card app-card" data-platform="mobile" data-group="clients" data-has-preview="true">
           <div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-control.png?v=f87cd19" alt=""></span><span class="app-platform">iOS · iPadOS</span></div>
           <div class="app-card-visual is-simulator"><img src="assets/previews/vamp-control-home-simulator.png?v=f87cd19" alt="Vamp Control iOS home screen captured in the iPhone simulator"></div>
           <h3>Vamp Control · iOS</h3>
@@ -1418,20 +1602,13 @@
           <div class="app-meta"><span class="chip">iOS 18+</span><span class="chip" data-i18n="app.chipSideloadable">sideloadable</span></div>
           <div class="app-footer"><a class="primary-button" data-release-link="vamp-control-ios" href="https://github.com/Mesutcydev/macpair/releases/latest" target="_blank" rel="noreferrer"><span data-i18n="app.getIpa">Get IPA</span><span aria-hidden="true">↓</span></a><span class="version" data-release-version="vamp-control-ios">latest<br>release</span></div>
         </article>
-        <article class="surface-card app-card" data-platform="mobile">
+        <article class="surface-card app-card" data-platform="mobile" data-group="clients" data-has-preview="true">
           <div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-terminal.png?v=f87cd19" alt=""></span><span class="app-platform">iOS · iPadOS</span></div>
           <div class="app-card-visual is-simulator"><img src="assets/previews/vamp-terminal-home-simulator.png?v=f87cd19" alt="Vamp Terminal iOS home screen captured in the iPhone simulator"></div>
           <h3>Vamp Terminal · iOS</h3>
           <p data-i18n="app.terminalIos">A focused terminal client with eight concurrent tabs for approved, opt-in remote shells on your Vamp hosts.</p>
           <div class="app-meta"><span class="chip" data-i18n="app.chipTabs">8 tabs</span><span class="chip">iOS 18+</span></div>
           <div class="app-footer"><a class="primary-button" data-release-link="vamp-terminal-ios" href="https://github.com/Mesutcydev/macpair/releases/latest" target="_blank" rel="noreferrer"><span data-i18n="app.getIpa">Get IPA</span><span aria-hidden="true">↓</span></a><span class="version" data-release-version="vamp-terminal-ios">latest<br>release</span></div>
-        </article>
-        <article class="surface-card app-card" data-platform="linux">
-          <div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-terminal.png?v=f87cd19" alt=""></span><span class="app-platform" data-i18n="app.platformLinux">Linux · browser host</span></div>
-          <h3>Vamp Terminal · Linux Host</h3>
-          <p data-i18n="app.linux">A dependency-free, single-file Python host with browser access through Tailscale. No package manager required.</p>
-          <div class="app-meta"><span class="chip">Python 3</span><span class="chip">8 PTYs</span><span class="chip">Tailscale</span></div>
-          <div class="app-footer"><a class="primary-button" href="https://github.com/Mesutcydev/macpair/blob/main/linux-host/README.md" target="_blank" rel="noreferrer"><span data-i18n="app.readGuide">Read guide</span><span aria-hidden="true">↗</span></a><span class="version" data-i18n="app.sourceOnly">source<br>only</span></div>
         </article>
       </div>
       <p class="release-note"><span data-i18n="download.releaseNote">Need the source or sideload instructions?</span> <a href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer" data-i18n="download.github">Open the repository on GitHub ↗</a></p>
@@ -1596,7 +1773,7 @@
         'apps.kicker':"BURADAN BAŞLA",'apps.title1':"Ne yapmak istediğini seç.",'apps.title2':"Gerisini Vamp halleder.",'apps.lead':"İhtiyacın olan işi seç. Sadece gereken uygulamaları indir.",
         'chooser.controlTitle':"Mac’imi kontrol et",'chooser.controlCopy':"Başka bir cihazdan gör ve kullan.",'chooser.hostTitle':"Mac’imi erişilebilir yap",'chooser.hostCopy':"Kontrol edeceğin Mac’e host’u kur.",'chooser.terminalTitle':"Terminal aç",'chooser.terminalCopy':"Her yerden odaklı bir kabukla çalış.",
         'setup.controlTitle':"Mac’ini başka bir ekrandan kontrol et.",'setup.controlCopy':"Kontrol edeceğin Mac’e bir host kur. Elindeki cihazda Vamp Control’ü aç. Ekran, giriş, pano ve isteğe bağlı terminal kendi ağında kalır.",'setup.recommended':"önerilen",'setup.hostMini':"Kontrol edeceğin Mac’te çalışır. Tam ekran kontrolü ve isteğe bağlı terminal.",'setup.controlMini':"Onaylı bir host’u görüp kontrol etmek için kullandığın istemci.",'setup.chooseHost':"Host’u seç →",'setup.chooseControl':"İstemciyi seç →",'setup.footnote':"Şunun için iyi:",'setup.footnoteStrong':"uzaktan çalışma, teknik destek veya ekransız bir Mac.",'setup.hostTitle':"Mac’in için özel bir giriş noktası aç.",'setup.hostCopy':"Host, ulaşmak istediğin Mac’te çalışır. Ekranı da kontrol edeceksen Vamp Host’u; sunucu ya da ekransız Mac için Terminal Host’u seç.",'setup.hostBadge':"Mac’te çalışır",'setup.fullHostMini':"Ekran paylaşımı, klavye, işaretçi, pano, dosya, ses ve terminal için tam host.",'setup.terminalHostMini':"Ekransız Mac’ler ve sunucular için yalın seçenek. Ekran paylaşımı içermez.",'setup.downloadFull':"Tam host’u indir →",'setup.downloadTerminal':"Terminal Host’u indir →",'setup.hostFootnote':"Mac mini, ev sunucusu veya sürekli açık iş istasyonu.",'setup.terminalTitle':"Nerede olursan ol odaklanmış bir kabuk aç.",'setup.terminalCopy':"iPhone veya iPad’de terminal istemcisini kullan, Mac’ten bağlan ya da Linux host’unu Tailscale arkasında çalıştır. Terminal erişimi her zaman isteğe bağlıdır.",'setup.terminalBadge':"isteğe bağlı",'setup.mobileTerminalMini':"Onaylı host’lar için cebinde sekiz eşzamanlı terminal sekmesi.",'setup.linuxMini':"Özel tailnet’in üzerinden tarayıcıdan erişilen, tek dosyalık Python host’u.",'setup.downloadMobile':"iOS istemcisini indir →",'setup.readLinux':"Linux kılavuzunu aç →",'setup.terminalFootnote':"ajanlar, bakım veya hareket hâlinde hızlı düzeltmeler.",'setup.tagScreenShell':"ekran + terminal",'setup.tagTerminalOnly':"yalnızca terminal",'setup.tagLinuxBrowser':"Linux / tarayıcı",
-        'download.kicker':"GÜNCEL DERLEMELER",'download.title1':"Doğru derleme,",'download.title2':"aradığın yerde.",'download.lead':"Host’ları kontrol edeceğin Mac’e, istemcileri kullanacağın cihaza kur. En güncel sürümleri buradan indir.",'download.releaseNote':"Kaynak koduna veya yan yükleme yönergelerine mi ihtiyacın var?",'download.github':"GitHub deposunu aç ↗",
+        'download.kicker':"GÜNCEL DERLEMELER",'download.title1':"Doğru derleme,",'download.title2':"aradığın yerde.",'download.lead':"Host’ları kontrol edeceğin Mac’e, istemcileri kullanacağın cihaza kur. En güncel sürümleri buradan indir.",'download.hosts':"HOSTLAR",'download.clients':"İSTEMCİLER",'download.releaseNote':"Kaynak koduna veya yan yükleme yönergelerine mi ihtiyacın var?",'download.github':"GitHub deposunu aç ↗",
         'app.host':"Uzak ekran, klavye, işaretçi, pano, dosya, ses ve isteğe bağlı terminal için tam host.",'app.terminalHost':"Ekransız Mac’ler ve sunucular için yalın host. İsteğe bağlı terminal erişimi sunar; ekran paylaşımı içermez.",'app.controlMac':"Kendi ağında düşük gecikmeli ekran kontrolü, pano eşitleme ve uzak terminal için Mac istemcisi.",'app.controlIos':"Dokunma hareketleri, işaretçi ve klavye kontrolü, pano ve isteğe bağlı terminal erişimiyle iPhone veya iPad’den Mac’ine bağlan.",'app.terminalIos':"Vamp host’larındaki onaylı uzak kabuklara erişmek için sekiz eşzamanlı sekmeli terminal istemcisi.",'app.linux':"Tailscale üzerinden tarayıcıdan erişilen, bağımlılık gerektirmeyen tek dosyalık Python host’u. Paket yöneticisi gerekmez.",'app.download':"İndir",'app.getIpa':"IPA’yı indir",'app.readGuide':"Kılavuzu aç",'app.platformMacHost':"macOS · host",'app.platformMacClient':"macOS · istemci",'app.platformLinux':"Linux · tarayıcı host’u",'app.chipScreen':"ekran",'app.chipTerminal':"terminal",'app.chipFiles':"dosya",'app.chipTerminalOnly':"yalnızca terminal",'app.chipHeadless':"ekransız",'app.chipLightweight':"hafif",'app.chipScreenView':"ekran görüntüsü",'app.chipControl':"kontrol",'app.chipClipboard':"pano",'app.chipSideloadable':"yan yüklenebilir",'app.chipTabs':"8 sekme",'app.sourceOnly':"yalnızca<br>kaynak",
         'how.kicker':"VARSAYILAN OLARAK ÖZEL",'how.title1':"Görebileceğin ve",'how.title2':"onaylayabileceğin bir bağlantı.",'how.copy':"Host senindir. Ağ senindir. Yeni bir cihaz bağlanmadan önce Mac’te onay ver.",'how.noteStrong':"Terminal erişimi isteğe bağlıdır.",'how.noteCopy':"Ekran ve giriş yetkileri terminalden bağımsızdır.",'step.oneTitle':"Host’u bul",'step.oneCopy':"İstemcin, LAN’daki Bonjour keşfiyle veya özel Tailscale ağın üzerinden imzalı host’u bulur.",'step.twoTitle':"Parmak izini kontrol et",'step.twoCopy':"Mac’te bir eşleşme isteği ve kod görünür. Sen onaylamadan bağlantı kurulmaz.",'step.threeTitle':"Oturumu onayla",'step.threeCopy':"Doğru cihazı host’ta onayla ve bağlan. İstersen daha sonra erişimini kaldır.",
         'security.kicker':"KISACA",'security.title1':"Sessiz ve",'security.title2':"güvenli.",'security.lead':"Hesap açmadan, barındırılan bir aktarıcıya ihtiyaç duymadan uzak kontrol.",'security.localTitle':"Önce senin ağın",'security.localCopy':"Bağlantılar LAN veya Tailscale üzerinden kurulur. Arada projeye ait bir aktarıcı yoktur.",'security.approvedTitle':"Elle onaylı",'security.approvedCopy':"Oturum başlamadan önce eş kimliği doğrulanmalı ve host’ta açıkça onay verilmelidir.",'security.agentTitle':"Ajanlara hazır",'security.agentCopy':"Yerleşik CLI; durum, bekleyen istekler, parmak izi kontrolleri ve terminal oturumlarını otomasyona açar.",
