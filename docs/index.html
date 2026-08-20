@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#071013">
+  <meta name="theme-color" content="#e8dfca">
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="icon" type="image/png" href="assets/vamp-terminal-icon.png">
   <link rel="apple-touch-icon" href="assets/vamp-terminal-icon.png">
@@ -26,63 +26,59 @@
   <title>Vamp · Your Mac, in reach</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      color-scheme: dark;
-      --bg: #071013;
-      --bg-deep: #040809;
-      --surface: #0d1a1d;
-      --surface-2: #112327;
-      --surface-3: #172e32;
-      --ink: #effbf7;
-      --text: #b3c7c4;
-      --muted: #7e9693;
-      --line: rgba(215, 245, 238, .13);
-      --line-strong: rgba(215, 245, 238, .24);
-      --accent: #ff6b68;
-      --accent-strong: #ff8c7a;
-      --accent-soft: rgba(255, 107, 104, .13);
-      --mint: #87e8ca;
-      --mint-soft: rgba(135, 232, 202, .11);
-      --yellow: #f4d58d;
-      --shadow: 0 24px 80px rgba(0, 0, 0, .32);
-      --page-glow:
-        radial-gradient(900px 520px at 85% -8%, rgba(35, 105, 101, .26), transparent 66%),
-        radial-gradient(760px 620px at -12% 20%, rgba(255, 107, 104, .10), transparent 65%),
-        linear-gradient(180deg, #071013 0%, #061013 48%, #040809 100%);
+      color-scheme: light;
+      --bg: #e8dfca;
+      --bg-deep: #cfc2a5;
+      --surface: rgba(248, 243, 229, .82);
+      --surface-2: rgba(237, 230, 211, .86);
+      --surface-3: #d7c9aa;
+      --ink: #203e31;
+      --text: #4c604e;
+      --muted: #78816d;
+      --line: rgba(32, 62, 49, .16);
+      --line-strong: rgba(32, 62, 49, .32);
+      --accent: #b95d45;
+      --accent-strong: #944632;
+      --accent-soft: rgba(185, 93, 69, .12);
+      --mint: #3e6b51;
+      --mint-soft: rgba(62, 107, 81, .12);
+      --yellow: #a77b3b;
+      --shadow: 0 30px 90px rgba(48, 41, 27, .18);
+      --page-glow: linear-gradient(180deg, rgba(240, 233, 215, .92) 0%, rgba(229, 218, 194, .96) 58%, rgba(216, 203, 177, .98) 100%);
     }
 
-    html[data-theme="light"] {
-      color-scheme: light;
-      --bg: #f4f8f6;
-      --bg-deep: #edf3f0;
-      --surface: #ffffff;
-      --surface-2: #eef5f2;
-      --surface-3: #e2eee9;
-      --ink: #10211f;
-      --text: #405754;
-      --muted: #718681;
-      --line: rgba(16, 33, 31, .12);
-      --line-strong: rgba(16, 33, 31, .22);
-      --accent: #d84f50;
-      --accent-strong: #bc3f42;
-      --accent-soft: rgba(216, 79, 80, .11);
-      --mint: #0b806d;
-      --mint-soft: rgba(11, 128, 109, .10);
-      --yellow: #9b701e;
-      --shadow: 0 24px 80px rgba(32, 63, 58, .12);
-      --page-glow:
-        radial-gradient(900px 520px at 85% -8%, rgba(120, 193, 177, .18), transparent 66%),
-        radial-gradient(760px 620px at -12% 20%, rgba(216, 79, 80, .08), transparent 65%),
-        linear-gradient(180deg, #f5faf8 0%, #eef5f2 48%, #e8f0ed 100%);
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #183027;
+      --bg-deep: #0f2119;
+      --surface: rgba(26, 48, 38, .88);
+      --surface-2: rgba(31, 57, 45, .9);
+      --surface-3: #294938;
+      --ink: #f4edda;
+      --text: #c6cbb9;
+      --muted: #96a18f;
+      --line: rgba(238, 229, 205, .15);
+      --line-strong: rgba(238, 229, 205, .3);
+      --accent: #cf7658;
+      --accent-strong: #e19874;
+      --accent-soft: rgba(207, 118, 88, .14);
+      --mint: #a7c998;
+      --mint-soft: rgba(167, 201, 152, .12);
+      --yellow: #dfba70;
+      --shadow: 0 30px 90px rgba(0, 0, 0, .3);
+      --page-glow: linear-gradient(180deg, rgba(28, 52, 41, .94) 0%, rgba(22, 43, 34, .97) 58%, rgba(14, 29, 23, .99) 100%);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body {
+      position: relative;
       min-height: 100vh;
       overflow-x: hidden;
+      isolation: isolate;
       color: var(--text);
       background: var(--page-glow);
       font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -94,12 +90,26 @@
       position: fixed;
       inset: 0;
       pointer-events: none;
-      opacity: .34;
-      background-image: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
-      background-size: 42px 42px;
-      mask-image: linear-gradient(180deg, #000, transparent 76%);
+      z-index: 0;
+      opacity: .28;
+      background-image: url("assets/vamp-garden-engraving.jpg");
+      background-size: cover;
+      background-position: center top;
+      background-repeat: no-repeat;
+      mix-blend-mode: multiply;
+      filter: saturate(.72) contrast(.92) sepia(.08);
     }
-    html[data-theme="light"] body::before { opacity: .18; background-image: linear-gradient(rgba(16,33,31,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(16,33,31,.035) 1px, transparent 1px); }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background: linear-gradient(180deg, rgba(246, 239, 221, .46), rgba(232, 220, 195, .72) 58%, rgba(213, 198, 169, .9));
+    }
+    html[data-theme="dark"] body::before { opacity: .12; mix-blend-mode: screen; filter: saturate(.62) brightness(.64) contrast(1.02); }
+    html[data-theme="dark"] body::after { background: linear-gradient(180deg, rgba(20, 42, 32, .72), rgba(19, 38, 30, .84) 58%, rgba(10, 23, 18, .96)); }
+    body > * { position: relative; z-index: 1; }
     ::selection { background: var(--accent); color: #fff; }
     a { color: inherit; text-decoration: none; }
     button { font: inherit; }
@@ -524,6 +534,85 @@
     .footer-links a:hover { color: var(--ink); }
     .footer-bottom { display: flex; justify-content: space-between; gap: 20px; padding-top: 18px; color: var(--muted); font: 10px/1.5 "JetBrains Mono", monospace; }
 
+    /* Editorial finish */
+    body { letter-spacing: -.008em; }
+    .brand-word,
+    .hero h1,
+    .section-title,
+    .setup-panel h3,
+    .mini-product h4,
+    .app-card h3,
+    .step h3,
+    .security-card h3,
+    .gallery-copy strong,
+    .compare-card summary {
+      font-family: "DM Serif Display", Georgia, serif;
+      font-weight: 400;
+      letter-spacing: -.025em;
+    }
+    .brand-word { font-size: 26px; }
+    .brand-mark { border-radius: 7px; border-color: rgba(255, 255, 255, .2); color: #fff6e2; background: var(--accent); box-shadow: 0 10px 24px rgba(32, 62, 49, .18); }
+    .brand-tag { border-radius: 4px; background: rgba(248, 243, 229, .35); }
+    .site-header { background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: blur(16px) saturate(110%); -webkit-backdrop-filter: blur(16px) saturate(110%); }
+    .nav-links a { font-size: 13px; letter-spacing: .01em; }
+    .primary-button, .secondary-button, .text-button { border-radius: 4px; }
+    .primary-button { color: #fff6e2; background: var(--accent); box-shadow: 0 12px 24px rgba(32, 62, 49, .16); }
+    .primary-button:hover { color: #fff8e8; background: var(--accent-strong); }
+    .secondary-button { background: rgba(248, 243, 229, .36); }
+    .secondary-button:hover { border-color: var(--accent); background: var(--accent-soft); }
+    .hero { min-height: 720px; }
+    .hero h1 { font-size: clamp(61px, 7.8vw, 104px); line-height: .88; }
+    .hero h1 .accent, .section-title .accent { color: var(--accent); font-style: italic; }
+    .eyebrow { color: var(--mint); letter-spacing: .16em; }
+    .eyebrow::before { background: var(--accent); box-shadow: 0 0 0 5px var(--accent-soft), 0 0 18px var(--accent); }
+    .section-kicker { color: var(--accent-strong); letter-spacing: .16em; }
+    .section-kicker .bar { background: var(--accent); }
+    .surface-card { border-radius: 10px; background: linear-gradient(145deg, rgba(248, 243, 229, .78), rgba(230, 220, 196, .64)); box-shadow: 0 12px 42px rgba(59, 50, 32, .08); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+    .product-window { border-radius: 12px; border-color: rgba(32, 62, 49, .34); background: var(--ink); box-shadow: 0 30px 70px rgba(49, 42, 28, .2); transform: rotate(.55deg); }
+    .product-window:hover { border-color: var(--accent); }
+    .window-top { color: #cad3bd; background: rgba(18, 39, 29, .96); }
+    .window-status { color: #a7c998; }
+    .window-status::before { background: #a7c998; box-shadow: 0 0 10px #a7c998; }
+    .connection-card { right: -22px; border-radius: 7px; border-color: rgba(167, 201, 152, .4); color: #cbd2bd; background: rgba(27, 54, 40, .94); box-shadow: 0 20px 44px rgba(34, 38, 25, .25); }
+    .connection-label, .connection-host span:last-child { color: #b6d49f; }
+    .connection-host, .connection-meta strong { color: #f2ead5; }
+    .hero-rail { border-radius: 8px; border-color: var(--line-strong); }
+    .rail-item { background: rgba(248, 243, 229, .48); }
+    .rail-value { color: var(--accent-strong); }
+    .chooser { border-radius: 10px; border-color: var(--line-strong); }
+    .chooser-tabs { background: rgba(235, 226, 206, .72); }
+    .chooser-tab { border-radius: 6px; }
+    .chooser-tab:hover { background: rgba(248, 243, 229, .58); }
+    .chooser-tab[aria-selected="true"] { border-color: rgba(185, 93, 69, .48); background: var(--accent-soft); }
+    .chooser-panel { background: rgba(243, 236, 218, .68); }
+    .setup-badge { color: var(--accent-strong); background: var(--accent-soft); }
+    .mini-product { border-radius: 8px; background: rgba(248, 243, 229, .52); }
+    .app-card { border-radius: 10px; padding: 24px; background: rgba(248, 243, 229, .65); }
+    .app-card:hover { border-color: var(--accent); box-shadow: 0 16px 42px rgba(59, 50, 32, .12); transform: translateY(-3px); }
+    .app-card[data-platform="mobile"], .app-card[data-platform="linux"] { background: rgba(238, 230, 210, .7); }
+    .app-icon { border-radius: 7px; }
+    .app-card-visual { border-radius: 7px; border-color: var(--line-strong); }
+    .chip { border-color: var(--line-strong); background: rgba(248, 243, 229, .24); }
+    .steps { border-radius: 10px; border-color: var(--line-strong); }
+    .step { background: rgba(248, 243, 229, .58); }
+    .step-number { color: var(--accent-strong); }
+    .security-card { background: rgba(248, 243, 229, .58); }
+    .security-card .mark { color: var(--mint); background: var(--mint-soft); }
+    .gallery-main, .gallery-side { border-radius: 10px; }
+    .gallery-main .gallery-visual { background: radial-gradient(circle at 50% 10%, rgba(167, 201, 152, .2), transparent 62%), #182d22; }
+    .gallery-side .gallery-visual { background: radial-gradient(circle at 50% 10%, rgba(185, 93, 69, .16), transparent 62%), #1b2f24; }
+    .download-card { border-radius: 10px; border-color: rgba(185, 93, 69, .42); background: linear-gradient(120deg, rgba(248, 243, 229, .82), rgba(223, 208, 178, .72)); }
+    .compare-card summary::after { color: var(--accent); }
+    html[data-theme="dark"] .surface-card,
+    html[data-theme="dark"] .app-card,
+    html[data-theme="dark"] .mini-product,
+    html[data-theme="dark"] .security-card,
+    html[data-theme="dark"] .step { background: rgba(27, 53, 40, .8); box-shadow: 0 12px 42px rgba(0, 0, 0, .16); }
+    html[data-theme="dark"] .chooser-tabs { background: rgba(21, 43, 33, .9); }
+    html[data-theme="dark"] .chooser-panel { background: rgba(31, 57, 45, .82); }
+    html[data-theme="dark"] .rail-item { background: rgba(27, 53, 40, .82); }
+    html[data-theme="dark"] .download-card { background: linear-gradient(120deg, rgba(27, 53, 40, .9), rgba(52, 73, 53, .78)); }
+
     /* Responsive */
     @media (max-width: 980px) {
       .nav-links { gap: 15px; }
@@ -551,6 +640,7 @@
       .hero-sub { font-size: 16px; line-height: 1.6; }
       .hero-actions { align-items: stretch; flex-direction: column; }
       .hero-actions a { width: 100%; }
+      .visual-glow { left: 0; right: 0; }
       .product-window { transform: none; border-radius: 15px; }
       .connection-card { right: 9px; bottom: 14px; width: 190px; padding: 13px; }
       .hero-rail { grid-template-columns: repeat(2, 1fr); }
@@ -907,9 +997,10 @@
         root.dataset.theme = theme;
         if (themeIcon) themeIcon.textContent = theme === 'light' ? '☀' : '☾';
         if (themeButton) themeButton.setAttribute('aria-label', theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
-        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f4f8f6' : '#071013');
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#e8dfca' : '#183027');
       };
-      renderTheme(localStorage.getItem('vamp-theme') === 'light' ? 'light' : 'dark');
+      const storedTheme = localStorage.getItem('vamp-theme');
+      renderTheme(storedTheme === 'dark' ? 'dark' : 'light');
       themeButton?.addEventListener('click', () => {
         const next = root.dataset.theme === 'light' ? 'dark' : 'light';
         localStorage.setItem('vamp-theme', next);
