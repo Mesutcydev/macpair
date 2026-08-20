@@ -689,9 +689,9 @@
         <span class="brand-tag">suite</span>
       </a>
       <nav class="nav-links" aria-label="Primary navigation">
+        <a href="#compare" data-i18n="nav.compare">Compare</a>
         <a href="#apps" data-i18n="nav.apps">Apps</a>
         <a href="#how" data-i18n="nav.how">How it works</a>
-        <a href="#compare" data-i18n="nav.compare">Compare</a>
         <a href="#download" data-i18n="nav.download">Download</a>
       </nav>
       <div class="nav-actions">
@@ -703,9 +703,9 @@
       </div>
     </div>
     <nav class="container mobile-menu" id="mobile-menu" data-open="false" hidden aria-label="Mobile navigation">
+      <a href="#compare" data-i18n="nav.compare">Compare</a>
       <a href="#apps" data-i18n="nav.apps">Apps</a>
       <a href="#how" data-i18n="nav.how">How it works</a>
-      <a href="#compare" data-i18n="nav.compare">Compare</a>
       <a href="#download" data-i18n="nav.download">Download</a>
       <a href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer" data-i18n="nav.github">Open GitHub ↗</a>
     </nav>
@@ -750,10 +750,38 @@
       <div class="rail-item"><div class="rail-value">∞</div><div class="rail-label" data-i18n="rail.network">your network</div></div>
     </section>
 
+    <section class="container section" id="compare" aria-labelledby="compare-title">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker"><span class="number">01</span><span class="bar"></span><span data-i18n="compare.kicker">Start with the map</span></div>
+          <h2 class="section-title" id="compare-title"><span data-i18n="compare.title1">Know the surface</span> <span class="accent" data-i18n="compare.title2">before you install.</span></h2>
+        </div>
+        <p class="section-lead" data-i18n="compare.lead">Start with the capability map. Confirm the surface you need, then choose the smallest set of apps.</p>
+      </div>
+      <details class="surface-card compare-card" open>
+        <summary><span data-i18n="compare.summary">Feature matrix</span><span class="mono" style="color:var(--muted);font-size:11px" data-i18n="compare.summaryHint">screen · terminal · files · platform</span></summary>
+        <div class="compare-table-wrap">
+          <table class="compare-table">
+            <thead><tr><th data-i18n="compare.capability">Capability</th><th>Vamp Host</th><th>Terminal Host</th><th>Mac Control</th><th>iOS Control</th><th>iOS Terminal</th></tr></thead>
+            <tbody>
+              <tr><td data-i18n="compare.screen">Remote screen control</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+              <tr><td data-i18n="compare.terminal">Remote terminal</td><td class="maybe" data-i18n="compare.optIn">opt-in</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+              <tr><td data-i18n="compare.input">Keyboard &amp; pointer</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+              <tr><td data-i18n="compare.clipboard">Clipboard sync</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+              <tr><td data-i18n="compare.files">File transfer</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+              <tr><td data-i18n="compare.agents">Agent launchers</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td></tr>
+              <tr><td data-i18n="compare.platform">Platform</td><td>macOS</td><td>macOS</td><td>macOS</td><td>iOS/iPadOS</td><td>iOS/iPadOS</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="compare-foot"><span data-i18n="compare.foot">Terminal access is always opt-in.</span><a class="text-button" href="https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md" target="_blank" rel="noreferrer" data-i18n="compare.security">Read the security notes ↗</a></div>
+      </details>
+    </section>
+
     <section class="container section" id="apps" aria-labelledby="apps-title">
       <div class="section-head">
         <div>
-          <div class="section-kicker"><span class="number">01</span><span class="bar"></span><span data-i18n="apps.kicker">Start here</span></div>
+          <div class="section-kicker"><span class="number">02</span><span class="bar"></span><span data-i18n="apps.kicker">Start here</span></div>
           <h2 class="section-title" id="apps-title"><span data-i18n="apps.title1">Choose what you want to do.</span><br><span class="accent" data-i18n="apps.title2">Vamp handles the rest.</span></h2>
         </div>
         <p class="section-lead" data-i18n="apps.lead">You do not need to understand the whole suite to get started. Pick the outcome you want, then download the small set of apps that makes it happen.</p>
@@ -815,7 +843,7 @@
     <section class="container section" id="download" aria-labelledby="download-title">
       <div class="section-head">
         <div>
-          <div class="section-kicker"><span class="number">02</span><span class="bar"></span><span data-i18n="download.kicker">Current builds</span></div>
+          <div class="section-kicker"><span class="number">03</span><span class="bar"></span><span data-i18n="download.kicker">Current builds</span></div>
           <h2 class="section-title" id="download-title"><span data-i18n="download.title1">The right build,</span><br><span class="accent" data-i18n="download.title2">without the scavenger hunt.</span></h2>
         </div>
         <p class="section-lead" data-i18n="download.lead">Download buttons follow the latest public GitHub release automatically. Hosts go on the Mac being controlled; clients go on the device you use to connect.</p>
@@ -872,7 +900,7 @@
     <section class="container section" id="how" aria-labelledby="how-title">
       <div class="pairing-grid">
         <article class="surface-card pairing-intro">
-          <div class="section-kicker"><span class="number">03</span><span class="bar"></span><span data-i18n="how.kicker">Private by default</span></div>
+          <div class="section-kicker"><span class="number">04</span><span class="bar"></span><span data-i18n="how.kicker">Private by default</span></div>
           <h2 class="section-title" id="how-title"><span data-i18n="how.title1">A connection you can</span> <span class="accent" data-i18n="how.title2">see and approve.</span></h2>
           <p data-i18n="how.copy">Vamp borrows the good part of being local: the host is yours, the route is yours, and every new peer has to be visible and approved on the machine itself.</p>
           <div class="pairing-note"><span aria-hidden="true">✓</span><span><strong data-i18n="how.noteStrong">Terminal access stays opt-in.</strong> <span data-i18n="how.noteCopy">Display and input capabilities are separate from the shell.</span></span></div>
@@ -888,7 +916,7 @@
     <section class="container section" id="security" aria-labelledby="security-title">
       <div class="section-head">
         <div>
-          <div class="section-kicker"><span class="number">04</span><span class="bar"></span><span data-i18n="security.kicker">The short version</span></div>
+          <div class="section-kicker"><span class="number">05</span><span class="bar"></span><span data-i18n="security.kicker">The short version</span></div>
           <h2 class="section-title" id="security-title"><span data-i18n="security.title1">The useful kind of</span> <span class="accent" data-i18n="security.title2">quiet.</span></h2>
         </div>
         <p class="section-lead" data-i18n="security.lead">Vamp gives you a capable remote surface without turning your workflow into an account, a dashboard, or a hosted dependency.</p>
@@ -903,7 +931,7 @@
     <section class="container section" id="gallery" aria-labelledby="gallery-title">
       <div class="section-head">
         <div>
-          <div class="section-kicker"><span class="number">05</span><span class="bar"></span><span data-i18n="gallery.kicker">A look inside</span></div>
+          <div class="section-kicker"><span class="number">06</span><span class="bar"></span><span data-i18n="gallery.kicker">A look inside</span></div>
           <h2 class="section-title" id="gallery-title"><span data-i18n="gallery.title1">A workspace,</span> <span class="accent" data-i18n="gallery.title2">not a black box.</span></h2>
         </div>
         <p class="section-lead" data-i18n="gallery.lead">Permission boundaries, running commands, and the actual surface you are connecting to stay in view.</p>
@@ -918,34 +946,6 @@
           <div class="gallery-copy"><strong data-i18n="gallery.sideTitle">The terminal in your pocket</strong><p data-i18n="gallery.sideCopy">Eight tabs for the moments when a full remote desktop is more than you need.</p></div>
         </article>
       </div>
-    </section>
-
-    <section class="container section" id="compare" aria-labelledby="compare-title">
-      <div class="section-head">
-        <div>
-          <div class="section-kicker"><span class="number">06</span><span class="bar"></span><span data-i18n="compare.kicker">For the detail-oriented</span></div>
-          <h2 class="section-title" id="compare-title"><span data-i18n="compare.title1">See the surface</span> <span class="accent" data-i18n="compare.title2">before you install.</span></h2>
-        </div>
-        <p class="section-lead" data-i18n="compare.lead">The chooser above is the fast path. Open the matrix when you need to verify a capability across the suite.</p>
-      </div>
-      <details class="surface-card compare-card">
-        <summary><span data-i18n="compare.summary">Open the feature matrix</span><span class="mono" style="color:var(--muted);font-size:11px" data-i18n="compare.summaryHint">screen · terminal · files · platform</span></summary>
-        <div class="compare-table-wrap">
-          <table class="compare-table">
-            <thead><tr><th data-i18n="compare.capability">Capability</th><th>Vamp Host</th><th>Terminal Host</th><th>Mac Control</th><th>iOS Control</th><th>iOS Terminal</th></tr></thead>
-            <tbody>
-              <tr><td data-i18n="compare.screen">Remote screen control</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
-              <tr><td data-i18n="compare.terminal">Remote terminal</td><td class="maybe" data-i18n="compare.optIn">opt-in</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-              <tr><td data-i18n="compare.input">Keyboard &amp; pointer</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
-              <tr><td data-i18n="compare.clipboard">Clipboard sync</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-              <tr><td data-i18n="compare.files">File transfer</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
-              <tr><td data-i18n="compare.agents">Agent launchers</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td></tr>
-              <tr><td data-i18n="compare.platform">Platform</td><td>macOS</td><td>macOS</td><td>macOS</td><td>iOS/iPadOS</td><td>iOS/iPadOS</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="compare-foot"><span data-i18n="compare.foot">Terminal access is always opt-in.</span><a class="text-button" href="https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md" target="_blank" rel="noreferrer" data-i18n="compare.security">Read the security notes ↗</a></div>
-      </details>
     </section>
 
     <section class="container section" aria-labelledby="final-title">
@@ -1044,7 +1044,7 @@
           'how.kicker':'Varsayılan olarak özel','how.title1':'Görebileceğin ve','how.title2':'onaylayabileceğin bir bağlantı.','how.copy':'Vamp yerel olmanın iyi tarafını getirir: ana bilgisayar senindir, rota senindir ve her yeni eşin makinenin kendisinde görünür şekilde onaylanması gerekir.','how.noteStrong':'Terminal erişimi isteğe bağlıdır.','how.noteCopy':'Ekran ve giriş yetenekleri kabuktan ayrıdır.','step.oneTitle':'Ana bilgisayarı bul','step.oneCopy':'İstemcin LAN’da Bonjour veya özel Tailscale ağın üzerinden imzalı bir ana bilgisayar keşfeder.','step.twoTitle':'Parmak izini kontrol et','step.twoCopy':'Mac bir eşleşme isteği ve kod gösterir. Sen onay vermeden bağlantı kurulmaz.','step.threeTitle':'Oturumu onayla','step.threeCopy':'Ana bilgisayardaki doğru cihazı onayla ve bağlan. İstersen daha sonra eşin erişimini kaldır.',
           'security.kicker':'Kısa versiyon','security.title1':'Faydalı türden','security.title2':'sessizlik.','security.lead':'Vamp, iş akışını bir hesaba, panele veya barındırılan bağımlılığa dönüştürmeden güçlü bir uzak yüzey sunar.','security.localTitle':'Önce senin ağın','security.localCopy':'Bağlantılar LAN veya Tailscale ağını kullanır. Ortada proje tarafından işletilen bir aktarıcı yoktur.','security.approvedTitle':'Elle onaylı','security.approvedCopy':'Oturum başlamadan önce imzalı eş kimliği ve görünür ana bilgisayar onayı gerekir.','security.agentTitle':'Ajanlara hazır','security.agentCopy':'Yerleşik CLI durum, bekleyen istekler, parmak izi kontrolleri ve terminal oturumlarını otomasyona açar.',
           'gallery.kicker':'İçeriden bir bakış','gallery.title1':'Bir çalışma alanı,','gallery.title2':'kara kutu değil.','gallery.lead':'İzin sınırları, çalışan komutlar ve bağlandığın gerçek yüzey görünür kalır.','gallery.mainTitle':'Gerçek uygulamalardan yakalandı','gallery.mainCopy':'Mobil yüzeyler, yayınlandıkları hâliyle gösteriliyor: kurulum, ana bilgisayar keşfi, eşleşme ve terminal çalışması.','gallery.sideTitle':'Cebindeki terminal','gallery.sideCopy':'Tam bir uzak masaüstüne ihtiyaç duymadığın anlar için sekiz sekme.',
-          'compare.kicker':'Detay isteyenler için','compare.title1':'Kurulumdan önce','compare.title2':'yüzeyi gör.','compare.lead':'Yukarıdaki seçim hızlı yoldur. Bir yeteneği paketin tamamında doğrulaman gerektiğinde matrisi aç.','compare.summary':'Özellik matrisini aç','compare.summaryHint':'ekran · terminal · dosyalar · platform','compare.capability':'Yetenek','compare.screen':'Uzaktan ekran kontrolü','compare.terminal':'Uzaktan terminal','compare.optIn':'isteğe bağlı','compare.input':'Klavye ve işaretçi','compare.clipboard':'Pano eşitleme','compare.files':'Dosya aktarımı','compare.agents':'Ajan başlatıcıları','compare.platform':'Platform','compare.foot':'Terminal erişimi her zaman isteğe bağlıdır.','compare.security':'Güvenlik notlarını oku ↗',
+          'compare.kicker':'Önce yetenekler','compare.title1':'Yüzeyi gör','compare.title2':'kurmadan önce.','compare.lead':'Yetenek haritasıyla başla. İhtiyacın olan yüzeyi doğrula, sonra en küçük uygulama grubunu seç.','compare.summary':'Özellik matrisi','compare.summaryHint':'ekran · terminal · dosyalar · platform','compare.capability':'Yetenek','compare.screen':'Uzaktan ekran kontrolü','compare.terminal':'Uzaktan terminal','compare.optIn':'isteğe bağlı','compare.input':'Klavye ve işaretçi','compare.clipboard':'Pano eşitleme','compare.files':'Dosya aktarımı','compare.agents':'Ajan başlatıcıları','compare.platform':'Platform','compare.foot':'Terminal erişimi her zaman isteğe bağlıdır.','compare.security':'Güvenlik notlarını oku ↗',
           'final.kicker':'Hazır olduğunda','final.title1':'Mac’ini','final.title2':'yaklaştır.','final.copy':'Mac’ine ana bilgisayarı kurarak başla, sonra kullandığın cihaz için istemciyi seç. Vamp açık kaynaklıdır, ücretsiz çalışır ve özel ağın için tasarlanmıştır.','final.primary':'Bir derleme seç','final.secondary':'GitHub’da görüntüle','footer.copy':'macOS, iPhone, iPad, Safari ve Linux için açık kaynaklı, yerel öncelikli uzak masaüstü ve terminal araçları. macpair projesi üzerine kuruludur.','footer.install':'Kurulum belgeleri','footer.security':'Güvenlik','footer.meta':'yerel öncelikli · eş onaylı · ajan dostu'
         }
       };
