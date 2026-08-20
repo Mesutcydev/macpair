@@ -1116,6 +1116,24 @@
       .footer-bottom span + span { display: block; margin-top: 8px; }
       .compare-foot { align-items: start; flex-direction: column; }
     }
+
+    /* Final polish: keep the instrument inside the frame and the content legible. */
+    html { overflow-x: hidden; }
+    .visual-glow { right: 0; }
+    .connection-card { right: 12px; }
+    .pairing-grid { align-items: start; }
+    .steps { align-self: start; }
+    .app-card[data-platform="mobile"] .app-card-visual { height: 154px; }
+    .app-card[data-platform="mobile"] .app-card-visual img { width: 100%; height: 100%; object-fit: contain; object-position: center; background: #0b0b0a; }
+
+    @media (max-width: 720px) {
+      .connection-card { right: auto; }
+      .chooser-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }
+      .chooser-tab { min-width: 0; padding: 13px 8px; }
+      .chooser-tab strong { font-size: 11px; }
+      .chooser-tab span { font-size: 9px; }
+      .app-card[data-platform="mobile"] .app-card-visual { height: 172px; }
+    }
   </style>
 </head>
 <body>
