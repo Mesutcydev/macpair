@@ -288,7 +288,7 @@
       background: var(--bg-deep);
       box-shadow: var(--shadow);
       transform: rotate(1.1deg);
-      transition: transform .35s ease, border-color .35s ease;
+      transition: transform .22s cubic-bezier(.23, 1, .32, 1), border-color .16s ease;
     }
     .product-window:hover { border-color: rgba(135, 232, 202, .38); transform: rotate(0deg) translateY(-3px); }
     .window-top {
@@ -386,8 +386,7 @@
     .chooser-tab span { font-size: 12px; line-height: 1.4; }
     .chooser-panel { min-width: 0; padding: clamp(24px, 4vw, 40px); background: var(--surface-2); }
     .setup-panel { display: none; }
-    .setup-panel[data-active="true"] { display: block; animation: panelIn .3s ease both; }
-    @keyframes panelIn { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+    .setup-panel[data-active="true"] { display: block; }
     .setup-panel-head { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
     .setup-panel h3 { color: var(--ink); font: 600 clamp(25px, 3vw, 35px)/1.1 "Space Grotesk", sans-serif; letter-spacing: -.045em; }
     .setup-panel p { max-width: 610px; margin-top: 10px; font-size: 15px; line-height: 1.65; }
@@ -1134,6 +1133,88 @@
       .chooser-tab span { font-size: 9px; }
       .app-card[data-platform="mobile"] .app-card-visual { height: 172px; }
     }
+
+    /* Live motion: small signals, fast feedback, no visual noise. */
+    :root {
+      --ease-out: cubic-bezier(.23, 1, .32, 1);
+      --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+    }
+    .product-window {
+      transition: transform 220ms var(--ease-out), border-color 160ms ease;
+    }
+    .nav { min-height: 72px; }
+    .nav-actions > .primary-button { min-height: 42px; padding: 0 14px; }
+    .hero-actions .primary-button, .hero-actions .secondary-button { min-height: 46px; }
+    .product-window::after {
+      content: "";
+      position: absolute;
+      top: 45px;
+      left: 0;
+      right: 0;
+      height: 24%;
+      pointer-events: none;
+      background: linear-gradient(180deg, transparent, rgba(255,90,31,.11), transparent);
+      opacity: .7;
+      transform: translate3d(0, -160%, 0);
+      animation: screenSweep 7s linear infinite;
+    }
+    .window-status::before {
+      transform-origin: center;
+      animation: livePulse 1.8s ease-in-out infinite;
+    }
+    .connection-card { animation: connectionFloat 5s ease-in-out infinite; }
+    .setup-panel[data-active="true"] { display: block; animation: panelIn 220ms var(--ease-out) both; }
+    @keyframes screenSweep {
+      0% { transform: translate3d(0, -160%, 0); }
+      100% { transform: translate3d(0, 520%, 0); }
+    }
+    @keyframes livePulse {
+      0%, 100% { opacity: .55; transform: scale(.82); }
+      50% { opacity: 1; transform: scale(1); }
+    }
+    @keyframes connectionFloat {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(0, -3px, 0); }
+    }
+    @keyframes panelIn {
+      from { opacity: 0; transform: translate3d(0, 7px, 0); }
+      to { opacity: 1; transform: translate3d(0, 0, 0); }
+    }
+    .primary-button, .secondary-button, .icon-button, .menu-button, .chooser-tab, .app-card, .mini-product {
+      transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out), color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+    }
+    .primary-button:active, .secondary-button:active, .icon-button:active, .menu-button:active {
+      transform: translate3d(0, 1px, 0) scale(.98);
+      box-shadow: 1px 1px 0 var(--ink);
+    }
+    main#top, section[id] { scroll-margin-top: 82px; }
+    .chooser-tab:active { transform: translate3d(0, 1px, 0) scale(.99); }
+    @media (hover: hover) and (pointer: fine) {
+      .mini-product:hover { transform: translate3d(-2px, -2px, 0); box-shadow: 5px 5px 0 var(--accent); }
+    }
+    @media (hover: none) {
+      .product-window:hover { transform: none; }
+      .app-card:hover { transform: none; box-shadow: 5px 5px 0 var(--ink); }
+      .mini-product:hover { transform: none; box-shadow: 3px 3px 0 var(--line-strong); }
+    }
+    @media (max-width: 720px) {
+      .nav { min-height: 60px; }
+      .brand-mark { width: 32px; height: 32px; font-size: 16px; }
+      .brand-word { font-size: 21px; }
+      .brand-tag { padding: 4px 6px; font-size: 8px; }
+      .nav-actions { gap: 6px; }
+      .icon-button, .menu-button { width: 34px; height: 34px; }
+      .language-button { padding: 0 7px; }
+      .hero-sub { font-size: 16px; line-height: 1.58; }
+      .section-lead { font-size: 15px; line-height: 1.6; }
+      .app-card p, .mini-product p { font-size: 12px; }
+      main#top, section[id] { scroll-margin-top: 68px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .window-status::before, .connection-card, .product-window::after { animation: none !important; }
+      .setup-panel[data-active="true"] { animation: none !important; }
+      .primary-button, .secondary-button, .icon-button, .menu-button, .chooser-tab, .app-card, .mini-product, .product-window { transition-duration: 120ms; }
+    }
   </style>
 </head>
 <body>
@@ -1172,12 +1253,12 @@
       <div class="hero-copy">
         <div class="eyebrow" data-i18n="hero.eyebrow">Remote desktop · terminal · private network</div>
         <h1 id="hero-title"><span data-i18n="hero.title1">Your Mac.</span><br><span class="accent" data-i18n="hero.title2">In reach.</span></h1>
-        <p class="hero-sub" data-i18n="hero.copy">Vamp is a local-first remote workspace for your Mac, iPhone, iPad, and Linux. Connect over LAN or Tailscale, approve every device yourself, and keep the control plane on your network.</p>
+        <p class="hero-sub" data-i18n="hero.copy">Local-first remote control for Mac, iPhone, iPad, and Linux. Connect over LAN or Tailscale. Approve every device. Keep your data on your network.</p>
         <div class="hero-actions">
           <a class="primary-button" href="#apps"><span data-i18n="hero.primary">Find my setup</span><span aria-hidden="true">↓</span></a>
           <a class="secondary-button" href="#how"><span data-i18n="hero.secondary">See how pairing works</span><span aria-hidden="true">→</span></a>
         </div>
-        <div class="hero-note"><span aria-hidden="true">✦</span><span data-i18n="hero.note">Open source, peer-approved, and</span> <strong data-i18n="hero.noteStrong">no account required.</strong></div>
+        <div class="hero-note"><span aria-hidden="true">✦</span><span data-i18n="hero.note">Open source</span> <strong data-i18n="hero.noteStrong">· no account required.</strong></div>
       </div>
       <div class="hero-visual">
         <div class="visual-glow" aria-hidden="true"></div>
@@ -1212,7 +1293,7 @@
           <div class="section-kicker"><span class="number">01</span><span class="bar"></span><span data-i18n="compare.kicker">Start with the map</span></div>
           <h2 class="section-title" id="compare-title"><span data-i18n="compare.title1">Know the surface</span> <span class="accent" data-i18n="compare.title2">before you install.</span></h2>
         </div>
-        <p class="section-lead" data-i18n="compare.lead">Start with the capability map. Confirm the surface you need, then choose the smallest set of apps.</p>
+        <p class="section-lead" data-i18n="compare.lead">See what each app can do. Pick the smallest kit.</p>
       </div>
       <details class="surface-card compare-card" open>
         <summary><span data-i18n="compare.summary">Feature matrix</span><span class="mono" style="color:var(--muted);font-size:11px" data-i18n="compare.summaryHint">screen · terminal · files · platform</span></summary>
@@ -1240,7 +1321,7 @@
           <div class="section-kicker"><span class="number">02</span><span class="bar"></span><span data-i18n="apps.kicker">Start here</span></div>
           <h2 class="section-title" id="apps-title"><span data-i18n="apps.title1">Choose what you want to do.</span><br><span class="accent" data-i18n="apps.title2">Vamp handles the rest.</span></h2>
         </div>
-        <p class="section-lead" data-i18n="apps.lead">You do not need to understand the whole suite to get started. Pick the outcome you want, then download the small set of apps that makes it happen.</p>
+        <p class="section-lead" data-i18n="apps.lead">Choose the job. Download the smallest set of apps.</p>
       </div>
 
       <div class="chooser" data-chooser>
@@ -1261,36 +1342,36 @@
         <div class="chooser-panel">
           <div class="setup-panel" id="setup-control" role="tabpanel" data-setup-panel="control" data-active="true">
             <div class="setup-panel-head">
-              <div><h3 data-i18n="setup.controlTitle">Control your Mac from another screen.</h3><p data-i18n="setup.controlCopy">Install one host on the Mac you want to reach, then use Vamp Control on the device in your hands. Screen control, keyboard, pointer, clipboard, and optional terminal access stay on your own network.</p></div>
+              <div><h3 data-i18n="setup.controlTitle">Control your Mac from another screen.</h3><p data-i18n="setup.controlCopy">Install a host on your Mac. Use Vamp Control from the device in your hands. Screen, input, clipboard, and optional terminal stay on your network.</p></div>
               <span class="setup-badge" data-i18n="setup.recommended">recommended</span>
             </div>
             <div class="setup-products">
               <article class="mini-product"><div class="mini-product-top"><span class="mini-icon"><img src="assets/app-icons/vamp-host.png?v=f87cd19" alt=""></span><span class="mono" style="color:var(--muted);font-size:10px">macOS</span></div><h4>Vamp Host</h4><p data-i18n="setup.hostMini">Runs on the Mac being controlled. Full screen control plus opt-in terminal.</p><a class="text-button" href="#download" data-i18n="setup.chooseHost">Choose the host →</a></article>
               <article class="mini-product"><div class="mini-product-top"><span class="mini-icon"><img src="assets/app-icons/vamp-control.png?v=f87cd19" alt=""></span><span class="mono" style="color:var(--muted);font-size:10px">Mac / iOS</span></div><h4>Vamp Control</h4><p data-i18n="setup.controlMini">The client you use to see, control, and work with an approved host.</p><a class="text-button" href="#download" data-i18n="setup.chooseControl">Choose the client →</a></article>
             </div>
-            <div class="setup-footnote"><span aria-hidden="true">↳</span><span data-i18n="setup.footnote">Best for</span> <strong data-i18n="setup.footnoteStrong">remote work, support, and controlling a headless Mac.</strong></div>
+            <div class="setup-footnote"><span aria-hidden="true">↳</span><span data-i18n="setup.footnote">Best for</span> <strong data-i18n="setup.footnoteStrong">remote work, support, or a headless Mac.</strong></div>
           </div>
           <div class="setup-panel" id="setup-host" role="tabpanel" data-setup-panel="host" data-active="false" hidden>
             <div class="setup-panel-head">
-              <div><h3 data-i18n="setup.hostTitle">Give your Mac a private front door.</h3><p data-i18n="setup.hostCopy">A host runs on the Mac you want to reach. Use the full host when you want a remote screen, or the lighter terminal host for servers and headless machines.</p></div>
+              <div><h3 data-i18n="setup.hostTitle">Give your Mac a private front door.</h3><p data-i18n="setup.hostCopy">A host runs on the Mac you want to reach. Choose the full host for a screen, or Terminal Host for servers and headless machines.</p></div>
               <span class="setup-badge" data-i18n="setup.hostBadge">on the Mac</span>
             </div>
             <div class="setup-products">
               <article class="mini-product"><div class="mini-product-top"><span class="mini-icon"><img src="assets/app-icons/vamp-host.png?v=f87cd19" alt=""></span><span class="mono" style="color:var(--muted);font-size:10px">screen + shell</span></div><h4>Vamp Host</h4><p data-i18n="setup.fullHostMini">The complete host for screen sharing, input, clipboard, files, audio, and terminal.</p><a class="text-button" href="#download" data-i18n="setup.downloadFull">Download full host →</a></article>
               <article class="mini-product"><div class="mini-product-top"><span class="mini-icon"><img src="assets/app-icons/vamp-terminal.png?v=f87cd19" alt=""></span><span class="mono" style="color:var(--muted);font-size:10px">terminal only</span></div><h4>Vamp Terminal Host</h4><p data-i18n="setup.terminalHostMini">The lean option for headless Macs and servers. No screen sharing surface.</p><a class="text-button" href="#download" data-i18n="setup.downloadTerminal">Download terminal host →</a></article>
             </div>
-            <div class="setup-footnote"><span aria-hidden="true">↳</span><span data-i18n="setup.footnote">Best for</span> <strong data-i18n="setup.hostFootnote">a Mac mini, home server, or always-on workstation.</strong></div>
+            <div class="setup-footnote"><span aria-hidden="true">↳</span><span data-i18n="setup.footnote">Best for</span> <strong data-i18n="setup.hostFootnote">a Mac mini, home server, or workstation.</strong></div>
           </div>
           <div class="setup-panel" id="setup-terminal" role="tabpanel" data-setup-panel="terminal" data-active="false" hidden>
             <div class="setup-panel-head">
-              <div><h3 data-i18n="setup.terminalTitle">Open a focused shell, wherever you are.</h3><p data-i18n="setup.terminalCopy">Use the terminal client on iPhone or iPad, connect from a Mac, or run the dependency-free Linux host behind Tailscale. Terminal access is always opt-in and permission-aware.</p></div>
+              <div><h3 data-i18n="setup.terminalTitle">Open a focused shell, wherever you are.</h3><p data-i18n="setup.terminalCopy">Use the terminal client on iPhone or iPad, connect from a Mac, or run the Linux host behind Tailscale. Terminal access is always opt-in.</p></div>
               <span class="setup-badge" data-i18n="setup.terminalBadge">opt-in</span>
             </div>
             <div class="setup-products">
               <article class="mini-product"><div class="mini-product-top"><span class="mini-icon"><img src="assets/app-icons/vamp-terminal.png?v=f87cd19" alt=""></span><span class="mono" style="color:var(--muted);font-size:10px">iOS / iPadOS</span></div><h4>Vamp Terminal</h4><p data-i18n="setup.mobileTerminalMini">Eight concurrent terminal tabs in a pocket-sized client for approved hosts.</p><a class="text-button" href="#download" data-i18n="setup.downloadMobile">Get the iOS client →</a></article>
               <article class="mini-product"><div class="mini-product-top"><span class="mini-icon"><img src="assets/app-icons/vamp-terminal.png?v=f87cd19" alt=""></span><span class="mono" style="color:var(--muted);font-size:10px">Linux / browser</span></div><h4>Linux Host</h4><p data-i18n="setup.linuxMini">A single-file Python host with browser access through your private tailnet.</p><a class="text-button" href="#download" data-i18n="setup.readLinux">Read the Linux guide →</a></article>
             </div>
-            <div class="setup-footnote"><span aria-hidden="true">↳</span><span data-i18n="setup.footnote">Best for</span> <strong data-i18n="setup.terminalFootnote">agents, maintenance, and quick fixes on the move.</strong></div>
+            <div class="setup-footnote"><span aria-hidden="true">↳</span><span data-i18n="setup.footnote">Best for</span> <strong data-i18n="setup.terminalFootnote">agents, maintenance, or quick fixes.</strong></div>
           </div>
         </div>
       </div>
@@ -1302,7 +1383,7 @@
           <div class="section-kicker"><span class="number">03</span><span class="bar"></span><span data-i18n="download.kicker">Current builds</span></div>
           <h2 class="section-title" id="download-title"><span data-i18n="download.title1">The right build,</span><br><span class="accent" data-i18n="download.title2">without the scavenger hunt.</span></h2>
         </div>
-        <p class="section-lead" data-i18n="download.lead">Download buttons follow the latest public GitHub release automatically. Hosts go on the Mac being controlled; clients go on the device you use to connect.</p>
+        <p class="section-lead" data-i18n="download.lead">Current builds for hosts and clients. Install hosts on the Mac you control; clients on the device you use.</p>
       </div>
       <div class="apps-grid" id="download-grid">
         <article class="surface-card app-card" data-platform="macos">
@@ -1358,7 +1439,7 @@
         <article class="surface-card pairing-intro">
           <div class="section-kicker"><span class="number">04</span><span class="bar"></span><span data-i18n="how.kicker">Private by default</span></div>
           <h2 class="section-title" id="how-title"><span data-i18n="how.title1">A connection you can</span> <span class="accent" data-i18n="how.title2">see and approve.</span></h2>
-          <p data-i18n="how.copy">Vamp borrows the good part of being local: the host is yours, the route is yours, and every new peer has to be visible and approved on the machine itself.</p>
+          <p data-i18n="how.copy">Your host is yours. Your network is yours. Approve every new device on the Mac.</p>
           <div class="pairing-note"><span aria-hidden="true">✓</span><span><strong data-i18n="how.noteStrong">Terminal access stays opt-in.</strong> <span data-i18n="how.noteCopy">Display and input capabilities are separate from the shell.</span></span></div>
         </article>
         <div class="steps" role="list">
@@ -1375,7 +1456,7 @@
           <div class="section-kicker"><span class="number">05</span><span class="bar"></span><span data-i18n="security.kicker">The short version</span></div>
           <h2 class="section-title" id="security-title"><span data-i18n="security.title1">The useful kind of</span> <span class="accent" data-i18n="security.title2">quiet.</span></h2>
         </div>
-        <p class="section-lead" data-i18n="security.lead">Vamp gives you a capable remote surface without turning your workflow into an account, a dashboard, or a hosted dependency.</p>
+        <p class="section-lead" data-i18n="security.lead">Remote control without an account or hosted relay.</p>
       </div>
       <div class="security-grid">
         <article class="surface-card security-card"><div class="mark">↗</div><h3 data-i18n="security.localTitle">Your network first</h3><p data-i18n="security.localCopy">Connections use your LAN or Tailscale network. There is no project-owned relay waiting in the middle.</p></article>
@@ -1390,7 +1471,7 @@
           <div class="section-kicker"><span class="number">06</span><span class="bar"></span><span data-i18n="gallery.kicker">A look inside</span></div>
           <h2 class="section-title" id="gallery-title"><span data-i18n="gallery.title1">A workspace,</span> <span class="accent" data-i18n="gallery.title2">not a black box.</span></h2>
         </div>
-        <p class="section-lead" data-i18n="gallery.lead">Permission boundaries, running commands, and the actual surface you are connecting to stay in view.</p>
+        <p class="section-lead" data-i18n="gallery.lead">See the real app surfaces: setup, pairing, and terminal work.</p>
       </div>
       <div class="gallery">
         <article class="surface-card gallery-main">
@@ -1409,7 +1490,7 @@
         <div>
           <div class="section-kicker"><span class="bar"></span><span data-i18n="final.kicker">Ready when you are</span></div>
           <h2 class="section-title" id="final-title"><span data-i18n="final.title1">Bring your Mac</span> <span class="accent" data-i18n="final.title2">closer.</span></h2>
-          <p data-i18n="final.copy">Start with the host on your Mac, then choose the client for the device you already use. Vamp is open source, free to run, and built for your private network.</p>
+          <p data-i18n="final.copy">Install a host, pick a client, and connect over your private network.</p>
         </div>
         <div class="download-actions">
           <a class="primary-button" href="#download"><span data-i18n="final.primary">Choose a build</span><span aria-hidden="true">↓</span></a>
@@ -1423,7 +1504,7 @@
     <div class="footer-top">
       <div class="footer-brand">
         <a class="brand" href="#top" aria-label="Vamp home"><span class="brand-mark">V</span><span class="brand-word">Vamp</span></a>
-        <p data-i18n="footer.copy">Open-source, local-first remote desktop and terminal tools for macOS, iPhone, iPad, Safari, and Linux. Built on the macpair project.</p>
+        <p data-i18n="footer.copy">Open-source remote desktop and terminal tools for Mac, iPhone, iPad, Safari, and Linux.</p>
       </div>
       <div class="footer-links">
         <a href="#apps" data-i18n="nav.apps">Apps</a>
@@ -1504,6 +1585,25 @@
           'final.kicker':'Hazır olduğunda','final.title1':'Mac’ini','final.title2':'yaklaştır.','final.copy':'Mac’ine ana bilgisayarı kurarak başla, sonra kullandığın cihaz için istemciyi seç. Vamp açık kaynaklıdır, ücretsiz çalışır ve özel ağın için tasarlanmıştır.','final.primary':'Bir derleme seç','final.secondary':'GitHub’da görüntüle','footer.copy':'macOS, iPhone, iPad, Safari ve Linux için açık kaynaklı, yerel öncelikli uzak masaüstü ve terminal araçları. macpair projesi üzerine kuruludur.','footer.install':'Kurulum belgeleri','footer.security':'Güvenlik','footer.meta':'yerel öncelikli · eş onaylı · ajan dostu'
         }
       };
+      Object.assign(translations.tr, {
+        'hero.copy':'Mac, iPhone, iPad ve Linux için yerel öncelikli uzak kontrol. LAN veya Tailscale ile bağlan. Her cihazı onayla. Verini ağında tut.',
+        'hero.note':'Açık kaynaklı',
+        'hero.noteStrong':'· hesap gerektirmez.',
+        'compare.lead':'Her uygulamanın ne yaptığını gör. En küçük paketi seç.',
+        'apps.lead':'İşi seç. En küçük uygulama grubunu indir.',
+        'setup.controlCopy':'Mac’ine bir ana bilgisayar kur. Elindeki cihazdan Vamp Control’ü kullan. Ekran, giriş, pano ve isteğe bağlı terminal ağında kalır.',
+        'setup.footnoteStrong':'uzaktan çalışma, destek veya başsız Mac.',
+        'setup.hostCopy':'Ana bilgisayar ulaşmak istediğin Mac’te çalışır. Ekran için tam ana bilgisayarı, sunucu için Terminal Host’u seç.',
+        'setup.hostFootnote':'Mac mini, ev sunucusu veya iş istasyonu.',
+        'setup.terminalCopy':'iPhone veya iPad’de terminali kullan, Mac’ten bağlan veya Linux ana bilgisayarını Tailscale arkasında çalıştır. Terminal isteğe bağlıdır.',
+        'setup.terminalFootnote':'ajanlar, bakım veya hızlı düzeltmeler.',
+        'download.lead':'Ana bilgisayarlar için Mac’e, istemciler için kullandığın cihaza güncel derlemeler.',
+        'how.copy':'Ana bilgisayar senindir. Ağ senindir. Her yeni cihazı Mac’te onayla.',
+        'security.lead':'Hesapsız ve barındırılan aktarıcısız uzak kontrol.',
+        'gallery.lead':'Gerçek uygulama yüzeylerini gör: kurulum, eşleşme ve terminal.',
+        'final.copy':'Bir ana bilgisayar kur, istemciyi seç ve özel ağından bağlan.',
+        'footer.copy':'Mac, iPhone, iPad, Safari ve Linux için açık kaynaklı uzak masaüstü ve terminal araçları.'
+      });
       let currentLanguage = localStorage.getItem('vamp-lang') === 'tr' ? 'tr' : 'en';
       const originalText = new Map();
       document.querySelectorAll('[data-i18n]').forEach((element) => originalText.set(element, element.innerHTML));
