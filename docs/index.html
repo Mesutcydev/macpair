@@ -876,16 +876,19 @@
       max-width: 670px;
       margin-top: 23px;
       color: var(--ink);
-      font: 800 clamp(59px, 8vw, 108px)/.87 "Space Grotesk", "Inter", sans-serif;
+      font: 800 clamp(59px, 8vw, 108px)/.93 "Space Grotesk", "Inter", sans-serif;
       letter-spacing: -.085em;
     }
     .hero h1 .accent {
+      display: inline-block;
+      margin-top: .08em;
       color: var(--ink);
       font-style: normal;
-      background: var(--accent);
+      font-size: clamp(50px, 6.5vw, 86px);
+      padding: 0 .08em .04em;
+      background: linear-gradient(transparent 52%, var(--accent) 52%);
       box-decoration-break: clone;
       -webkit-box-decoration-break: clone;
-      padding: 0 .08em .02em;
     }
     .hero-sub { max-width: 565px; margin-top: 29px; color: var(--text); font-size: 17px; line-height: 1.62; }
     .hero-actions { margin-top: 32px; }
@@ -1587,7 +1590,7 @@
       };
       Object.assign(translations.tr, {
         'nav.apps':"Uygulamalar",'nav.how':"Nasıl çalışır",'nav.compare':"Karşılaştır",'nav.download':"İndir",'nav.cta':"Vamp’ı indir",'nav.github':"GitHub’ı aç ↗",
-        'hero.eyebrow':"UZAKTAN KONTROL · ÖZEL AĞ",'hero.title1':"Mac’in.",'hero.title2':"Elinin altında.",'hero.copy':"Mac, iPhone, iPad ve Linux için yerel öncelikli uzak kontrol. LAN veya Tailscale üzerinden bağlan. Her cihazı sen onayla. Verilerin kendi ağında kalsın.",'hero.primary':"Kurulumunu bul",'hero.secondary':"Eşleşme nasıl çalışıyor?",'hero.note':"Açık kaynaklı",'hero.noteStrong':"· hesap gerekmez.",'hero.connected':"bağlı",'hero.connectionLabel':"Bağlantı onaylandı",'hero.direct':"DOĞRUDAN",'hero.transport':"Bağlantı",'hero.relay':"Barındırılan aktarıcı",'hero.none':"Yok",
+        'hero.eyebrow':"UZAKTAN KONTROL · ÖZEL AĞ",'hero.title1':"Mac’in.",'hero.title2':"Yanı başında.",'hero.copy':"Mac, iPhone, iPad ve Linux için yerel öncelikli uzak kontrol. LAN veya Tailscale üzerinden bağlan. Her cihazı sen onayla. Verilerin kendi ağında kalsın.",'hero.primary':"Kurulumunu bul",'hero.secondary':"Eşleşme nasıl çalışıyor?",'hero.note':"Açık kaynaklı",'hero.noteStrong':"· hesap gerekmez.",'hero.connected':"bağlı",'hero.connectionLabel':"Bağlantı onaylandı",'hero.direct':"DOĞRUDAN",'hero.transport':"Bağlantı",'hero.relay':"Barındırılan aktarıcı",'hero.none':"Yok",
         'rail.accounts':"hesap gerekmez",'rail.approval':"cihaz onayı",'rail.tabs':"terminal sekmesi",'rail.network':"senin ağın",
         'compare.kicker':"ÖNCE YETENEKLER",'compare.title1':"Neleri yapabildiğini gör",'compare.title2':"kurmadan önce.",'compare.lead':"Her uygulamanın ne yaptığını gör. İhtiyacın olan en küçük paketi seç.",'compare.summary':"Özellik matrisi",'compare.summaryHint':"ekran · terminal · dosya · platform",'compare.capability':"Yetenek",'compare.screen':"Uzak ekran kontrolü",'compare.terminal':"Uzak terminal",'compare.optIn':"isteğe bağlı",'compare.input':"Klavye ve işaretçi",'compare.clipboard':"Pano eşitleme",'compare.files':"Dosya aktarımı",'compare.agents':"Ajan başlatıcıları",'compare.platform':"Platform",'compare.foot':"Terminal erişimi her zaman isteğe bağlıdır.",'compare.security':"Güvenlik notlarını oku ↗",
         'apps.kicker':"BURADAN BAŞLA",'apps.title1':"Ne yapmak istediğini seç.",'apps.title2':"Gerisini Vamp halleder.",'apps.lead':"İhtiyacın olan işi seç. Sadece gereken uygulamaları indir.",
@@ -1598,7 +1601,7 @@
         'how.kicker':"VARSAYILAN OLARAK ÖZEL",'how.title1':"Görebileceğin ve",'how.title2':"onaylayabileceğin bir bağlantı.",'how.copy':"Host senindir. Ağ senindir. Yeni bir cihaz bağlanmadan önce Mac’te onay ver.",'how.noteStrong':"Terminal erişimi isteğe bağlıdır.",'how.noteCopy':"Ekran ve giriş yetkileri terminalden bağımsızdır.",'step.oneTitle':"Host’u bul",'step.oneCopy':"İstemcin, LAN’daki Bonjour keşfiyle veya özel Tailscale ağın üzerinden imzalı host’u bulur.",'step.twoTitle':"Parmak izini kontrol et",'step.twoCopy':"Mac’te bir eşleşme isteği ve kod görünür. Sen onaylamadan bağlantı kurulmaz.",'step.threeTitle':"Oturumu onayla",'step.threeCopy':"Doğru cihazı host’ta onayla ve bağlan. İstersen daha sonra erişimini kaldır.",
         'security.kicker':"KISACA",'security.title1':"Sessiz ve",'security.title2':"güvenli.",'security.lead':"Hesap açmadan, barındırılan bir aktarıcıya ihtiyaç duymadan uzak kontrol.",'security.localTitle':"Önce senin ağın",'security.localCopy':"Bağlantılar LAN veya Tailscale üzerinden kurulur. Arada projeye ait bir aktarıcı yoktur.",'security.approvedTitle':"Elle onaylı",'security.approvedCopy':"Oturum başlamadan önce eş kimliği doğrulanmalı ve host’ta açıkça onay verilmelidir.",'security.agentTitle':"Ajanlara hazır",'security.agentCopy':"Yerleşik CLI; durum, bekleyen istekler, parmak izi kontrolleri ve terminal oturumlarını otomasyona açar.",
         'gallery.kicker':"İÇERİDEN BİR BAKIŞ",'gallery.title1':"Bir çalışma alanı,",'gallery.title2':"kara kutu değil.",'gallery.lead':"Kurulumu, eşleşmeyi ve terminal akışını gerçek uygulama ekranlarında gör.",'gallery.mainTitle':"Gerçek uygulamalardan",'gallery.mainCopy':"Mobil ekranlar yayınlandığı hâliyle gösteriliyor: kurulum, host keşfi, eşleşme ve terminal.",'gallery.sideTitle':"Cebindeki terminal",'gallery.sideCopy':"Tam bir uzak masaüstüne ihtiyaç duymadığın anlar için sekiz sekme.",
-        'final.kicker':"HAZIR OLDUĞUNDA",'final.title1':"Mac’in",'final.title2':"elinin altında.",'final.copy':"Bir host kur, istemciyi seç ve özel ağından bağlan.",'final.primary':"Derlemeyi seç",'final.secondary':"GitHub’da görüntüle",'footer.copy':"Mac, iPhone, iPad, Safari ve Linux için açık kaynaklı uzak masaüstü ve terminal araçları.",'footer.install':"Kurulum belgeleri",'footer.security':"Güvenlik",'footer.meta':"yerel öncelikli · eş onaylı · ajan dostu"
+        'final.kicker':"HAZIR OLDUĞUNDA",'final.title1':"Mac’in",'final.title2':"yanı başında.",'final.copy':"Bir host kur, istemciyi seç ve özel ağından bağlan.",'final.primary':"Derlemeyi seç",'final.secondary':"GitHub’da görüntüle",'footer.copy':"Mac, iPhone, iPad, Safari ve Linux için açık kaynaklı uzak masaüstü ve terminal araçları.",'footer.install':"Kurulum belgeleri",'footer.security':"Güvenlik",'footer.meta':"yerel öncelikli · eş onaylı · ajan dostu"
       });
       let currentLanguage = localStorage.getItem('vamp-lang') === 'tr' ? 'tr' : 'en';
       const originalText = new Map();
