@@ -26,6 +26,7 @@ ASSET_PATTERNS = {
     "vamp-control-macos": re.compile(
         r"^VampControl-macOS-.+-build-\d+-adhoc\.zip$"
     ),
+    "vamp-linux-host": re.compile(r"^VampTerminalHost-Linux-.+\.zip$"),
 }
 
 
@@ -55,10 +56,12 @@ def choose_asset(assets: list[dict], pattern: re.Pattern[str]) -> dict | None:
 
 
 def asset_label(name: str) -> str:
-    match = re.search(r"-(\d+\.\d+\.\d+)-build-(\d+)", name)
+    match = re.search(r"-(\d+\.\d+\.\d+)(?:-build-(\d+))?", name)
     if not match:
         return name
-    return f"{match.group(1)} · build {match.group(2)}"
+    if match.group(2):
+        return f"{match.group(1)} · build {match.group(2)}"
+    return match.group(1)
 
 
 def main() -> int:
@@ -120,7 +123,7 @@ def rewrite_static_links(index_path: Path, assets: dict, release_url: str) -> No
 
     for key, asset in assets.items():
         url = asset["url"]
-        pattern = re.compile(r'<a\b[^>]*\bdata-release-asset="' + re.escape(key) + r'"[^>]*>')
+        pattern = re.compile(r'<a\b[^>]*\bdata-release-(?:asset|link)="' + re.escape(key) + r'"[^>]*>')
         html = pattern.sub(lambda m, u=url: rewrite_href(m.group(0), u), html)
 
     # Point any "open the latest release" links at the resolved release page.

@@ -105,6 +105,12 @@ listener through Tailscale Serve:
 tailscale serve --bg http://127.0.0.1:9475
 ```
 
+Cloudflare Tunnel is also supported for a named tunnel whose ingress points to
+`http://127.0.0.1:9475`. Protect the hostname with Cloudflare Access, then run
+`cloudflared tunnel run vamp-terminal`. The Linux host uses HTTP/1.1 so the
+terminal WebSocket survives the reverse-proxy upgrade. Do not use an
+unauthenticated quick tunnel or expose port `9475` directly.
+
 See [`linux-host/README.md`](../linux-host/README.md) for the Linux-specific
 requirements, user-level systemd service, and pairing flow. Pairing codes are
 single-use; after a successful pair the host prints the replacement code.

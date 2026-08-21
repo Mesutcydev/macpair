@@ -62,6 +62,9 @@ jobs:
       - name: Build ad-hoc macOS hosts
         run: scripts/package-vamp-hosts.sh --clean --archs arm64
 
+      - name: Package Linux browser host
+        run: scripts/package-vamp-linux-host.sh --clean
+
       - name: Upload Vamp Terminal release assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -70,7 +73,8 @@ jobs:
           TAG="${{ steps.meta.outputs.tag }}"
           shopt -s nullglob
           files=(dist/VampTerminal/*.ipa*
-                 dist/VampTerminalHosts/*.zip*)
+                 dist/VampTerminalHosts/*.zip*
+                 dist/VampTerminalLinuxHost/*.zip*)
           [[ ${#files[@]} -gt 0 ]] || { echo "No Vamp Terminal artifacts in dist/"; exit 1; }
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${files[@]}" --clobber
@@ -78,6 +82,6 @@ jobs:
             gh release create "$TAG" "${files[@]}" \
               --prerelease \
               --title "Vamp Terminal ${TAG#vamp-terminal-}" \
-              --notes "Open-source AltStore IPA plus ad-hoc Vamp Host and Vamp Terminal Host builds."
+              --notes "Open-source AltStore IPA, ad-hoc macOS hosts, and the dependency-free Linux browser host."
           fi
           echo "Uploaded ${#files[@]} Vamp Terminal assets to $TAG"

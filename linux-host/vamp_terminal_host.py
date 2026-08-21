@@ -2,9 +2,10 @@
 """Small, dependency-free Linux terminal host for Vamp Terminal workflows.
 
 The Linux host deliberately exposes a loopback WebSocket endpoint. Put it behind
-`tailscale serve` when it needs to be reached away from the LAN. It does not
-open a public listener, implement a relay, or pretend to be the iOS WebRTC
-host; it is the Safari/browser companion for Linux machines.
+`tailscale serve` or a named, Cloudflare Access-protected tunnel when it needs
+to be reached away from the LAN. It does not open a public listener, implement
+a relay, or pretend to be the iOS WebRTC host; it is the Safari/browser
+companion for Linux machines.
 """
 
 from __future__ import annotations
@@ -505,6 +506,10 @@ class VampTerminalHost:
 
 
 class RequestHandler(http.server.BaseHTTPRequestHandler):
+    # WebSocket upgrades are carried over HTTP/1.1. BaseHTTPRequestHandler
+    # defaults to HTTP/1.0, which some local clients tolerate but reverse
+    # proxies such as Cloudflare Tunnel do not reliably upgrade.
+    protocol_version = "HTTP/1.1"
     server: "VampHTTPServer"
 
     def log_message(self, format: str, *args: Any) -> None:
@@ -658,7 +663,8 @@ def main() -> int:
     print("Vamp Terminal Linux Host", VERSION, flush=True)
     print(f"Local URL: http://{args.listen}:{args.port}/", flush=True)
     print(f"Pairing code: {host.pairing.code} (expires in {PAIRING_TTL_SECONDS // 60} minutes)", flush=True)
-    print("Remote access: tailscale serve --bg http://127.0.0.1:%d" % args.port, flush=True)
+    print("Remote access (Tailscale): tailscale serve --bg http://127.0.0.1:%d" % args.port, flush=True)
+    print("Remote access (Cloudflare Access): cloudflared tunnel run vamp-terminal", flush=True)
 
     def stop(_signum: int, _frame: Any) -> None:
         host.close()

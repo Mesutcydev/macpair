@@ -42,12 +42,41 @@ python3 linux-host/vamp_terminal_host.py
 ```
 
 Open the printed local URL, enter the six-digit code shown in the host
-terminal, then use the tab bar. For tailnet access, keep the process bound to
-loopback and run:
+terminal, then use the tab bar. For private tailnet access, keep the process
+bound to loopback and run:
 
 ```sh
 tailscale serve --bg http://127.0.0.1:9475
 ```
+
+If Tailscale is not available, a named Cloudflare Tunnel also works because
+the host speaks HTTP/1.1 for reverse-proxy WebSocket upgrades. Keep the tunnel
+behind a Cloudflare Access policy; do not use an unauthenticated quick tunnel
+for this terminal surface.
+
+Create a tunnel ingress that targets the loopback listener:
+
+```yaml
+# ~/.cloudflared/config.yml
+tunnel: <TUNNEL_UUID>
+credentials-file: /home/<you>/.cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  - hostname: vamp.example.com
+    service: http://127.0.0.1:9475
+  - service: http_status:404
+```
+
+Then start the configured tunnel and open its hostname from an authorized
+device:
+
+```sh
+cloudflared tunnel run vamp-terminal
+```
+
+Cloudflare Tunnel forwards the browser's WebSocket connection as well as the
+pairing request. If the hostname is protected by Cloudflare Access, complete
+that sign-in first, then enter the six-digit Vamp pairing code.
 
 Do not bind this process to a public interface or use port forwarding. The
 pairing code is a short-lived bearer credential, not an account or identity

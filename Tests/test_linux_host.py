@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "linux-host"))
-from vamp_terminal_host import PairingState, VampTerminalHost, json_bytes  # noqa: E402
+from vamp_terminal_host import PairingState, RequestHandler, VampTerminalHost, json_bytes  # noqa: E402
 
 
 class LinuxHostTests(unittest.TestCase):
@@ -40,6 +40,9 @@ class LinuxHostTests(unittest.TestCase):
     def test_json_payload_is_compact_and_decodable(self):
         value = {"type": "terminalReady", "terminalID": "one"}
         self.assertEqual(json.loads(json_bytes(value)), value)
+
+    def test_http_handler_supports_reverse_proxy_websocket_upgrades(self):
+        self.assertEqual(RequestHandler.protocol_version, "HTTP/1.1")
 
     def test_workspace_is_canonical_and_restricted_to_home(self):
         with tempfile.TemporaryDirectory() as temporary_home:
@@ -78,6 +81,8 @@ class LinuxHostTests(unittest.TestCase):
         self.assertIn("function scheduleOutput", browser)
         self.assertIn("const existing=new Map", browser)
         self.assertIn("let viewportFrame=0", browser)
+        self.assertIn("cloudflared tunnel run", browser)
+        self.assertIn("Cloudflare Access", browser)
 
     def test_browser_tab_capacity_is_preflighted_and_failed_tabs_are_rolled_back(self):
         browser = (Path(__file__).resolve().parents[1] / "linux-host" / "index.html").read_text()

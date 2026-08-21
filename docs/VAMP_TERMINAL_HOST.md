@@ -42,6 +42,17 @@ python3 linux-host/vamp_terminal_host.py
 tailscale serve --bg http://127.0.0.1:9475
 ```
 
+The Linux origin explicitly uses HTTP/1.1 so a configured Cloudflare Tunnel
+can carry the WebSocket upgrade. For Cloudflare access, point a named tunnel
+at `http://127.0.0.1:9475`, protect its hostname with Cloudflare Access, and
+run it with:
+
+```sh
+cloudflared tunnel run vamp-terminal
+```
+
+Do not use an unauthenticated quick tunnel or expose port `9475` directly.
+
 The printed six-digit code pairs the browser. Each authenticated connection
 can open eight tabs, resize each PTY, send/receive clipboard text, and close
 terminals independently.
