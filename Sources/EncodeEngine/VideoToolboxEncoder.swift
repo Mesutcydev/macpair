@@ -274,12 +274,24 @@ public final class VideoToolboxEncoder: EncoderPipelineProtocol, @unchecked Send
             : kCMVideoCodecType_H264
 
         var newSession: VTCompressionSession?
+        // Prefer Apple's media engine and the encoder's low-latency rate-control path.
+        // ScreenCaptureKit already supplies IOSurface-backed YUV buffers, so this keeps
+        // capture -> encode on the Apple-Silicon hardware path without a CPU copy.
+        var encoderSpecification: [CFString: Any] = [
+            kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder: true,
+            kVTVideoEncoderSpecification_EnableLowLatencyRateControl: true
+        ]
+#if arch(arm64)
+        // Every supported Apple-Silicon Mac has the required media engine. Requiring
+        // it prevents an unnoticed software fallback from adding latency and heat.
+        encoderSpecification[kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder] = true
+#endif
         let status = VTCompressionSessionCreate(
             allocator: kCFAllocatorDefault,
             width: Int32(configuration.width),
             height: Int32(configuration.height),
             codecType: codecType,
-            encoderSpecification: nil,
+            encoderSpecification: encoderSpecification as CFDictionary,
             imageBufferAttributes: nil,
             compressedDataAllocator: nil,
             outputCallback: nil,
@@ -295,6 +307,9 @@ public final class VideoToolboxEncoder: EncoderPipelineProtocol, @unchecked Send
         VTSessionSetProperty(created, key: kVTCompressionPropertyKey_RealTime,               value: kCFBooleanTrue)
         VTSessionSetProperty(created, key: kVTCompressionPropertyKey_AllowFrameReordering,    value: kCFBooleanFalse)
         VTSessionSetProperty(created, key: kVTCompressionPropertyKey_AllowTemporalCompression, value: kCFBooleanTrue)
+        // A live desktop stream must never build an unbounded look-ahead queue. One
+        // frame absorbs scheduler jitter while still bounding encoder-added latency.
+        VTSessionSetProperty(created, key: kVTCompressionPropertyKey_MaxFrameDelayCount,       value: NSNumber(value: 1))
         VTSessionSetProperty(created, key: kVTCompressionPropertyKey_ExpectedFrameRate,       value: NSNumber(value: configuration.expectedFrameRate))
         VTSessionSetProperty(created, key: kVTCompressionPropertyKey_AverageBitRate,          value: NSNumber(value: configuration.averageBitrate))
         VTSessionSetProperty(created, key: kVTCompressionPropertyKey_MaxKeyFrameInterval,     value: NSNumber(value: configuration.maxKeyframeInterval))

@@ -1,16 +1,16 @@
 # Vamp install reference
 
-This is the current install path for Vamp Suite 2.3.0 build 45. Downloads also
+This is the current install path for Vamp Suite 2.3.0 build 46. Downloads also
 live on [thevamp.app](https://thevamp.app/#download). The project has six
 installable surfaces plus Safari control built into the macOS hosts:
 
 | Surface | Artifact | Use it for |
 | --- | --- | --- |
-| iPhone / iPad | `VampTerminal-iOS-2.3.0-build-45-altstore-unsigned.ipa` | Eight-tab terminal client and agent launchers |
-| iPhone / iPad | `VampControl-iOS-2.3.0-build-43-altstore-unsigned.ipa` | Vamp Control (build 43, unchanged). Screen client; terminal overlay is emergency-only |
-| macOS | `VampControl-macOS-2.3.0-build-43-adhoc.zip` | Vamp Control (build 43, unchanged) |
-| macOS | `VampHost-macOS-2.3.0-build-45-adhoc.zip` | Full Vamp Host: remote clients plus optional Terminal Mode |
-| macOS | `VampTerminalHost-macOS-2.3.0-build-45-adhoc.zip` | Always-on terminal host with Safari control. Do not run beside Vamp Host |
+| iPhone / iPad | `VampTerminal-iOS-2.3.0-build-46-altstore-unsigned.ipa` | Eight-tab terminal client and agent launchers |
+| iPhone / iPad | `VampControl-iOS-2.3.0-build-46-altstore-unsigned.ipa` | Touch-first remote screen, Picture in Picture, remote Command-Tab, and smoother zoom |
+| macOS | `VampControl-macOS-2.3.0-build-46-adhoc.zip` | Remote screen client with explicit remote Command-Tab control |
+| macOS | `VampHost-macOS-2.3.0-build-46-adhoc.zip` | Full Vamp Host: remote clients, low-latency Apple Silicon streaming, watchdog support, and optional Terminal Mode |
+| macOS | `VampTerminalHost-macOS-2.3.0-build-46-adhoc.zip` | Always-on terminal host with Safari control. Do not run beside Vamp Host |
 | Linux | `VampTerminalHost-Linux-2.3.6.zip` | Browser-only host. Vamp Control and Vamp Terminal cannot attach |
 | Safari | none — use the Mac host dashboard | Eight tabs on loopback `9475`, Tailscale Serve, or Cloudflare Access |
 
@@ -18,11 +18,11 @@ The current downloads are in the [latest Vamp Suite GitHub release](https://gith
 
 ## 1. Install the iPhone or iPad client
 
-1. Download the [latest Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.3.0-build-45-altstore-unsigned.ipa) and its `.sha256` file from the same release.
+1. Download the [latest Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.3.0-build-46-altstore-unsigned.ipa) and its `.sha256` file from the same release.
 2. Verify the download:
 
    ```sh
-   shasum -a 256 -c VampTerminal-iOS-2.3.0-build-45-altstore-unsigned.ipa.sha256
+   shasum -a 256 -c VampTerminal-iOS-2.3.0-build-46-altstore-unsigned.ipa.sha256
    ```
 
 3. Import the IPA in AltStore with **+ → Sideload IPA**.
@@ -40,24 +40,24 @@ launchers.
 
 The current Vamp Control builds are attached to the [latest Vamp Suite release](https://github.com/Mesutcydev/macpair/releases/latest):
 
-- [iOS IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-iOS-2.3.0-build-43-altstore-unsigned.ipa) — unsigned; import with AltStore or another compatible sideloader.
-- [iOS checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-iOS-2.3.0-build-43-altstore-unsigned.ipa.sha256)
-- [macOS ZIP](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-macOS-2.3.0-build-43-adhoc.zip) — unzip and move Vamp Control to Applications.
-- [macOS checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-macOS-2.3.0-build-43-adhoc.zip.sha256)
+- [iOS IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-iOS-2.3.0-build-46-altstore-unsigned.ipa) — unsigned; import with AltStore or another compatible sideloader.
+- [iOS checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-iOS-2.3.0-build-46-altstore-unsigned.ipa.sha256)
+- [macOS ZIP](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-macOS-2.3.0-build-46-adhoc.zip) — unzip and move Vamp Control to Applications.
+- [macOS checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampControl-macOS-2.3.0-build-46-adhoc.zip.sha256)
 
 ## 2. Install a macOS host
 
 Download one of the ad-hoc signed ZIPs and the matching `.sha256` file:
 
-- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.3.0-build-45-adhoc.zip) ([checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.3.0-build-45-adhoc.zip.sha256)) for remote display, remote input, remote clients, and optional Terminal Mode.
-- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-45-adhoc.zip) ([checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-45-adhoc.zip.sha256)) for terminal tabs, Safari control, pairing, and Tailscale only.
+- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.3.0-build-46-adhoc.zip) ([checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.3.0-build-46-adhoc.zip.sha256)) for remote display, remote input, remote clients, and optional Terminal Mode.
+- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-46-adhoc.zip) ([checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-46-adhoc.zip.sha256)) for terminal tabs, Safari control, pairing, and Tailscale only.
 
 Then:
 
 1. Verify the download:
 
    ```sh
-   shasum -a 256 -c VampHost-macOS-2.3.0-build-45-adhoc.zip.sha256
+   shasum -a 256 -c VampHost-macOS-2.3.0-build-46-adhoc.zip.sha256
    ```
 
 2. Unzip the download.
@@ -70,6 +70,26 @@ Then:
 
 Only run one host at a time on a Mac because both use the same signed transport
 port. The host dashboard shows the LAN and Tailscale addresses for Safari.
+
+### Optional unattended-recovery watchdog
+
+A source checkout can install a per-user watchdog for the full Vamp Host:
+
+```sh
+scripts/install-vamp-host-watchdog.sh
+```
+
+The host writes a main-run-loop heartbeat every five seconds. The watchdog
+relaunches the app after a crash and restarts it when that heartbeat is stale
+for more than 20 seconds. It does not approve connections, change macOS privacy
+permissions, or open network ports. Choosing **Quit** intentionally pauses
+recovery; opening Vamp Host again resumes it.
+
+Remove only the watchdog with:
+
+```sh
+scripts/install-vamp-host-watchdog.sh --uninstall
+```
 
 ## 3. Use Safari without the iOS app
 

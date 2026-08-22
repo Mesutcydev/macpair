@@ -88,7 +88,7 @@
       'compare.swipe': 'Tabloyu kaydır, tüm uygulamaları gör →',
       'download.kicker': 'İndirmeler',
       'download.title1': 'Güncel derlemeler.',
-      'download.lead': 'Ad-hoc imzalı. SHA-256’yı doğrula. Vamp Control hâlâ build 43.',
+      'download.lead': 'Build 46 yayında. Yüklemeden önce SHA-256’yı doğrula.',
       'download.hosts': 'Hostlar',
       'download.clients': 'İstemciler',
       'download.safariNote': 'Safari kontrolü Mac host panosundadır (loopback 9475, Tailscale Serve veya Cloudflare Access). Ayrı istemci yoktur.',

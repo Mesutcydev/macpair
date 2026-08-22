@@ -141,6 +141,13 @@ final class MacRemoteInputController: ObservableObject {
         enqueue(.key(KeyCommand(keyCode: keyCode, action: action, modifiers: modifiers)))
     }
 
+    /// Sends a complete press/release pair for shortcuts that macOS reserves
+    /// before the remote stream view can receive them (notably Command-Tab).
+    func keyPress(keyCode: UInt16, modifiers: KeyboardModifierFlags = []) {
+        keyEvent(keyCode: keyCode, action: .down, modifiers: modifiers)
+        keyEvent(keyCode: keyCode, action: .up, modifiers: modifiers)
+    }
+
     func insertText(_ text: String) {
         guard isEnabled, !text.isEmpty else { return }
         enqueue(.text(TextInputCommand(text: text)))

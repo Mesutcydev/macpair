@@ -1558,6 +1558,7 @@ private struct MirrorFullscreenStreamView: View {
     @StateObject private var annotationStore = AnnotationOverlayStore()
     @StateObject private var bluetoothInput = BluetoothInputController()
     @StateObject private var audioRenderer = ClientAudioRenderer()
+    @StateObject private var pictureInPicture = RemotePictureInPictureController()
     @State private var isControlsHidden = false
     @State private var isBluetoothStatusPresented = false
     @State private var isTerminalModePresented = false
@@ -1567,6 +1568,7 @@ private struct MirrorFullscreenStreamView: View {
     @State private var showScreenAITools = false
     @StateObject private var terminalSession = ClientTerminalSessionManager()
     @StateObject private var clipboardSync = ClientClipboardSyncManager()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let screenshotService = SessionScreenshotService()
     /// "classic" (default) keeps this view's existing fullscreen UI; "modern" uses the portrait trackpad layout.
     @AppStorage("client.ui.streamingUITheme") private var streamingUITheme = "classic"
@@ -2031,7 +2033,8 @@ private struct MirrorFullscreenStreamView: View {
             VideoFrameRendererView(
                 pixelBuffer: rendererVM.latestPixelBuffer,
                 displayMode: interactionVM.displayMode,
-                renderer: rendererVM
+                renderer: rendererVM,
+                pictureInPicture: pictureInPicture
             )
                 .aspectRatio(host, contentMode: .fit)
                 .frame(width: fitted.width, height: fitted.height)
@@ -2169,6 +2172,15 @@ private struct MirrorFullscreenStreamView: View {
             Button { AppHaptics.selection(); clipboardSync.requestFromHost() } label: {
                 Label(clipboardSync.isSyncing ? "Getting Clipboard…" : "Get Clipboard from Mac", systemImage: "arrow.down.doc")
             }
+            Button { AppHaptics.selection(); sendCommandTab() } label: {
+                Label("Switch Remote App (⌘Tab)", systemImage: "command")
+            }
+            Button { AppHaptics.selection(); pictureInPicture.toggle() } label: {
+                Label(
+                    pictureInPicture.isActive ? "Stop Picture in Picture" : "Picture in Picture",
+                    systemImage: pictureInPicture.isActive ? "pip.exit" : "pip.enter"
+                )
+            }
             Menu("Display Size") {
                 displayModeButton(.fitDisplay, label: "Fit Display", systemImage: "rectangle.arrowtriangle.2.inward")
                 displayModeButton(.fillScreen, label: "Fill Screen", systemImage: "rectangle.arrowtriangle.2.outward")
@@ -2209,6 +2221,10 @@ private struct MirrorFullscreenStreamView: View {
                 }
             }
             modernBarButton(icon: "camera") { captureScreenshot() }
+            modernBarButton(
+                icon: pictureInPicture.isActive ? "pip.exit" : "pip.enter",
+                active: pictureInPicture.isActive
+            ) { pictureInPicture.toggle() }
             modernBarButton(
                 icon: bluetoothInput.isMouseConnected || bluetoothInput.isKeyboardConnected ? "magicmouse.fill" : "magicmouse",
                 active: bluetoothInput.isMouseConnected || bluetoothInput.isKeyboardConnected
@@ -2352,7 +2368,8 @@ private struct MirrorFullscreenStreamView: View {
             VideoFrameRendererView(
                 pixelBuffer: rendererVM.latestPixelBuffer,
                 displayMode: interactionVM.displayMode,
-                renderer: rendererVM
+                renderer: rendererVM,
+                pictureInPicture: pictureInPicture
             )
                 .scaleEffect(viewportZoom, anchor: .center)
                 .offset(viewportOffset)
@@ -2393,18 +2410,29 @@ private struct MirrorFullscreenStreamView: View {
                     )
                     viewportOffset = clampedViewportOffset(newOffset, zoom: viewportZoom, in: viewSize)
                 },
-                onPinchChanged: { scale in
+                onPinchChanged: { scale, focalPoint in
+                    let oldZoom = viewportZoom
                     let newZoom = min(max(viewportZoom * scale, 1.0), 5.0)
                     viewportZoom = newZoom
                     if newZoom <= 1.0 {
                         viewportOffset = .zero
                     } else {
-                        viewportOffset = clampedViewportOffset(viewportOffset, zoom: newZoom, in: viewSize)
+                        // Preserve the remote pixel under the user's fingers instead
+                        // of zooming around the center of the phone.
+                        let ratio = newZoom / max(oldZoom, 0.001)
+                        let center = CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
+                        let anchoredOffset = CGSize(
+                            width: viewportOffset.width
+                                + (1 - ratio) * (focalPoint.x - center.x - viewportOffset.width),
+                            height: viewportOffset.height
+                                + (1 - ratio) * (focalPoint.y - center.y - viewportOffset.height)
+                        )
+                        viewportOffset = clampedViewportOffset(anchoredOffset, zoom: newZoom, in: viewSize)
                     }
                 },
                 onPinchEnded: {
                     if viewportZoom < 1.15 {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.86)) {
                             viewportZoom = 1.0
                             viewportOffset = .zero
                         }
@@ -2570,6 +2598,15 @@ private struct MirrorFullscreenStreamView: View {
                 audioRenderer.isMuted.toggle()
             }
 
+            chromeIconButton(
+                systemName: pictureInPicture.isActive ? "pip.exit" : "pip.enter",
+                isActive: pictureInPicture.isActive,
+                accent: PR.accent
+            ) {
+                AppHaptics.selection()
+                pictureInPicture.toggle()
+            }
+
             Menu {
                 displayModeButton(.fitDisplay, label: "Fit Display", systemImage: "rectangle.arrowtriangle.2.inward")
                 displayModeButton(.fillScreen, label: "Fill Screen", systemImage: "rectangle.arrowtriangle.2.outward")
@@ -2722,12 +2759,50 @@ private struct MirrorFullscreenStreamView: View {
 
     private func clampedViewportOffset(_ proposed: CGSize, zoom: CGFloat, in viewSize: CGSize) -> CGSize {
         guard zoom > 1.0 else { return .zero }
-        let maxX = max(0, (viewSize.width * zoom - viewSize.width) / 2)
-        let maxY = max(0, (viewSize.height * zoom - viewSize.height) / 2)
-        return CGSize(
-            width: min(max(proposed.width, -maxX), maxX),
-            height: min(max(proposed.height, -maxY), maxY)
+        let fitted = interactionVM.mapper?.fittedContentRect
+        let content = CGRect(
+            x: CGFloat(fitted?.origin.x ?? 0),
+            y: CGFloat(fitted?.origin.y ?? 0),
+            width: fitted.map { CGFloat($0.size.width) } ?? viewSize.width,
+            height: fitted.map { CGFloat($0.size.height) } ?? viewSize.height
         )
+        let center = CGPoint(x: viewSize.width / 2, y: viewSize.height / 2)
+
+        func clampAxis(
+            _ value: CGFloat,
+            contentMin: CGFloat,
+            contentMax: CGFloat,
+            viewportLength: CGFloat,
+            center: CGFloat
+        ) -> CGFloat {
+            let scaledMin = center + (contentMin - center) * zoom
+            let scaledMax = center + (contentMax - center) * zoom
+            if scaledMax - scaledMin <= viewportLength {
+                return viewportLength / 2 - (scaledMin + scaledMax) / 2
+            }
+            return min(max(value, viewportLength - scaledMax), -scaledMin)
+        }
+        return CGSize(
+            width: clampAxis(
+                proposed.width,
+                contentMin: content.minX,
+                contentMax: content.maxX,
+                viewportLength: viewSize.width,
+                center: center.x
+            ),
+            height: clampAxis(
+                proposed.height,
+                contentMin: content.minY,
+                contentMax: content.maxY,
+                viewportLength: viewSize.height,
+                center: center.y
+            )
+        )
+    }
+
+    private func sendCommandTab() {
+        interactionVM.sendKey(keyCode: 48, action: .down, modifiers: [.command])
+        interactionVM.sendKey(keyCode: 48, action: .up, modifiers: [.command])
     }
 }
 
@@ -2862,7 +2937,7 @@ private struct MirrorFullscreenGestureView: UIViewRepresentable {
     var onDragEnded: () -> Void
     var onScroll: (Double, Double) -> Void
     var onViewportPan: (CGSize) -> Void
-    var onPinchChanged: (CGFloat) -> Void
+    var onPinchChanged: (CGFloat, CGPoint) -> Void
     var onPinchEnded: () -> Void
     var onLongPress: (CGPoint) -> Void
     var onPointerDelta: (CGSize) -> Void = { _ in }
@@ -2915,7 +2990,7 @@ private struct MirrorFullscreenGestureView: UIViewRepresentable {
         var onDragEnded: () -> Void = {}
         var onScroll: (Double, Double) -> Void = { _, _ in }
         var onViewportPan: (CGSize) -> Void = { _ in }
-        var onPinchChanged: (CGFloat) -> Void = { _ in }
+        var onPinchChanged: (CGFloat, CGPoint) -> Void = { _, _ in }
         var onPinchEnded: () -> Void = {}
         var onLongPress: (CGPoint) -> Void = { _ in }
         var onPointerDelta: (CGSize) -> Void = { _ in }
@@ -2926,6 +3001,7 @@ private struct MirrorFullscreenGestureView: UIViewRepresentable {
         private var scrollVelocity: CGSize = .zero
         private var momentumLink: CADisplayLink?
         private var lastHoverLocation: CGPoint?
+        private weak var pinchRecognizer: UIPinchGestureRecognizer?
 
         func setup(on view: UIView) {
             let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
@@ -2961,6 +3037,7 @@ private struct MirrorFullscreenGestureView: UIViewRepresentable {
 
             let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
             pinch.delegate = self
+            pinchRecognizer = pinch
 
             let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
             longPress.minimumPressDuration = 0.5
@@ -3051,13 +3128,14 @@ private struct MirrorFullscreenGestureView: UIViewRepresentable {
                 scrollVelocity = .zero
                 // Latch pan-vs-scroll at gesture start so a concurrent pinch
                 // crossing the zoom threshold mid-gesture can't flip the mode.
-                twoFingerPansViewport = viewportZoom > 1.05
+                twoFingerPansViewport = viewportZoom > 1.05 || isPinching
             case .changed:
                 let translation = recognizer.translation(in: view)
                 let deltaX = translation.x - lastTwoFingerTranslation.width
                 let deltaY = translation.y - lastTwoFingerTranslation.height
                 lastTwoFingerTranslation = CGSize(width: translation.x, height: translation.y)
 
+                if isPinching { twoFingerPansViewport = true }
                 if twoFingerPansViewport {
                     onViewportPan(CGSize(width: deltaX, height: deltaY))
                 } else {
@@ -3110,14 +3188,23 @@ private struct MirrorFullscreenGestureView: UIViewRepresentable {
 
         @objc private func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
             switch recognizer.state {
+            case .began:
+                cancelMomentum()
+                twoFingerPansViewport = true
             case .changed:
-                onPinchChanged(recognizer.scale)
+                guard let view = recognizer.view else { return }
+                onPinchChanged(recognizer.scale, recognizer.location(in: view))
                 recognizer.scale = 1
             case .ended, .cancelled:
                 onPinchEnded()
             default:
                 break
             }
+        }
+
+        private var isPinching: Bool {
+            guard let pinchRecognizer else { return false }
+            return pinchRecognizer.state == .began || pinchRecognizer.state == .changed
         }
 
         @objc private func handleLongPress(_ recognizer: UILongPressGestureRecognizer) {

@@ -4,6 +4,27 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-08-22 — build 46
+
+### Added
+
+- Vamp Host can publish a main-run-loop heartbeat to an optional per-user
+  watchdog that relaunches a crashed or unresponsive host while respecting an
+  intentional Quit.
+- Vamp Control on iPhone and iPad supports system Picture in Picture for a
+  view-only floating remote session.
+- Vamp Control on iOS and macOS includes an explicit command for sending
+  Command-Tab to the remote Mac.
+
+### Changed
+
+- Apple Silicon hosts request VideoToolbox's hardware encoder and low-latency
+  rate control, with at most one frame of encoder delay.
+- iPhone zooming stays anchored under the fingers, clamps against the fitted
+  remote display, and coordinates pinch and pan without accidental scrolling.
+- Vamp Control macOS uses build 46 so both remote-control clients match the
+  current suite release.
+
 ## [2.3.0] - 2026-08-22 — build 45
 
 ### Fixed

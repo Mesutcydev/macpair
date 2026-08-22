@@ -132,6 +132,8 @@ scripts/*
 !scripts/generate-pages-release.py
 !scripts/package-vamp-control-macos.sh
 !scripts/package-vamp-control-ios.sh
+!scripts/vamp-host-watchdog
+!scripts/install-vamp-host-watchdog.sh
 
 # Vamp Terminal is the account-independent open-source sideload target. Keep
 # only the active hand-maintained project inputs visible; stale project copies
@@ -179,3 +181,11 @@ MacClient/Resources/Assets.xcassets/
 MacClient/Resources/MacClient-Info.plist
 MacClient/Resources/MacClient.entitlements
 MacClient/Resources/MacClient-Release.entitlements
+
+# Account-independent inputs for the public Vamp Control macOS build. The
+# generated Xcode project remains ignored; release packaging regenerates it.
+!macclient-project.yml
+!MacClient/Resources/Assets.xcassets/
+!MacClient/Resources/Assets.xcassets/**
+!MacClient/Resources/MacClient-Info.plist
+!MacClient/Resources/MacClient-Release.entitlements

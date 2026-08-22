@@ -396,6 +396,17 @@ struct MacRemoteSessionView: View {
             .disabled(coordinator.activeSessionID == nil)
             .help("Open a terminal on the host")
             .accessibilityLabel("Open a terminal on the host")
+
+            Button {
+                inputController.keyPress(keyCode: 48, modifiers: [.command])
+            } label: {
+                SessionToolbarIconLabel(systemImage: "command")
+            }
+            .buttonStyle(SessionToolbarIconButtonStyle())
+            .disabled(environment.prefersViewOnly || coordinator.activeSessionID == nil)
+            .keyboardShortcut(.tab, modifiers: [.control, .option])
+            .help("Send ⌘Tab to the remote Mac (local shortcut: ⌃⌥Tab)")
+            .accessibilityLabel("Switch apps on the remote Mac")
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 3)

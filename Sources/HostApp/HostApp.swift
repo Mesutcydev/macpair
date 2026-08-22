@@ -553,6 +553,7 @@ final class HostWindowCloseBehaviorController: NSObject, ObservableObject, NSWin
 @MainActor
 final class HostAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        HostProcessHeartbeat.shared.start()
         // Start the widget bridge as soon as the app is up, independent of any
         // window/scene (the window may be suppressed when the widget is present).
         // The environment is created when the SwiftUI scene initializes; retry
@@ -599,6 +600,9 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        // A graceful Quit pauses external recovery. The next intentional launch
+        // clears the marker; crashes and hangs never get a chance to create it.
+        HostProcessHeartbeat.shared.stopForIntentionalQuit()
         // Reflect the closed state in the desktop widget.
         HostAppEnvironment.shared?.publishWidgetOffline()
     }
@@ -650,6 +654,51 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
             return false
         }
         return true
+    }
+}
+
+/// Main-run-loop heartbeat consumed by the optional `vamp-host-watchdog`
+/// launch agent. Keeping the Timer on `.main` is deliberate: if the host stops
+/// servicing its UI/network run loop, this file becomes stale and the external
+/// watchdog can distinguish a hang from an idle but healthy process.
+@MainActor
+private final class HostProcessHeartbeat {
+    static let shared = HostProcessHeartbeat()
+
+    private var timer: Timer?
+
+    private var directoryURL: URL {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
+        return support.appendingPathComponent("Vamp Host", isDirectory: true)
+    }
+
+    private var heartbeatURL: URL { directoryURL.appendingPathComponent("watchdog-heartbeat") }
+    private var pauseURL: URL { directoryURL.appendingPathComponent("watchdog-paused") }
+
+    func start() {
+        guard timer == nil else { return }
+        try? FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        try? FileManager.default.removeItem(at: pauseURL)
+        writeHeartbeat()
+        let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.writeHeartbeat() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    func stopForIntentionalQuit() {
+        timer?.invalidate()
+        timer = nil
+        let marker = Data("intentional-quit\n".utf8)
+        try? marker.write(to: pauseURL, options: .atomic)
+        try? FileManager.default.removeItem(at: heartbeatURL)
+    }
+
+    private func writeHeartbeat() {
+        let line = "\(ProcessInfo.processInfo.processIdentifier) \(Int(Date().timeIntervalSince1970))\n"
+        try? Data(line.utf8).write(to: heartbeatURL, options: .atomic)
     }
 }
 

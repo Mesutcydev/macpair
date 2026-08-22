@@ -21,7 +21,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ "$OUTPUT_DIR" == /* ]] || OUTPUT_DIR="$ROOT/$OUTPUT_DIR"
-for tool in xcodebuild codesign ditto plutil file shasum python3; do command -v "$tool" >/dev/null || fail "Missing $tool"; done
+for tool in xcodebuild xcodegen codesign ditto plutil file shasum python3; do command -v "$tool" >/dev/null || fail "Missing $tool"; done
+[[ -f "$ROOT/macclient-project.yml" ]] || fail "Missing macclient-project.yml"
 COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
 if [[ "$ALLOW_DIRTY" -ne 1 ]] && [[ -n "$(git -C "$ROOT" status --porcelain)" ]]; then fail "Use --allow-dirty for local artifacts"; fi
 if [[ "$CLEAN" -eq 1 ]]; then
@@ -30,6 +31,7 @@ if [[ "$CLEAN" -eq 1 ]]; then
   find "$OUTPUT_DIR" -maxdepth 1 -type f -name 'VampControl-macOS-*' -delete 2>/dev/null || true
 fi
 mkdir -p "$WORK" "$OUTPUT_DIR"
+(cd "$ROOT" && xcodegen generate --spec macclient-project.yml >/dev/null)
 xcodebuild -quiet -project "$PROJECT" -scheme MacClient -configuration Release -sdk macosx \
   -destination 'generic/platform=macOS' -derivedDataPath "$WORK/DerivedData" ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= DEVELOPMENT_TEAM= ENABLE_DEBUG_DYLIB=NO build

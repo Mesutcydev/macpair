@@ -1,4 +1,7 @@
 import AVFoundation
+#if canImport(AVKit)
+import AVKit
+#endif
 import Combine
 import CoreMedia
 import CoreVideo
@@ -786,12 +789,16 @@ struct VideoFrameRendererView: UIViewRepresentable {
     /// coalescing) for the smoothest playback. Defaults to nil → simple
     /// pixelBuffer-driven path.
     var renderer: VideoRendererViewModel? = nil
+    /// Optional system Picture-in-Picture owner. It attaches to this view's
+    /// sample-buffer layer, so PiP reuses the live decode/presentation path.
+    var pictureInPicture: RemotePictureInPictureController? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> VideoDisplayUIView {
         let view = VideoDisplayUIView()
         view.updateDisplayMode(displayMode)
+        pictureInPicture?.attach(to: view.displayLayer)
         if let renderer {
             // Frames are published on the main actor; subscribe directly (no extra hop).
             context.coordinator.cancellable = renderer.framePublisher
@@ -802,6 +809,7 @@ struct VideoFrameRendererView: UIViewRepresentable {
 
     func updateUIView(_ uiView: VideoDisplayUIView, context: Context) {
         uiView.updateDisplayMode(displayMode)
+        pictureInPicture?.attach(to: uiView.displayLayer)
         // With a renderer wired, frames arrive via the publisher subscription; don't
         // also drive from the (coalesced) @Published value.
         if renderer == nil {
@@ -823,7 +831,7 @@ struct VideoFrameRendererView: UIViewRepresentable {
 /// presentation of decoded frames (no CIImage/CGImage readback).
 final class VideoDisplayUIView: UIView {
     override class var layerClass: AnyClass { AVSampleBufferDisplayLayer.self }
-    private var displayLayer: AVSampleBufferDisplayLayer { layer as! AVSampleBufferDisplayLayer }
+    fileprivate var displayLayer: AVSampleBufferDisplayLayer { layer as! AVSampleBufferDisplayLayer }
     private var formatDescription: CMVideoFormatDescription?
 
     override init(frame: CGRect) {
@@ -849,6 +857,102 @@ final class VideoDisplayUIView: UIView {
         }
         VideoLayerPresenter.present(pixelBuffer, in: displayLayer, formatDescription: &formatDescription)
     }
+}
+
+/// Owns the system Picture-in-Picture session for a live remote display.
+/// PiP is intentionally view-only: input continues only while Vamp Control is
+/// foreground, and the system floating window receives no remote-control hooks.
+@MainActor
+final class RemotePictureInPictureController: NSObject, ObservableObject {
+    @Published private(set) var isActive = false
+    @Published private(set) var isPossible = false
+
+    private weak var attachedLayer: AVSampleBufferDisplayLayer?
+    private var controller: AVPictureInPictureController?
+
+    func attach(to layer: AVSampleBufferDisplayLayer) {
+        guard attachedLayer !== layer || controller == nil else {
+            refreshPossibility()
+            return
+        }
+        // Do not replace the content source while the system owns an active PiP
+        // transition. SwiftUI may rebuild the onscreen renderer during rotation.
+        guard controller?.isPictureInPictureActive != true else { return }
+        attachedLayer = layer
+        let source = AVPictureInPictureController.ContentSource(
+            sampleBufferDisplayLayer: layer,
+            playbackDelegate: self
+        )
+        let next = AVPictureInPictureController(contentSource: source)
+        next.delegate = self
+        next.canStartPictureInPictureAutomaticallyFromInline = true
+        controller = next
+        refreshPossibility()
+    }
+
+    func toggle() {
+        guard let controller else { return }
+        if controller.isPictureInPictureActive {
+            controller.stopPictureInPicture()
+        } else if AVPictureInPictureController.isPictureInPictureSupported() {
+            controller.startPictureInPicture()
+        }
+        refreshPossibility()
+    }
+
+    private func refreshPossibility() {
+        isPossible = AVPictureInPictureController.isPictureInPictureSupported()
+            && (controller?.isPictureInPicturePossible ?? false)
+    }
+}
+
+extension RemotePictureInPictureController: @preconcurrency AVPictureInPictureControllerDelegate {
+    func pictureInPictureControllerWillStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+        isActive = true
+    }
+
+    func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+        isActive = true
+        refreshPossibility()
+    }
+
+    func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+        isActive = false
+        refreshPossibility()
+    }
+
+    func pictureInPictureController(
+        _ pictureInPictureController: AVPictureInPictureController,
+        failedToStartPictureInPictureWithError error: any Error
+    ) {
+        isActive = false
+        refreshPossibility()
+    }
+}
+
+extension RemotePictureInPictureController: @preconcurrency AVPictureInPictureSampleBufferPlaybackDelegate {
+    func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, setPlaying playing: Bool) {}
+
+    func pictureInPictureControllerTimeRangeForPlayback(
+        _ pictureInPictureController: AVPictureInPictureController
+    ) -> CMTimeRange {
+        CMTimeRange(start: .zero, duration: .positiveInfinity)
+    }
+
+    func pictureInPictureControllerIsPlaybackPaused(
+        _ pictureInPictureController: AVPictureInPictureController
+    ) -> Bool { false }
+
+    func pictureInPictureController(
+        _ pictureInPictureController: AVPictureInPictureController,
+        didTransitionToRenderSize newRenderSize: CMVideoDimensions
+    ) {}
+
+    func pictureInPictureController(
+        _ pictureInPictureController: AVPictureInPictureController,
+        skipByInterval skipInterval: CMTime,
+        completion: @escaping () -> Void
+    ) { completion() }
 }
 #endif
 
