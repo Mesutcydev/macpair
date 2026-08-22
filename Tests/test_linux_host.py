@@ -11,6 +11,9 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "linux-host"))
 from vamp_terminal_host import (  # noqa: E402
     ClaudeSemanticParser,
+    CodexSemanticParser,
+    GeminiSemanticParser,
+    OpenCodeSemanticParser,
     PairingState,
     PtyTerminal,
     RequestHandler,
@@ -70,7 +73,7 @@ class LinuxHostTests(unittest.TestCase):
         self.assertTrue(capabilities["multipleTerminals"])
         self.assertTrue(capabilities["workspaces"])
         self.assertTrue(capabilities["chat"])
-        self.assertEqual(capabilities["agentProviders"], ["claude"])
+        self.assertEqual(capabilities["agentProviders"], ["claude", "codex", "opencode", "gemini"])
         self.assertFalse(capabilities["taskPlans"])
         self.assertFalse(capabilities["remoteControl"])
 
@@ -95,7 +98,11 @@ class LinuxHostTests(unittest.TestCase):
         self.assertNotIn("event.code===1008||event.code===1006", browser)
         self.assertIn("type:'agentPrompt'", browser)
         self.assertIn("message.type==='agentEvent'", browser)
-        self.assertIn("Claude Code Chat is ready", browser)
+        self.assertIn("agentProviders={claude:", browser)
+        self.assertIn("Codex CLI", browser)
+        self.assertIn("OpenCode", browser)
+        self.assertIn("Gemini CLI", browser)
+        self.assertIn("provider:node.agent", browser)
         self.assertIn("white-space:pre", browser)
         self.assertIn("crypto.getRandomValues", browser)
         self.assertNotIn("crypto.randomUUID", browser)
@@ -143,6 +150,34 @@ class LinuxHostTests(unittest.TestCase):
             {"eventType": "completed"},
         ])
 
+    def test_opencode_json_becomes_semantic_chat_events(self):
+        parser = OpenCodeSemanticParser()
+        self.assertEqual(parser.consume(b'{"type":"text","sessionID":"open-1","part":{"text":"Hello"}}\n'), [
+            {"eventType": "messageDelta", "text": "Hello"},
+        ])
+        self.assertEqual(parser.session_id, "open-1")
+        self.assertEqual(parser.consume(b'{"type":"step_finish","part":{"reason":"stop"}}\n'), [
+            {"eventType": "completed"},
+        ])
+
+    def test_codex_jsonl_becomes_semantic_chat_events(self):
+        parser = CodexSemanticParser()
+        self.assertEqual(parser.consume(b'{"type":"thread.started","thread_id":"thread-1"}\n'), [])
+        self.assertEqual(parser.session_id, "thread-1")
+        self.assertEqual(parser.consume(b'{"type":"item.completed","item":{"type":"agent_message","text":"Ready"}}\n'), [
+            {"eventType": "messageDelta", "text": "Ready"},
+        ])
+        self.assertEqual(parser.consume(b'{"type":"turn.completed"}\n'), [{"eventType": "completed"}])
+
+    def test_gemini_stream_json_becomes_semantic_chat_events(self):
+        parser = GeminiSemanticParser()
+        self.assertEqual(parser.consume(b'{"type":"init","session_id":"gemini-1"}\n'), [])
+        self.assertEqual(parser.session_id, "gemini-1")
+        self.assertEqual(parser.consume(b'{"type":"message","role":"assistant","content":"Hi","delta":true}\n'), [
+            {"eventType": "messageDelta", "text": "Hi"},
+        ])
+        self.assertEqual(parser.consume(b'{"type":"result"}\n'), [{"eventType": "completed"}])
+
     def test_claude_runner_streams_semantic_events_without_a_tui(self):
         class Connection:
             def __init__(self):
@@ -166,13 +201,66 @@ class LinuxHostTests(unittest.TestCase):
             connection = Connection()
             terminal = PtyTerminal(connection, "terminal-one", "Claude", directory)
             with patch.dict(os.environ, {"PATH": str(directory)}):
-                terminal.run_claude_prompt("hello")
+                terminal.run_agent_prompt("claude", "hello")
                 deadline = time.time() + 5
                 while terminal.agent_process is not None and time.time() < deadline:
                     time.sleep(0.01)
             self.assertTrue(any(message.get("eventType") == "messageDelta" for message in connection.messages))
             self.assertTrue(any(message.get("eventType") == "completed" for message in connection.messages))
-            self.assertEqual(terminal.claude_session_id, "fake-session")
+            self.assertEqual(terminal.agent_session_ids["claude"], "fake-session")
+
+    def test_other_provider_runners_stream_semantic_events_without_a_tui(self):
+        class Connection:
+            def __init__(self):
+                self.messages = []
+
+            def send(self, message):
+                self.messages.append(message)
+
+            def send_error(self, code, message, terminal_id=None):
+                self.messages.append({"type": "error", "code": code, "message": message, "terminalID": terminal_id})
+
+        outputs = {
+            "codex": (
+                '{"type":"thread.started","thread_id":"codex-session"}\n'
+                '{"type":"item.completed","item":{"type":"agent_message","text":"codex reply"}}\n'
+                '{"type":"turn.completed"}\n'
+            ),
+            "opencode": (
+                '{"type":"text","sessionID":"opencode-session","part":{"text":"opencode reply"}}\n'
+                '{"type":"step_finish","part":{"reason":"stop"}}\n'
+            ),
+            "gemini": (
+                '{"type":"init","session_id":"gemini-session"}\n'
+                '{"type":"message","role":"assistant","content":"gemini reply","delta":true}\n'
+                '{"type":"result"}\n'
+            ),
+        }
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            for provider, output in outputs.items():
+                executable = directory / provider
+                executable.write_text("#!/bin/sh\nprintf '%s' '" + output + "'\n")
+                executable.chmod(0o755)
+            for provider in outputs:
+                connection = Connection()
+                terminal = PtyTerminal(connection, f"terminal-{provider}", provider, directory)
+                with patch.dict(os.environ, {"PATH": str(directory)}):
+                    terminal.run_agent_prompt(provider, "hello")
+                    deadline = time.time() + 5
+                    while terminal.agent_process is not None and time.time() < deadline:
+                        time.sleep(0.01)
+                provider_messages = [message for message in connection.messages if message.get("provider") == provider]
+                self.assertTrue(any(message.get("eventType") == "messageDelta" for message in provider_messages), provider)
+                self.assertTrue(any(message.get("eventType") == "completed" for message in provider_messages), provider)
+                self.assertEqual(terminal.agent_session_ids[provider], f"{provider}-session")
+
+    def test_agent_launchers_never_bypass_provider_safety(self):
+        source = (Path(__file__).resolve().parents[1] / "linux-host" / "vamp_terminal_host.py").read_text()
+        self.assertNotIn("dangerously-skip-permissions", source)
+        self.assertNotIn("dangerously-bypass-approvals-and-sandbox", source)
+        self.assertNotIn('"--auto"', source)
+        self.assertNotIn('"--yolo"', source)
 
 
 if __name__ == "__main__":

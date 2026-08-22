@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 
-VERSION = "2.3.3"
+VERSION = "2.3.4"
 DEFAULT_PORT = 9475
 DEFAULT_MAX_TERMINALS = 8
 PAIRING_TTL_SECONDS = 600
@@ -46,6 +46,13 @@ PAIRING_ATTEMPT_WINDOW_SECONDS = 60
 WEBSOCKET_AUTH_PROTOCOL = "vamp-auth"
 ROOT = Path(__file__).resolve().parent
 MAX_AGENT_PROMPT_BYTES = 64 * 1024
+AGENT_PROVIDERS = ("claude", "codex", "opencode", "gemini")
+AGENT_DISPLAY_NAMES = {
+    "claude": "Claude Code",
+    "codex": "Codex CLI",
+    "opencode": "OpenCode",
+    "gemini": "Gemini CLI",
+}
 
 
 def now() -> float:
@@ -145,6 +152,122 @@ class ClaudeSemanticParser:
                 events.append({"eventType": "completed"})
             self.did_finish = True
         return events
+
+
+class OpenCodeSemanticParser:
+    """Turn OpenCode's documented raw JSON events into browser Chat events."""
+
+    def __init__(self) -> None:
+        self.session_id: str | None = None
+        self.did_finish = False
+
+    def consume(self, raw_line: bytes) -> list[dict[str, Any]]:
+        value = decode_json_object(raw_line)
+        if value is None:
+            return []
+        session_id = value.get("sessionID")
+        if isinstance(session_id, str) and session_id:
+            self.session_id = session_id
+        event_type = str(value.get("type") or "").lower()
+        part = value.get("part") if isinstance(value.get("part"), dict) else {}
+        if event_type == "text" and isinstance(part.get("text"), str) and part["text"]:
+            return [{"eventType": "messageDelta", "text": part["text"]}]
+        if event_type == "step_finish" and str(part.get("reason") or "").lower() == "stop":
+            self.did_finish = True
+            return [{"eventType": "completed"}]
+        if event_type == "error":
+            self.did_finish = True
+            return [{"eventType": "failed", "message": json_error_message(value, "OpenCode failed")}]
+        return []
+
+
+class CodexSemanticParser:
+    """Turn Codex exec's documented JSONL records into browser Chat events."""
+
+    def __init__(self) -> None:
+        self.session_id: str | None = None
+        self.did_finish = False
+
+    def consume(self, raw_line: bytes) -> list[dict[str, Any]]:
+        value = decode_json_object(raw_line)
+        if value is None:
+            return []
+        event_type = str(value.get("type") or "").lower()
+        if event_type == "thread.started":
+            session_id = value.get("thread_id")
+            if isinstance(session_id, str) and session_id:
+                self.session_id = session_id
+        if event_type == "item.completed":
+            item = value.get("item") if isinstance(value.get("item"), dict) else {}
+            text = item.get("text")
+            if item.get("type") == "agent_message" and isinstance(text, str) and text:
+                return [{"eventType": "messageDelta", "text": text}]
+        if event_type == "turn.completed":
+            self.did_finish = True
+            return [{"eventType": "completed"}]
+        if event_type in {"turn.failed", "error"}:
+            self.did_finish = True
+            return [{"eventType": "failed", "message": json_error_message(value, "Codex failed")}]
+        return []
+
+
+class GeminiSemanticParser:
+    """Turn Gemini CLI's documented stream-json records into Chat events."""
+
+    def __init__(self) -> None:
+        self.session_id: str | None = None
+        self.did_finish = False
+
+    def consume(self, raw_line: bytes) -> list[dict[str, Any]]:
+        value = decode_json_object(raw_line)
+        if value is None:
+            return []
+        event_type = str(value.get("type") or "").lower()
+        if event_type == "init":
+            session_id = value.get("session_id")
+            if isinstance(session_id, str) and session_id:
+                self.session_id = session_id
+        if event_type == "message" and value.get("role") == "assistant":
+            text = value.get("content")
+            if isinstance(text, str) and text:
+                return [{"eventType": "messageDelta", "text": text}]
+        if event_type == "result":
+            self.did_finish = True
+            return [{"eventType": "completed"}]
+        if event_type == "error" and str(value.get("severity") or "error").lower() == "error":
+            self.did_finish = True
+            return [{"eventType": "failed", "message": json_error_message(value, "Gemini failed")}]
+        return []
+
+
+def decode_json_object(raw_line: bytes) -> dict[str, Any] | None:
+    try:
+        value = json.loads(raw_line.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def json_error_message(value: dict[str, Any], fallback: str) -> str:
+    message = value.get("message")
+    if isinstance(message, str) and message.strip():
+        return message
+    error = value.get("error")
+    if isinstance(error, str) and error.strip():
+        return error
+    if isinstance(error, dict) and isinstance(error.get("message"), str) and error["message"].strip():
+        return error["message"]
+    return fallback
+
+
+def semantic_parser(provider: str) -> Any:
+    parsers = {
+        "claude": ClaudeSemanticParser,
+        "codex": CodexSemanticParser,
+        "opencode": OpenCodeSemanticParser,
+        "gemini": GeminiSemanticParser,
+    }
+    return parsers[provider]()
 
 
 class PairingState:
@@ -271,7 +394,7 @@ class TerminalConnection:
                 "supportsWorkspaces": True,
                 "supportsChat": True,
                 "supportsTaskPlans": False,
-                "agentProviders": ["claude"],
+                "agentProviders": list(AGENT_PROVIDERS),
             },
         })
         command = payload.get("command")
@@ -314,13 +437,13 @@ class TerminalConnection:
                 return
             provider = payload.get("provider")
             prompt = payload.get("prompt")
-            if provider != "claude":
-                self.send_error("unsupported-agent", "Only Claude semantic Chat is available in this build", terminal_id)
+            if provider not in AGENT_PROVIDERS:
+                self.send_error("unsupported-agent", "That provider does not offer supported semantic Chat", terminal_id)
                 return
             if not isinstance(prompt, str) or not prompt.strip() or len(prompt.encode("utf-8")) > MAX_AGENT_PROMPT_BYTES:
-                self.send_error("invalid-prompt", "The Claude prompt is empty or too large", terminal_id)
+                self.send_error("invalid-prompt", "The agent prompt is empty or too large", terminal_id)
                 return
-            terminal.run_claude_prompt(prompt)
+            terminal.run_agent_prompt(provider, prompt)
             return
         if message_type == "resize":
             terminal = self.terminals.get(terminal_id)
@@ -398,7 +521,7 @@ class PtyTerminal:
         self.closed = threading.Event()
         self.agent_lock = threading.Lock()
         self.agent_process: subprocess.Popen[bytes] | None = None
-        self.claude_session_id: str | None = None
+        self.agent_session_ids: dict[str, str] = {}
 
     def start(self) -> None:
         pid, fd = pty.fork()
@@ -425,25 +548,20 @@ class PtyTerminal:
         except OSError:
             self.close()
 
-    def run_claude_prompt(self, prompt: str) -> None:
+    def run_agent_prompt(self, provider: str, prompt: str) -> None:
         with self.agent_lock:
             if self.agent_process is not None and self.agent_process.poll() is None:
-                self.connection.send_error("agent-busy", "Claude is still working on the previous message", self.terminal_id)
+                self.connection.send_error("agent-busy", "An agent is still working on the previous message", self.terminal_id)
                 return
-            executable = self._resolve_launcher("claude")
+            executable = self._resolve_launcher(provider)
             if executable is None:
-                self._send_agent_event("failed", message="Claude Code is not installed or is not on PATH")
+                self._send_agent_event(
+                    provider,
+                    "failed",
+                    message=f"{AGENT_DISPLAY_NAMES[provider]} is not installed or is not on PATH",
+                )
                 return
-            arguments = [
-                executable,
-                "--print",
-                "--verbose",
-                "--output-format", "stream-json",
-                "--include-partial-messages",
-            ]
-            if self.claude_session_id:
-                arguments += ["--resume", self.claude_session_id]
-            arguments.append(prompt)
+            arguments = self._agent_arguments(provider, executable, prompt)
             environment = os.environ.copy()
             environment["TERM"] = "dumb"
             environment["NO_COLOR"] = "1"
@@ -459,18 +577,50 @@ class PtyTerminal:
                     start_new_session=True,
                 )
             except OSError as error:
-                self._send_agent_event("failed", message=str(error))
+                self._send_agent_event(provider, "failed", message=str(error))
                 return
             self.agent_process = process
         threading.Thread(
-            target=self._read_claude,
-            args=(process,),
-            name=f"vamp-claude-{self.terminal_id}",
+            target=self._read_agent,
+            args=(provider, process),
+            name=f"vamp-{provider}-{self.terminal_id}",
             daemon=True,
         ).start()
 
-    def _read_claude(self, process: subprocess.Popen[bytes]) -> None:
-        parser = ClaudeSemanticParser()
+    def _agent_arguments(self, provider: str, executable: str, prompt: str) -> list[str]:
+        session_id = self.agent_session_ids.get(provider)
+        if provider == "claude":
+            arguments = [
+                executable,
+                "--print",
+                "--verbose",
+                "--output-format", "stream-json",
+                "--include-partial-messages",
+            ]
+            if session_id:
+                arguments += ["--resume", session_id]
+            return arguments + [prompt]
+        if provider == "opencode":
+            arguments = [executable, "run", "--format", "json"]
+            if session_id:
+                arguments += ["--session", session_id]
+            return arguments + [prompt]
+        if provider == "codex":
+            if session_id:
+                return [
+                    executable, "exec", "resume", session_id,
+                    "--json", "--skip-git-repo-check", prompt,
+                ]
+            return [executable, "exec", "--json", "--skip-git-repo-check", prompt]
+        if provider == "gemini":
+            arguments = [executable, "--output-format", "stream-json", "--approval-mode", "plan"]
+            if session_id:
+                arguments += ["--resume", session_id]
+            return arguments + ["--prompt", prompt]
+        raise ValueError(f"unsupported agent provider: {provider}")
+
+    def _read_agent(self, provider: str, process: subprocess.Popen[bytes]) -> None:
+        parser = semantic_parser(provider)
         stderr_chunks: list[bytes] = []
 
         def drain_stderr() -> None:
@@ -487,34 +637,38 @@ class PtyTerminal:
             finally:
                 process.stderr.close()
 
-        stderr_thread = threading.Thread(target=drain_stderr, name=f"vamp-claude-error-{self.terminal_id}", daemon=True)
+        stderr_thread = threading.Thread(target=drain_stderr, name=f"vamp-{provider}-error-{self.terminal_id}", daemon=True)
         stderr_thread.start()
         if process.stdout is not None:
             try:
                 for line in iter(process.stdout.readline, b""):
                     for event in parser.consume(line):
-                        self._send_agent_event(**event)
+                        self._send_agent_event(provider, **event)
             finally:
                 process.stdout.close()
         return_code = process.wait()
         stderr_thread.join(timeout=2)
         if parser.session_id:
-            self.claude_session_id = parser.session_id
+            self.agent_session_ids[provider] = parser.session_id
         if not parser.did_finish:
             if return_code == 0:
-                self._send_agent_event("completed")
+                self._send_agent_event(provider, "completed")
             else:
                 detail = b"".join(stderr_chunks).decode("utf-8", errors="replace").strip()
-                self._send_agent_event("failed", message=detail or f"Claude exited with status {return_code}")
+                self._send_agent_event(
+                    provider,
+                    "failed",
+                    message=detail or f"{AGENT_DISPLAY_NAMES[provider]} exited with status {return_code}",
+                )
         with self.agent_lock:
             if self.agent_process is process:
                 self.agent_process = None
 
-    def _send_agent_event(self, eventType: str, text: str | None = None, message: str | None = None) -> None:
+    def _send_agent_event(self, provider: str, eventType: str, text: str | None = None, message: str | None = None) -> None:
         event: dict[str, Any] = {
             "type": "agentEvent",
             "terminalID": self.terminal_id,
-            "provider": "claude",
+            "provider": provider,
             "eventType": eventType,
         }
         if text is not None:
@@ -622,7 +776,7 @@ class VampTerminalHost:
             "resize": True,
             "workspaces": True,
             "chat": True,
-            "agentProviders": ["claude"],
+            "agentProviders": list(AGENT_PROVIDERS),
             "taskPlans": False,
             "remoteControl": False,
         }

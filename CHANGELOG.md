@@ -4,6 +4,21 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.4] - 2026-08-22 — Linux Host
+
+### Added
+
+- Linux browser Chat now supports Codex CLI, OpenCode, and Gemini CLI in
+  addition to Claude Code, using each provider's machine-readable headless
+  output and resumable session identifier.
+- Selecting `claude`, `codex`, `opencode`, or `gemini` in a new Chat tab routes
+  subsequent prompts to that provider without scraping its interactive TUI.
+
+### Security
+
+- Linux provider runners do not add unsafe permission, sandbox, or approval
+  bypass flags. Interactive approval flows remain available in Terminal.
+
 ## [2.3.3] - 2026-08-22 — Linux Host
 
 ### Added
