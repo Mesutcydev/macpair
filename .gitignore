@@ -162,6 +162,9 @@ Configuration/*
 !Configuration/ClientiOS.entitlements
 !Configuration/ClientiOSLiveActivity-Info.plist
 
+!Sources/ClientiOSLiveActivity/
+!Sources/ClientiOSLiveActivity/RemoteSessionLiveActivityWidget.swift
+
 # The active project still references the shared Mac host/client asset and
 # configuration inputs. Keep those build inputs while excluding stale copies.
 !Sources/HostApp/Assets.xcassets/
