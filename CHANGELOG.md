@@ -4,6 +4,14 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.5] - 2026-08-22 — Linux Host
+
+### Fixed
+
+- Background services now discover provider launchers and their Node runtime
+  in common OpenCode, NVM, asdf, mise, pnpm, Deno, Bun, Volta, npm, Cargo, and
+  user-local install directories.
+
 ## [2.3.4] - 2026-08-22 — Linux Host
 
 ### Added

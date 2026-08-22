@@ -262,6 +262,15 @@ class LinuxHostTests(unittest.TestCase):
         self.assertNotIn('"--auto"', source)
         self.assertNotIn('"--yolo"', source)
 
+    def test_background_host_searches_provider_install_locations(self):
+        directories = PtyTerminal._launcher_search_directories()
+        home = str(Path.home())
+        self.assertIn(f"{home}/.local/bin", directories)
+        self.assertIn(f"{home}/.opencode/bin", directories)
+        self.assertIn(f"{home}/.npm-global/bin", directories)
+        self.assertIn(f"{home}/.bun/bin", directories)
+        self.assertIn(f"{home}/.volta/bin", directories)
+
 
 if __name__ == "__main__":
     unittest.main()

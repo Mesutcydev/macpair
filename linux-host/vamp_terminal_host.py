@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 
-VERSION = "2.3.4"
+VERSION = "2.3.5"
 DEFAULT_PORT = 9475
 DEFAULT_MAX_TERMINALS = 8
 PAIRING_TTL_SECONDS = 600
@@ -681,13 +681,19 @@ class PtyTerminal:
     def _launcher_search_directories() -> list[str]:
         home = str(Path.home())
         inherited = os.environ.get("PATH", "").split(os.pathsep)
+        nvm_bins = sorted(
+            (str(path) for path in (Path(home) / ".nvm" / "versions" / "node").glob("*/bin")),
+            reverse=True,
+        )
         common = [
             "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin",
             f"{home}/.local/bin", f"{home}/bin", f"{home}/.npm-global/bin",
-            f"{home}/.bun/bin", f"{home}/.cargo/bin", f"{home}/.volta/bin",
+            f"{home}/.opencode/bin", f"{home}/.bun/bin", f"{home}/.cargo/bin",
+            f"{home}/.deno/bin", f"{home}/.volta/bin", f"{home}/.asdf/shims",
+            f"{home}/.local/share/mise/shims", f"{home}/.local/share/pnpm",
         ]
         seen: set[str] = set()
-        return [path for path in inherited + common if path and not (path in seen or seen.add(path))]
+        return [path for path in inherited + common + nvm_bins if path and not (path in seen or seen.add(path))]
 
     @classmethod
     def _resolve_launcher(cls, name: str) -> str | None:
