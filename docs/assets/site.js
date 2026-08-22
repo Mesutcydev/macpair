@@ -13,7 +13,7 @@
     root.dataset.theme = theme;
     if (themeIcon) themeIcon.textContent = theme === 'light' ? '☀' : '☾';
     if (themeButton) themeButton.setAttribute('aria-label', theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f0f0eb' : '#171714');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f3eee4' : '#14130f');
   };
   const storedTheme = localStorage.getItem('vamp-theme');
   renderTheme(storedTheme === 'dark' ? 'dark' : 'light');
@@ -36,6 +36,7 @@
 
   const translations = {
     tr: {
+      'nav.browser': 'Tarayıcı',
       'nav.compare': 'Karşılaştır',
       'nav.previews': 'Önizlemeler',
       'nav.download': 'İndir',
@@ -44,11 +45,22 @@
       'hero.eyebrow': 'Uzaktan masaüstü · terminal · özel ağ',
       'hero.title1': 'Mac’in.',
       'hero.title2': 'Yanı başında.',
-      'hero.copy': 'LAN veya Tailscale üzerinden Mac’ini kontrol et ya da uzak bir terminal aç. Hesap yok. Barındırılan aktarıcı yok. Her yeni cihaz senin onayını ister.',
-      'hero.primary': 'Uygulamaları karşılaştır',
+      'hero.copy': 'Mac’ini kontrol et, uzak bir terminal aç ya da Safari’yi istemci olarak eşle. LAN veya Tailscale. Hesap yok. Barındırılan aktarıcı yok. Her yeni cihaz senin onayını ister.',
+      'hero.primary': 'Safari kontrolünü gör',
       'hero.note': 'Açık kaynaklı',
       'hero.noteStrong': '· hesap gerekmez.',
       'hero.connected': 'bağlı',
+      'browser.kicker': 'Tarayıcı',
+      'browser.title1': 'Safari istemcidir.',
+      'browser.lead': 'Mac host’ta tarayıcıdan sekiz sekme ve on ajan başlatıcı. Loopback 9475, Tailscale veya Cloudflare Access. IPA yok. Altı haneli kodla eşle.',
+      'browser.p1title': 'Host’tan eşle',
+      'browser.p1': 'Vamp Host’taki QR’ı tara ya da altı haneli kodu yaz. On dakikada sona erer. Tarayıcı LAN’da veya tailnet’te kalır.',
+      'browser.p2title': 'Sekiz bağımsız sekme',
+      'browser.p2': 'Aynı çalışma alanında görev sohbeti ve gerçek bir PTY. tmux ve screen bağlama. Pano iki yönlü.',
+      'browser.p3title': 'On ajan başlatıcı',
+      'browser.p3': 'OpenCode, Claude, Codex, ChatGPT CLI, Grok ve diğerleri — Vamp Terminal ile aynı başlatıcılar, IPA yan yüklemeden.',
+      'browser.chipPair': 'eşleme kodu',
+      'browser.cta': 'Mac host al',
       'hero.connectionLabel': 'Bağlantı onaylandı',
       'hero.direct': 'DOĞRUDAN',
       'hero.transport': 'Bağlantı',
@@ -71,7 +83,9 @@
       'compare.cli': 'CLI',
       'compare.taskChat': 'görev sohbeti',
       'compare.tenLaunchers': '10 başlatıcı',
+      'compare.browser': 'Safari kontrolü',
       'compare.platform': 'Platform',
+      'compare.swipe': 'Tabloyu kaydır, tüm uygulamaları gör →',
       'download.kicker': 'İndirmeler',
       'download.title1': 'Güncel derlemeler.',
       'download.lead': 'Ad-hoc imzalı. SHA-256’yı doğrula. Vamp Control hâlâ build 43.',
@@ -86,7 +100,7 @@
       'app.controlMac': 'Onaylı bir Mac’i başka bir Mac’ten kontrol et. Yalnızca terminal katmanı — ajan başlatıcı yok.',
       'app.controlIos': 'Dokunmatik uzak kontrol. Sekiz sekme ve ajanlar için Vamp Terminal’i yan yükle.',
       'app.terminalIos': 'Onaylı bir Mac host’ta sekiz sekme ve ajan başlatıcıları. Linux’a bağlanmaz.',
-      'app.safari': 'Mac host panosunda sekiz sekme. Loopback 9475, Tailscale Serve veya Cloudflare Access. IPA yok.',
+      'app.safari': 'Mac host panosunda sekiz sekme ve on ajan başlatıcı. Loopback 9475, Tailscale veya Cloudflare Access. IPA yok.',
       'app.noDownload': 'host’ta',
       'app.download': 'İndir',
       'app.checksum': 'SHA-256',
