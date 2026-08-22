@@ -164,7 +164,7 @@ def rewrite_static_links(index_path: Path, assets: dict, release_url: str) -> No
             html = sha_pattern.sub(lambda m, u=sha_url: rewrite_href(m.group(0), u), html)
 
         # Keep the pre-JavaScript label in step with the resolved artifact too.
-        # Otherwise the link can download build 46 while the adjacent fallback
+        # Otherwise the link can download an older build while the adjacent fallback
         # text still claims an older build.
         label_pattern = re.compile(
             r'(<span\b[^>]*\bdata-release-version="'
