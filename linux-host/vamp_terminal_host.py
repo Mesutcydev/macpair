@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any
 
 
-VERSION = "2.3.0"
+VERSION = "2.3.1"
 DEFAULT_PORT = 9475
 DEFAULT_MAX_TERMINALS = 8
 PAIRING_TTL_SECONDS = 600
@@ -226,7 +226,7 @@ class TerminalConnection:
                 "supportsClipboard": True,
                 "supportsResize": True,
                 "supportsWorkspaces": True,
-                "supportsChat": False,
+                "supportsChat": True,
                 "supportsTaskPlans": False,
             },
         })
@@ -438,8 +438,10 @@ class VampTerminalHost:
             "clipboard": True,
             "resize": True,
             "workspaces": True,
-            # The small Linux host does not claim macOS semantic-agent features.
-            "chat": False,
+            # Chat is a browser-side, command-scoped semantic projection of
+            # this connection's PTY stream. Structured provider events and
+            # task plans remain exclusive to hosts with provider adapters.
+            "chat": True,
             "taskPlans": False,
             "remoteControl": False,
         }

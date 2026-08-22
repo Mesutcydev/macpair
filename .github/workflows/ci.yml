@@ -129,3 +129,6 @@ jobs:
 
       - name: Browser VT regression
         run: node Tests/BrowserTerminalVTTests.mjs
+
+      - name: Linux browser Chat regression
+        run: node Tests/LinuxBrowserChatTests.mjs

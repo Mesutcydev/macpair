@@ -4,6 +4,20 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2026-08-22 — Linux Host
+
+### Added
+
+- Linux browser control now includes per-tab Chat and Terminal presentations.
+- Linux Chat renders exact composer submissions with bounded, command-scoped
+  output while keeping startup noise and terminal control sequences out of the
+  conversation surface.
+
+### Changed
+
+- The Linux host now advertises command-scoped Chat support. Provider-native
+  agent events and structured task plans remain unsupported.
+
 ## [2.3.0] - 2026-08-17 — build 44
 
 ### Added

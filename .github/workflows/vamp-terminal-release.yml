@@ -56,6 +56,9 @@ jobs:
       - name: Run browser VT regression
         run: node Tests/BrowserTerminalVTTests.mjs
 
+      - name: Run Linux browser Chat regression
+        run: node Tests/LinuxBrowserChatTests.mjs
+
       - name: Build unsigned AltStore IPA
         run: scripts/package-vamp-terminal-ios.sh --clean
 

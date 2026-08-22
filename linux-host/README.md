@@ -1,9 +1,10 @@
 # Vamp Terminal Linux Host
 
 This is the small Linux companion for terminal sessions. It provides a
-loopback-only browser workspace with multiple PTYs, one-time pairing approval,
-long-lived per-browser tokens, resize, clipboard messages, safe workspace roots,
-and a maximum of eight terminals per browser connection.
+loopback-only browser workspace with task-chat and terminal presentations,
+multiple PTYs, one-time pairing approval, long-lived per-browser tokens,
+resize, clipboard messages, safe workspace roots, and a maximum of eight
+terminals per browser connection.
 
 It is intentionally independent from the macOS WebRTC host. The macOS products
 (`Vamp Host` and `Vamp Terminal Host`) use the signed pairing/WebRTC stack used
@@ -91,15 +92,18 @@ system.
 ```
 
 Agent sessions can be created from the host shell with `tmux` or `screen`, then
-attached through a tab. The browser client also supports Ctrl-C, Escape, Tab,
-arrows, resize messages, copy output, and paste. PTY output is transported as
-base64 bytes and decoded incrementally in the browser so split UTF-8 characters
-are not corrupted.
+attached through a tab. Each browser tab can switch between Chat and Terminal.
+Chat shows exact composer submissions and a bounded, command-scoped semantic
+projection of subsequent output; startup banners and raw ANSI controls stay in
+Terminal. The browser client also supports Ctrl-C, Escape, Tab, arrows, resize
+messages, copy output, and paste. PTY output is transported as base64 bytes and
+decoded incrementally in the browser so split UTF-8 characters are not
+corrupted.
 
 ## Current capability boundary
 
-The Linux companion currently provides terminal tabs, clipboard, resize, and
-workspace selection. It deliberately reports semantic Chat, structured task
-plans, and remote desktop as unsupported. Use the macOS Vamp Host when those
-features are required. This avoids presenting a terminal text log as an
-authoritative agent conversation.
+The Linux companion provides terminal tabs, command-scoped Chat, clipboard,
+resize, and workspace selection. Chat is a readable projection of commands
+submitted through its own composer; it is not a provider-native transcript.
+Structured agent events, task plans, and remote desktop remain unsupported.
+Use the macOS Vamp Host when those features are required.
