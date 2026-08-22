@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 
 REPOSITORY = "Mesutcydev/macpair"
 API_URL = f"https://api.github.com/repos/{REPOSITORY}/releases/latest"
+ROOT = Path(__file__).resolve().parents[1]
 
 ASSET_PATTERNS = {
     "vamp-host": re.compile(r"^VampHost-macOS-.+-build-\d+-adhoc\.zip$"),
@@ -48,11 +49,40 @@ def build_number(asset: dict) -> int:
     return int(match.group(1)) if match else -1
 
 
-def choose_asset(assets: list[dict], pattern: re.Pattern[str]) -> dict | None:
+def linux_source_version() -> str | None:
+    text = (ROOT / "linux-host" / "vamp_terminal_host.py").read_text(encoding="utf-8")
+    match = re.search(r'^VERSION = "([^"]+)"', text, re.M)
+    return match.group(1) if match else None
+
+
+def linux_semver(name: str) -> tuple[int, int, int]:
+    match = re.search(r"Linux-(\d+)\.(\d+)\.(\d+)\.zip$", name)
+    if not match:
+        return (0, 0, 0)
+    return tuple(int(part) for part in match.groups())
+
+
+def choose_asset(assets: list[dict], pattern: re.Pattern[str], key: str) -> dict | None:
     matches = [asset for asset in assets if pattern.fullmatch(asset["name"])]
     if not matches:
         return None
+    if key == "vamp-linux-host":
+        version = linux_source_version()
+        if version:
+            exact = f"VampTerminalHost-Linux-{version}.zip"
+            for asset in matches:
+                if asset["name"] == exact:
+                    return asset
+        return max(matches, key=lambda asset: linux_semver(asset["name"]))
     return max(matches, key=lambda asset: (build_number(asset), asset.get("updated_at", "")))
+
+
+def checksum_url(raw_assets: list[dict], asset: dict) -> str | None:
+    name = asset["name"] + ".sha256"
+    for other in raw_assets:
+        if other["name"] == name:
+            return other["browser_download_url"]
+    return None
 
 
 def asset_label(name: str) -> str:
@@ -68,7 +98,7 @@ def main() -> int:
     release = fetch_release()
     raw_assets = release.get("assets", [])
     selected = {
-        key: choose_asset(raw_assets, pattern)
+        key: choose_asset(raw_assets, pattern, key)
         for key, pattern in ASSET_PATTERNS.items()
     }
     missing = [key for key, asset in selected.items() if asset is None]
@@ -76,14 +106,17 @@ def main() -> int:
         print(f"Missing expected release assets: {', '.join(missing)}", file=sys.stderr)
         return 1
 
-    assets = {
-        key: {
+    assets = {}
+    for key, asset in selected.items():
+        entry = {
             "name": asset["name"],
             "url": asset["browser_download_url"],
             "label": asset_label(asset["name"]),
         }
-        for key, asset in selected.items()
-    }
+        sha_url = checksum_url(raw_assets, asset)
+        if sha_url:
+            entry["sha256Url"] = sha_url
+        assets[key] = entry
     payload = {
         "repository": REPOSITORY,
         "tag": release["tag_name"],
@@ -125,6 +158,10 @@ def rewrite_static_links(index_path: Path, assets: dict, release_url: str) -> No
         url = asset["url"]
         pattern = re.compile(r'<a\b[^>]*\bdata-release-(?:asset|link)="' + re.escape(key) + r'"[^>]*>')
         html = pattern.sub(lambda m, u=url: rewrite_href(m.group(0), u), html)
+        sha_url = asset.get("sha256Url")
+        if sha_url:
+            sha_pattern = re.compile(r'<a\b[^>]*\bdata-release-sha256="' + re.escape(key) + r'"[^>]*>')
+            html = sha_pattern.sub(lambda m, u=sha_url: rewrite_href(m.group(0), u), html)
 
     # Point any "open the latest release" links at the resolved release page.
     html = re.sub(

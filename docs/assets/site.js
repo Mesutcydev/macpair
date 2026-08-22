@@ -55,17 +55,8 @@
       'hero.relay': 'Barındırılan aktarıcı',
       'hero.none': 'Yok',
       'compare.kicker': 'Karşılaştır',
-      'compare.title1': 'Üç kit.',
-      'compare.title2': 'Tek güven düzlemi.',
-      'compare.lead': 'Mac host ve istemciler imzalı WebRTC kullanır. Linux Host ve Safari, 9475 portunda tarayıcı WebSocket kullanır. En küçük kiti seç.',
-      'kit.desktopTitle': 'Uzaktan masaüstü',
-      'kit.desktopCopy': 'Vamp Host + Vamp Control. Ekran, giriş, dosya ve isteğe bağlı terminal katmanı.',
-      'kit.terminalTitle': 'Mac terminal',
-      'kit.terminalCopy': 'Vamp Terminal Host + Vamp Terminal veya Safari. Sekiz PTY. Ekran paylaşımı yok. Vamp Host ile birlikte çalıştırma.',
-      'kit.linuxTitle': 'Linux kabuğu',
-      'kit.linuxCopy': 'Vamp Linux Host + tarayıcı. Vamp Control ve Vamp Terminal bağlanamaz.',
-      'compare.summary': 'Özellik matrisi',
-      'compare.summaryHint': 'host · istemci · Safari · kablo',
+      'compare.title1': 'Her uygulama ne yapar.',
+      'compare.lead': 'Aynı anda tek bir Mac host. Safari, Mac host’ların içinde — ayrı indirme yok.',
       'compare.capability': 'Yetenek',
       'compare.screen': 'Uzak ekran kontrolü',
       'compare.terminal': 'Uzak terminal',
@@ -80,22 +71,10 @@
       'compare.cli': 'CLI',
       'compare.taskChat': 'görev sohbeti',
       'compare.tenLaunchers': '10 başlatıcı',
-      'compare.wire': 'Kablo',
       'compare.platform': 'Platform',
-      'compare.foot': 'Terminal, Vamp Host’ta isteğe bağlıdır; Terminal Host, Linux Host ve Safari’de her zaman açıktır. Aynı anda yalnızca bir macOS host çalıştır.',
-      'compare.security': 'Güvenlik notlarını oku ↗',
-      'gallery.kicker': 'Önizlemeler',
-      'gallery.title1': 'Gerçek uygulamalar.',
-      'gallery.title2': 'Gizlenen hiçbir şey yok.',
-      'gallery.lead': 'Control ekran istemcisidir. Terminal sekiz sekmeli istemcidir. Birini veya ikisini yan yükle; aynı iş değildir.',
-      'gallery.mainTitle': 'Vamp Control',
-      'gallery.mainCopy': 'Onaylı bir Mac’i bul, eşleştir ve kontrol et. Oturum içi terminal katmanı yalnızca acil durum içindir.',
-      'gallery.sideTitle': 'Vamp Terminal',
-      'gallery.sideCopy': 'Mac host’ta sekiz sekme ve ajan başlatıcıları. Vamp Linux Host’a bağlanmaz.',
       'download.kicker': 'İndirmeler',
-      'download.title1': 'Tüm derlemeler.',
-      'download.title2': 'Tek, sade liste.',
-      'download.lead': 'Tek bir macOS host kur. Vamp Control, build 43’ten yeniden kullanılır. Safari Mac host’ların içindedir. Vamp Linux Host yalnızca tarayıcıdandır.',
+      'download.title1': 'Güncel derlemeler.',
+      'download.lead': 'Ad-hoc imzalı. SHA-256’yı doğrula. Vamp Control hâlâ build 43.',
       'download.hosts': 'Hostlar',
       'download.clients': 'İstemciler',
       'download.safariNote': 'Safari kontrolü Mac host panosundadır (loopback 9475, Tailscale Serve veya Cloudflare Access). Ayrı istemci yoktur.',
@@ -110,6 +89,7 @@
       'app.safari': 'Mac host panosunda sekiz sekme. Loopback 9475, Tailscale Serve veya Cloudflare Access. IPA yok.',
       'app.noDownload': 'host’ta',
       'app.download': 'İndir',
+      'app.checksum': 'SHA-256',
       'app.getIpa': 'IPA al',
       'app.platformMacHost': 'macOS · host',
       'app.platformMacClient': 'macOS · istemci',
@@ -154,6 +134,12 @@
       if (!asset) return;
       link.href = asset.url;
       link.removeAttribute('aria-disabled');
+    });
+    document.querySelectorAll('[data-release-sha256]').forEach((link) => {
+      const asset = release.assets[link.dataset.releaseSha256];
+      if (!asset?.sha256Url) return;
+      link.href = asset.sha256Url;
+      link.hidden = false;
     });
     document.querySelectorAll('[data-release-version]').forEach((element) => {
       const asset = release.assets[element.dataset.releaseVersion];
