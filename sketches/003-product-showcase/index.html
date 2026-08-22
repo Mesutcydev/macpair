@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="assets/vamp-terminal-icon.png">
+<meta name="theme-color" content="#0a0c14">
+<meta name="description" content="Vamp Suite — open-source remote desktop, multi-tab terminal, Safari control, and Linux browser access over your LAN or Tailscale network.">
+<title>Vamp Suite — the private remote workspace</title>
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#0a0c14; --panel:rgba(255,255,255,.05); --panel-solid:#141828; --panel2:rgba(255,255,255,.09);
+    --line:rgba(255,255,255,.13); --line-soft:rgba(255,255,255,.07);
+    --text:#eef1f8; --soft:#a7aec2; --faint:#6b7389;
+    --blue:#6ea8ff; --violet:#a78bfa; --teal:#5eead4;
+    --grad:linear-gradient(135deg,#6ea8ff,#a78bfa);
+    --mono:"SFMono-Regular",ui-monospace,"Cascadia Code",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,system-ui,sans-serif;
+    --ease:cubic-bezier(.22,1,.36,1);
+  }
+  html[data-theme="light"]{
+    color-scheme: light;
+    --bg:#f5f6fa; --panel:rgba(255,255,255,.7); --panel-solid:#fff; --panel2:#fff;
+    --line:rgba(15,20,40,.13); --line-soft:rgba(15,20,40,.07);
+    --text:#101528; --soft:#4a5268; --faint:#7a8198;
+    --blue:#2563eb; --violet:#7c3aed; --teal:#0d9488;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;min-width:320px;color:var(--text);font:400 16px/1.55 var(--sans);letter-spacing:-.01em;
+    background:
+      radial-gradient(1000px 480px at 80% -5%, rgba(110,168,255,.14), transparent 60%),
+      radial-gradient(800px 500px at 5% 25%, rgba(167,139,250,.10), transparent 55%),
+      var(--bg);
+    -webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit}
+  :focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+  .wrap{width:min(1140px,calc(100% - 44px));margin:0 auto}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;color:var(--soft);font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase}
+  .eyebrow::before{content:"";width:16px;height:2px;background:var(--grad);border-radius:2px}
+
+  header.site{position:sticky;top:0;z-index:50;border-bottom:1px solid var(--line-soft);
+    background:color-mix(in srgb, var(--bg) 76%, transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+  .nav{display:flex;align-items:center;justify-content:space-between;min-height:66px;gap:18px}
+  .brand{display:inline-flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.03em}
+  .brand img{width:30px;height:30px;border-radius:8px}
+  .brand small{display:block;color:var(--faint);font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+  .nav-links{display:flex;gap:20px;color:var(--soft);font-size:13.5px}
+  .nav-links a:hover{color:var(--text)}
+  .nav-actions{display:flex;gap:8px;align-items:center}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px;padding:0 16px;border:1px solid var(--line);
+    border-radius:999px;color:var(--text);background:var(--panel);font-size:13.5px;font-weight:650;cursor:pointer;transition:all .16s var(--ease)}
+  .btn:hover{background:var(--panel2)}
+  .btn:active{transform:scale(.97)}
+  .btn.grad{background:var(--grad);border:0;color:#fff}
+  .btn.grad:hover{filter:brightness(1.08)}
+  .btn.icon{width:38px;padding:0}
+  .menu-button{display:none}
+  .mobile-nav{display:none}
+
+  /* hero: app showcase */
+  .hero{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;padding:76px 0 60px}
+  .hero h1{margin:18px 0 16px;font-size:clamp(2.6rem,5.4vw,4.4rem);line-height:1;letter-spacing:-.065em}
+  .hero h1 .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero-sub{color:var(--soft);font-size:clamp(1rem,1.5vw,1.15rem);max-width:480px}
+  .hero-ctas{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
+  .hero-shots{position:relative;display:flex;justify-content:center;align-items:center;min-height:520px}
+  .shot-main{width:min(300px,68vw);border-radius:28px;border:1px solid var(--line);box-shadow:0 40px 100px rgba(0,0,0,.5),0 0 80px rgba(110,168,255,.12);transform:rotate(2deg);transition:transform .4s var(--ease)}
+  .hero-shots:hover .shot-main{transform:rotate(0) translateY(-6px)}
+  .shot-back{position:absolute;left:2%;bottom:6%;width:min(210px,44vw);border-radius:20px;border:1px solid var(--line);opacity:.75;transform:rotate(-5deg);box-shadow:0 24px 60px rgba(0,0,0,.4)}
+  .float-chip{position:absolute;padding:10px 14px;border:1px solid var(--line);border-radius:13px;background:var(--panel-solid);
+    box-shadow:0 16px 40px rgba(0,0,0,.35);font:600 12px var(--sans)}
+  .float-chip small{display:block;color:var(--faint);font:10.5px var(--mono);font-weight:400;margin-top:2px}
+  .chip1{top:8%;right:4%}
+  .chip2{bottom:14%;right:0}
+
+  /* suite card */
+  .suite{margin:0 0 80px;border:1px solid var(--line);border-radius:26px;overflow:hidden;
+    background:linear-gradient(170deg,var(--panel2),var(--panel));backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+  .suite-head{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;padding:26px 30px;border-bottom:1px solid var(--line-soft)}
+  .suite-head h2{margin:8px 0 0;font-size:clamp(1.5rem,2.6vw,2rem);letter-spacing:-.045em}
+  .suite-head p{margin:5px 0 0;color:var(--soft);font-size:13.5px}
+  .suite-rel{text-align:right;color:var(--faint);font:12px var(--mono)}
+  .suite-rel a{color:var(--blue)}
+  .suite-apps{display:grid;grid-template-columns:repeat(3,1fr)}
+  .app{padding:22px 26px 24px;border-right:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);display:flex;flex-direction:column;gap:8px;transition:background .15s}
+  .app:hover{background:rgba(255,255,255,.03)}
+  .app:nth-child(3n){border-right:0}
+  .app:nth-child(n+4){border-bottom:0}
+  .app-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .app h3{margin:0;font-size:16px;letter-spacing:-.03em}
+  .os{padding:4px 9px;border-radius:999px;font:10.5px var(--mono);white-space:nowrap;border:1px solid var(--line);color:var(--soft)}
+  .os.mac{border-color:rgba(110,168,255,.45);color:var(--blue)}
+  .os.ios{border-color:rgba(167,139,250,.45);color:var(--violet)}
+  .os.lin{border-color:rgba(94,234,212,.4);color:var(--teal)}
+  .app p{margin:0;color:var(--soft);font-size:13px;flex:1}
+  .app .row{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+  .dl{display:inline-flex;align-items:center;gap:5px;padding:8px 13px;border-radius:10px;border:1px solid var(--line);
+    background:var(--panel);color:var(--text);font:650 12.5px var(--sans);transition:all .15s}
+  .dl:hover{border-color:var(--blue);color:var(--blue)}
+  .dl.hot{background:var(--grad);border:0;color:#fff}
+  .dl.hot:hover{filter:brightness(1.08);color:#fff}
+  .ver{color:var(--faint);font:10.5px var(--mono)}
+
+  /* gallery */
+  .sec{padding:56px 0}
+  .sec-head{display:flex;align-items:end;justify-content:space-between;gap:26px;margin-bottom:30px}
+  .sec-head h2{margin:12px 0 0;font-size:clamp(1.9rem,3.6vw,2.9rem);line-height:1.03;letter-spacing:-.055em;max-width:600px}
+  .sec-head p{max-width:400px;margin:0;color:var(--soft);font-size:14.5px}
+  .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .gcard{border:1px solid var(--line-soft);border-radius:20px;overflow:hidden;background:var(--panel)}
+  .gcard img{display:block;width:100%;aspect-ratio:9/16;object-fit:cover;object-position:top;border-bottom:1px solid var(--line-soft)}
+  .gcard .cap{padding:16px 18px}
+  .gcard .cap b{display:block;font-size:15px;letter-spacing:-.02em}
+  .gcard .cap span{display:block;margin-top:4px;color:var(--soft);font-size:13px}
+
+  /* feature duo */
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .duo .card{border:1px solid var(--line-soft);border-radius:20px;background:var(--panel);padding:26px}
+  .duo h3{margin:12px 0 8px;font-size:19px;letter-spacing:-.04em}
+  .duo p{margin:0;color:var(--soft);font-size:14px}
+  .term-mini{margin-top:16px;border:1px solid var(--line);border-radius:12px;background:#0d1017;padding:14px 16px;font:12px/1.7 var(--mono);overflow-x:auto}
+  .term-mini .p{color:var(--teal)} .term-mini .m{color:var(--faint)}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px}
+  .chip{padding:6px 12px;border:1px solid var(--line);border-radius:999px;color:var(--soft);font:11.5px var(--mono)}
+  .check{display:grid;gap:10px;margin:16px 0 0;padding:0;list-style:none;color:var(--soft);font-size:14px}
+  .check li{display:flex;gap:9px;align-items:baseline}
+  .check li::before{content:"✓";color:var(--teal);font-weight:700}
+
+  footer{border-top:1px solid var(--line-soft);padding:26px 0 40px;color:var(--faint);font-size:12px}
+  .foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .foot a:hover{color:var(--text)}
+
+  @media (max-width:900px){
+    .hero{grid-template-columns:1fr;padding-top:52px}
+    .hero-shots{min-height:460px}
+    .suite-apps{grid-template-columns:1fr 1fr}
+    .app{border-right:0}
+    .app:nth-child(odd){border-right:1px solid var(--line-soft)}
+    .app:nth-child(n+4){border-bottom:1px solid var(--line-soft)}
+    .app:nth-child(n+5){border-bottom:0}
+    .gallery{grid-template-columns:1fr 1fr}
+    .duo{grid-template-columns:1fr}
+  }
+  @media (max-width:640px){
+    .nav-links{display:none}
+    .nav-actions .btn.gh{display:none}
+    .menu-button{display:inline-flex}
+    .mobile-nav{width:min(100% - 28px,540px);margin:0 auto;padding-bottom:12px}
+    .mobile-nav[data-open="true"]{display:grid}
+    .mobile-nav a{padding:11px 2px;border-top:1px solid var(--line-soft);color:var(--soft);font-size:15px}
+    .suite-apps{grid-template-columns:1fr}
+    .app{border-right:0!important;border-bottom:1px solid var(--line-soft)!important}
+    .app:last-child{border-bottom:0!important}
+    .gallery{grid-template-columns:1fr}
+    .sec-head{display:block}
+    .sec-head p{margin-top:12px}
+    .suite-head{display:block}
+    .suite-rel{text-align:left;margin-top:10px}
+    .chip1{right:0}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header class="site">
+  <nav class="nav wrap" aria-label="Primary">
+    <a class="brand" href="#top">
+      <img src="assets/vamp-terminal-icon.png" alt="Vamp Suite icon">
+      <span>Vamp Suite <small>macpair · open source</small></span>
+    </a>
+    <div class="nav-links"><a href="#download">Download</a><a href="#screens">Screens</a><a href="#features">Features</a><a href="#cli">CLI</a></div>
+    <div class="nav-actions">
+      <button class="btn icon" id="theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme">◐</button>
+      <button class="btn icon menu-button" id="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open navigation menu">≡</button>
+      <a class="btn gh" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </div>
+  </nav>
+  <nav class="mobile-nav" id="mobile-nav" data-open="false" hidden>
+    <a href="#download">Download</a><a href="#screens">Screens</a><a href="#features">Features</a><a href="#cli">CLI</a>
+    <a href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">GitHub ↗</a>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="hero wrap">
+    <div>
+      <div class="eyebrow">Private remote workspace</div>
+      <h1>Your Mac,<br>beautifully <span class="grad">remote.</span></h1>
+      <p class="hero-sub">Remote desktop, eight persistent terminal tabs, Safari control, and agent launchers — over LAN or Tailscale, with visible pairing and zero hosted infrastructure.</p>
+      <div class="hero-ctas">
+        <a class="btn grad" href="#download">Get the suite ↓</a>
+        <a class="btn" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">View source ↗</a>
+      </div>
+    </div>
+    <div class="hero-shots">
+      <img class="shot-back" src="assets/vamp-terminal-guide.png" alt="Vamp Terminal in-app guide">
+      <img class="shot-main" src="assets/vamp-terminal-home.png" alt="Vamp Terminal home screen">
+      <div class="float-chip chip1">● Connected <small>tailscale · 100.x.y.z</small></div>
+      <div class="float-chip chip2">8 tabs <small>persistent via tmux</small></div>
+    </div>
+  </section>
+
+  <!-- SUITE DOWNLOAD CARD -->
+  <section class="wrap" id="download">
+    <div class="suite">
+      <div class="suite-head">
+        <div>
+          <div class="eyebrow">Get the suite</div>
+          <h2>All five apps. One current release.</h2>
+          <p data-release-summary>Loading release metadata…</p>
+        </div>
+        <div class="suite-rel"><span data-release-footer>…</span><br><a href="https://github.com/Mesutcydev/macpair/releases" target="_blank" rel="noreferrer">all releases ↗</a></div>
+      </div>
+      <div class="suite-apps">
+        <div class="app">
+          <div class="app-top"><h3>Vamp Host</h3><span class="os mac">macOS</span></div>
+          <p>Full host: remote display, input, opt-in Terminal Mode. Everything connects here.</p>
+          <div class="row"><a class="dl hot" data-release-asset="vamp-host" href="#">Download ↗</a><span class="ver" data-release-version="vamp-host"></span></div>
+        </div>
+        <div class="app">
+          <div class="app-top"><h3>Vamp Terminal Host</h3><span class="os mac">macOS</span></div>
+          <p>Light host: terminal sessions, Safari control, pairing. No display surface.</p>
+          <div class="row"><a class="dl" data-release-asset="vamp-terminal-host" href="#">Download ↗</a><span class="ver" data-release-version="vamp-terminal-host"></span></div>
+        </div>
+        <div class="app">
+          <div class="app-top"><h3>Vamp Terminal</h3><span class="os ios">iOS · iPadOS</span></div>
+          <p>Eight persistent terminal tabs with quick keys and agent launchers. AltStore IPA.</p>
+          <div class="row"><a class="dl" data-release-asset="vamp-terminal-ios" href="#">Download IPA ↗</a><span class="ver" data-release-version="vamp-terminal-ios"></span></div>
+        </div>
+        <div class="app">
+          <div class="app-top"><h3>Vamp Control</h3><span class="os ios">iOS</span></div>
+          <p>Remote display, pointer, keyboard, clipboard, and files from iPhone or iPad.</p>
+          <div class="row"><a class="dl" data-release-asset="vamp-control-ios" href="#">Download IPA ↗</a><span class="ver" data-release-version="vamp-control-ios"></span></div>
+        </div>
+        <div class="app">
+          <div class="app-top"><h3>Vamp Control</h3><span class="os mac">macOS</span></div>
+          <p>Native Mac-to-Mac remote control client with the same signed pairing.</p>
+          <div class="row"><a class="dl" data-release-asset="vamp-control-macos" href="#">Download ↗</a><span class="ver" data-release-version="vamp-control-macos"></span></div>
+        </div>
+        <div class="app">
+          <div class="app-top"><h3>Linux Host</h3><span class="os lin">Linux</span></div>
+          <p>Dependency-free Python browser host with eight PTYs, published via Tailscale Serve.</p>
+          <div class="row"><a class="dl" href="https://github.com/Mesutcydev/macpair/blob/main/linux-host/README.md" target="_blank" rel="noreferrer">Run on Linux ↗</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREENSHOTS -->
+  <section class="sec wrap" id="screens">
+    <div class="sec-head">
+      <div><div class="eyebrow">Designed for the small screen</div><h2>Quiet surfaces. Clear output.</h2></div>
+      <p>A neutral glass system that adapts to light, dark, Dynamic Type, reduced motion, and iPad layouts.</p>
+    </div>
+    <div class="gallery">
+      <figure class="gcard"><img src="assets/vamp-terminal-home.png" alt="Vamp Terminal home screen"><div class="cap"><b>Home</b><span>Host discovery, Tailscale addresses, and setup guide.</span></div></figure>
+      <figure class="gcard"><img src="assets/vamp-terminal-stream.png" alt="Vamp Terminal stream view"><div class="cap"><b>Stream</b><span>Approval, live output, and completion in one conversation.</span></div></figure>
+      <figure class="gcard"><img src="assets/vamp-terminal-guide.png" alt="Vamp Terminal guide"><div class="cap"><b>Guide</b><span>Pairing, tabs, and agent launchers explained visually.</span></div></figure>
+    </div>
+  </section>
+
+  <!-- FEATURES + CLI -->
+  <section class="sec wrap" id="features">
+    <div class="sec-head">
+      <div><div class="eyebrow">One suite, every surface</div><h2>Everything stays in its place.</h2></div>
+    </div>
+    <div class="duo">
+      <div class="card">
+        <div class="eyebrow">Terminal workspace</div>
+        <h3>Live tabs, real shells.</h3>
+        <p>Each tab owns an independent PTY. Attach tmux for long work, and launch agents in their own persistent tabs.</p>
+        <div class="term-mini"><span class="p">$</span> vamp terminal start --session work<br><span class="m">✓ session "work" attached · 8 tabs</span><br><span class="p">$</span> vamp terminal agent claude --session claude</div>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Safari, when the phone is away</div>
+        <h3>The browser is a client too.</h3>
+        <p>A terminal-only task-chat surface bound to loopback and Tailscale, with explicit approval cards.</p>
+        <ul class="check">
+          <li>Six-digit pairing from the host</li>
+          <li>Allow / Always allow / Deny per command</li>
+          <li>Two-way clipboard from Safari</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec wrap" id="cli">
+    <div class="duo">
+      <div class="card">
+        <div class="eyebrow">Agent launchers</div>
+        <h3>Ten CLIs, one PTY each.</h3>
+        <p>Vamp gives each supported agent a stable named PTY inside tmux — reconnect from any client to the same work.</p>
+        <div class="chips"><span class="chip">opencode</span><span class="chip">pi</span><span class="chip">commandcode</span><span class="chip">chatgpt</span><span class="chip">claude</span><span class="chip">kimi</span><span class="chip">qwen</span><span class="chip">codex</span><span class="chip">aider</span><span class="chip">grok</span></div>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Private by default</div>
+        <h3>Less infrastructure. More control.</h3>
+        <ul class="check">
+          <li>Signed pairing, visible approval per device</li>
+          <li>Terminal Mode is opt-in and fully reversible</li>
+          <li>Loopback + Tailscale only — never public traffic</li>
+          <li>No accounts, no relay, no port forwarding</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="foot wrap">
+    <span>© <span id="year"></span> Vamp Suite · <span data-release-footer>…</span> · macpair · Apache-2.0</span>
+    <span><a href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">GitHub</a> · <a href="https://github.com/Mesutcydev/macpair/blob/main/docs/INSTALL.md" target="_blank" rel="noreferrer">Install docs</a> · <a href="https://github.com/Mesutcydev/macpair/issues" target="_blank" rel="noreferrer">Issues</a></span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  fetch('release.json', {cache:'no-store'}).then(r => { if(!r.ok) throw 0; return r.json(); }).then(release => {
+    if (!release?.assets) return;
+    document.querySelectorAll('[data-release-asset]').forEach(link => {
+      const a = release.assets[link.dataset.releaseAsset];
+      if (a) { link.href = a.url; link.title = a.name; link.target = '_blank'; link.rel = 'noreferrer'; }
+      else { link.removeAttribute('href'); link.style.opacity = .45; link.style.pointerEvents = 'none'; }
+    });
+    document.querySelectorAll('[data-release-version]').forEach(el => {
+      const a = release.assets[el.dataset.releaseVersion];
+      if (a) el.textContent = a.label;
+    });
+    const s = document.querySelector('[data-release-summary]');
+    if (s) s.textContent = `${release.name} · published ${release.published_at ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(new Date(release.published_at)) : 'recently'}`;
+    document.querySelectorAll('[data-release-footer]').forEach(el => el.textContent = release.tag);
+  }).catch(() => {
+    document.querySelector('[data-release-summary]')?.replaceChildren(document.createTextNode('Release metadata unavailable — open GitHub releases.'));
+  });
+
+  const themeButton = document.getElementById('theme-toggle');
+  const saved = localStorage.getItem('vamp-theme');
+  if (saved === 'light' || saved === 'dark') root.dataset.theme = saved;
+  themeButton?.addEventListener('click', () => {
+    const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+    root.dataset.theme = next; localStorage.setItem('vamp-theme', next);
+  });
+
+  const menuButton = document.getElementById('mobile-menu-toggle');
+  const mobileNav = document.getElementById('mobile-nav');
+  menuButton?.addEventListener('click', () => {
+    const open = menuButton.getAttribute('aria-expanded') !== 'true';
+    mobileNav.hidden = !open; mobileNav.dataset.open = String(open);
+    menuButton.setAttribute('aria-expanded', String(open));
+  });
+  mobileNav?.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { mobileNav.hidden = true; mobileNav.dataset.open = 'false'; }));
+  document.getElementById('year').textContent = new Date().getFullYear();
+})();
+</script>
+</body>
+</html>
