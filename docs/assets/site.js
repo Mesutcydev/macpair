@@ -1,0 +1,166 @@
+(() => {
+  const root = document.documentElement;
+  const themeButton = document.getElementById('theme-toggle');
+  const themeIcon = document.getElementById('theme-icon');
+  const languageButton = document.getElementById('language-toggle');
+  const languageCode = document.getElementById('language-code');
+  const menuButton = document.getElementById('menu-toggle');
+  const mobileMenu = document.getElementById('mobile-menu');
+  const year = document.getElementById('year');
+  if (year) year.textContent = new Date().getFullYear();
+
+  const renderTheme = (theme) => {
+    root.dataset.theme = theme;
+    if (themeIcon) themeIcon.textContent = theme === 'light' ? '☀' : '☾';
+    if (themeButton) themeButton.setAttribute('aria-label', theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f0f0eb' : '#171714');
+  };
+  const storedTheme = localStorage.getItem('vamp-theme');
+  renderTheme(storedTheme === 'dark' ? 'dark' : 'light');
+  themeButton?.addEventListener('click', () => {
+    const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('vamp-theme', next);
+    renderTheme(next);
+  });
+
+  const setMobileMenu = (open) => {
+    if (!menuButton || !mobileMenu) return;
+    mobileMenu.hidden = !open;
+    mobileMenu.dataset.open = String(open);
+    menuButton.setAttribute('aria-expanded', String(open));
+    menuButton.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+    menuButton.textContent = open ? '×' : '☰';
+  };
+  menuButton?.addEventListener('click', () => setMobileMenu(mobileMenu.dataset.open !== 'true'));
+  mobileMenu?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => setMobileMenu(false)));
+
+  const translations = {
+    tr: {
+      'nav.compare': 'Karşılaştır',
+      'nav.previews': 'Önizlemeler',
+      'nav.download': 'İndir',
+      'nav.cta': 'Vamp’ı al',
+      'nav.github': 'GitHub’ı aç ↗',
+      'hero.eyebrow': 'Uzaktan masaüstü · terminal · özel ağ',
+      'hero.title1': 'Mac’in.',
+      'hero.title2': 'Yanı başında.',
+      'hero.copy': 'LAN veya Tailscale üzerinden Mac’ini kontrol et ya da uzak bir terminal aç. Hesap yok. Barındırılan aktarıcı yok. Her yeni cihaz senin onayını ister.',
+      'hero.primary': 'Uygulamaları karşılaştır',
+      'hero.note': 'Açık kaynaklı',
+      'hero.noteStrong': '· hesap gerekmez.',
+      'hero.connected': 'bağlı',
+      'hero.connectionLabel': 'Bağlantı onaylandı',
+      'hero.direct': 'DOĞRUDAN',
+      'hero.transport': 'Bağlantı',
+      'hero.relay': 'Barındırılan aktarıcı',
+      'hero.none': 'Yok',
+      'compare.kicker': 'Karşılaştır',
+      'compare.title1': 'Üç kit.',
+      'compare.title2': 'Tek güven düzlemi.',
+      'compare.lead': 'Mac host ve istemciler imzalı WebRTC kullanır. Linux Host ve Safari, 9475 portunda tarayıcı WebSocket kullanır. En küçük kiti seç.',
+      'kit.desktopTitle': 'Uzaktan masaüstü',
+      'kit.desktopCopy': 'Vamp Host + Vamp Control. Ekran, giriş, dosya ve isteğe bağlı terminal katmanı.',
+      'kit.terminalTitle': 'Mac terminal',
+      'kit.terminalCopy': 'Vamp Terminal Host + Vamp Terminal veya Safari. Sekiz PTY. Ekran paylaşımı yok. Vamp Host ile birlikte çalıştırma.',
+      'kit.linuxTitle': 'Linux kabuğu',
+      'kit.linuxCopy': 'Vamp Linux Host + tarayıcı. Vamp Control ve Vamp Terminal bağlanamaz.',
+      'compare.summary': 'Özellik matrisi',
+      'compare.summaryHint': 'host · istemci · Safari · kablo',
+      'compare.capability': 'Yetenek',
+      'compare.screen': 'Uzak ekran kontrolü',
+      'compare.terminal': 'Uzak terminal',
+      'compare.optIn': 'isteğe bağlı',
+      'compare.alwaysOn': 'her zaman açık',
+      'compare.overlay': 'katman',
+      'compare.eightTabs': '8 sekme',
+      'compare.input': 'Klavye ve işaretçi',
+      'compare.clipboard': 'Pano eşitleme',
+      'compare.files': 'Dosya aktarımı',
+      'compare.agents': 'Ajan başlatıcıları',
+      'compare.cli': 'CLI',
+      'compare.taskChat': 'görev sohbeti',
+      'compare.tenLaunchers': '10 başlatıcı',
+      'compare.wire': 'Kablo',
+      'compare.platform': 'Platform',
+      'compare.foot': 'Terminal, Vamp Host’ta isteğe bağlıdır; Terminal Host, Linux Host ve Safari’de her zaman açıktır. Aynı anda yalnızca bir macOS host çalıştır.',
+      'compare.security': 'Güvenlik notlarını oku ↗',
+      'gallery.kicker': 'Önizlemeler',
+      'gallery.title1': 'Gerçek uygulamalar.',
+      'gallery.title2': 'Gizlenen hiçbir şey yok.',
+      'gallery.lead': 'Control ekran istemcisidir. Terminal sekiz sekmeli istemcidir. Birini veya ikisini yan yükle; aynı iş değildir.',
+      'gallery.mainTitle': 'Vamp Control',
+      'gallery.mainCopy': 'Onaylı bir Mac’i bul, eşleştir ve kontrol et. Oturum içi terminal katmanı yalnızca acil durum içindir.',
+      'gallery.sideTitle': 'Vamp Terminal',
+      'gallery.sideCopy': 'Mac host’ta sekiz sekme ve ajan başlatıcıları. Vamp Linux Host’a bağlanmaz.',
+      'download.kicker': 'İndirmeler',
+      'download.title1': 'Tüm derlemeler.',
+      'download.title2': 'Tek, sade liste.',
+      'download.lead': 'Tek bir macOS host kur. Vamp Control, build 43’ten yeniden kullanılır. Safari Mac host’ların içindedir. Vamp Linux Host yalnızca tarayıcıdandır.',
+      'download.hosts': 'Hostlar',
+      'download.clients': 'İstemciler',
+      'download.safariNote': 'Safari kontrolü Mac host panosundadır (loopback 9475, Tailscale Serve veya Cloudflare Access). Ayrı istemci yoktur.',
+      'download.releaseNote': 'Kaynak veya yan yükleme talimatları mı lazım?',
+      'download.github': 'GitHub deposunu aç ↗',
+      'app.host': 'Tam uzak ekran ve isteğe bağlı terminal. Aynı anda yalnızca bir macOS host çalıştır.',
+      'app.terminalHost': 'Her zaman açık terminal ve Safari kontrolü. Ekran paylaşımı yok. Vamp Host’un yanında çalıştırma.',
+      'app.linux': 'Yalnızca tarayıcıdan Python host. Vamp Control ve Vamp Terminal bağlanamaz.',
+      'app.controlMac': 'Onaylı bir Mac’i başka bir Mac’ten kontrol et. Yalnızca terminal katmanı — ajan başlatıcı yok.',
+      'app.controlIos': 'Dokunmatik uzak kontrol. Sekiz sekme ve ajanlar için Vamp Terminal’i yan yükle.',
+      'app.terminalIos': 'Onaylı bir Mac host’ta sekiz sekme ve ajan başlatıcıları. Linux’a bağlanmaz.',
+      'app.safari': 'Mac host panosunda sekiz sekme. Loopback 9475, Tailscale Serve veya Cloudflare Access. IPA yok.',
+      'app.noDownload': 'host’ta',
+      'app.download': 'İndir',
+      'app.getIpa': 'IPA al',
+      'app.platformMacHost': 'macOS · host',
+      'app.platformMacClient': 'macOS · istemci',
+      'app.platformLinux': 'Linux · tarayıcı host’u',
+      'app.platformSafari': 'tarayıcı · yerleşik',
+      'app.chipScreen': 'ekran',
+      'app.chipTerminal': 'terminal',
+      'app.chipTerminalOnly': 'yalnızca terminal',
+      'app.chipHeadless': 'ekransız',
+      'app.chipScreenView': 'ekran',
+      'app.chipControl': 'kontrol',
+      'app.chipSideloadable': 'yan yüklenebilir',
+      'app.chipTabs': '8 sekme',
+      'footer.copy': 'Mac, iPhone, iPad, Safari ve Linux için açık kaynaklı uzak masaüstü ve terminal araçları.',
+      'footer.install': 'Kurulum belgeleri',
+      'footer.security': 'Güvenlik',
+      'footer.meta': 'yerel öncelikli · eş onaylı · ajan dostu'
+    }
+  };
+  let currentLanguage = localStorage.getItem('vamp-lang') === 'tr' ? 'tr' : 'en';
+  const originalText = new Map();
+  document.querySelectorAll('[data-i18n]').forEach((element) => originalText.set(element, element.innerHTML));
+  const renderLanguage = (language) => {
+    currentLanguage = language;
+    document.documentElement.lang = language;
+    document.querySelectorAll('[data-i18n]').forEach((element) => {
+      const key = element.dataset.i18n;
+      if (language === 'tr' && translations.tr[key]) element.innerHTML = translations.tr[key];
+      else element.innerHTML = originalText.get(element);
+    });
+    if (languageCode) languageCode.textContent = language === 'tr' ? 'EN' : 'TR';
+    if (languageButton) languageButton.setAttribute('aria-label', language === 'tr' ? 'Switch to English' : "Türkçe'ye geç");
+    localStorage.setItem('vamp-lang', language);
+  };
+  renderLanguage(currentLanguage);
+  languageButton?.addEventListener('click', () => renderLanguage(currentLanguage === 'tr' ? 'en' : 'tr'));
+
+  const applyRelease = (release) => {
+    if (!release || !release.assets) return;
+    document.querySelectorAll('[data-release-link]').forEach((link) => {
+      const asset = release.assets[link.dataset.releaseLink];
+      if (!asset) return;
+      link.href = asset.url;
+      link.removeAttribute('aria-disabled');
+    });
+    document.querySelectorAll('[data-release-version]').forEach((element) => {
+      const asset = release.assets[element.dataset.releaseVersion];
+      if (asset?.label) element.textContent = asset.label;
+    });
+    const footerRelease = document.querySelector('[data-release-footer]');
+    if (footerRelease && release.tag) footerRelease.textContent = release.tag.replace(/^vamp-terminal-/, '');
+  };
+  fetch('/release.json', {cache:'no-store'}).then((response) => response.ok ? response.json() : null).then(applyRelease).catch(() => {});
+})();

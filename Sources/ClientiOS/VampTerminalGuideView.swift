@@ -133,7 +133,7 @@ struct VampTerminalGuideView: View {
             Image(systemName: "lock.shield")
                 .foregroundStyle(VampGlassPalette.good)
                 .frame(width: 24)
-            Text("Terminal Mode is opt-in. Every terminal command travels through the authenticated session, and disabling Terminal Mode closes every active shell. A dropped connection ends host PTYs; reconnecting starts a new workspace unless you attach tmux or screen.")
+            Text("On Vamp Host, Terminal Mode is opt-in. On Vamp Terminal Host it is always on. Commands travel through the authenticated session. A dropped connection detaches the client; it does not destroy host PTYs. Reattach, or use tmux/screen for shells that must outlive the app.")
                 .font(.footnote)
                 .foregroundStyle(VampGlassPalette.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -291,7 +291,7 @@ struct VampHostPromoCard: View {
                 .accessibilityLabel("Dismiss Vamp Host promotion")
             }
             Button {
-                if let url = URL(string: "https://mesutcydev.github.io/macpair/#hosts") {
+                if let url = URL(string: "https://thevamp.app/#download") {
                     openURL(url)
                 }
             } label: {

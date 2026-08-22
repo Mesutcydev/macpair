@@ -184,7 +184,7 @@ struct MacHostsScreen: View {
     // MARK: - Get Vamp Host
 
     /// Canonical direct-download page for the host companion.
-    private static let hostWebsiteURL = URL(string: "https://mesutcydev.github.io/macpair/#hosts")!
+    private static let hostWebsiteURL = URL(string: "https://thevamp.app/#download")!
 
     /// Small directional card pointing users to install the free Vamp Host on the Mac they
     /// want to control.

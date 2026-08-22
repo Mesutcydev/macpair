@@ -46,7 +46,7 @@ service disruption, and access to systems without permission is welcome.
 - Only control Macs you own or are authorized to access.
 - A new peer identity requires visible host approval.
 - Verify the displayed fingerprint out of band before an agent approves it.
-- Terminal mode is opt-in and should remain off when unused.
+- Terminal mode is opt-in on Vamp Host and should remain off when unused. It is always on for Vamp Terminal Host, Vamp Linux Host, and Safari.
 - Website binaries are ad-hoc signed and cannot provide Apple notarization assurance. Verify the published SHA-256 checksum, or build from source.
 
 ## Disclosure and credit

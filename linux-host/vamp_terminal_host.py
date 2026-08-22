@@ -1003,7 +1003,7 @@ def main() -> int:
 
     host = VampTerminalHost(args.max_terminals)
     server = VampHTTPServer((args.listen, args.port), host)
-    print("Vamp Terminal Linux Host", VERSION, flush=True)
+    print("Vamp Linux Host", VERSION, flush=True)
     print(f"Local URL: http://{args.listen}:{args.port}/", flush=True)
     print(f"Pairing code: {host.pairing.code} (expires in {PAIRING_TTL_SECONDS // 60} minutes)", flush=True)
     print("Remote access (Tailscale): tailscale serve --bg http://127.0.0.1:%d" % args.port, flush=True)

@@ -32,10 +32,10 @@ advertise terminal capability.
 
 ## Linux companion
 
-`linux-host/vamp_terminal_host.py` is a dependency-free browser companion. It
-is intentionally a WebSocket/Safari path rather than a second WebRTC
-implementation. Run it on loopback; Tailscale Serve is optional when you want
-an HTTPS hostname:
+`linux-host/vamp_terminal_host.py` is Vamp Linux Host, a dependency-free browser
+companion. It is intentionally a WebSocket/Safari path rather than a second
+WebRTC implementation. Vamp Control and Vamp Terminal cannot attach to it. Run
+it on loopback; Tailscale Serve is optional when you want an HTTPS hostname:
 
 ```sh
 python3 linux-host/vamp_terminal_host.py

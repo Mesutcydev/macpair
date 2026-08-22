@@ -1,33 +1,41 @@
-# AGENTS.md — Vamp Terminal
+# AGENTS.md — Vamp
 
-This file is the operational contract for AI agents working with Vamp Terminal.
+This file is the operational contract for AI agents working with the Vamp suite.
 
 ## Product
 
-Vamp Terminal is an open-source terminal workspace that reuses the signed host,
-pairing, trust, Tailscale, and authenticated WebRTC stack in this repository.
+Vamp is an open-source remote desktop and terminal suite. Mac hosts and clients
+reuse the signed pairing, trust, Tailscale, and authenticated WebRTC stack in
+this repository. Vamp Linux Host is a separate loopback WebSocket companion.
 
 | Component | Value |
 | --- | --- |
 | Full host | `Vamp Host` — remote display, input, and optional Terminal Mode |
-| Light host | `Vamp Terminal Host` — terminal and Safari control only |
-| iOS/iPadOS client | `Vamp Terminal` — eight concurrent terminal tabs |
-| Linux companion | `Vamp Terminal Linux Host` — dependency-free browser host |
+| Light host | `Vamp Terminal Host` — always-on terminal and Safari control only |
+| Linux host | `Vamp Linux Host` — Python browser host; not a WebRTC peer |
+| Remote-desktop client | `Vamp Control` — macOS and iOS/iPadOS. Terminal Mode is an overlay |
+| Terminal client | `Vamp Terminal` — eight concurrent tabs and ten agent launchers |
+| Browser client | Safari control on host loopback `9475` |
 | Full host bundle ID | `com.mesutcy.remotedesktop.host` |
 | Light host bundle ID | `com.mesutcy.remotedesktop.terminalhost` |
-| iOS bundle ID | `com.mesutcy.remotedesktop.terminal` |
+| Control macOS bundle ID | `com.mesutcy.remotedesktop.macclient` |
+| Control iOS bundle ID | `com.mesutcy.remotedesktop.ios` |
+| Terminal iOS bundle ID | `com.mesutcy.remotedesktop.terminal` |
 | Project | `RemoteDesktopToolApps.xcodeproj` |
 | Full host scheme | `MacHost` |
 | Light host scheme | `VampTerminalHost` |
-| iOS scheme | `VampTerminalApp` |
+| iOS terminal scheme | `VampTerminalApp` |
 | Bonjour service | `_screenharbor._tcp` (wire-compatibility contract only) |
 | Signaling ports | `9471` plain, `9473` TLS |
 | Data port | `9472` |
 | Browser control | loopback `9475`, exposed privately with Tailscale Serve |
-| URL scheme | `vamphost://action/{start,stop,restart}` |
+| URL scheme | `vamphost://action/{start,stop,restart}` and `vampterminalhost://` |
 | License | Apache-2.0 |
 
-The iOS build is an unsigned device IPA for AltStore-style re-signing. No
+Run only one macOS host at a time. Vamp Control and Vamp Terminal cannot attach
+to Vamp Linux Host.
+
+The iOS builds are unsigned device IPAs for AltStore-style re-signing. No
 project-owned Apple team, certificate, provisioning profile, App Store Connect
 account, hosted relay, or public port forwarding is required.
 
@@ -71,6 +79,7 @@ vamp terminal attach work
 vamp terminal agent opencode --session opencode
 vamp terminal agent claude --session claude
 vamp terminal agent codex --session codex
+# also: pi, commandcode, chatgpt, kimi, qwen, aider, grok
 vamp browser serve
 ```
 

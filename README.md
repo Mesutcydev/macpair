@@ -1,26 +1,34 @@
-# Vamp Terminal
+# Vamp
 
-**Vamp Terminal is an open-source terminal workspace for iPhone, iPad, Safari, macOS, and Linux.** It gives users readable multi-tab PTYs, clipboard exchange, tmux/screen handoff, and safe access to coding agents from anywhere on a private Tailscale network.
+**Vamp is an open-source, local-first remote desktop and terminal suite for Mac, iPhone, iPad, Safari, and Linux.** Connections use a trusted LAN or private Tailscale network. Every new device needs visible host approval. There is no product account and no hosted relay.
 
-Vamp Terminal can use either the complete Vamp Host or the focused terminal-only host. Discovery uses Bonjour on the LAN, peer identities are signed, and every new client must be visibly approved on the host. Remote access stays private: there is no hosted relay, public port forwarding, account backend, or vendor-controlled session persistence.
+Three kits share that trust plane:
+
+| Kit | Install | Wire |
+| --- | --- | --- |
+| Remote desktop | Vamp Host + Vamp Control | signed WebRTC |
+| Mac terminal | Vamp Terminal Host + Vamp Terminal or Safari | signed WebRTC / browser on `:9475` |
+| Linux shell | Vamp Linux Host + a browser | WebSocket on loopback `:9475` |
+
+Vamp Control and Vamp Terminal cannot attach to Vamp Linux Host. Safari control is built into the macOS hosts; there is no Safari download. Run only one macOS host at a time — both use the same signaling ports.
 
 ## Apps
 
 | App | Purpose | Bundle ID |
 | --- | --- | --- |
-| Vamp Host | Full macOS host with remote clients and optional terminal mode | `com.mesutcy.remotedesktop.host` |
-| Vamp Terminal Host | Light macOS host with only terminal/Safari control | `com.mesutcy.remotedesktop.terminalhost` |
-| Vamp Terminal | Terminal-only iPhone/iPad client with multi-tab PTYs | `com.mesutcy.remotedesktop.terminal` |
-| Vamp Terminal Linux Host | Dependency-free Python browser host | local process |
+| Vamp Host | Full macOS host: screen, input, clipboard, files, audio, opt-in terminal, Safari control | `com.mesutcy.remotedesktop.host` |
+| Vamp Terminal Host | Light macOS host: always-on terminal and Safari control only | `com.mesutcy.remotedesktop.terminalhost` |
+| Vamp Linux Host | Dependency-free Python browser host; not a WebRTC peer | local process |
+| Vamp Control | Remote-desktop client for macOS, iPhone, and iPad. Terminal Mode is an overlay, not the eight-tab workspace | `com.mesutcy.remotedesktop.macclient` / `com.mesutcy.remotedesktop.ios` |
+| Vamp Terminal | Eight-tab terminal client for iPhone and iPad, with agent launchers | `com.mesutcy.remotedesktop.terminal` |
 
-The iOS app is distributed as an unsigned IPA for AltStore-style re-signing. The
-macOS and Linux hosts are built and run directly by the owner of the machine.
+The iOS apps are unsigned IPAs for AltStore-style re-signing. The macOS and Linux hosts are built and run by the owner of the machine.
 
 ## Download and install
 
-Use the [Vamp Terminal GitHub page](https://mesutcydev.github.io/macpair/) for
-the current IPA, host guides, CLI command list, and Safari preview. Read the
-[AltStore guide](docs/VAMP_TERMINAL_SIDELOAD.md) before installing the iOS build.
+Current builds are on [thevamp.app](https://thevamp.app/#download). Read the
+[install reference](docs/INSTALL.md) and the [AltStore guide](docs/VAMP_TERMINAL_SIDELOAD.md)
+before sideloading an iOS build.
 
 The macOS hosts are local utilities, not App Store products. On first launch:
 

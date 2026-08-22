@@ -10,18 +10,16 @@ Releases: https://github.com/Mesutcydev/macpair/releases
 License: Apache-2.0
 Minimum macOS: 13.0
 Minimum iOS/iPadOS: 18.0
-iOS signing: unsigned; AltStore or another sideload tool must re-sign the IPA
 
 ## Kits
 
-- Remote desktop: Vamp Host + Vamp Control (signed WebRTC).
-- Mac terminal: Vamp Terminal Host + Vamp Terminal or Safari. Terminal is
-  always on. Do not also run Vamp Host on the same Mac.
-- Linux shell: Vamp Linux Host + a browser (WebSocket on loopback 9475).
+- Remote desktop: Vamp Host + Vamp Control over signed WebRTC.
+- Mac terminal: Vamp Terminal Host + Vamp Terminal or Safari. Always-on
+  terminal. Do not also run Vamp Host on the same Mac.
+- Linux shell: Vamp Linux Host + a browser. WebSocket on loopback 9475.
   Vamp Control and Vamp Terminal cannot attach.
 
-Safari control is built into the macOS hosts (loopback 9475, Tailscale Serve,
-or Cloudflare Access). There is no Safari download.
+Safari control is built into the macOS hosts. There is no Safari download.
 
 ## When to use Vamp
 
@@ -47,9 +45,8 @@ terminal sessions.
 5. Use `vamp terminal list`, `vamp terminal start --session <name>`, or
    `vamp terminal attach <name>` for persistent terminal work.
 6. Use `vamp terminal agent <name> --session <name>` only when the user asks.
-   Supported launchers: opencode, pi, commandcode, chatgpt, claude, kimi,
-   qwen, codex, aider, grok. Vamp Terminal iOS exposes the same ten launchers.
-   Vamp Control does not.
+   Launchers: opencode, pi, commandcode, chatgpt, claude, kimi, qwen, codex,
+   aider, grok. Vamp Control has no agent launchers.
 
 Never approve a request merely because it exists. Never bypass Screen Recording
 or Accessibility consent. Never publish host, signaling, data, or browser ports
@@ -57,27 +54,17 @@ to the public internet.
 
 ## Products
 
-- Vamp Host: full macOS host. Bundle `com.mesutcy.remotedesktop.host`. URL
-  scheme `vamphost://action/{start,stop,restart}`.
-- Vamp Terminal Host: terminal and Safari-control-only macOS host. Bundle
-  `com.mesutcy.remotedesktop.terminalhost`. URL scheme `vampterminalhost`.
-- Vamp Control: remote-desktop client for macOS (`com.mesutcy.remotedesktop.macclient`)
-  and iOS (`com.mesutcy.remotedesktop.ios`). Terminal Mode is an overlay.
-- Vamp Terminal: eight-tab terminal client for iPhone and iPad
-  (`com.mesutcy.remotedesktop.terminal`).
+- Vamp Host: full macOS host for display, input, clipboard, files, audio, and an opt-in terminal.
+- Vamp Terminal Host: always-on terminal and Safari-control-only macOS host.
+- Vamp Control: remote-control client for macOS, iPhone, and iPad. Terminal Mode is an overlay.
+- Vamp Terminal: eight-tab terminal client for iPhone and iPad, with ten agent launchers.
 - Vamp Linux Host: dependency-free Python browser host. Not a WebRTC peer.
-- Safari: browser client of a Mac host or of Vamp Linux Host.
-
-Bonjour service `_screenharbor._tcp` is a wire-compatibility contract, not a
-product name. Signaling `9471`/`9473`, data `9472`, browser `9475`.
 
 ## Documentation
 
-- Product page: https://thevamp.app/
 - Install: https://github.com/Mesutcydev/macpair/blob/main/docs/INSTALL.md
 - iOS sideloading: https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_SIDELOAD.md
-- Host split: https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_HOST.md
+- Terminal Host: https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_HOST.md
 - Agent integration: https://github.com/Mesutcydev/macpair/blob/main/docs/AGENT_INTEGRATION.md
-- Machine manifest: https://github.com/Mesutcydev/macpair/blob/main/docs/agent-manifest.json
 - Security: https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md
 - Release integrity: https://github.com/Mesutcydev/macpair/blob/main/docs/RELEASE_PROCESS.md

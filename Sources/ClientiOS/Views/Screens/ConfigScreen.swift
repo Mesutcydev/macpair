@@ -338,7 +338,7 @@ struct ConfigScreen: View {
                             Image(systemName: "chevron.right")
                                 .foregroundColor(PR.dim)
                         }, onTap: {
-                            if let url = URL(string: "https://mesutcydev.github.io/macpair/") {
+                            if let url = URL(string: "https://thevamp.app/") {
                                 openURL(url)
                             }
                         }, isLast: true)
@@ -495,7 +495,7 @@ struct ConfigScreen: View {
 // registration dance — see [[build-targets-and-file-membership]].
 
 enum VampHostLinks {
-    static let direct = URL(string: "https://mesutcydev.github.io/macpair/#hosts")!
+    static let direct = URL(string: "https://thevamp.app/#download")!
 }
 
 /// A cross-promo–style card for installing Vamp Host.

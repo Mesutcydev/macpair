@@ -1,4 +1,4 @@
-# Vamp Terminal Linux Host
+# Vamp Linux Host
 
 This is the small Linux companion for terminal sessions. It provides a
 loopback-only browser workspace with task-chat and terminal presentations,
@@ -9,7 +9,8 @@ terminals per browser connection.
 It is intentionally independent from the macOS WebRTC host. The macOS products
 (`Vamp Host` and `Vamp Terminal Host`) use the signed pairing/WebRTC stack used
 by the iOS app. The Linux companion uses a dependency-free WebSocket endpoint so
-Safari can control Linux without an iOS app. This keeps the Linux install small
+a browser can control Linux without Vamp Control or Vamp Terminal. Those apps
+cannot attach here. This keeps the Linux install small
 and makes the network boundary obvious.
 
 ## Install

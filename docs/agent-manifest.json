@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "name": "Vamp Terminal",
-  "description": "Open-source multi-tab terminal client for iPhone and iPad with Vamp Host, Safari control, Tailscale, and Linux browser-host support.",
+  "description": "Open-source multi-tab terminal client for iPhone and iPad. It connects to Vamp Host or Vamp Terminal Host over signed WebRTC. Vamp Linux Host is a separate browser WebSocket companion and cannot be attached from this app.",
   "manifestVersion": "2.0.0",
   "license": "Apache-2.0",
-  "website": "https://mesutcydev.github.io/macpair/",
+  "website": "https://thevamp.app/",
   "source": "https://github.com/Mesutcydev/macpair",
   "platform": {
     "os": "iOS/iPadOS",

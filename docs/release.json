@@ -23,17 +23,17 @@
     "vamp-control-ios": {
       "name": "VampControl-iOS-2.3.0-build-43-altstore-unsigned.ipa",
       "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-44/VampControl-iOS-2.3.0-build-43-altstore-unsigned.ipa",
-      "label": "2.3.0 \u00b7 build 43"
+      "label": "2.3.0 \u00b7 build 43 (unchanged)"
     },
     "vamp-control-macos": {
       "name": "VampControl-macOS-2.3.0-build-43-adhoc.zip",
       "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-44/VampControl-macOS-2.3.0-build-43-adhoc.zip",
-      "label": "2.3.0 \u00b7 build 43"
+      "label": "2.3.0 \u00b7 build 43 (unchanged)"
     },
     "vamp-linux-host": {
-      "name": "VampTerminalHost-Linux-2.3.5.zip",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-44/VampTerminalHost-Linux-2.3.5.zip",
-      "label": "2.3.5"
+      "name": "VampTerminalHost-Linux-2.3.4.zip",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-44/VampTerminalHost-Linux-2.3.4.zip",
+      "label": "2.3.4"
     }
   }
 }
