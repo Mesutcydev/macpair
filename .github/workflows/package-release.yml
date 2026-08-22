@@ -3,8 +3,9 @@ name: Package release
 on:
   push:
     tags:
-      - 'v*'
-      - '!vamp-terminal-*'
+      # Legacy MacPair releases use numeric SemVer tags such as v1.0.5.
+      # Vamp Suite and Vamp Terminal tags have their own release paths.
+      - 'v[0-9]*'
   workflow_dispatch:
     inputs:
       tag:
