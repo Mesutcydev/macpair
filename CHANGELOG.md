@@ -4,6 +4,13 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2] - 2026-08-22 — Linux Host
+
+### Fixed
+
+- Linux browser pairing now survives refreshes for the lifetime of the paired
+  browser token, and transient WebSocket disconnects no longer erase it.
+
 ## [2.3.1] - 2026-08-22 — Linux Host
 
 ### Added

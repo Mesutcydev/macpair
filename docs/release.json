@@ -31,9 +31,9 @@
       "label": "2.3.0 \u00b7 build 43"
     },
     "vamp-linux-host": {
-      "name": "VampTerminalHost-Linux-2.3.1.zip",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-44/VampTerminalHost-Linux-2.3.1.zip",
-      "label": "2.3.1"
+      "name": "VampTerminalHost-Linux-2.3.2.zip",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-44/VampTerminalHost-Linux-2.3.2.zip",
+      "label": "2.3.2"
     }
   }
 }

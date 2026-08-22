@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any
 
 
-VERSION = "2.3.1"
+VERSION = "2.3.2"
 DEFAULT_PORT = 9475
 DEFAULT_MAX_TERMINALS = 8
 PAIRING_TTL_SECONDS = 600

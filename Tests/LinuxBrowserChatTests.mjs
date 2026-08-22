@@ -29,5 +29,22 @@ assert.equal(bounded.text.length, 24_000, 'Chat response memory stays bounded');
 assert.match(source, /node\.responseSemantic=new SemanticStream\(\)/, 'each Chat submission starts a new response boundary');
 assert.match(source, /if\(node\.responseSemantic&&node\.turns\.length\)/, 'startup output remains outside Chat turns');
 assert.match(source, /looksLikeShellPrompt\(turn\.response\)/, 'returned shell prompts complete the current Chat turn');
+assert.match(source, /localStorage\.setItem\(pairingStorageKey/, 'pairing survives a browser refresh');
+assert.match(source, /let token=loadStoredPairing\(\)/, 'a refreshed page restores its paired token');
+assert.doesNotMatch(source, /event\.code===1008\|\|event\.code===1006/, 'a transient disconnect does not erase pairing');
+
+const storageStart = source.indexOf("const pairingStorageKey=");
+const storageEnd = source.indexOf("\n    const $=", storageStart);
+const values = new Map();
+const localStorage = {
+  getItem: (key) => values.get(key) ?? null,
+  setItem: (key, value) => values.set(key, value),
+  removeItem: (key) => values.delete(key),
+};
+const pairing = Function('localStorage', `${source.slice(storageStart, storageEnd)}; return {loadStoredPairing,rememberPairing};`)(localStorage);
+pairing.rememberPairing('paired-token', Date.now() / 1000 + 60);
+assert.equal(pairing.loadStoredPairing(), 'paired-token', 'a valid paired token is restored after refresh');
+pairing.rememberPairing('expired-token', Date.now() / 1000 - 1);
+assert.equal(pairing.loadStoredPairing(), null, 'an expired paired token is discarded');
 
 console.log('Linux browser Chat regression tests passed');
