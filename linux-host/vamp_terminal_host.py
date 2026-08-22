@@ -19,9 +19,11 @@ import json
 import os
 import pty
 import secrets
+import shutil
 import signal
 import socket
 import struct
+import subprocess
 import threading
 import time
 import urllib.parse
@@ -30,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 
-VERSION = "2.3.2"
+VERSION = "2.3.3"
 DEFAULT_PORT = 9475
 DEFAULT_MAX_TERMINALS = 8
 PAIRING_TTL_SECONDS = 600
@@ -43,6 +45,7 @@ PAIRING_ATTEMPT_WINDOW_SECONDS = 60
 # the URL avoids leaking it into browser history, referrers, and logs.
 WEBSOCKET_AUTH_PROTOCOL = "vamp-auth"
 ROOT = Path(__file__).resolve().parent
+MAX_AGENT_PROMPT_BYTES = 64 * 1024
 
 
 def now() -> float:
@@ -102,6 +105,46 @@ def read_websocket_frame(sock: socket.socket) -> tuple[int, bytes]:
         for index in range(length):
             payload[index] ^= mask[index % 4]
     return opcode, bytes(payload)
+
+
+class ClaudeSemanticParser:
+    """Turn Claude's documented stream-json records into browser Chat events."""
+
+    def __init__(self) -> None:
+        self.session_id: str | None = None
+        self.did_emit_message = False
+        self.did_finish = False
+
+    def consume(self, raw_line: bytes) -> list[dict[str, Any]]:
+        try:
+            value = json.loads(raw_line.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return []
+        if not isinstance(value, dict):
+            return []
+        session_id = value.get("session_id")
+        if isinstance(session_id, str) and session_id:
+            self.session_id = session_id
+
+        events: list[dict[str, Any]] = []
+        nested_event = value.get("event")
+        delta = nested_event.get("delta") if isinstance(nested_event, dict) else None
+        if isinstance(delta, dict) and delta.get("type") == "text_delta":
+            text = delta.get("text")
+            if isinstance(text, str) and text:
+                self.did_emit_message = True
+                events.append({"eventType": "messageDelta", "text": text})
+        if value.get("type") == "result":
+            if value.get("is_error") is True:
+                events.append({"eventType": "failed", "message": str(value.get("result") or "Claude failed")})
+            else:
+                result = value.get("result")
+                if not self.did_emit_message and isinstance(result, str) and result.strip():
+                    self.did_emit_message = True
+                    events.append({"eventType": "messageDelta", "text": result})
+                events.append({"eventType": "completed"})
+            self.did_finish = True
+        return events
 
 
 class PairingState:
@@ -228,6 +271,7 @@ class TerminalConnection:
                 "supportsWorkspaces": True,
                 "supportsChat": True,
                 "supportsTaskPlans": False,
+                "agentProviders": ["claude"],
             },
         })
         command = payload.get("command")
@@ -262,6 +306,21 @@ class TerminalConnection:
             data = payload.get("data")
             if isinstance(data, str) and len(data) <= 1_000_000:
                 terminal.write(data)
+            return
+        if message_type == "agentPrompt":
+            terminal = self.terminals.get(terminal_id)
+            if not terminal:
+                self.send_error("unknown-terminal", "No terminal with that ID is open", terminal_id)
+                return
+            provider = payload.get("provider")
+            prompt = payload.get("prompt")
+            if provider != "claude":
+                self.send_error("unsupported-agent", "Only Claude semantic Chat is available in this build", terminal_id)
+                return
+            if not isinstance(prompt, str) or not prompt.strip() or len(prompt.encode("utf-8")) > MAX_AGENT_PROMPT_BYTES:
+                self.send_error("invalid-prompt", "The Claude prompt is empty or too large", terminal_id)
+                return
+            terminal.run_claude_prompt(prompt)
             return
         if message_type == "resize":
             terminal = self.terminals.get(terminal_id)
@@ -337,6 +396,9 @@ class PtyTerminal:
         self.pid: int | None = None
         self.fd: int | None = None
         self.closed = threading.Event()
+        self.agent_lock = threading.Lock()
+        self.agent_process: subprocess.Popen[bytes] | None = None
+        self.claude_session_id: str | None = None
 
     def start(self) -> None:
         pid, fd = pty.fork()
@@ -363,6 +425,120 @@ class PtyTerminal:
         except OSError:
             self.close()
 
+    def run_claude_prompt(self, prompt: str) -> None:
+        with self.agent_lock:
+            if self.agent_process is not None and self.agent_process.poll() is None:
+                self.connection.send_error("agent-busy", "Claude is still working on the previous message", self.terminal_id)
+                return
+            executable = self._resolve_launcher("claude")
+            if executable is None:
+                self._send_agent_event("failed", message="Claude Code is not installed or is not on PATH")
+                return
+            arguments = [
+                executable,
+                "--print",
+                "--verbose",
+                "--output-format", "stream-json",
+                "--include-partial-messages",
+            ]
+            if self.claude_session_id:
+                arguments += ["--resume", self.claude_session_id]
+            arguments.append(prompt)
+            environment = os.environ.copy()
+            environment["TERM"] = "dumb"
+            environment["NO_COLOR"] = "1"
+            environment["PATH"] = os.pathsep.join(self._launcher_search_directories())
+            try:
+                process = subprocess.Popen(
+                    arguments,
+                    cwd=self.working_directory,
+                    env=environment,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    start_new_session=True,
+                )
+            except OSError as error:
+                self._send_agent_event("failed", message=str(error))
+                return
+            self.agent_process = process
+        threading.Thread(
+            target=self._read_claude,
+            args=(process,),
+            name=f"vamp-claude-{self.terminal_id}",
+            daemon=True,
+        ).start()
+
+    def _read_claude(self, process: subprocess.Popen[bytes]) -> None:
+        parser = ClaudeSemanticParser()
+        stderr_chunks: list[bytes] = []
+
+        def drain_stderr() -> None:
+            if process.stderr is None:
+                return
+            try:
+                remaining = 64 * 1024
+                while remaining > 0:
+                    chunk = process.stderr.read(min(8192, remaining))
+                    if not chunk:
+                        break
+                    stderr_chunks.append(chunk)
+                    remaining -= len(chunk)
+            finally:
+                process.stderr.close()
+
+        stderr_thread = threading.Thread(target=drain_stderr, name=f"vamp-claude-error-{self.terminal_id}", daemon=True)
+        stderr_thread.start()
+        if process.stdout is not None:
+            try:
+                for line in iter(process.stdout.readline, b""):
+                    for event in parser.consume(line):
+                        self._send_agent_event(**event)
+            finally:
+                process.stdout.close()
+        return_code = process.wait()
+        stderr_thread.join(timeout=2)
+        if parser.session_id:
+            self.claude_session_id = parser.session_id
+        if not parser.did_finish:
+            if return_code == 0:
+                self._send_agent_event("completed")
+            else:
+                detail = b"".join(stderr_chunks).decode("utf-8", errors="replace").strip()
+                self._send_agent_event("failed", message=detail or f"Claude exited with status {return_code}")
+        with self.agent_lock:
+            if self.agent_process is process:
+                self.agent_process = None
+
+    def _send_agent_event(self, eventType: str, text: str | None = None, message: str | None = None) -> None:
+        event: dict[str, Any] = {
+            "type": "agentEvent",
+            "terminalID": self.terminal_id,
+            "provider": "claude",
+            "eventType": eventType,
+        }
+        if text is not None:
+            event["text"] = text
+        if message is not None:
+            event["message"] = message
+        self.connection.send(event)
+
+    @staticmethod
+    def _launcher_search_directories() -> list[str]:
+        home = str(Path.home())
+        inherited = os.environ.get("PATH", "").split(os.pathsep)
+        common = [
+            "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin",
+            f"{home}/.local/bin", f"{home}/bin", f"{home}/.npm-global/bin",
+            f"{home}/.bun/bin", f"{home}/.cargo/bin", f"{home}/.volta/bin",
+        ]
+        seen: set[str] = set()
+        return [path for path in inherited + common if path and not (path in seen or seen.add(path))]
+
+    @classmethod
+    def _resolve_launcher(cls, name: str) -> str | None:
+        return shutil.which(name, path=os.pathsep.join(cls._launcher_search_directories()))
+
     def resize(self, cols: int, rows: int) -> None:
         if self.closed.is_set() or self.fd is None:
             return
@@ -379,6 +555,13 @@ class PtyTerminal:
         if self.closed.is_set():
             return
         self.closed.set()
+        with self.agent_lock:
+            agent_process = self.agent_process
+        if agent_process is not None and agent_process.poll() is None:
+            try:
+                os.killpg(agent_process.pid, signal.SIGTERM)
+            except OSError:
+                pass
         if self.pid:
             try:
                 os.killpg(self.pid, signal.SIGTERM)
@@ -438,10 +621,8 @@ class VampTerminalHost:
             "clipboard": True,
             "resize": True,
             "workspaces": True,
-            # Chat is a browser-side, command-scoped semantic projection of
-            # this connection's PTY stream. Structured provider events and
-            # task plans remain exclusive to hosts with provider adapters.
             "chat": True,
+            "agentProviders": ["claude"],
             "taskPlans": False,
             "remoteControl": False,
         }

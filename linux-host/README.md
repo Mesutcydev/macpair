@@ -94,17 +94,18 @@ system.
 
 Agent sessions can be created from the host shell with `tmux` or `screen`, then
 attached through a tab. Each browser tab can switch between Chat and Terminal.
-Chat shows exact composer submissions and a bounded, command-scoped semantic
-projection of subsequent output; startup banners and raw ANSI controls stay in
-Terminal. The browser client also supports Ctrl-C, Escape, Tab, arrows, resize
-messages, copy output, and paste. PTY output is transported as base64 bytes and
-decoded incrementally in the browser so split UTF-8 characters are not
-corrupted.
+Enter `claude` once in Chat to select Claude Code; subsequent messages use its
+documented non-interactive JSON stream and continue the same provider session.
+Shell submissions still use a bounded, command-scoped projection; startup
+banners, interactive TUI redraws, and raw ANSI controls stay in Terminal. The
+browser client also supports Ctrl-C, Escape, Tab, arrows, resize messages, copy
+output, and paste. PTY output is transported as base64 bytes and decoded
+incrementally in the browser so split UTF-8 characters are not corrupted.
 
 ## Current capability boundary
 
-The Linux companion provides terminal tabs, command-scoped Chat, clipboard,
-resize, and workspace selection. Chat is a readable projection of commands
-submitted through its own composer; it is not a provider-native transcript.
-Structured agent events, task plans, and remote desktop remain unsupported.
-Use the macOS Vamp Host when those features are required.
+The Linux companion provides terminal tabs, Claude semantic Chat,
+command-scoped shell Chat, clipboard, resize, and workspace selection. Claude
+Code must already be installed and authenticated for the same Linux user.
+Structured task plans, additional provider adapters, and remote desktop remain
+unsupported. Use the macOS Vamp Host when those features are required.

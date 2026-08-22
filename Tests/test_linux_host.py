@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 import json
+import os
 import tempfile
 import sys
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "linux-host"))
-from vamp_terminal_host import PairingState, RequestHandler, VampTerminalHost, json_bytes  # noqa: E402
+from vamp_terminal_host import (  # noqa: E402
+    ClaudeSemanticParser,
+    PairingState,
+    PtyTerminal,
+    RequestHandler,
+    VampTerminalHost,
+    json_bytes,
+)
 
 
 class LinuxHostTests(unittest.TestCase):
@@ -61,6 +70,7 @@ class LinuxHostTests(unittest.TestCase):
         self.assertTrue(capabilities["multipleTerminals"])
         self.assertTrue(capabilities["workspaces"])
         self.assertTrue(capabilities["chat"])
+        self.assertEqual(capabilities["agentProviders"], ["claude"])
         self.assertFalse(capabilities["taskPlans"])
         self.assertFalse(capabilities["remoteControl"])
 
@@ -83,6 +93,9 @@ class LinuxHostTests(unittest.TestCase):
         self.assertIn("let token=loadStoredPairing()", browser)
         self.assertIn("rememberPairing(body.token,body.expiresAt)", browser)
         self.assertNotIn("event.code===1008||event.code===1006", browser)
+        self.assertIn("type:'agentPrompt'", browser)
+        self.assertIn("message.type==='agentEvent'", browser)
+        self.assertIn("Claude Code Chat is ready", browser)
         self.assertIn("white-space:pre", browser)
         self.assertIn("crypto.getRandomValues", browser)
         self.assertNotIn("crypto.randomUUID", browser)
@@ -105,6 +118,61 @@ class LinuxHostTests(unittest.TestCase):
         self.assertIn("message.type==='error'", browser)
         self.assertIn('"capacity"', host)
         self.assertIn("terminal_id,\n            )", host)
+
+    def test_claude_stream_json_becomes_semantic_chat_events(self):
+        parser = ClaudeSemanticParser()
+        delta = json.dumps({
+            "type": "stream_event",
+            "session_id": "session-1",
+            "event": {"delta": {"type": "text_delta", "text": "Hello"}},
+        }).encode() + b"\n"
+        self.assertEqual(
+            parser.consume(delta),
+            [{"eventType": "messageDelta", "text": "Hello"}],
+        )
+        self.assertEqual(parser.session_id, "session-1")
+        completed = json.dumps({"type": "result", "result": "Hello", "is_error": False}).encode()
+        self.assertEqual(parser.consume(completed), [{"eventType": "completed"}])
+        self.assertTrue(parser.did_finish)
+
+    def test_claude_final_result_is_a_non_streaming_fallback(self):
+        parser = ClaudeSemanticParser()
+        result = json.dumps({"type": "result", "result": "Complete answer", "is_error": False}).encode()
+        self.assertEqual(parser.consume(result), [
+            {"eventType": "messageDelta", "text": "Complete answer"},
+            {"eventType": "completed"},
+        ])
+
+    def test_claude_runner_streams_semantic_events_without_a_tui(self):
+        class Connection:
+            def __init__(self):
+                self.messages = []
+
+            def send(self, message):
+                self.messages.append(message)
+
+            def send_error(self, code, message, terminal_id=None):
+                self.messages.append({"type": "error", "code": code, "message": message, "terminalID": terminal_id})
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            claude = directory / "claude"
+            claude.write_text(
+                "#!/bin/sh\n"
+                "printf '%s\\n' '{\"type\":\"stream_event\",\"session_id\":\"fake-session\",\"event\":{\"delta\":{\"type\":\"text_delta\",\"text\":\"semantic reply\"}}}'\n"
+                "printf '%s\\n' '{\"type\":\"result\",\"result\":\"semantic reply\",\"is_error\":false}'\n"
+            )
+            claude.chmod(0o755)
+            connection = Connection()
+            terminal = PtyTerminal(connection, "terminal-one", "Claude", directory)
+            with patch.dict(os.environ, {"PATH": str(directory)}):
+                terminal.run_claude_prompt("hello")
+                deadline = time.time() + 5
+                while terminal.agent_process is not None and time.time() < deadline:
+                    time.sleep(0.01)
+            self.assertTrue(any(message.get("eventType") == "messageDelta" for message in connection.messages))
+            self.assertTrue(any(message.get("eventType") == "completed" for message in connection.messages))
+            self.assertEqual(terminal.claude_session_id, "fake-session")
 
 
 if __name__ == "__main__":

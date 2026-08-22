@@ -4,6 +4,16 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.3] - 2026-08-22 — Linux Host
+
+### Added
+
+- Linux browser Chat can launch Claude Code by entering `claude`, then routes
+  subsequent messages through Claude's documented non-interactive
+  `stream-json` interface.
+- Claude replies stream as provider-native semantic events and preserve their
+  session ID for follow-up messages without scraping the interactive TUI.
+
 ## [2.3.2] - 2026-08-22 — Linux Host
 
 ### Fixed
