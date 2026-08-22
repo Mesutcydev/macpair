@@ -10,6 +10,7 @@ watchdog_process_name="Vamp Host"
 watchdog_support_dir="$HOME/Library/Application Support/Vamp Host"
 watchdog_heartbeat="$watchdog_support_dir/watchdog-heartbeat"
 watchdog_pause="$watchdog_support_dir/watchdog-paused"
+watchdog_recovering="$watchdog_support_dir/watchdog-recovering"
 watchdog_log="$watchdog_support_dir/watchdog.log"
 watchdog_last_restart=0
 
@@ -51,6 +52,7 @@ while :; do
       case "$watchdog_command" in
         *"/Vamp Host")
           log_event "heartbeat stale; terminating pid $watchdog_pid"
+          printf '%s\n' "$watchdog_now" > "$watchdog_recovering"
           kill -TERM "$watchdog_pid" 2>/dev/null || true
           sleep 5
           if kill -0 "$watchdog_pid" 2>/dev/null; then

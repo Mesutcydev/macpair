@@ -4,6 +4,24 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-08-22 — build 47
+
+### Fixed
+
+- Vamp Control on macOS now derives its signaling peer ID from its persistent
+  public-key fingerprint. Relaunching the client no longer makes the same Mac
+  appear to be a second device during the host's disconnect grace period.
+- Vamp Host permits a fast transport replacement when the incoming client has
+  the exact same valid cryptographic fingerprint, while continuing to reject a
+  different device from evicting the active session.
+- macOS reconnect attempts now wait for the replacement transport to reach the
+  connected state instead of treating an SDP answer as a completed recovery.
+- Ultra sessions now remain on the deterministic SDR color path unless HDR is
+  explicitly enabled, fixing washed-out or veiled remote desktop colors.
+- Vamp Host installs and loads its per-user watchdog automatically on first
+  launch. Watchdog-requested termination no longer creates the intentional-Quit
+  pause marker that previously prevented relaunch.
+
 ## [2.3.0] - 2026-08-22 — build 46
 
 ### Added

@@ -15,6 +15,12 @@ enum MacClientEnvironmentFactory {
         let cryptoIdentity = CryptoIdentityService(tag: "com.remotedesktop.client.p256")
         let appVersion = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0"
         let client = ClientIdentity(
+            // A reconnecting Mac must keep the same signaling peer ID across app
+            // launches. The public-key fingerprint is persistent and already is
+            // the trust anchor, so derive the UUID from it just like the iOS
+            // client does. A random UUID here made the host reject the same Mac
+            // as a second device while the prior transport was in its grace period.
+            id: ClientIdentity.stableID(publicKeyFingerprint: cryptoIdentity.fingerprint) ?? UUID(),
             displayName: Foundation.Host.current().localizedName ?? "Mac",
             deviceModel: "Mac",
             osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
@@ -32,6 +38,7 @@ enum MacClientEnvironmentFactory {
         let eventLogStore = InMemoryEventLogStore()
         let sessionCoordinator = ClientSessionCoordinator(
             clientIdentity: client,
+            isMacClient: true,
             webRTCSessionManager: webRTCSessionManager,
             peerConnectionProvider: peerConnectionProvider,
             eventLogStore: eventLogStore,

@@ -9,6 +9,24 @@ import SharedUtilities
 import TransportWebRTC
 import os
 
+/// Keeps HDR opt-in. Ultra controls resolution and frame rate; silently coupling it
+/// to HDR makes SDR desktops pass through display-dependent tone mapping and can
+/// leave the remote image looking gray or veiled.
+enum ClientVideoDynamicRangePolicy {
+    static func preferredDynamicRange(
+        qualityPreset: StreamQualityPreset,
+        clientCapabilities: HostCapabilityFlags?,
+        hdrExplicitlyEnabled: Bool
+    ) -> StreamDynamicRange? {
+        guard hdrExplicitlyEnabled,
+              qualityPreset == .ultra,
+              clientCapabilities?.contains(.supportsHDR10) == true else {
+            return nil
+        }
+        return .hdr10
+    }
+}
+
 /// Orchestrates the complete client session lifecycle:
 ///
 /// 1. Browse for hosts via Bonjour
@@ -178,6 +196,8 @@ final class ClientSessionCoordinator: ObservableObject {
 
     // Dependencies
     private let clientIdentity: ClientIdentity
+    private let isMacClient: Bool
+    private let hdrStreamingExplicitlyEnabled: Bool
     let clientProductRole: ClientProductRole
     private let webRTCSessionManager: any WebRTCSessionManaging
     private let peerConnectionProvider: LANPeerConnectionProvider
@@ -270,6 +290,8 @@ final class ClientSessionCoordinator: ObservableObject {
 
     init(
         clientIdentity: ClientIdentity,
+        isMacClient: Bool = false,
+        hdrStreamingExplicitlyEnabled: Bool = false,
         clientProductRole: ClientProductRole = .remoteControl,
         webRTCSessionManager: any WebRTCSessionManaging,
         peerConnectionProvider: LANPeerConnectionProvider,
@@ -278,6 +300,8 @@ final class ClientSessionCoordinator: ObservableObject {
         displayLayoutViewModel: DisplayLayoutViewModel
     ) {
         self.clientIdentity = clientIdentity
+        self.isMacClient = isMacClient
+        self.hdrStreamingExplicitlyEnabled = hdrStreamingExplicitlyEnabled
         self.clientProductRole = clientProductRole
         self.webRTCSessionManager = webRTCSessionManager
         self.peerConnectionProvider = peerConnectionProvider
@@ -542,12 +566,13 @@ final class ClientSessionCoordinator: ObservableObject {
             if !offerWasSealed {
                 offer.sessionToken = sessionTokenHex
             }
-            offer.clientCapabilities = .currentClient(isMacClient: false)
+            offer.clientCapabilities = .currentClient(isMacClient: isMacClient)
             offer.clientProductRole = clientProductRole
-            if effectiveQualityPreset == .ultra,
-               offer.clientCapabilities?.contains(.supportsHDR10) == true {
-                offer.preferredDynamicRange = .hdr10
-            }
+            offer.preferredDynamicRange = ClientVideoDynamicRangePolicy.preferredDynamicRange(
+                qualityPreset: effectiveQualityPreset,
+                clientCapabilities: offer.clientCapabilities,
+                hdrExplicitlyEnabled: hdrStreamingExplicitlyEnabled
+            )
             expectedSessionTokenHex = sessionTokenHex
             webRTCSessionManager.configureControlChannelAuth(sessionTokenHex: sessionTokenHex)
             try await signalingService.sendOffer(offer, to: HostIdentity(
@@ -818,6 +843,24 @@ final class ClientSessionCoordinator: ObservableObject {
         await connectSweepingCandidates(base: endpoint, qualityPreset: preset)
         if phase == .error {
             throw RemoteDesktopError.connectionFailed(errorMessage ?? "Reconnect failed.")
+        }
+
+        // Receiving an SDP answer only means signaling succeeded. The old Mac
+        // reconnect wrapper treated that as a restored session immediately,
+        // even while the replacement TCP/WebRTC transport was still connecting.
+        // Wait for the actual transport so a refused/stalled replacement remains
+        // inside the backoff loop instead of showing a frozen session as healthy.
+        if webRTCSessionManager.connectionState != .connected {
+            let stateUpdates = webRTCSessionManager.connectionStateUpdates()
+            try await withTimeout(seconds: RemoteDesktopConstants.reconnectNegotiationTimeout) {
+                for await state in stateUpdates {
+                    if state == .connected { return }
+                    if state == .failed {
+                        throw RemoteDesktopError.connectionFailed("Reconnect transport failed.")
+                    }
+                }
+                throw RemoteDesktopError.connectionFailed("Reconnect transport ended before it connected.")
+            }
         }
     }
 

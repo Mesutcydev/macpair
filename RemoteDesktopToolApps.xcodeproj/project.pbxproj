@@ -58,6 +58,7 @@
 		A1B2C3D4E5F60718293A4B82 /* SharedUI in iOSRemote Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D4E5F60718293A4B7F /* SharedUI */; };
 		206F7BD24B53F6C13839A8A9 /* SessionRecordingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D59974F08B1BBAF47509BC7 /* SessionRecordingService.swift */; };
 		2075564C39CC3AD10C0FFBA6 /* HostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EACFBE879030547A2902BB54 /* HostApp.swift */; };
+		D47D00000000000000000002 /* HostWatchdog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D47D00000000000000000001 /* HostWatchdog.swift */; };
 		2670398A0A6C686C1930A8AB /* PermissionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1F48AB0DB63DBD85165880 /* PermissionCard.swift */; };
 		27B09DEF7F801FD86FE8AD7E /* HostShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178C884EFB23D22459562B8E /* HostShellView.swift */; };
 		27B5CB501CBF17D608D00D58 /* SectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C3013991D8FBDBA0C07FBAF /* SectionHeader.swift */; };
@@ -246,6 +247,7 @@
 		4B7E4BBF3D38643392CBED00 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		4B89B81630ED41788E1371C1 /* DeviceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCard.swift; sourceTree = "<group>"; };
 		4CF517FC3CBBE72919EC7B3E /* HostWakeReadiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostWakeReadiness.swift; sourceTree = "<group>"; };
+		D47D00000000000000000001 /* HostWatchdog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostWatchdog.swift; sourceTree = "<group>"; };
 		51303A5041E789AE1703D96E /* PRStatPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRStatPill.swift; sourceTree = "<group>"; };
 		51BBEA20583A662C7C4CF280 /* StatusPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusPill.swift; sourceTree = "<group>"; };
 		5305B98CFE48ACA3D8F4C2E6 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
@@ -683,6 +685,7 @@
 				B1C0DE5E5510F1E500000002 /* HostSessionRegistry.swift */,
 				B1C0DE5E5510F1E500000004 /* HostSessionJournal.swift */,
 				4CF517FC3CBBE72919EC7B3E /* HostWakeReadiness.swift */,
+				D47D00000000000000000001 /* HostWatchdog.swift */,
 				7033FA86737A2EC951EA729C /* HostWakeReadinessCard.swift */,
 				BCB6FD88ECA4A3C92D9623E3 /* HostWidgetBridge.swift */,
 				4B7E4BBF3D38643392CBED00 /* Localizable.xcstrings */,
@@ -1051,6 +1054,7 @@
 				F0A590A3B563B96CCDCEDE38 /* HostAgentSemanticService.swift in Sources */,
 				E1BB00000000000000000001 /* HostProductMode.swift in Sources */,
 				3D11D2CFF21A842B4D1E7528 /* HostWakeReadiness.swift in Sources */,
+				D47D00000000000000000002 /* HostWatchdog.swift in Sources */,
 				F5543EB4165394B4E788B5F5 /* HostWakeReadinessCard.swift in Sources */,
 				6D935755A18B01BB5165CAC3 /* HostWidgetBridge.swift in Sources */,
 				C757F30047C3429CE8C4B1D4 /* LockStateMonitor.swift in Sources */,
@@ -1241,7 +1245,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 47;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_ENHANCED_SECURITY = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1283,7 +1287,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/MacHost-AppStore.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 46;
+			CURRENT_PROJECT_VERSION = 47;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1385,7 +1389,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 47;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_ENHANCED_SECURITY = YES;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1420,7 +1424,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/MacHost-AppStore.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 46;
+			CURRENT_PROJECT_VERSION = 47;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1496,7 +1500,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminal.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_POINTER_AUTHENTICATION = NO;
-			CURRENT_PROJECT_VERSION = 46;
+			CURRENT_PROJECT_VERSION = 47;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Configuration/VampTerminal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1522,7 +1526,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminal.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_POINTER_AUTHENTICATION = NO;
-			CURRENT_PROJECT_VERSION = 46;
+			CURRENT_PROJECT_VERSION = 47;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Configuration/VampTerminal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1549,7 +1553,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminalHost.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 46;
+			CURRENT_PROJECT_VERSION = 47;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
@@ -1576,7 +1580,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampTerminalHost.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 46;
+			CURRENT_PROJECT_VERSION = 47;
 				DEVELOPMENT_TEAM = PUH4GMFV56;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;

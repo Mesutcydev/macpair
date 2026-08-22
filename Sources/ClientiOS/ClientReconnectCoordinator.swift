@@ -266,10 +266,13 @@ private final class ClientReconnectDelegate: ReconnectDelegate, @unchecked Senda
         offer.sessionToken = effectiveToken
         offer.clientCapabilities = .currentClient(isMacClient: false)
         offer.clientProductRole = clientProductRole
-        if qualityPreset == .ultra,
-           offer.clientCapabilities?.contains(.supportsHDR10) == true {
-            offer.preferredDynamicRange = .hdr10
-        }
+        // Reconnect must preserve the normal SDR default. HDR is an explicit
+        // session choice, not an implicit side effect of the Ultra preset.
+        offer.preferredDynamicRange = ClientVideoDynamicRangePolicy.preferredDynamicRange(
+            qualityPreset: qualityPreset,
+            clientCapabilities: offer.clientCapabilities,
+            hdrExplicitlyEnabled: false
+        )
         manager.configureControlChannelAuth(sessionTokenHex: effectiveToken)
 
         // Send the offer to the host via signaling.

@@ -11,6 +11,33 @@ import SharedUtilities
 import TransportWebRTC
 import os
 
+/// Determines whether an incoming attachment belongs to the device that owns
+/// the active session. The signed public-key fingerprint is the durable trust
+/// identity; the UUID remains a fast path for legacy peers.
+enum HostClientAttachmentIdentity {
+    static func matches(
+        activeClientID: UUID?,
+        activeClientFingerprint: String?,
+        candidate: SignalingPeer
+    ) -> Bool {
+        if let activeClientID, activeClientID == candidate.id {
+            return true
+        }
+
+        let activeFingerprint = normalized(activeClientFingerprint)
+        let candidateFingerprint = normalized(candidate.publicKeyFingerprint)
+        guard PublicKeyFingerprint.isValid(activeFingerprint),
+              PublicKeyFingerprint.isValid(candidateFingerprint) else {
+            return false
+        }
+        return activeFingerprint == candidateFingerprint
+    }
+
+    private static func normalized(_ value: String?) -> String {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+    }
+}
+
 /// Orchestrates the complete host session lifecycle:
 ///
 /// 1. Start Bonjour advertising + signaling listener
@@ -48,6 +75,10 @@ final class HostSessionCoordinator: ObservableObject {
     /// Stable device identity that owns `activeSessionID`. A reconnect from the same device may
     /// replace its stale transport, but a different device must not evict a healthy session.
     private var activeClientID: UUID?
+    /// The cryptographic identity is authoritative. Older Mac clients used a
+    /// random peer UUID on each launch, so ID-only replacement rejected the
+    /// same paired Mac during the disconnect grace period.
+    private var activeClientFingerprint: String?
 
     // Dependencies
     private let hostIdentity: HostIdentity
@@ -361,6 +392,7 @@ final class HostSessionCoordinator: ObservableObject {
 
         activeSessionID = nil
         activeClientID = nil
+        activeClientFingerprint = nil
         activeSessionIsTerminalOnly = false
         connectedClientName = nil
         latestObservedLayout = nil
@@ -412,7 +444,12 @@ final class HostSessionCoordinator: ObservableObject {
                 logger.warning("Rejected offer from non-client signaling role")
                 return
             }
-            if let activeSessionID, activeClientID != message.envelope.sender.id {
+            if let activeSessionID,
+               !HostClientAttachmentIdentity.matches(
+                   activeClientID: activeClientID,
+                   activeClientFingerprint: activeClientFingerprint,
+                   candidate: message.envelope.sender
+               ) {
                 await rejectAdditionalClient(
                     offerSessionID: offer.sessionID,
                     activeSessionID: activeSessionID,
@@ -568,6 +605,7 @@ final class HostSessionCoordinator: ObservableObject {
         let sessionID = offer.sessionID
         activeSessionID = sessionID
         activeClientID = sender.id
+        activeClientFingerprint = fingerprint
         activeSessionIsTerminalOnly = isTerminalSession
         hasPublishedInitialSessionState = false
         hasSentInitialDataChannelState = false
@@ -587,6 +625,7 @@ final class HostSessionCoordinator: ObservableObject {
                 errorMessage = "Host permissions are required before streaming can start."
                 activeSessionID = nil
                 activeClientID = nil
+                activeClientFingerprint = nil
                 logger.warning("Blocked session: \(blockedPermissions.count) missing permissions (details withheld from client)")
                 return
             }
@@ -662,6 +701,7 @@ final class HostSessionCoordinator: ObservableObject {
             await webRTCSessionManager.closeSession()
             activeSessionID = nil
             activeClientID = nil
+            activeClientFingerprint = nil
             activeSessionIsTerminalOnly = false
             connectedClientName = nil
             phase = .awaitingClient
@@ -1450,6 +1490,7 @@ final class HostSessionCoordinator: ObservableObject {
 
         activeSessionID = nil
         activeClientID = nil
+        activeClientFingerprint = nil
         activeSessionIsTerminalOnly = false
         connectedClientName = nil
         hasPublishedInitialSessionState = false
