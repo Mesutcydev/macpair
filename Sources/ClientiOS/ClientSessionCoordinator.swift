@@ -443,9 +443,9 @@ final class ClientSessionCoordinator: ObservableObject {
             var signalingConnected = false
 
             if let bonjourSig = sigSvc as? BonjourSignalingService,
-               let tlsPort = endpoint.metadata.secureTLSPort,
                let advertisedFingerprint = endpoint.metadata.publicKeyFingerprint {
                 let fingerprint = normalizedFingerprint(advertisedFingerprint)
+                let tlsPort = endpoint.metadata.secureTLSPort ?? RemoteDesktopConstants.defaultTLSSignalingPort
                 guard isValidNormalizedFingerprint(fingerprint) else {
                     logger.warning("Ignoring malformed advertised TLS fingerprint for \(endpoint.metadata.displayName)")
                     bonjourSig.requireTLS = false

@@ -13,7 +13,7 @@
     root.dataset.theme = theme;
     if (themeIcon) themeIcon.textContent = theme === 'light' ? '☀' : '☾';
     if (themeButton) themeButton.setAttribute('aria-label', theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f3eee4' : '#14130f');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f3eee4' : '#12110e');
   };
   const storedTheme = localStorage.getItem('vamp-theme');
   renderTheme(storedTheme === 'dark' ? 'dark' : 'light');

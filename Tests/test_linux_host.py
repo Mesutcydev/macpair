@@ -19,6 +19,8 @@ from vamp_terminal_host import (  # noqa: E402
     RequestHandler,
     VampTerminalHost,
     json_bytes,
+    origin_allowed,
+    parse_args,
 )
 
 
@@ -261,6 +263,34 @@ class LinuxHostTests(unittest.TestCase):
         self.assertNotIn("dangerously-bypass-approvals-and-sandbox", source)
         self.assertNotIn('"--auto"', source)
         self.assertNotIn('"--yolo"', source)
+
+    def test_rotate_revokes_existing_tokens(self):
+        pairing = PairingState()
+        token, _ = pairing.pair(pairing.code)
+        self.assertTrue(pairing.valid_token(token))
+        pairing.rotate()
+        self.assertFalse(pairing.valid_token(token))
+
+    def test_origin_must_match_host(self):
+        self.assertTrue(origin_allowed(None, "127.0.0.1:9475"))
+        self.assertTrue(origin_allowed("", "127.0.0.1:9475"))
+        self.assertTrue(origin_allowed("http://127.0.0.1:9475", "127.0.0.1:9475"))
+        self.assertFalse(origin_allowed("http://evil.example", "127.0.0.1:9475"))
+        self.assertFalse(origin_allowed("null", "127.0.0.1:9475"))
+
+    def test_agent_prompt_is_separated_from_flags(self):
+        from unittest.mock import MagicMock
+
+        terminal = PtyTerminal(MagicMock(), "one", "shell", Path("/tmp"))
+        for provider in ("claude", "opencode", "codex"):
+            arguments = terminal._agent_arguments(provider, provider, "--dangerously-skip-permissions")
+            self.assertEqual(arguments[-2:], ["--", "--dangerously-skip-permissions"], provider)
+
+    def test_non_loopback_listen_requires_explicit_flag(self):
+        default = parse_args(["--listen", "0.0.0.0"])
+        self.assertFalse(default.allow_non_loopback)
+        allowed = parse_args(["--listen", "0.0.0.0", "--allow-non-loopback"])
+        self.assertTrue(allowed.allow_non_loopback)
 
     def test_background_host_searches_provider_install_locations(self):
         directories = PtyTerminal._launcher_search_directories()

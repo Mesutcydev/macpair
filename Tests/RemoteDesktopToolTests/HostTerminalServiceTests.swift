@@ -82,6 +82,28 @@ final class HostTerminalServiceTests: XCTestCase {
         XCTAssertNil(HostBrowserPairingLink.make(baseURL: "http://127.0.0.1:9475", code: "12345"))
     }
 
+    func testBrowserControlBindErrorNamesOccupantAndSkipsSelf() {
+        let inUse = NSError(
+            domain: NSPOSIXErrorDomain,
+            code: Int(EADDRINUSE),
+            userInfo: [NSLocalizedDescriptionKey: "Address already in use"]
+        )
+        XCTAssertTrue(HostBrowserControlBindError.isAddressInUse(inUse))
+        XCTAssertEqual(
+            HostBrowserControlBindError.message(port: 9475, error: inUse, occupantName: "BeetCode"),
+            "Port 9475 is already in use by BeetCode. Quit that app, then tap Retry so Safari control can start."
+        )
+        XCTAssertTrue(
+            HostBrowserControlBindError.message(port: 9475, error: inUse, occupantName: "Vamp Terminal Host")
+                .contains("Only one Mac host")
+        )
+        XCTAssertFalse(HostBrowserControlBindError.isAddressInUse(NSError(domain: NSPOSIXErrorDomain, code: Int(ECONNREFUSED))))
+        XCTAssertEqual(
+            HostBrowserControlBindError.parseLsofFieldOutput("p12\ncVamp Host\np57953\ncBeetCode\n", excludingPID: 12),
+            "BeetCode"
+        )
+    }
+
     func testBrowserPairingCompletesHTTPTokenExchangeAndWebSocketHandshake() async throws {
         let service = HostBrowserControlService()
         service.terminalModeProvider = { true }

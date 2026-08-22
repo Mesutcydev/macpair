@@ -4,7 +4,7 @@
 
 | Version | Supported |
 | --- | --- |
-| Latest `1.x` release | Yes |
+| Latest `2.x` release | Yes |
 | Earlier releases | No |
 
 Security fixes are applied to the current release line. Users should run the newest

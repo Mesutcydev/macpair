@@ -860,6 +860,11 @@ final class HostAppEnvironment: ObservableObject {
         browserControlStatus = browserControlService.rotatePairingCode()
     }
 
+    func retryBrowserControl() {
+        let tailscaleHost = getTailscaleConnectionInfo()?.ipAddress
+        browserControlService.start(tailscaleHost: tailscaleHost)
+    }
+
     /// Adds one operator-approved directory to the workspace roots. The host
     /// persists a security-scoped bookmark, so iOS and Safari can reuse it
     /// without prompting for the same folder on every request.

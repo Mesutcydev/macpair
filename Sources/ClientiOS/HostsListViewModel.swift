@@ -55,6 +55,11 @@ struct SavedHost: Codable, Hashable, Identifiable {
     /// restart while away from the home network (where Bonjour can't rediscover it).
     var tailscaleHostname: String?
     var tailscaleIP: String?
+    /// TLS signaling port advertised by the host (9473). Persisted so a typed
+    /// Tailscale/MagicDNS address can reuse TLS after the first Bonjour pair.
+    var secureTLSPort: UInt16? = nil
+    /// Host key-agreement public key used to seal the session token.
+    var keyAgreementPublicKey: Data? = nil
 }
 
 @MainActor
@@ -260,7 +265,9 @@ final class HostsListViewModel: ObservableObject {
                 magicWakeCapable: endpoint.metadata.magicWakeCapable,
                 publicKeyFingerprint: endpoint.metadata.publicKeyFingerprint,
                 tailscaleHostname: endpoint.metadata.tailscaleHostname,
-                tailscaleIP: endpoint.metadata.tailscaleIP
+                tailscaleIP: endpoint.metadata.tailscaleIP,
+                secureTLSPort: endpoint.metadata.secureTLSPort,
+                keyAgreementPublicKey: endpoint.metadata.keyAgreementPublicKey
             )
         }
         // If we adopted a stale saved entry, re-persist under the new hostID so future launches
@@ -278,7 +285,9 @@ final class HostsListViewModel: ObservableObject {
                 magicWakeCapable: endpoint.metadata.magicWakeCapable,
                 publicKeyFingerprint: endpoint.metadata.publicKeyFingerprint,
                 tailscaleHostname: endpoint.metadata.tailscaleHostname,
-                tailscaleIP: endpoint.metadata.tailscaleIP
+                tailscaleIP: endpoint.metadata.tailscaleIP,
+                secureTLSPort: endpoint.metadata.secureTLSPort,
+                keyAgreementPublicKey: endpoint.metadata.keyAgreementPublicKey
             )
             upsertSavedHostRecord(saved)
         }
@@ -338,7 +347,9 @@ final class HostsListViewModel: ObservableObject {
         magicWakeCapable: Bool? = nil,
         publicKeyFingerprint: String?,
         tailscaleHostname: String? = nil,
-        tailscaleIP: String? = nil
+        tailscaleIP: String? = nil,
+        secureTLSPort: UInt16? = nil,
+        keyAgreementPublicKey: Data? = nil
     ) {
         var records = loadSavedHostRecords()
         guard let index = records.firstIndex(where: { $0.id == hostID }) else { return }
@@ -372,6 +383,14 @@ final class HostsListViewModel: ObservableObject {
         if normalizedFingerprint(records[index].publicKeyFingerprint) == nil,
            let publicKeyFingerprint = normalizedFingerprint(publicKeyFingerprint) {
             records[index].publicKeyFingerprint = publicKeyFingerprint
+            changed = true
+        }
+        if records[index].secureTLSPort == nil, let secureTLSPort {
+            records[index].secureTLSPort = secureTLSPort
+            changed = true
+        }
+        if records[index].keyAgreementPublicKey == nil, let keyAgreementPublicKey {
+            records[index].keyAgreementPublicKey = keyAgreementPublicKey
             changed = true
         }
         if changed {
@@ -479,7 +498,7 @@ final class HostsListViewModel: ObservableObject {
             return updated
         }
 
-        let metadata = HostAdvertisementMetadata(
+        var metadata = HostAdvertisementMetadata(
             protocolVersion: RemoteDesktopConstants.protocolVersion,
             hostID: UUID(),
             displayName: hostname,
@@ -489,6 +508,7 @@ final class HostsListViewModel: ObservableObject {
             supportedCodecs: ["h264"],
             availability: .available
         )
+        applyKnownHostIdentity(hostname: hostname, to: &metadata)
         let endpoint = ResolvedHostEndpoint(
             hostname: hostname,
             port: port,
@@ -519,7 +539,9 @@ final class HostsListViewModel: ObservableObject {
             magicWakeCapable: host.endpoint.metadata.magicWakeCapable,
             publicKeyFingerprint: host.endpoint.metadata.publicKeyFingerprint,
             tailscaleHostname: host.endpoint.metadata.tailscaleHostname,
-            tailscaleIP: host.endpoint.metadata.tailscaleIP
+            tailscaleIP: host.endpoint.metadata.tailscaleIP,
+            secureTLSPort: host.endpoint.metadata.secureTLSPort,
+            keyAgreementPublicKey: host.endpoint.metadata.keyAgreementPublicKey
         )
         upsertSavedHostRecord(saved)
         sortHosts()
@@ -689,7 +711,9 @@ final class HostsListViewModel: ObservableObject {
             magicWakeCapable: verifiedEndpoint.metadata.magicWakeCapable,
             publicKeyFingerprint: fingerprint,
             tailscaleHostname: verifiedEndpoint.metadata.tailscaleHostname ?? priorTailscaleHost?.tailscaleHostname,
-            tailscaleIP: verifiedEndpoint.metadata.tailscaleIP ?? priorTailscaleHost?.tailscaleIP
+            tailscaleIP: verifiedEndpoint.metadata.tailscaleIP ?? priorTailscaleHost?.tailscaleIP,
+            secureTLSPort: verifiedEndpoint.metadata.secureTLSPort ?? priorTailscaleHost?.secureTLSPort,
+            keyAgreementPublicKey: verifiedEndpoint.metadata.keyAgreementPublicKey ?? priorTailscaleHost?.keyAgreementPublicKey
         )
         records.append(saved)
         persistSavedHosts(records)
@@ -875,6 +899,8 @@ final class HostsListViewModel: ObservableObject {
         merged.magicWakeCapable = merged.magicWakeCapable ?? other.magicWakeCapable
         merged.tailscaleHostname = merged.tailscaleHostname ?? other.tailscaleHostname
         merged.tailscaleIP = merged.tailscaleIP ?? other.tailscaleIP
+        merged.secureTLSPort = merged.secureTLSPort ?? other.secureTLSPort
+        merged.keyAgreementPublicKey = merged.keyAgreementPublicKey ?? other.keyAgreementPublicKey
         return merged
     }
 
@@ -901,11 +927,13 @@ final class HostsListViewModel: ObservableObject {
                 supportedCodecs: ["h264"],
                 availability: .available,
                 publicKeyFingerprint: saved.publicKeyFingerprint,
+                secureTLSPort: saved.secureTLSPort ?? (saved.publicKeyFingerprint == nil ? nil : RemoteDesktopConstants.defaultTLSSignalingPort),
                 macAddress: saved.macAddress,
                 wakeSupported: saved.wakeSupported,
                 magicWakeCapable: saved.magicWakeCapable,
                 tailscaleHostname: saved.tailscaleHostname,
-                tailscaleIP: saved.tailscaleIP
+                tailscaleIP: saved.tailscaleIP,
+                keyAgreementPublicKey: saved.keyAgreementPublicKey
             )
             let endpoint = ResolvedHostEndpoint(
                 hostname: saved.hostname,
@@ -987,6 +1015,53 @@ final class HostsListViewModel: ObservableObject {
 
         let port = components.port.flatMap(UInt16.init) ?? RemoteDesktopConstants.defaultSignalingPort
         return (normalizedHost, port)
+    }
+
+    /// Reuse a previously discovered fingerprint, TLS port, and sealing key so a
+    /// typed Tailscale/MagicDNS address does not fall back to cleartext 9471.
+    private func applyKnownHostIdentity(hostname: String, to metadata: inout HostAdvertisementMetadata) {
+        let matches: (String?) -> Bool = { candidate in
+            guard let candidate, !candidate.isEmpty else { return false }
+            return candidate.caseInsensitiveCompare(hostname) == .orderedSame
+        }
+        let live = hosts.compactMap { row -> HostAdvertisementMetadata? in
+            guard matches(row.endpoint.hostname)
+                    || matches(row.endpoint.metadata.tailscaleHostname)
+                    || matches(row.endpoint.metadata.tailscaleIP) else {
+                return nil
+            }
+            return row.endpoint.metadata
+        }
+        let saved = loadSavedHostRecords().compactMap { record -> HostAdvertisementMetadata? in
+            guard matches(record.hostname) || matches(record.tailscaleHostname) || matches(record.tailscaleIP) else {
+                return nil
+            }
+            return HostAdvertisementMetadata(
+                protocolVersion: RemoteDesktopConstants.protocolVersion,
+                hostID: record.id,
+                displayName: record.displayName,
+                appVersion: "unknown",
+                signalingPort: record.port,
+                capabilities: HostCapabilityFlags(stableNames: []),
+                publicKeyFingerprint: record.publicKeyFingerprint,
+                secureTLSPort: record.secureTLSPort,
+                keyAgreementPublicKey: record.keyAgreementPublicKey
+            )
+        }
+        for source in live + saved {
+            if metadata.publicKeyFingerprint == nil {
+                metadata.publicKeyFingerprint = source.publicKeyFingerprint
+            }
+            if metadata.keyAgreementPublicKey == nil {
+                metadata.keyAgreementPublicKey = source.keyAgreementPublicKey
+            }
+            if metadata.secureTLSPort == nil {
+                metadata.secureTLSPort = source.secureTLSPort
+            }
+        }
+        if metadata.publicKeyFingerprint != nil, metadata.secureTLSPort == nil {
+            metadata.secureTLSPort = RemoteDesktopConstants.defaultTLSSignalingPort
+        }
     }
 
     private func upsertManual(endpoint: ResolvedHostEndpoint, isAvailable: Bool) -> DiscoveredHostRow {

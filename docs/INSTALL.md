@@ -1,28 +1,28 @@
 # Vamp install reference
 
-This is the current install path for Vamp Suite 2.3.0 build 44. Downloads also
+This is the current install path for Vamp Suite 2.3.0 build 45. Downloads also
 live on [thevamp.app](https://thevamp.app/#download). The project has six
 installable surfaces plus Safari control built into the macOS hosts:
 
 | Surface | Artifact | Use it for |
 | --- | --- | --- |
-| iPhone / iPad | `VampTerminal-iOS-2.3.0-build-44-altstore-unsigned.ipa` | Eight-tab terminal client and agent launchers |
+| iPhone / iPad | `VampTerminal-iOS-2.3.0-build-45-altstore-unsigned.ipa` | Eight-tab terminal client and agent launchers |
 | iPhone / iPad | `VampControl-iOS-2.3.0-build-43-altstore-unsigned.ipa` | Vamp Control (build 43, unchanged). Screen client; terminal overlay is emergency-only |
 | macOS | `VampControl-macOS-2.3.0-build-43-adhoc.zip` | Vamp Control (build 43, unchanged) |
-| macOS | `VampHost-macOS-2.3.0-build-44-adhoc.zip` | Full Vamp Host: remote clients plus optional Terminal Mode |
-| macOS | `VampTerminalHost-macOS-2.3.0-build-44-adhoc.zip` | Always-on terminal host with Safari control. Do not run beside Vamp Host |
-| Linux | `VampTerminalHost-Linux-2.3.5.zip` | Browser-only host. Vamp Control and Vamp Terminal cannot attach |
+| macOS | `VampHost-macOS-2.3.0-build-45-adhoc.zip` | Full Vamp Host: remote clients plus optional Terminal Mode |
+| macOS | `VampTerminalHost-macOS-2.3.0-build-45-adhoc.zip` | Always-on terminal host with Safari control. Do not run beside Vamp Host |
+| Linux | `VampTerminalHost-Linux-2.3.6.zip` | Browser-only host. Vamp Control and Vamp Terminal cannot attach |
 | Safari | none — use the Mac host dashboard | Eight tabs on loopback `9475`, Tailscale Serve, or Cloudflare Access |
 
 The current downloads are in the [latest Vamp Suite GitHub release](https://github.com/Mesutcydev/macpair/releases/latest).
 
 ## 1. Install the iPhone or iPad client
 
-1. Download the [latest Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.3.0-build-44-altstore-unsigned.ipa) and its `.sha256` file from the same release.
+1. Download the [latest Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.3.0-build-45-altstore-unsigned.ipa) and its `.sha256` file from the same release.
 2. Verify the download:
 
    ```sh
-   shasum -a 256 -c VampTerminal-iOS-2.3.0-build-44-altstore-unsigned.ipa.sha256
+   shasum -a 256 -c VampTerminal-iOS-2.3.0-build-45-altstore-unsigned.ipa.sha256
    ```
 
 3. Import the IPA in AltStore with **+ → Sideload IPA**.
@@ -49,15 +49,15 @@ The current Vamp Control builds are attached to the [latest Vamp Suite release](
 
 Download one of the ad-hoc signed ZIPs and the matching `.sha256` file:
 
-- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.3.0-build-44-adhoc.zip) ([checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.3.0-build-44-adhoc.zip.sha256)) for remote display, remote input, remote clients, and optional Terminal Mode.
-- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-44-adhoc.zip) ([checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-44-adhoc.zip.sha256)) for terminal tabs, Safari control, pairing, and Tailscale only.
+- [Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.3.0-build-45-adhoc.zip) ([checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.3.0-build-45-adhoc.zip.sha256)) for remote display, remote input, remote clients, and optional Terminal Mode.
+- [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-45-adhoc.zip) ([checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-45-adhoc.zip.sha256)) for terminal tabs, Safari control, pairing, and Tailscale only.
 
 Then:
 
 1. Verify the download:
 
    ```sh
-   shasum -a 256 -c VampHost-macOS-2.3.0-build-44-adhoc.zip.sha256
+   shasum -a 256 -c VampHost-macOS-2.3.0-build-45-adhoc.zip.sha256
    ```
 
 2. Unzip the download.
@@ -90,11 +90,11 @@ ends.
 
 The Linux host is a dependency-free Python browser host. It speaks WebSocket,
 not the signed WebRTC stack, so Vamp Control and Vamp Terminal cannot attach.
-Download and extract `VampTerminalHost-Linux-2.3.5.zip` from the same suite
+Download and extract `VampTerminalHost-Linux-2.3.6.zip` from the same suite
 release, then verify it and install it without root access:
 
 ```sh
-shasum -a 256 -c VampTerminalHost-Linux-2.3.5.zip.sha256
+shasum -a 256 -c VampTerminalHost-Linux-2.3.6.zip.sha256
 ./install.sh
 vamp-terminal-host
 ```

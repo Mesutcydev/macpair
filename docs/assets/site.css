@@ -253,8 +253,8 @@ a, button { -webkit-tap-highlight-color: transparent; }
   position: absolute;
   z-index: 1;
   top: 0;
-  right: calc((100% - 100vw) / 2);
-  width: min(52vw, 720px);
+  right: calc((100% - 100vw) / 2 + 6vw);
+  width: min(64vw, 880px);
   height: 100%;
   min-height: 560px;
   margin: 0;
@@ -267,16 +267,16 @@ a, button { -webkit-tap-highlight-color: transparent; }
   width: 100%;
   height: 100%;
   object-fit: contain;
-  object-position: right center;
+  object-position: 58% center;
   filter: grayscale(1) contrast(1.08);
   mix-blend-mode: multiply;
   opacity: .92;
   -webkit-mask-image:
-    linear-gradient(90deg, transparent 0%, rgba(0,0,0,.35) 18%, #000 42%, #000 100%),
+    linear-gradient(90deg, transparent 0%, rgba(0,0,0,.4) 8%, #000 28%, #000 100%),
     linear-gradient(180deg, transparent 0%, #000 8%, #000 82%, transparent 100%);
   -webkit-mask-composite: source-in;
   mask-image:
-    linear-gradient(90deg, transparent 0%, rgba(0,0,0,.35) 18%, #000 42%, #000 100%),
+    linear-gradient(90deg, transparent 0%, rgba(0,0,0,.4) 8%, #000 28%, #000 100%),
     linear-gradient(180deg, transparent 0%, #000 8%, #000 82%, transparent 100%);
   mask-composite: intersect;
 }
@@ -614,8 +614,8 @@ html[data-theme="dark"] .download-card { background: linear-gradient(120deg, rgb
   .nav-links a:nth-child(3) { display: none; }
   .hero { min-height: 560px; padding-top: 62px; }
   .hero-copy { max-width: 34rem; }
-  .hero-visual { width: min(58vw, 640px); min-height: 420px; }
-  .hero-statue { object-position: right center; }
+  .hero-visual { right: calc((100% - 100vw) / 2 + 4vw); width: min(66vw, 700px); min-height: 420px; }
+  .hero-statue { object-position: 62% center; }
   .connection-card { right: 18px; }
   .apps-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .apps-grid .app-card:last-child { grid-column: 1 / -1; }
@@ -1063,8 +1063,8 @@ html[data-theme="dark"] .secondary-button { background: var(--surface); }
 @media (max-width: 980px) {
   .hero { min-height: 540px; padding-top: 60px; }
   .hero-copy { max-width: 34rem; }
-  .hero-visual { width: min(60vw, 620px); min-height: 400px; }
-  .hero-statue { object-position: right center; }
+  .hero-visual { right: calc((100% - 100vw) / 2 + 4vw); width: min(66vw, 680px); min-height: 400px; }
+  .hero-statue { object-position: 62% center; }
   .connection-card { right: 18px; }
   .pairing-grid { grid-template-columns: 1fr; }
 }
@@ -1664,7 +1664,7 @@ main#top, section[id] { scroll-margin-top: 82px; }
 .browser-frame--desk img {
   aspect-ratio: 4 / 3;
   object-fit: cover;
-  object-position: center 18%;
+  object-position: center 12%;
   filter: contrast(1.04) saturate(.92);
 }
 .browser-frame--phone {
@@ -1680,7 +1680,7 @@ main#top, section[id] { scroll-margin-top: 82px; }
 .browser-frame--phone img {
   aspect-ratio: 9 / 16;
   object-fit: cover;
-  object-position: center 42%;
+  object-position: center 22%;
 }
 .browser-frame--pair {
   position: absolute;
@@ -1691,9 +1691,9 @@ main#top, section[id] { scroll-margin-top: 82px; }
   box-shadow: 4px 4px 0 var(--accent);
 }
 .browser-frame--pair img {
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 3 / 4;
   object-fit: cover;
-  object-position: center 58%;
+  object-position: center 8%;
 }
 .compare-hint {
   display: none;
@@ -1813,18 +1813,22 @@ body::after {
   background: linear-gradient(180deg, rgba(243, 238, 228, .06) 0%, rgba(243, 238, 228, .18) 55%, rgba(243, 238, 228, .5) 100%);
 }
 html[data-theme="dark"] {
-  background: #14130f;
+  background: #12110e;
 }
 html[data-theme="dark"] body {
-  background: #14130f;
+  background: #12110e;
 }
 html[data-theme="dark"] body::before {
-  opacity: .28;
+  opacity: .58;
+  background-image: url("toile-terrace.jpg");
+  background-size: cover;
+  background-position: center 18%;
+  background-repeat: no-repeat;
   mix-blend-mode: screen;
-  filter: grayscale(.08) brightness(.7) contrast(1.08);
+  filter: contrast(1.28) saturate(1.2) brightness(.95);
 }
 html[data-theme="dark"] body::after {
-  background: linear-gradient(180deg, rgba(20, 19, 15, .2) 0%, rgba(20, 19, 15, .45) 60%, rgba(12, 11, 9, .78) 100%);
+  background: linear-gradient(180deg, rgba(18, 17, 14, .08) 0%, rgba(18, 17, 14, .22) 62%, rgba(10, 9, 8, .52) 100%);
 }
 
 .surface-card,
@@ -1850,9 +1854,14 @@ html[data-theme="dark"] .browser-frame {
   body::after {
     background: linear-gradient(180deg, rgba(243, 238, 228, .1) 0%, rgba(243, 238, 228, .28) 50%, rgba(243, 238, 228, .58) 100%);
   }
-  html[data-theme="dark"] body::before { opacity: .22; }
+  html[data-theme="dark"] body::before {
+    opacity: .48;
+    background-image: url("toile-terrace.jpg");
+    background-size: cover;
+    background-position: center 8%;
+  }
   html[data-theme="dark"] body::after {
-    background: linear-gradient(180deg, rgba(20, 19, 15, .28), rgba(12, 11, 9, .8));
+    background: linear-gradient(180deg, rgba(18, 17, 14, .12), rgba(10, 9, 8, .5));
   }
 
   .container { width: min(100% - 28px, 600px); }

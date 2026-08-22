@@ -195,6 +195,12 @@ final class HostAgentSemanticService: @unchecked Sendable {
                 let data = handle.availableData
                 guard !data.isEmpty else { return }
                 self?.consume(data, adapter: adapter, message: message, key: key, outcome: outcome)
+                // One-shot Chat is done when the provider emits a terminal
+                // semantic event. Stop any leftover server/TUI so the host
+                // slot is not stuck in agent-busy after the turn.
+                if outcome.hasTerminalEvent {
+                    Self.stopLeftoverProcess(process)
+                }
             }
         }
         drains.enter()
@@ -210,8 +216,12 @@ final class HostAgentSemanticService: @unchecked Sendable {
         await withTaskCancellationHandler {
             for await _ in termination { break }
         } onCancel: {
-            if process.isRunning { process.interrupt() }
+            Self.stopLeftoverProcess(process)
         }
+        // Closing the host-side read ends unblocks `availableData` if a
+        // leftover child still holds the write end after the launcher exits.
+        try? output.fileHandleForReading.close()
+        try? error.fileHandleForReading.close()
         await withCheckedContinuation { continuation in
             drains.notify(queue: queue) { continuation.resume() }
         }
@@ -301,31 +311,32 @@ final class HostAgentSemanticService: @unchecked Sendable {
         }
     }
 
-    private static func launch(provider: AgentProviderKind, prompt: String, previousSessionID: String?) -> (executable: String, arguments: [String]) {
+    static func launch(provider: AgentProviderKind, prompt: String, previousSessionID: String?) -> (executable: String, arguments: [String]) {
         switch provider {
         case .grok:
             // Vamp has already obtained an explicit, visible approval for this
             // semantic turn. Headless providers cannot present their own TTY
             // permission prompt; without this flag they wait forever with no
             // stdout, leaving Chat stuck on "Waiting for agent response".
-            var args = ["--always-approve", "--output-format", "streaming-json", "--single", prompt]
+            var args = ["--always-approve", "--output-format", "streaming-json", "--single"]
             if let previousSessionID { args = ["--resume", previousSessionID] + args }
-            return ("grok", args)
+            return ("grok", args + ["--", prompt])
         case .openCode:
-            var args = ["run", "--auto", "--format", "json"]
+            // Match the Linux host: `opencode run --format json -- <prompt>`.
+            // `--auto` keeps a local server alive after step_finish, so Chat
+            // completes while the host slot stays agent-busy.
+            var args = ["run", "--format", "json"]
             if let previousSessionID { args += ["--session", previousSessionID] }
-            args.append(prompt)
-            return ("opencode", args)
+            return ("opencode", args + ["--", prompt])
         case .claude:
             var args = ["--print", "--verbose", "--dangerously-skip-permissions", "--output-format", "stream-json", "--include-partial-messages"]
             if let previousSessionID { args += ["--resume", previousSessionID] }
-            args.append(prompt)
-            return ("claude", args)
+            return ("claude", args + ["--", prompt])
         case .codex:
             var args = ["exec", "--dangerously-bypass-approvals-and-sandbox"]
             if let previousSessionID { args += ["resume", previousSessionID] }
-            args += ["--json", "--skip-git-repo-check", prompt]
-            return ("codex", args)
+            args += ["--json", "--skip-git-repo-check"]
+            return ("codex", args + ["--", prompt])
         case .pi:
             // JSON event mode is Pi's documented machine-readable stream; the
             // session header carries the id used to resume the same
@@ -334,16 +345,14 @@ final class HostAgentSemanticService: @unchecked Sendable {
             // user's explicit approval for this turn.
             var args = ["--mode", "json"]
             if let previousSessionID { args += ["--session", previousSessionID] }
-            args.append(prompt)
-            return ("pi", args)
+            return ("pi", args + ["--", prompt])
         case .commandCode:
             // Print mode runs the full agent loop non-interactively and prints
             // the answer on stdout. --auto-accept mirrors the approval already
             // granted in Chat; onboarding and auto-update are suppressed so a
             // headless turn is deterministic.
-            var args = ["-p", "--auto-accept", "--skip-onboarding", "--no-auto-update"]
-            args.append(prompt)
-            return ("cmd", args)
+            let args = ["-p", "--auto-accept", "--skip-onboarding", "--no-auto-update"]
+            return ("cmd", args + ["--", prompt])
         }
     }
 
@@ -371,6 +380,14 @@ final class HostAgentSemanticService: @unchecked Sendable {
         ]
         var seen = Set<String>()
         return (inherited + common).filter { seen.insert($0).inserted }
+    }
+
+    private static func stopLeftoverProcess(_ process: Process) {
+        guard process.isRunning else { return }
+        process.interrupt()
+        if process.isRunning {
+            process.terminate()
+        }
     }
 
     private static func resolveExecutable(_ name: String) -> String? {

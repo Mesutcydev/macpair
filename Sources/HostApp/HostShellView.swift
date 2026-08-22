@@ -3195,7 +3195,6 @@ private struct TrustPromptBanner: View {
     let onReject: () -> Void
 
     var body: some View {
-        let fingerprintTail = String(prompt.fingerprint.suffix(12))
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "person.crop.circle.badge.questionmark")
@@ -3219,8 +3218,13 @@ private struct TrustPromptBanner: View {
                 .font(.callout.weight(.medium))
                 .foregroundStyle(.primary)
 
-            Text("Fingerprint ends …\(fingerprintTail)")
+            Text(prompt.fingerprint)
                 .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+
+            Text("Compare the full fingerprint out of band before Approve.")
+                .font(.caption2)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 8) {

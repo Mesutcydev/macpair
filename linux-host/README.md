@@ -89,6 +89,7 @@ system.
 
 ```text
 --listen 127.0.0.1       Bind address (loopback by default)
+--allow-non-loopback     Required before --listen on a non-loopback address
 --port 9475              Browser service port
 --max-terminals 8        Per-connection PTY limit, capped at 8
 ```

@@ -375,9 +375,8 @@ private struct VampTerminalTrustApprovalCard: View {
                     .foregroundStyle(.secondary)
                 Text(prompt.fingerprint)
                     .font(.caption2.monospaced())
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
             }
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
@@ -593,6 +592,16 @@ struct HostHomepagePairingCard: View {
                     HostBrowserPairingQRCode(pairingURL: browserPairingURL)
                         .frame(width: 148, height: 148)
                         .accessibilityHint("Scan this code with the iPhone or iPad camera")
+                } else if environment.browserControlStatus.lastError != nil {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.orange.opacity(0.12))
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.orange)
+                    }
+                    .frame(width: 148, height: 148)
+                    .accessibilityLabel("Safari control is unavailable")
                 } else {
                     ZStack {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -627,25 +636,35 @@ struct HostHomepagePairingCard: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 9) {
-                Text(environment.browserControlStatus.pairingCode.isEmpty ? "Starting…" : environment.browserControlStatus.pairingCode)
-                    .font(.system(size: 24, weight: .semibold, design: .monospaced))
-                    .textSelection(.enabled)
+                if environment.browserControlStatus.running {
+                    Text(environment.browserControlStatus.pairingCode)
+                        .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                        .textSelection(.enabled)
 
-                if !environment.browserControlStatus.pairingCode.isEmpty {
                     Button(copiedValue == environment.browserControlStatus.pairingCode ? "Copied" : "Copy") {
                         onCopy(environment.browserControlStatus.pairingCode)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                }
 
-                Spacer(minLength: 0)
+                    Spacer(minLength: 0)
 
-                Button("New code") {
-                    onRotate()
+                    Button("New code") {
+                        onRotate()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                } else if environment.browserControlStatus.lastError != nil {
+                    Text("Unavailable")
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                } else {
+                    Text("Starting…")
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
             }
 
             if let directURL {
@@ -667,7 +686,7 @@ struct HostHomepagePairingCard: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                 }
-            } else {
+            } else if environment.browserControlStatus.lastError == nil, tailscaleInfo == nil {
                 Label("Activate Tailscale above for a remote address.", systemImage: "network.slash")
                     .font(.caption)
                     .foregroundStyle(.orange)
@@ -679,6 +698,11 @@ struct HostHomepagePairingCard: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
+                Button("Retry") {
+                    environment.retryBrowserControl()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

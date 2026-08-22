@@ -4,6 +4,32 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-08-22 — build 45
+
+### Fixed
+
+- Chat no longer stays agent-busy after a provider finishes a turn. OpenCode
+  runs as a one-shot JSON process, prompts are passed after `--`, and leftover
+  provider processes are stopped so the host slot is released.
+- Typed Tailscale and MagicDNS addresses reuse a previously paired TLS
+  fingerprint and sealing key instead of falling back to cleartext signaling.
+- Host pairing UI shows the full fingerprint for out-of-band comparison.
+- Safari control names the process occupying port 9475 and offers Retry.
+
+## [2.3.6] - 2026-08-22 — Linux Host
+
+### Fixed
+
+- Claude, OpenCode, and Codex prompts are passed after `--` so a prompt that
+  looks like a flag is not parsed as one.
+
+### Security
+
+- Rotating the pairing code revokes existing browser tokens. Paired tokens now
+  expire after 30 minutes.
+- Pairing and WebSocket upgrades require a same-origin `Origin` header.
+- Binding `--listen` off loopback now requires `--allow-non-loopback`.
+
 ## [2.3.5] - 2026-08-22 — Linux Host
 
 ### Fixed

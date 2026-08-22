@@ -32,12 +32,13 @@ from pathlib import Path
 from typing import Any
 
 
-VERSION = "2.3.5"
+VERSION = "2.3.6"
 DEFAULT_PORT = 9475
 DEFAULT_MAX_TERMINALS = 8
 PAIRING_TTL_SECONDS = 600
-PAIRED_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
+PAIRED_TOKEN_TTL_SECONDS = 30 * 60
 PAIRING_MAX_ATTEMPTS = 8
+LOOPBACK_BIND_ADDRESSES = frozenset({"127.0.0.1", "localhost", "::1"})
 PAIRING_ATTEMPT_WINDOW_SECONDS = 60
 # Subprotocol name used to carry the bearer token during the WebSocket
 # handshake. The client offers this name followed by the token; the server
@@ -282,6 +283,10 @@ class PairingState:
         with self._lock:
             self.code = f"{secrets.randbelow(1_000_000):06d}"
             self.expires_at = now() + PAIRING_TTL_SECONDS
+            # A new pairing code is a new approval window. Existing bearer
+            # tokens must not survive a rotate, or a stolen browser session
+            # stays valid for the rest of the process lifetime.
+            self._tokens.clear()
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
@@ -599,19 +604,19 @@ class PtyTerminal:
             ]
             if session_id:
                 arguments += ["--resume", session_id]
-            return arguments + [prompt]
+            return arguments + ["--", prompt]
         if provider == "opencode":
             arguments = [executable, "run", "--format", "json"]
             if session_id:
                 arguments += ["--session", session_id]
-            return arguments + [prompt]
+            return arguments + ["--", prompt]
         if provider == "codex":
             if session_id:
                 return [
                     executable, "exec", "resume", session_id,
-                    "--json", "--skip-git-repo-check", prompt,
+                    "--json", "--skip-git-repo-check", "--", prompt,
                 ]
-            return [executable, "exec", "--json", "--skip-git-repo-check", prompt]
+            return [executable, "exec", "--json", "--skip-git-repo-check", "--", prompt]
         if provider == "gemini":
             arguments = [executable, "--output-format", "stream-json", "--approval-mode", "plan"]
             if session_id:
@@ -899,6 +904,9 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         except (ValueError, TypeError, json.JSONDecodeError):
             self._send_json(400, {"error": "invalid-json"})
             return
+        if not origin_allowed(self.headers.get("Origin"), self.headers.get("Host")):
+            self._send_json(403, {"error": "origin-not-allowed"})
+            return
         pairing_result = self.server.host.pairing.pair(code)
         if pairing_result is None:
             self._send_json(403, {"error": "invalid-or-expired-code"})
@@ -921,7 +929,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:; frame-ancestors 'none'")
+        self.send_header("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
@@ -940,6 +948,9 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         token = ""
         if len(protocols) >= 2 and protocols[0] == WEBSOCKET_AUTH_PROTOCOL:
             token = protocols[1]
+        if not origin_allowed(self.headers.get("Origin"), self.headers.get("Host")):
+            self._send_json(403, {"error": "origin-not-allowed"})
+            return
         if not self.server.host.pairing.valid_token(token):
             self._send_json(403, {"error": "pair-first"})
             return
@@ -985,20 +996,57 @@ class VampHTTPServer(http.server.ThreadingHTTPServer):
             return True
 
 
-def parse_args() -> argparse.Namespace:
+def origin_allowed(origin: str | None, host_header: str | None) -> bool:
+    """Same-origin rule used by the Mac Safari host.
+
+    Native clients may omit Origin. A browser page on another origin must not
+    be able to submit the visible pairing code or upgrade a WebSocket.
+    """
+    value = (origin or "").strip()
+    if not value:
+        return True
+    if value.lower() == "null":
+        return False
+    expected = (host_header or "").strip().lower()
+    if not expected:
+        return False
+    parsed = urllib.parse.urlsplit(value)
+    scheme = (parsed.scheme or "").lower()
+    if scheme not in ("http", "https"):
+        return False
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return False
+    default_port = 443 if scheme == "https" else 80
+    port = parsed.port or default_port
+    origin_authority = host if port == default_port else f"{host}:{port}"
+    return origin_authority == expected
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the Vamp Terminal Linux browser host")
     parser.add_argument("--listen", default="127.0.0.1", help="Bind address; loopback is the safe default")
+    parser.add_argument(
+        "--allow-non-loopback",
+        action="store_true",
+        help="Permit --listen on a non-loopback address. Prefer Tailscale Serve instead.",
+    )
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--max-terminals", type=int, default=DEFAULT_MAX_TERMINALS)
     parser.add_argument("--version", action="version", version=f"vamp-terminal-host {VERSION}")
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def main() -> int:
     args = parse_args()
     if not 1 <= args.port <= 65535:
         raise SystemExit("--port must be between 1 and 65535")
-    if args.listen not in ("127.0.0.1", "localhost", "::1"):
+    if args.listen not in LOOPBACK_BIND_ADDRESSES:
+        if not args.allow_non_loopback:
+            raise SystemExit(
+                "refusing non-loopback bind; pass --allow-non-loopback if you accept the risk, "
+                "or use `tailscale serve --bg http://127.0.0.1:%d`" % args.port
+            )
         print("warning: non-loopback binding is unsafe; prefer Tailscale Serve over a public listener", flush=True)
 
     host = VampTerminalHost(args.max_terminals)

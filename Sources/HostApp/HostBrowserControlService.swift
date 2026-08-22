@@ -26,6 +26,86 @@ struct HostBrowserControlStatus: Equatable, Sendable {
     }
 }
 
+/// Turns a Safari-control bind failure into an actionable host-dashboard line.
+enum HostBrowserControlBindError {
+    static func isAddressInUse(_ error: Error) -> Bool {
+        if let nwError = error as? NWError, case .posix(let code) = nwError {
+            return code == .EADDRINUSE
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(EADDRINUSE) {
+            return true
+        }
+        return error.localizedDescription.localizedCaseInsensitiveContains("Address already in use")
+    }
+
+    static func message(port: UInt16, error: Error, occupantName: String? = nil) -> String {
+        guard isAddressInUse(error) else { return error.localizedDescription }
+        let occupant = occupantName ?? listeningProcessName(on: port)
+        if let occupant, !occupant.isEmpty {
+            if occupant.localizedCaseInsensitiveContains("Vamp Terminal Host") {
+                return "Port \(port) is already in use by Vamp Terminal Host. Quit that host, then tap Retry. Only one Mac host can run at a time."
+            }
+            if occupant.localizedCaseInsensitiveContains("Vamp Host") {
+                return "Port \(port) is already in use by another Vamp Host. Quit the extra host, then tap Retry."
+            }
+            return "Port \(port) is already in use by \(occupant). Quit that app, then tap Retry so Safari control can start."
+        }
+        return "Port \(port) is already in use. Quit the other app using that port, then tap Retry."
+    }
+
+    static func parseLsofFieldOutput(_ text: String, excludingPID: pid_t) -> String? {
+        var pid: pid_t?
+        var name: String?
+        var found: String?
+        for line in text.split(whereSeparator: \.isNewline) {
+            guard let first = line.first else { continue }
+            let value = String(line.dropFirst())
+            switch first {
+            case "p":
+                if let currentPID = pid, currentPID != excludingPID, let name, !name.isEmpty {
+                    found = name
+                }
+                pid = pid_t(value)
+                name = nil
+            case "c":
+                name = value
+            default:
+                break
+            }
+        }
+        if let currentPID = pid, currentPID != excludingPID, let name, !name.isEmpty {
+            found = name
+        }
+        return found
+    }
+
+    static func listeningProcessName(on port: UInt16, excludingPID: pid_t = getpid()) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        process.arguments = ["-nP", "-Fpc", "-iTCP:\(port)", "-sTCP:LISTEN"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+        } catch {
+            return nil
+        }
+        let deadline = Date().addingTimeInterval(1)
+        while process.isRunning, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        if process.isRunning {
+            process.terminate()
+            return nil
+        }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard let text = String(data: data, encoding: .utf8) else { return nil }
+        return parseLsofFieldOutput(text, excludingPID: excludingPID)
+    }
+}
+
 /// Normalizes the six-digit code shown by the host. Pairing codes can be
 /// pasted with spaces or hyphens, and whole-number digits from another locale
 /// should behave the same as ASCII digits.
@@ -132,6 +212,8 @@ final class HostBrowserControlService: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.remotedesktop.host.browser-control", qos: .userInitiated)
     private var listener: NWListener?
     private var listenerReady = false
+    private var lastError: String?
+    private var bindAttempt = 0
     private var tailscaleListenerHost: String?
     private var clients: [UUID: BrowserClient] = [:]
     private var pairingCode = HostBrowserPairingCode.generate()
@@ -173,6 +255,7 @@ final class HostBrowserControlService: @unchecked Sendable {
             // waking up, and the direct tailnet endpoint should not depend on
             // a single early probe.
             let resolvedTailscaleHost = tailscaleHost ?? getTailscaleConnectionInfo()?.ipAddress
+            self?.bindAttempt = 0
             self?._start(port: port, tailscaleHost: resolvedTailscaleHost)
         }
     }
@@ -198,18 +281,13 @@ final class HostBrowserControlService: @unchecked Sendable {
             if refreshExpiredPairingCodeIfNeeded() {
                 publishStatus()
             }
-            return HostBrowserControlStatus(
-                running: listener != nil && listenerReady,
-                port: listener?.port?.rawValue,
-                tailscaleHost: tailscaleListenerHost,
-                pairingCode: pairingCode,
-                pairingCodeExpiresAt: pairingCodeIssuedAt.addingTimeInterval(Self.pairingCodeLifetime),
-                lastError: nil
-            )
+            return currentStatusOnQueue()
         }
     }
 
     // MARK: Listener lifecycle
+
+    private static let maxBindAttempts = 4
 
     private func _start(port: UInt16, tailscaleHost: String?) {
         let hasTailscaleHost = tailscaleHost.map { !$0.isEmpty } ?? false
@@ -225,15 +303,20 @@ final class HostBrowserControlService: @unchecked Sendable {
             listener?.cancel()
             listener = nil
             listenerReady = false
-        } else if listener != nil {
+        } else if listener != nil, listenerReady {
             publishStatus()
             return
+        } else if listener != nil {
+            listener?.cancel()
+            listener = nil
+            listenerReady = false
         }
 
+        lastError = nil
         let bindHost = hasTailscaleHost ? NWEndpoint.Host("0.0.0.0") : .ipv4(.loopback)
         let label = hasTailscaleHost ? "loopback + Tailscale" : "loopback"
         do {
-            let newListener = try makeListener(port: port, host: bindHost, label: label) { [weak self] stoppedListener in
+            let newListener = try makeListener(port: port, host: bindHost, label: label, tailscaleHost: tailscaleHost) { [weak self] stoppedListener in
                 // A loopback listener can be replaced by the all-interface
                 // listener once Tailscale wakes up. Its cancellation callback
                 // may arrive after the replacement is installed, so it must
@@ -247,20 +330,34 @@ final class HostBrowserControlService: @unchecked Sendable {
             listenerReady = false
             tailscaleListenerHost = hasTailscaleHost ? tailscaleHost : nil
             newListener.start(queue: queue)
+            publishStatus()
         } catch {
-            logger.error("Could not create browser control listener: \(error.localizedDescription, privacy: .public)")
-            listener = nil
-            listenerReady = false
-            tailscaleListenerHost = nil
-            publishStatus(error: error.localizedDescription)
+            handleBindFailure(port: port, tailscaleHost: tailscaleHost, error: error)
         }
-        publishStatus()
+    }
+
+    private func handleBindFailure(port: UInt16, tailscaleHost: String?, error: Error) {
+        logger.error("Browser control listener failed: \(error.localizedDescription, privacy: .public)")
+        guard listener == nil else { return }
+        listenerReady = false
+        tailscaleListenerHost = nil
+        if HostBrowserControlBindError.isAddressInUse(error), bindAttempt + 1 < Self.maxBindAttempts {
+            bindAttempt += 1
+            let delay = pow(2.0, Double(bindAttempt - 1)) * 0.15
+            logger.warning("Port \(port) is still busy; retrying Safari control bind (\(self.bindAttempt)/\(Self.maxBindAttempts - 1))")
+            queue.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?._start(port: port, tailscaleHost: tailscaleHost)
+            }
+            return
+        }
+        publishStatus(error: HostBrowserControlBindError.message(port: port, error: error))
     }
 
     private func makeListener(
         port: UInt16,
         host: NWEndpoint.Host,
         label: String,
+        tailscaleHost: String?,
         onStopped: @escaping @Sendable (NWListener) -> Void
     ) throws -> NWListener {
         let parameters = NWParameters.tcp
@@ -274,8 +371,10 @@ final class HostBrowserControlService: @unchecked Sendable {
             switch state {
             case .ready:
                 self.logger.info("Browser control \(label, privacy: .public) listener ready on port \(newListener?.port?.rawValue ?? 0)")
+                self.bindAttempt = 0
                 if let newListener, self.listener === newListener {
                     self.listenerReady = true
+                    self.lastError = nil
                     // Issue the code only after the active listener is ready.
                     // A code shown while a replacement socket is still
                     // binding can otherwise look valid but hit the old host.
@@ -283,9 +382,10 @@ final class HostBrowserControlService: @unchecked Sendable {
                 }
                 self.publishStatus()
             case .failed(let error):
-                self.logger.error("Browser control \(label, privacy: .public) listener failed: \(error.localizedDescription, privacy: .public)")
+                let isCurrent = newListener.map { self.listener === $0 } ?? false
                 if let newListener { onStopped(newListener) }
-                self.publishStatus(error: error.localizedDescription)
+                guard isCurrent else { return }
+                self.handleBindFailure(port: port, tailscaleHost: tailscaleHost, error: error)
             case .cancelled:
                 if let newListener { onStopped(newListener) }
                 self.publishStatus()
@@ -302,6 +402,8 @@ final class HostBrowserControlService: @unchecked Sendable {
     private func _stop() {
         pairingCodeExpiryWorkItem?.cancel()
         pairingCodeExpiryWorkItem = nil
+        lastError = nil
+        bindAttempt = 0
         listener?.cancel()
         listener = nil
         listenerReady = false
@@ -1024,15 +1126,12 @@ final class HostBrowserControlService: @unchecked Sendable {
     }
 
     private func publishStatus(error: String? = nil) {
-        let status = HostBrowserControlStatus(
-            running: listener != nil && listenerReady,
-            port: listener?.port?.rawValue,
-            tailscaleHost: tailscaleListenerHost,
-            pairingCode: pairingCode,
-            pairingCodeExpiresAt: pairingCodeIssuedAt.addingTimeInterval(Self.pairingCodeLifetime),
-            lastError: error
-        )
-        onStatusChange?(status)
+        if let error {
+            lastError = error
+        } else if listenerReady {
+            lastError = nil
+        }
+        onStatusChange?(currentStatusOnQueue())
     }
 
     private func currentStatusOnQueue() -> HostBrowserControlStatus {
@@ -1042,7 +1141,7 @@ final class HostBrowserControlService: @unchecked Sendable {
             tailscaleHost: tailscaleListenerHost,
             pairingCode: pairingCode,
             pairingCodeExpiresAt: pairingCodeIssuedAt.addingTimeInterval(Self.pairingCodeLifetime),
-            lastError: nil
+            lastError: lastError
         )
     }
 
