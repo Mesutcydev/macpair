@@ -163,6 +163,19 @@ def rewrite_static_links(index_path: Path, assets: dict, release_url: str) -> No
             sha_pattern = re.compile(r'<a\b[^>]*\bdata-release-sha256="' + re.escape(key) + r'"[^>]*>')
             html = sha_pattern.sub(lambda m, u=sha_url: rewrite_href(m.group(0), u), html)
 
+        # Keep the pre-JavaScript label in step with the resolved artifact too.
+        # Otherwise the link can download build 46 while the adjacent fallback
+        # text still claims an older build.
+        label_pattern = re.compile(
+            r'(<span\b[^>]*\bdata-release-version="'
+            + re.escape(key)
+            + r'"[^>]*>)[^<]*(</span>)'
+        )
+        html = label_pattern.sub(
+            lambda match, label=asset["label"]: f"{match.group(1)}{label}{match.group(2)}",
+            html,
+        )
+
     # Point any "open the latest release" links at the resolved release page.
     html = re.sub(
         r'href="https://github\.com/[^"]*/releases/latest"',
