@@ -97,7 +97,7 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
         popover.behavior = .transient
         popover.animates = true
         popover.delegate = self
-        popover.contentSize = NSSize(width: 370, height: 610)
+        popover.contentSize = NSSize(width: 404, height: 690)
         popover.contentViewController = NSHostingController(
             rootView: VampMiniHostPopover(
                 environment: environment,
@@ -303,8 +303,8 @@ private struct VampMiniHostPopover: View {
             controls
             footer
         }
-        .padding(14)
-        .frame(width: 370, height: 610)
+        .padding(16)
+        .frame(width: 404, height: 690)
         .background(VampMiniHostBackdrop())
         .task {
             await permissionsViewModel.refresh(requestOSPromptIfNeeded: false)
@@ -377,12 +377,8 @@ private struct VampMiniHostPopover: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(12)
-        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.primary.opacity(0.12), lineWidth: 1)
-        }
+        .padding(13)
+        .background(VampMiniGlassSurface(cornerRadius: 16))
     }
 
     private var pairingCard: some View {
@@ -680,10 +676,10 @@ private struct VampMiniTrustPromptCard: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(12)
-        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(13)
+        .background(VampMiniGlassSurface(cornerRadius: 16))
         .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(.orange.opacity(0.35), lineWidth: 1)
         }
     }
@@ -700,14 +696,9 @@ private struct VampMiniHostSection<Content: View>: View {
                 .font(.callout.weight(.semibold))
             content
         }
-        .padding(12)
+        .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.primary.opacity(0.12), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+        .background(VampMiniGlassSurface(cornerRadius: 16))
     }
 }
 
@@ -742,12 +733,17 @@ private struct VampMiniStatusBadge: View {
     let color: Color
 
     var body: some View {
-        Text(text)
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(color)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 4)
-            .background(color.opacity(0.13), in: Capsule())
+        HStack(spacing: 5) {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+            Text(text)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.primary.opacity(0.82))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(VampMiniGlassSurface(cornerRadius: 99))
     }
 }
 
@@ -774,14 +770,41 @@ private struct VampMiniHostMark: View {
 private struct VampMiniHostBackdrop: View {
     var body: some View {
         ZStack {
-            Rectangle().fill(.regularMaterial)
+            Rectangle().fill(.ultraThinMaterial)
             LinearGradient(
-                colors: [Color.white.opacity(0.10), Color.clear, Color.black.opacity(0.05)],
+                colors: [Color.white.opacity(0.18), Color.clear, Color.black.opacity(0.035)],
                 startPoint: .top,
                 endPoint: .bottom
             )
         }
         .ignoresSafeArea()
+    }
+}
+
+/// A neutral glass plate that adapts to light and dark appearances without
+/// introducing a product tint. Semantic colors remain limited to small status cues.
+private struct VampMiniGlassSurface: View {
+    let cornerRadius: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        shape
+            .fill(colorScheme == .dark ? Color.white.opacity(0.065) : Color.white.opacity(0.42))
+            .overlay {
+                shape.stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.20 : 0.74),
+                            Color.primary.opacity(0.08)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 0.8
+                )
+            }
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.10 : 0.055), radius: 12, y: 5)
     }
 }
 
