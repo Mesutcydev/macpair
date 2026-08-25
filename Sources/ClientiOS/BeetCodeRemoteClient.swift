@@ -126,6 +126,21 @@ struct BeetCodeControlStatus: Decodable, Equatable, Sendable {
     let displayHeight: Double?
 }
 
+struct BeetCodeRemoteApplication: Decodable, Equatable, Hashable, Identifiable, Sendable {
+    let windowID: UInt32
+    let bundleIdentifier: String?
+    let name: String
+    let windowTitle: String?
+    let width: Double
+    let height: Double
+
+    var id: UInt32 { windowID }
+}
+
+private struct BeetCodeRemoteApplicationsResponse: Decodable, Sendable {
+    let applications: [BeetCodeRemoteApplication]
+}
+
 struct BeetCodeDisplayGeometry: Equatable, Sendable {
     let imageWidth: Int
     let imageHeight: Int
@@ -241,20 +256,32 @@ struct BeetCodeRemoteClient: Sendable {
         try await request("api/control")
     }
 
+    func applications() async throws -> [BeetCodeRemoteApplication] {
+        let response: BeetCodeRemoteApplicationsResponse = try await request("api/control/apps")
+        return response.applications
+    }
+
     func sendControlBatch(_ commands: [BeetCodeInputCommand]) async throws -> BeetCodeAcceptedResponse {
         guard !commands.isEmpty else { throw BeetCodeRemoteError.invalidResponse }
         let body = ["commands": commands.map { $0.wireBody() }]
         return try await request("api/control/input", method: "POST", body: body)
     }
 
-    func screenStream(resolution: String = "1080p") -> AsyncThrowingStream<BeetCodeScreenFrame, Error> {
+    func screenStream(
+        resolution: String = "1080p",
+        windowID: UInt32? = nil
+    ) -> AsyncThrowingStream<BeetCodeScreenFrame, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
                     var components = URLComponents(
                         url: baseURL.appending(path: "api/control/screen/stream"),
                         resolvingAgainstBaseURL: false)
-                    components?.queryItems = [URLQueryItem(name: "resolution", value: resolution)]
+                    var queryItems = [URLQueryItem(name: "resolution", value: resolution)]
+                    if let windowID {
+                        queryItems.append(URLQueryItem(name: "window", value: String(windowID)))
+                    }
+                    components?.queryItems = queryItems
                     guard let url = components?.url else { throw BeetCodeRemoteError.invalidAddress }
                     var request = try authorizedRequest(url: url, method: "GET")
                     request.timeoutInterval = 24 * 60 * 60
@@ -662,11 +689,11 @@ final class BeetCodeVideoRendererViewModel: ObservableObject {
         }
     }
 
-    func start(client: BeetCodeRemoteClient) {
+    func start(client: BeetCodeRemoteClient, windowID: UInt32? = nil) {
         stop()
         lastError = nil
         acceptingFrames = true
-        let stream = client.screenStream()
+        let stream = client.screenStream(windowID: windowID)
         streamTask = Task { [weak self] in
             guard let self else { return }
             do {

@@ -6,8 +6,8 @@ import SharedModels
 #if canImport(UIKit)
 import UIKit
 
-/// Full-screen Vamp Assistant control surface. Unlike Vamp app streaming, Vamp Assistant exposes the Mac
-/// display as one H.264/JPEG surface and accepts its own authenticated HTTP input commands.
+/// Full-screen Vamp Assistant control surface. The same authenticated H.264 transport can target either
+/// the Mac display or one selected application window.
 struct BeetCodeRemoteView: View {
     let session: BeetCodeRemoteSessionViewModel.Session
     let onClose: () -> Void
@@ -21,6 +21,11 @@ struct BeetCodeRemoteView: View {
     @State private var viewportOffset: CGSize = .zero
     @State private var isRefreshing = false
     @State private var refreshError: String?
+    @State private var applications: [BeetCodeRemoteApplication] = []
+    @State private var selectedApplication: BeetCodeRemoteApplication?
+    @State private var isLoadingApplications = false
+    @State private var applicationsError: String?
+    @State private var showApplicationPicker = false
 
     init(
         session: BeetCodeRemoteSessionViewModel.Session,
@@ -43,9 +48,26 @@ struct BeetCodeRemoteView: View {
             }
         }
         .background(Color.black.ignoresSafeArea())
-        .task(id: "\(session.address)-\(session.status.ready)") {
+        .task(id: "\(session.address)-\(session.status.ready)-\(selectedApplication?.windowID ?? 0)") {
             guard session.status.ready else { return }
-            renderer.start(client: session.client)
+            renderer.start(client: session.client, windowID: selectedApplication?.windowID)
+        }
+        .sheet(isPresented: $showApplicationPicker) {
+            VampAssistantAppPicker(
+                applications: applications,
+                selectedWindowID: selectedApplication?.windowID,
+                isLoading: isLoadingApplications,
+                errorMessage: applicationsError,
+                onRefresh: { Task { await loadApplications() } },
+                onSelectDesktop: {
+                    selectedApplication = nil
+                    showApplicationPicker = false
+                },
+                onSelectApplication: { application in
+                    selectedApplication = application
+                    showApplicationPicker = false
+                }
+            )
         }
         .onDisappear {
             renderer.stop()
@@ -168,10 +190,10 @@ struct BeetCodeRemoteView: View {
                                 .multilineTextAlignment(.center)
                                 .foregroundStyle(.white.opacity(0.72))
                             Button("Reconnect") {
-                                renderer.start(client: session.client)
+                                renderer.start(client: session.client, windowID: selectedApplication?.windowID)
                             }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.orange)
+                            .buttonStyle(.bordered)
+                            .tint(.white)
                         } else {
                             ProgressView().tint(.white)
                             Text("Opening \(session.displayName)…")
@@ -264,6 +286,21 @@ struct BeetCodeRemoteView: View {
 
             Spacer()
 
+            Button {
+                showApplicationPicker = true
+                Task { await loadApplications() }
+            } label: {
+                Image(systemName: "macwindow.on.rectangle")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Choose Mac app to stream")
+
+            Spacer()
+
             Button { keyboardActive.toggle() } label: {
                 Image(systemName: keyboardActive ? "keyboard.chevron.compact.down" : "keyboard")
                     .font(.subheadline.weight(.semibold))
@@ -299,6 +336,18 @@ struct BeetCodeRemoteView: View {
     private func configureInput(viewSize: CGSize) {
         input.setGeometry(renderer.geometry)
         input.setViewSize(viewSize)
+    }
+
+    private func loadApplications() async {
+        guard !isLoadingApplications else { return }
+        isLoadingApplications = true
+        applicationsError = nil
+        defer { isLoadingApplications = false }
+        do {
+            applications = try await session.client.applications()
+        } catch {
+            applicationsError = error.localizedDescription
+        }
     }
 
     private func keyName(for keyCode: UInt16) -> String {
@@ -386,6 +435,138 @@ struct BeetCodeRemoteView: View {
             width: clamp(proposed.width, min: content.minX, max: content.maxX, viewport: viewSize.width, center: center.x),
             height: clamp(proposed.height, min: content.minY, max: content.maxY, viewport: viewSize.height, center: center.y)
         )
+    }
+}
+
+private struct VampAssistantAppPicker: View {
+    let applications: [BeetCodeRemoteApplication]
+    let selectedWindowID: UInt32?
+    let isLoading: Bool
+    let errorMessage: String?
+    let onRefresh: () -> Void
+    let onSelectDesktop: () -> Void
+    let onSelectApplication: (BeetCodeRemoteApplication) -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 10) {
+                    Button(action: onSelectDesktop) {
+                        VampAssistantAppRow(
+                            name: "Entire Mac display",
+                            detail: "Remote control",
+                            systemImage: "display",
+                            isSelected: selectedWindowID == nil
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    ForEach(applications) { application in
+                        Button { onSelectApplication(application) } label: {
+                            VampAssistantAppRow(
+                                name: application.name,
+                                detail: application.windowTitle ?? "App window",
+                                systemImage: "macwindow",
+                                isSelected: selectedWindowID == application.windowID
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if isLoading {
+                        ProgressView("Looking for open Mac apps…")
+                            .padding(.vertical, 28)
+                    } else if let errorMessage {
+                        ContentUnavailableView(
+                            "Apps unavailable",
+                            systemImage: "wifi.exclamationmark",
+                            description: Text(errorMessage)
+                        )
+                    } else if applications.isEmpty {
+                        ContentUnavailableView(
+                            "No streamable apps",
+                            systemImage: "macwindow",
+                            description: Text("Open an app window on your Mac, then refresh.")
+                        )
+                    }
+                }
+                .padding(16)
+            }
+            .background(VampAssistantPickerBackdrop())
+            .navigationTitle("Stream a Mac app")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: onRefresh) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(isLoading)
+                    .accessibilityLabel("Refresh Mac apps")
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .preferredColorScheme(.dark)
+    }
+}
+
+private struct VampAssistantAppRow: View {
+    let name: String
+    let detail: String
+    let systemImage: String
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 13) {
+            Image(systemName: systemImage)
+                .font(.system(size: 19, weight: .medium))
+                .frame(width: 42, height: 42)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(name)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .lineLimit(1)
+            }
+            Spacer()
+            if isSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.primary)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(13)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.16), lineWidth: 0.8)
+        }
+    }
+}
+
+private struct VampAssistantPickerBackdrop: View {
+    var body: some View {
+        ZStack {
+            Color(red: 0.035, green: 0.05, blue: 0.075)
+            Image("AppBackdrop")
+                .resizable()
+                .scaledToFill()
+                .opacity(0.62)
+            LinearGradient(
+                colors: [Color.black.opacity(0.44), Color.black.opacity(0.20), Color.black.opacity(0.58)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        .ignoresSafeArea()
     }
 }
 

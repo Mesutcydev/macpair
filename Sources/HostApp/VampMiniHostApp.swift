@@ -306,6 +306,7 @@ private struct VampMiniHostPopover: View {
         .padding(16)
         .frame(width: 404, height: 690)
         .background(VampMiniHostBackdrop())
+        .foregroundStyle(.primary)
         .task {
             await permissionsViewModel.refresh(requestOSPromptIfNeeded: false)
             await refreshPeers()
@@ -790,13 +791,18 @@ private struct VampMiniGlassSurface: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         shape
-            .fill(colorScheme == .dark ? Color.white.opacity(0.065) : Color.white.opacity(0.42))
+            .fill(.ultraThinMaterial)
+            .overlay {
+                // Keep the plate neutral while maintaining enough separation for
+                // primary and secondary labels over arbitrary desktop wallpaper.
+                shape.fill(Color.primary.opacity(colorScheme == .dark ? 0.035 : 0.025))
+            }
             .overlay {
                 shape.stroke(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(colorScheme == .dark ? 0.20 : 0.74),
-                            Color.primary.opacity(0.08)
+                            Color.white.opacity(colorScheme == .dark ? 0.18 : 0.50),
+                            Color.primary.opacity(0.055)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -804,7 +810,7 @@ private struct VampMiniGlassSurface: View {
                     lineWidth: 0.8
                 )
             }
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.10 : 0.055), radius: 12, y: 5)
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.08 : 0.035), radius: 10, y: 4)
     }
 }
 

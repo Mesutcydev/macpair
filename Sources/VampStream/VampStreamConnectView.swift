@@ -92,16 +92,16 @@ struct VampStreamConnectView: View {
         Button(action: onPairVampAssistant) {
             HStack(spacing: 14) {
                 ZStack {
-                    Circle().fill(.orange.opacity(0.16)).frame(width: 46, height: 46)
-                    Image(systemName: "sparkles")
+                    Circle().fill(PR.fg.opacity(0.08)).frame(width: 46, height: 46)
+                    Image(systemName: "macwindow")
                         .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(PR.fg)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Pair Vamp Assistant")
                         .font(.headline)
                         .foregroundStyle(PR.fg)
-                    Text("Private full-screen control · port 9575")
+                    Text("Remote control and app streaming · port 9575")
                         .font(.caption)
                         .foregroundStyle(PR.dim)
                 }
@@ -121,9 +121,12 @@ struct VampStreamConnectView: View {
     private func savedVampAssistantCard(_ address: String) -> some View {
         Button(action: onReconnectVampAssistant) {
             HStack(spacing: 14) {
-                Image(systemName: "arrow.clockwise.circle.fill")
-                    .font(.system(size: 26, weight: .medium))
-                    .foregroundStyle(.orange)
+                ZStack {
+                    Circle().fill(PR.fg.opacity(0.08)).frame(width: 40, height: 40)
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(PR.fg)
+                }
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Reconnect to Vamp Assistant")
                         .font(.subheadline.weight(.semibold))

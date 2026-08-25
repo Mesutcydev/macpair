@@ -23,6 +23,7 @@ struct VampStreamApp: App {
     var body: some Scene {
         WindowGroup {
             VampStreamRootView(environment: environment, appStream: appStream, vampAssistant: vampAssistant)
+                .preferredColorScheme(.dark)
                 .vampSplash(.vampStream(), minimumDuration: 1.7)
         }
     }
