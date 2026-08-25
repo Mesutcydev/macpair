@@ -11,12 +11,18 @@ import SwiftUI
 struct HostBrowserPairingQRCode: View {
     let pairingURL: String
     let accessibilityLabelText: String
+    let displaySize: CGFloat
 
     @State private var image: NSImage?
 
-    init(pairingURL: String, accessibilityLabel: String = "QR code for Safari pairing") {
+    init(
+        pairingURL: String,
+        accessibilityLabel: String = "QR code for Safari pairing",
+        size: CGFloat = 156
+    ) {
         self.pairingURL = pairingURL
         self.accessibilityLabelText = accessibilityLabel
+        self.displaySize = size
     }
 
     var body: some View {
@@ -33,7 +39,7 @@ struct HostBrowserPairingQRCode: View {
                     .controlSize(.small)
             }
         }
-        .frame(width: 156, height: 156)
+        .frame(width: displaySize, height: displaySize)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabelText)
         .task(id: pairingURL) {

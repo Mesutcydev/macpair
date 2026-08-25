@@ -83,6 +83,7 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate {
 
 private struct VampMiniHostPopover: View {
     @ObservedObject var environment: HostAppEnvironment
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var trustedPeers: [TrustedPeer] = []
@@ -151,6 +152,16 @@ private struct VampMiniHostPopover: View {
             }
             Spacer(minLength: 0)
             VampMiniStatusBadge(text: statusTitle, color: statusColor)
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.borderless)
+            .help("Close Vamp Mini Host")
+            .accessibilityLabel("Close Vamp Mini Host")
         }
         .accessibilityElement(children: .combine)
     }
@@ -195,9 +206,9 @@ private struct VampMiniHostPopover: View {
                 HStack(alignment: .top, spacing: 10) {
                     HostBrowserPairingQRCode(
                         pairingURL: pairingLink,
-                        accessibilityLabel: "QR code for Vamp Stream pairing"
+                        accessibilityLabel: "QR code for Vamp Stream pairing",
+                        size: 118
                     )
-                    .frame(width: 118, height: 118)
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Scan with Vamp Stream")
