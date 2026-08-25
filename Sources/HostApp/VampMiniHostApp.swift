@@ -38,7 +38,7 @@ struct VampMiniHostApp: App {
         MenuBarExtra {
             VampMiniHostPopover(environment: hostEnvironment)
         } label: {
-            Image(systemName: environment.sessionCoordinator.phase == .error
+            Image(systemName: hostEnvironment.sessionCoordinator.phase == .error
                 ? "exclamationmark.triangle.fill"
                 : "rectangle.on.rectangle")
                 .symbolRenderingMode(.hierarchical)
