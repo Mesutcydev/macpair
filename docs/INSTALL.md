@@ -11,6 +11,7 @@ installable surfaces plus Safari control built into the macOS hosts:
 | macOS | `VampControl-macOS-2.3.0-build-47-adhoc.zip` | Remote screen client with reliable reconnect, corrected SDR colors, and explicit remote Command-Tab control |
 | macOS | `VampHost-macOS-2.3.0-build-47-adhoc.zip` | Full Vamp Host: remote clients, low-latency Apple Silicon streaming, automatic watchdog, and optional Terminal Mode |
 | macOS | `VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip` | Always-on terminal host with Safari control. Do not run beside Vamp Host |
+| macOS | `VampMiniHost-macOS-2.3.0-build-47-adhoc.zip` | Separate menu-bar pairing host with its own identity and trusted-device store |
 | Linux | `VampTerminalHost-Linux-2.3.6.zip` | Browser-only host. Vamp Control and Vamp Terminal cannot attach |
 | Safari | none — use the Mac host dashboard | Eight tabs on loopback `9475`, Tailscale Serve, or Cloudflare Access |
 
@@ -51,6 +52,7 @@ Download one of the ad-hoc signed ZIPs and the matching `.sha256` file:
 
 - [Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.3.0-build-47-adhoc.zip) ([checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.3.0-build-47-adhoc.zip.sha256)) for remote display, remote input, remote clients, and optional Terminal Mode.
 - [Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip) ([checksum](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip.sha256)) for terminal tabs, Safari control, pairing, and Tailscale only.
+- [Vamp Mini Host](mini-host/) for a separate pairing-first menu-bar surface with trusted-device review and permission guidance.
 
 Then:
 

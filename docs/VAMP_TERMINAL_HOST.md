@@ -1,7 +1,8 @@
 # Vamp host products
 
 [Download latest Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.3.0-build-47-adhoc.zip) ·
-[Download latest Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip)
+[Download latest Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip) ·
+[Vamp Mini Host product page](mini-host/)
 
 Vamp Terminal is the iPhone/iPad client. It can connect to either of these
 macOS host products:
@@ -19,6 +20,19 @@ This is the light macOS target in `RemoteDesktopToolApps.xcodeproj`:
 - Product: `Vamp Terminal Host`
 - Bundle identifier: `com.mesutcy.remotedesktop.terminalhost`
 - Scheme: `VampTerminalHost`
+
+## Vamp Mini Host
+
+Vamp Mini Host is a separate menu-bar product for pairing review, trusted-device
+management, and permission guidance. It has its own bundle ID, host identity, and
+trusted-peer store, but still uses the shared private-network signaling ports.
+
+- Product: `Vamp Mini Host`
+- Bundle ID: `com.mesutcy.remotedesktop.minhost`
+- Scheme: `VampMiniHost`
+- URL scheme: `vampminihost://`
+- UI: menu-bar popover only; no Dock dashboard
+- Safety boundary: no Screen Recording or Accessibility permission required
 - Terminal mode is always enabled.
 - The host advertises terminal and multiple-terminal capabilities only.
 - It never starts ScreenCaptureKit, remote input, multi-display, or audio

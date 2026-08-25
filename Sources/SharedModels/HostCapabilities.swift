@@ -37,6 +37,11 @@ public struct HostCapabilityFlags: OptionSet, Codable, Hashable, Sendable {
     public static let supportsTaskPlans = HostCapabilityFlags(rawValue: 1 << 12)
     /// The peer can browse and launch sessions in host-side workspaces.
     public static let supportsWorkspaces = HostCapabilityFlags(rawValue: 1 << 13)
+    /// The host can enumerate/launch macOS applications and stream a single
+    /// application window (App Streaming); the client will show the app browser and
+    /// send `applicationList` / `streamTargetSwitch` control messages. Older peers
+    /// never negotiate it, so display streaming is unaffected.
+    public static let supportsAppStreaming = HostCapabilityFlags(rawValue: 1 << 14)
 
     public init(rawValue: Int) {
         self.rawValue = rawValue
@@ -59,7 +64,10 @@ public struct HostCapabilityFlags: OptionSet, Codable, Hashable, Sendable {
             .supportsMultipleTerminals,
             .supportsTerminalChat,
             .supportsTaskPlans,
-            .supportsWorkspaces
+            .supportsWorkspaces,
+            // Any client running this code can render a window (App Streaming) stream — it is
+            // just H.264/HEVC video. The host gates whether streaming is actually offered.
+            .supportsAppStreaming
         ]
         #if canImport(VideoToolbox)
         if VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC) {
@@ -100,6 +108,7 @@ public extension HostCapabilityFlags {
         if contains(.supportsTerminalChat) { names.append("supportsTerminalChat") }
         if contains(.supportsTaskPlans) { names.append("supportsTaskPlans") }
         if contains(.supportsWorkspaces) { names.append("supportsWorkspaces") }
+        if contains(.supportsAppStreaming) { names.append("supportsAppStreaming") }
         return names
     }
 
@@ -135,6 +144,8 @@ public extension HostCapabilityFlags {
                 flags.insert(.supportsTaskPlans)
             case "supportsWorkspaces":
                 flags.insert(.supportsWorkspaces)
+            case "supportsAppStreaming":
+                flags.insert(.supportsAppStreaming)
             default:
                 continue
             }

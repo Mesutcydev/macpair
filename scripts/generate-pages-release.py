@@ -18,6 +18,10 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSET_PATTERNS = {
     "vamp-host": re.compile(r"^VampHost-macOS-.+-build-\d+-adhoc\.zip$"),
     "vamp-terminal-host": re.compile(r"^VampTerminalHost-macOS-.+-build-\d+-adhoc\.zip$"),
+    "vamp-mini-host-dmg": re.compile(r"^VampMiniHost-macOS-.+-build-\d+-adhoc\.dmg$"),
+    "vamp-stream-ios": re.compile(
+        r"^VampStream-iOS-.+-build-\d+-altstore-unsigned\.ipa$"
+    ),
     "vamp-terminal-ios": re.compile(
         r"^VampTerminal-iOS-.+-build-\d+-altstore-unsigned\.ipa$"
     ),
@@ -101,13 +105,21 @@ def main() -> int:
         key: choose_asset(raw_assets, pattern, key)
         for key, pattern in ASSET_PATTERNS.items()
     }
-    missing = [key for key, asset in selected.items() if asset is None]
+    # Mini Host is new and may not exist in the first release that deploys the
+    # updated site. Keep Pages deploys working until the next host release,
+    # while automatically wiring the asset as soon as it appears.
+    missing = [
+        key for key, asset in selected.items()
+        if asset is None and key not in {"vamp-mini-host-dmg", "vamp-stream-ios"}
+    ]
     if missing:
         print(f"Missing expected release assets: {', '.join(missing)}", file=sys.stderr)
         return 1
 
     assets = {}
     for key, asset in selected.items():
+        if asset is None:
+            continue
         entry = {
             "name": asset["name"],
             "url": asset["browser_download_url"],

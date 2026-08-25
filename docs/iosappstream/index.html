@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e8e8e2">
+  <meta name="description" content="Vamp iOS App Stream and Vamp Mini Host: stream one Mac app to iPhone with private pairing over LAN or Tailscale.">
+  <link rel="canonical" href="https://thevamp.app/iosappstream/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Vamp Stream + Mini Host + Vamp Assistant">
+  <meta property="og:description" content="Vamp Stream pairs with Vamp Host, Vamp Mini Host, or Vamp Assistant from one focused iOS app.">
+  <meta property="og:url" content="https://thevamp.app/iosappstream/">
+  <title>Vamp Stream + Mini Host + Vamp Assistant · Vamp</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #e8e8e2;
+      --panel: rgba(250, 250, 245, .91);
+      --panel-deep: rgba(231, 231, 224, .94);
+      --line: rgba(26, 26, 24, .17);
+      --muted: #77776f;
+      --text: #4d4d48;
+      --soft: #30302d;
+      --ink: #1a1a18;
+      --blue: #46688f;
+      --mint: #4f8b65;
+      --orange: #d86f12;
+      --shadow: 0 24px 80px rgba(26, 26, 24, .16);
+      --page-glow: linear-gradient(180deg, #f6f6f0 0%, #e7e7e0 58%, #d0d0c7 100%);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      color: var(--text);
+      background: var(--page-glow);
+      font: 16px/1.6 "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      isolation: isolate;
+    }
+
+    body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; background-image: url("../assets/vamp-garden-engraving.jpg"); background-size: cover; background-position: center top; background-repeat: no-repeat; opacity: .12; mix-blend-mode: multiply; filter: grayscale(1) contrast(1.12); }
+    body::after { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(180deg, rgba(250, 250, 245, .54), rgba(232, 232, 225, .72) 58%, rgba(207, 207, 198, .9)); }
+    body > * { position: relative; z-index: 1; }
+
+    a { color: inherit; }
+    .wrap { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    .nav { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px 0; border-bottom: 1px solid var(--line); }
+    .brand { color: var(--text); font-weight: 760; letter-spacing: -.03em; text-decoration: none; }
+    .nav-links { display: flex; align-items: center; gap: 20px; color: var(--muted); font-size: 14px; }
+    .nav-links a { text-decoration: none; }
+    .nav-links a:hover, .footer a:hover { color: var(--text); }
+
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 16px; border: 1px solid transparent; border-radius: 999px; font-size: 14px; font-weight: 700; text-decoration: none; transition: transform .2s ease, border-color .2s ease, background .2s ease; }
+    .button:hover { transform: translateY(-2px); }
+    .button-primary { color: #fff; background: var(--ink); }
+    .button-primary:hover { background: #000; }
+    .button-secondary { border-color: var(--line); color: var(--ink); background: rgba(250, 250, 245, .7); }
+    .button-secondary:hover { border-color: var(--orange); background: var(--panel); }
+
+    .hero { max-width: 820px; min-height: 560px; padding-top: 92px; padding-bottom: 100px; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 8px; color: var(--mint); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .eyebrow::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 18px var(--mint); }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 720px; margin-bottom: 24px; font-size: clamp(48px, 7vw, 84px); line-height: .98; letter-spacing: -.075em; }
+    h1 span { color: var(--blue); }
+    .hero-copy { max-width: 620px; color: var(--muted); font-size: 19px; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+    .hero-note { margin: 20px 0 0; color: #718294; font-size: 13px; }
+
+    .section { padding: 82px 0; border-top: 1px solid var(--line); }
+    .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 32px; margin-bottom: 30px; }
+    h2 { margin-bottom: 0; font-size: clamp(32px, 4vw, 52px); line-height: 1; letter-spacing: -.06em; }
+    .section-lede { max-width: 510px; margin-bottom: 0; color: var(--muted); }
+    .product-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .card { padding: 28px; border: 1px solid var(--line); border-radius: 22px; background: var(--panel); }
+    .product-card { min-height: 300px; display: flex; flex-direction: column; }
+    .product-card.stream { border-color: rgba(117, 184, 255, .3); }
+    .product-card.host { border-color: rgba(141, 240, 200, .24); }
+    .card-label { color: var(--blue); font-size: 12px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+    .host .card-label { color: var(--mint); }
+    h3 { margin: 10px 0 10px; font-size: 28px; letter-spacing: -.05em; }
+    .card p { color: var(--muted); }
+    .feature-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; padding: 0; margin: 15px 0 26px; color: var(--soft); list-style: none; font-size: 14px; }
+    .feature-list li::before { content: "✓"; margin-right: 8px; color: var(--mint); font-weight: 900; }
+    .card-links { display: flex; flex-wrap: wrap; gap: 16px; margin-top: auto; color: var(--blue); font-size: 14px; font-weight: 750; }
+    .card-links a { text-decoration: none; }
+    .card-links a:hover { text-decoration: underline; }
+
+    .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .step { padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255, 255, 255, .025); }
+    .step-number { color: var(--blue); font-size: 13px; font-weight: 900; }
+    .step h3 { margin-top: 28px; font-size: 21px; }
+    .step p { margin-bottom: 0; color: var(--muted); font-size: 14px; }
+
+    .security-grid { display: grid; grid-template-columns: .8fr 1.2fr; gap: 18px; }
+    .security-callout { padding: 30px; border: 1px solid rgba(141, 240, 200, .25); border-radius: 22px; background: linear-gradient(145deg, rgba(141, 240, 200, .1), rgba(255, 255, 255, .02)); }
+    .security-callout h3 { color: var(--mint); }
+    .security-callout p { margin-bottom: 0; color: var(--soft); }
+    .guardrails { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .guardrail { padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
+    .guardrail strong { display: block; margin-bottom: 4px; }
+    .guardrail span { color: var(--muted); font-size: 14px; }
+
+    .build-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .build-card { overflow: hidden; }
+    .build-card h3 { font-size: 23px; }
+    pre { overflow-x: auto; padding: 16px; margin: 20px 0 0; border: 1px solid var(--line); border-radius: 12px; color: #cfe7ff; background: #080b10; font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; }
+    .build-note { color: var(--muted); font-size: 14px; }
+    .footer { display: flex; justify-content: space-between; gap: 20px; padding: 28px 0 40px; border-top: 1px solid var(--line); color: #738395; font-size: 13px; }
+    .footer a { text-decoration: none; }
+
+    @media (max-width: 820px) {
+      .nav-links a:not(.button) { display: none; }
+      .hero { min-height: auto; padding-top: 64px; }
+      .section-heading { display: block; }
+      .section-lede { margin-top: 16px; }
+      .security-grid, .build-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 620px) {
+      .wrap { width: min(100% - 28px, 1120px); }
+      .nav { padding: 18px 0; }
+      .nav .button { min-height: 38px; padding: 0 12px; font-size: 12px; }
+      h1 { font-size: clamp(46px, 15vw, 68px); }
+      .hero-copy { font-size: 17px; }
+      .product-grid, .steps, .guardrails { grid-template-columns: 1fr; }
+      .card { padding: 22px; }
+      .feature-list { grid-template-columns: 1fr; }
+      .footer { display: block; }
+      .footer span + span { display: block; margin-top: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .button { transition: none; }
+      .button:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="wrap nav">
+    <a class="brand" href="../" aria-label="Vamp home">Vamp / Vamp Stream</a>
+    <nav class="nav-links" aria-label="Primary navigation">
+      <a href="#products">Products</a>
+      <a href="#flow">How it works</a>
+      <a href="#security">Security</a>
+      <a href="../mini-host/">Mini Host</a>
+      <a class="button button-secondary" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">Open GitHub ↗</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="wrap hero">
+      <div>
+        <div class="eyebrow">iOS client + macOS menu-bar host</div>
+        <h1>One Mac app.<br><span>On your iPhone.</span></h1>
+        <p class="hero-copy">Vamp Stream is a focused iOS app for browsing and streaming one Mac app window at a time. Pair it with Vamp Host or Vamp Mini Host for app streaming, or connect to Vamp Assistant for its separate full-screen control surface.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#products">See the pair ↓</a>
+          <a class="button button-secondary" href="#build">Build from source</a>
+        </div>
+        <p class="hero-note">Private by design · trusted LAN or Tailscale · every pairing is user-approved.</p>
+      </div>
+
+    </section>
+
+    <section id="products" class="section">
+      <div class="wrap">
+        <div class="section-heading">
+          <h2>Two small pieces.<br>One clear handoff.</h2>
+          <p class="section-lede">Vamp Stream keeps one iOS entry point for three compatible Mac paths. Each product keeps its own protocol boundary, pairing flow, and job.</p>
+        </div>
+        <div class="product-grid">
+          <article class="card product-card stream">
+            <div class="card-label">Vamp Stream · iOS</div>
+            <h3>Pick an app. Start streaming.</h3>
+            <p>A focused remote surface for iPhone and iPad. Browse the Mac’s available windows, open one, and use touch, pointer, scroll, drag lock, and keyboard input.</p>
+            <ul class="feature-list">
+              <li>Portrait and landscape fit</li>
+              <li>App-window browsing</li>
+              <li>Touch and pointer control</li>
+              <li>Keyboard overlay</li>
+            </ul>
+            <div class="card-links">
+              <a href="#build">Build instructions ↗</a>
+              <a href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">Source ↗</a>
+            </div>
+          </article>
+          <article class="card product-card host">
+            <div class="card-label">Vamp Mini Host · macOS</div>
+            <h3>A quiet host in the menu bar.</h3>
+            <p>Pair the iPhone client, review the device fingerprint, and manage permissions and host state without opening the full Vamp Host surface.</p>
+            <ul class="feature-list">
+              <li>Pairing and trust review</li>
+              <li>Permission guidance</li>
+              <li>Start, stop, restart</li>
+              <li>LAN or Tailscale</li>
+            </ul>
+            <div class="card-links">
+              <a href="../mini-host/">Mini Host details ↗</a>
+              <a href="#build">Build instructions ↗</a>
+            </div>
+          </article>
+          <article class="card product-card assistant">
+            <div class="card-label">Vamp Assistant · macOS</div>
+            <h3>Use its separate control path.</h3>
+            <p>Vamp Stream can pair with Vamp Assistant on its private port 9575 for full-screen control, pointer, keyboard, scroll, and permission-aware status.</p>
+            <ul class="feature-list">
+              <li>One-time pairing code</li>
+              <li>Full-screen control</li>
+              <li>LAN or Tailscale</li>
+              <li>Separate port 9575</li>
+            </ul>
+            <div class="card-links">
+              <a href="#flow">Pairing flow ↗</a>
+              <a href="#security">Security boundary ↗</a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="flow" class="section">
+      <div class="wrap">
+        <div class="section-heading">
+          <h2>From Mac to hand<br>in three steps.</h2>
+          <p class="section-lede">The iOS app presents the right connection path without merging the underlying host protocols.</p>
+        </div>
+        <div class="steps">
+          <article class="step"><div class="step-number">01</div><h3>Run Mini Host</h3><p>Launch the macOS menu-bar companion and confirm the required Screen Recording and Accessibility permissions yourself.</p></article>
+          <article class="step"><div class="step-number">02</div><h3>Choose a path</h3><p>Select a discovered Vamp Host or Mini Host, or enter Vamp Assistant’s private address and one-time code on port 9575.</p></article>
+          <article class="step"><div class="step-number">03</div><h3>Use the right surface</h3><p>Stream one app window through Vamp Host or Mini Host, or control the full Assistant surface. Portrait and landscape adjust to the active stream.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="security" class="section">
+      <div class="wrap security-grid">
+        <div class="security-callout">
+          <div class="eyebrow">Trust stays visible</div>
+          <h3>Small host, strict boundary.</h3>
+          <p>Mini Host does not create a public relay or silently approve access. Vamp Host and Mini Host are alternative macOS host runtimes and should not run together on the shared host ports. Vamp Assistant can run alongside either because it uses its separate private control port 9575.</p>
+        </div>
+        <div class="guardrails">
+          <div class="guardrail"><strong>Signed pairing</strong><span>Review the pending device and exact fingerprint before approval.</span></div>
+          <div class="guardrail"><strong>Private transport</strong><span>Use a trusted LAN or private Tailscale network; do not expose ports publicly.</span></div>
+          <div class="guardrail"><strong>User permissions</strong><span>Screen Recording and Accessibility consent remain macOS user decisions.</span></div>
+          <div class="guardrail"><strong>Separate protocols</strong><span>Vamp Stream selects the correct path without weakening trust or mixing host responsibilities.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="downloads" class="section">
+      <div class="wrap">
+        <div class="section-heading"><h2>Download the pair<br>and Assistant.</h2><p class="section-lede">The IPA is unsigned for AltStore-style re-signing. The Mini Host DMG is ad-hoc signed and not notarized. Both are published with checksums alongside the release.</p></div>
+        <div class="product-grid download-grid">
+          <article class="card product-card"><div class="card-label">Vamp Stream · iOS</div><h3>Get the sideloadable IPA.</h3><p>Install through AltStore or another re-signing tool with your own Apple ID/team. Never expect an unsigned IPA to launch directly on a device.</p><div class="card-links"><a class="button button-primary" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampStream-iOS-0.1.0-build-1-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Download IPA ↓</a><a href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampStream-iOS-0.1.0-build-1-altstore-unsigned.ipa.sha256" target="_blank" rel="noreferrer">SHA-256 ↗</a></div></article>
+          <article class="card product-card"><div class="card-label">Vamp Mini Host · macOS</div><h3>Get the menu-bar DMG.</h3><p>Mount the DMG, move Vamp Mini Host to Applications, and approve the requested macOS permissions yourself.</p><div class="card-links"><a class="button button-primary" href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampMiniHost-macOS-2.3.0-build-47-adhoc.dmg" target="_blank" rel="noreferrer">Download DMG ↓</a><a href="https://github.com/Mesutcydev/macpair/releases/latest/download/VampMiniHost-macOS-2.3.0-build-47-adhoc.dmg.sha256" target="_blank" rel="noreferrer">SHA-256 ↗</a></div></article>
+          <article class="card product-card"><div class="card-label">Vamp Assistant · macOS</div><h3>Use its compatible host.</h3><p>Vamp Assistant remains a separate macOS product. Pair it from the iOS app with its private address and one-time code.</p><div class="card-links"><a href="https://github.com/Mesutcydev/macpair/releases/latest" target="_blank" rel="noreferrer">Open release ↗</a><a href="#security">Read boundary ↗</a></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="build" class="section">
+      <div class="wrap">
+        <div class="section-heading">
+          <h2>Build the pair<br>from source.</h2>
+          <p class="section-lede">Both apps live in the Vamp repository. No project-owned Apple team, relay, or private credential is required to build the unsigned development artifacts.</p>
+        </div>
+        <div class="build-grid">
+          <article class="card build-card">
+            <div class="card-label">Vamp Stream</div>
+            <h3>Unsigned iOS build</h3>
+            <p class="build-note">Generate the standalone project, then build for a connected or generic iPhoneOS destination.</p>
+            <pre>xcodegen generate --spec vampstream-project.yml
+xcodebuild -project VampStream.xcodeproj -scheme VampStream \
+  -configuration Release -sdk iphoneos \
+  -destination 'generic/platform=iOS' \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build</pre>
+          </article>
+          <article class="card build-card">
+            <div class="card-label">Vamp Mini Host</div>
+            <h3>macOS menu-bar build</h3>
+            <p class="build-note">Build the separate host scheme, then launch it as the lightweight pairing and permission companion.</p>
+            <pre>xcodebuild -project RemoteDesktopToolApps.xcodeproj \
+  -scheme VampMiniHost -configuration Release \
+  CODE_SIGNING_ALLOWED=NO build</pre>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap footer">
+    <span>Vamp Stream + Mini Host + Vamp Assistant · Apache 2.0</span>
+    <span><a href="../">Vamp suite</a> · <a href="../mini-host/">Mini Host</a> · <a href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">GitHub ↗</a></span>
+  </footer>
+</body>
+</html>

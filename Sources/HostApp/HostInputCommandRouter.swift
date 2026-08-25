@@ -56,6 +56,10 @@ final class HostInputCommandRouter: @unchecked Sendable {
     var onSetActiveDisplays: (@Sendable (SetActiveDisplaysMessage) async -> Void)?
     var onFileTransferMessage: (@Sendable (FileTransferMessage) async -> Void)?
     var onDisplaySwitchRequest: (@Sendable (DisplaySwitchRequestMessage) async -> Void)?
+    /// App Streaming: client asks for the Mac's application registry.
+    var onApplicationListRequest: (@Sendable (ApplicationListRequestMessage) async -> Void)?
+    /// App Streaming: client asks to retarget the live stream to a window/application.
+    var onStreamTargetSwitchRequest: (@Sendable (StreamTargetSwitchRequestMessage) async -> Void)?
     /// Called when the client requests a fresh keyframe because its decoder is stuck.
     /// The coordinator wires this to `encoderPipeline.forceKeyframe()`.
     var onKeyframeRequest: (@Sendable () -> Void)?
@@ -274,6 +278,10 @@ final class HostInputCommandRouter: @unchecked Sendable {
                     await self.handleFileTransferEnvelope(envelope)
                 case .displaySwitch:
                     await self.handleDisplaySwitchEnvelope(envelope)
+                case .applicationList:
+                    await self.handleApplicationListEnvelope(envelope)
+                case .streamTargetSwitch:
+                    await self.handleStreamTargetSwitchEnvelope(envelope)
                 case .setActiveDisplays:
                     await self.handleSetActiveDisplaysEnvelope(envelope)
                 case .controlAuth:
@@ -857,6 +865,83 @@ final class HostInputCommandRouter: @unchecked Sendable {
         }
 
         await onDisplaySwitchRequest(message)
+    }
+
+    private func handleApplicationListEnvelope(_ envelope: DataChannelEnvelope) async {
+        guard envelope.hasAcceptableTimestamp else {
+            rejectCommand(reason: "Application list timestamp out of acceptable window")
+            return
+        }
+        guard validateControlEnvelopeAuth(envelope) else {
+            rejectCommand(reason: "Application list authentication required")
+            return
+        }
+        // Don't reveal the app inventory while the Mac is locked (matches display-switch policy).
+        let currentLockState = lockStateProvider()
+        if currentLockState.blocksRemoteInput {
+            rejectCommand(reason: "Mac is locked: \(currentLockState.rawValue)")
+            return
+        }
+        guard let message = try? envelope.decodeApplicationListRequest() else {
+            rejectCommand(reason: "Application list decode failed")
+            return
+        }
+        let rejection = InputCommandValidation.validateRouting(
+            commandSessionID: message.sessionID,
+            activeSessionID: activeSessionID,
+            isRouterEnabled: isEnabled,
+            connectionState: webRTCSessionManager.connectionState
+        )
+        if let rejection {
+            rejectCommand(reason: "Application list rejected: \(rejection)")
+            return
+        }
+        guard let onApplicationListRequest else {
+            rejectCommand(reason: "Application list handler unavailable")
+            return
+        }
+        await onApplicationListRequest(message)
+    }
+
+    private func handleStreamTargetSwitchEnvelope(_ envelope: DataChannelEnvelope) async {
+        guard envelope.hasAcceptableTimestamp else {
+            rejectCommand(reason: "Stream target switch timestamp out of acceptable window")
+            return
+        }
+        guard validateControlEnvelopeAuth(envelope) else {
+            rejectCommand(reason: "Stream target switch authentication required")
+            return
+        }
+        // Launching/activating apps + retargeting capture must not run on a locked Mac.
+        let currentLockState = lockStateProvider()
+        if currentLockState.blocksRemoteInput {
+            rejectCommand(reason: "Mac is locked: \(currentLockState.rawValue)")
+            return
+        }
+        guard let message = try? envelope.decodeStreamTargetSwitchRequest() else {
+            rejectCommand(reason: "Stream target switch decode failed")
+            return
+        }
+        let rejection = InputCommandValidation.validateRouting(
+            commandSessionID: message.sessionID,
+            activeSessionID: activeSessionID,
+            isRouterEnabled: isEnabled,
+            connectionState: webRTCSessionManager.connectionState
+        )
+        if let rejection {
+            rejectCommand(reason: "Stream target switch rejected: \(rejection)")
+            return
+        }
+        // Reuse the display-switch rate limiter: both are "retarget the live stream" operations.
+        guard shouldAllowDisplaySwitch() else {
+            rejectCommand(reason: "Stream target switch rate-limited")
+            return
+        }
+        guard let onStreamTargetSwitchRequest else {
+            rejectCommand(reason: "Stream target switch handler unavailable")
+            return
+        }
+        await onStreamTargetSwitchRequest(message)
     }
 
     private func handleControlAuthEnvelope(_ envelope: DataChannelEnvelope) async {

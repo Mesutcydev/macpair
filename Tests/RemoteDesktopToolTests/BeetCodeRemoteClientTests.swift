@@ -1,0 +1,88 @@
+import Foundation
+import XCTest
+@testable import ClientiOS
+
+final class BeetCodeRemoteClientTests: XCTestCase {
+    func testEndpointDefaultsPortAndExtractsPairingCodeFromQuery() throws {
+        let endpoint = try BeetCodeRemoteEndpoint.parse(address: "http://192.168.1.20/?pair=123456")
+        XCTAssertEqual(endpoint.url.absoluteString, "http://192.168.1.20:9575")
+        XCTAssertEqual(endpoint.pairingCode, "123456")
+    }
+
+    func testEndpointRejectsPlainHTTPPublicAddress() {
+        XCTAssertThrowsError(try BeetCodeRemoteEndpoint.parse(address: "http://example.com:9575")) { error in
+            XCTAssertEqual(error as? BeetCodeRemoteError, .insecurePublicAddress)
+        }
+    }
+
+    func testEndpointAcceptsSecurePublicAddressAndRejectsBadCode() throws {
+        let endpoint = try BeetCodeRemoteEndpoint.parse(address: "https://example.com:9575", pairingCode: "123456")
+        XCTAssertEqual(endpoint.url.host, "example.com")
+        XCTAssertEqual(endpoint.pairingCode, "123456")
+        XCTAssertThrowsError(try BeetCodeRemoteEndpoint.parse(address: "192.168.1.20", pairingCode: "123")) { error in
+            XCTAssertEqual(error as? BeetCodeRemoteError, .invalidPairingCode)
+        }
+    }
+
+    func testInputCommandsUseBeetCodeWireActions() {
+        let commands: [BeetCodeInputCommand] = [
+            .click(x: 10, y: 20, button: "left", count: 2),
+            .move(x: 30, y: 40),
+            .relative(dx: 2, dy: -1),
+            .down(button: "left"),
+            .up(button: "left"),
+            .scroll(x: nil, y: nil, dx: 1, dy: -2),
+            .type("hello"),
+            .key("Return", modifiers: ["command"])
+        ]
+        XCTAssertEqual(commands.map { $0.wireBody()["action"] as? String }, [
+            "click", "move", "rel", "down", "up", "scroll", "type", "key"
+        ])
+        XCTAssertEqual(commands[0].wireBody()["count"] as? Int, 2)
+        XCTAssertEqual((commands[2].wireBody()["x"] as? NSNumber)?.doubleValue, 2)
+        XCTAssertEqual(commands[7].wireBody()["modifiers"] as? [String], ["command"])
+    }
+
+    func testMultipartParserHandlesSplitH264PartAndGeometry() throws {
+        let boundary = "beet-test"
+        let parameterSets = Data([0, 0, 0, 1, 0x67, 0x64])
+        let avcc = Data([0, 0, 0, 2, 0x65, 0x01])
+        var body = Data()
+        body.append(parameterSets)
+        body.append(avcc)
+        let message = Data(
+            "--\(boundary)\r\nContent-Type: video/avc\r\nContent-Length: \(body.count)\r\nX-Beet-Keyframe: 1\r\nX-Beet-Params-Length: \(parameterSets.count)\r\nX-Beet-Image-Width: 1920\r\nX-Beet-Image-Height: 1080\r\nX-Beet-Display-X: 10\r\nX-Beet-Display-Y: 20\r\nX-Beet-Display-Width: 960\r\nX-Beet-Display-Height: 540\r\n\r\n".utf8
+        ) + body + Data("\r\n--\(boundary)--\r\n".utf8)
+        let response = try XCTUnwrap(HTTPURLResponse(
+            url: URL(string: "http://192.168.1.20:9575/api/control/screen/stream")!,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "multipart/mixed; boundary=\(boundary)"]))
+
+        var parser = BeetCodeScreenStreamParser()
+        try parser.configure(response: response)
+        var frames: [BeetCodeScreenFrame] = []
+        let chunkSize = 7
+        var offset = 0
+        while offset < message.count {
+            let end = min(offset + chunkSize, message.count)
+            frames.append(contentsOf: try parser.append(message.subdata(in: offset..<end)))
+            offset = end
+        }
+
+        let frame = try XCTUnwrap(frames.first)
+        XCTAssertEqual(frame.geometry, BeetCodeDisplayGeometry(
+            imageWidth: 1920,
+            imageHeight: 1080,
+            displayX: 10,
+            displayY: 20,
+            displayWidth: 960,
+            displayHeight: 540))
+        guard case let .h264(data, keyframe, params) = frame.payload else {
+            return XCTFail("Expected H.264 payload")
+        }
+        XCTAssertEqual(data, avcc)
+        XCTAssertTrue(keyframe)
+        XCTAssertEqual(params, parameterSets)
+    }
+}

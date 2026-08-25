@@ -2,12 +2,14 @@
 
 **Vamp is an open-source, local-first remote desktop and terminal suite for Mac, iPhone, iPad, Safari, and Linux.** Connections use a trusted LAN or private Tailscale network. Every new device needs visible host approval. There is no product account and no hosted relay.
 
-Three kits share that trust plane:
+Four kits share that trust plane:
 
 | Kit | Install | Wire |
 | --- | --- | --- |
 | Remote desktop | Vamp Host + Vamp Control | signed WebRTC |
 | Mac terminal | Vamp Terminal Host + Vamp Terminal or Safari | signed WebRTC / browser on `:9475` |
+| Pairing companion | Vamp Mini Host | signed WebRTC, menu-bar control surface |
+| App streaming | Vamp Stream + Vamp Host or Vamp Mini Host | signed WebRTC app-window stream |
 | Linux shell | Vamp Linux Host + a browser | WebSocket on loopback `:9475` |
 
 Vamp Control and Vamp Terminal cannot attach to Vamp Linux Host. Safari control is built into the macOS hosts; there is no Safari download. Run only one macOS host at a time — both use the same signaling ports.
@@ -18,7 +20,10 @@ Vamp Control and Vamp Terminal cannot attach to Vamp Linux Host. Safari control 
 | --- | --- | --- |
 | Vamp Host | Full macOS host: screen, input, clipboard, files, audio, opt-in terminal, Safari control | `com.mesutcy.remotedesktop.host` |
 | Vamp Terminal Host | Light macOS host: always-on terminal and Safari control only | `com.mesutcy.remotedesktop.terminalhost` |
+| Vamp Mini Host | Separate pairing-first menu-bar host with trusted-device review and permission guidance | `com.mesutcy.remotedesktop.minhost` |
 | Vamp Linux Host | Dependency-free Python browser host; not a WebRTC peer | local process |
+| Vamp Stream | Focused iPhone/iPad app-window streaming client; also pairs with Vamp Assistant for its separate full-screen control surface | `com.mesutcydev.remotedesktop.stream` |
+| Vamp Assistant | Separate compatible macOS full-screen control host on private port `9575` | existing Assistant bundle |
 | Vamp Control | Remote-desktop client for macOS, iPhone, and iPad. Terminal Mode is an overlay, not the eight-tab workspace | `com.mesutcy.remotedesktop.macclient` / `com.mesutcy.remotedesktop.ios` |
 | Vamp Terminal | Eight-tab terminal client for iPhone and iPad, with agent launchers | `com.mesutcy.remotedesktop.terminal` |
 
@@ -37,6 +42,9 @@ The macOS hosts are local utilities, not App Store products. On first launch:
 3. Otherwise open **System Settings → Privacy & Security** and choose **Open Anyway**.
 4. For Vamp Host, grant **Screen Recording** and **Accessibility** in System Settings → Privacy & Security. Vamp Terminal Host does not request either permission.
 
+Vamp Mini Host also does not request Screen Recording or Accessibility: it is a
+pairing-first, terminal-safe/view-only host surface.
+
 Do not disable Gatekeeper globally.
 
 ## Build from source
@@ -53,10 +61,13 @@ xcodebuild \
 ```
 
 Build the terminal-only macOS host by changing the scheme to `VampTerminalHost`.
+Build the pairing-first menu-bar host by changing the scheme to `VampMiniHost`.
 Build the current iPhone/iPad and macOS host artifacts with:
 
 ```bash
 scripts/package-vamp-terminal-ios.sh --clean
+scripts/package-vamp-stream-ios.sh --clean
+scripts/package-vamp-mini-host.sh --clean
 scripts/package-vamp-hosts.sh --clean
 ```
 
@@ -64,8 +75,8 @@ No Apple account, certificate, provisioning profile, or notarization credential 
 required to build the unsigned IPA. AltStore or another sideloading tool must
 re-sign it with the installing user's Apple ID/team.
 
-The generated files are written to `dist/VampTerminal/` and
-`dist/VampTerminalHosts/`. See [docs/INSTALL.md](docs/INSTALL.md) for the
+The generated files are written to `dist/VampTerminal/`, `dist/VampStream/`,
+`dist/VampMiniHost/`, and `dist/VampTerminalHosts/`. See [docs/INSTALL.md](docs/INSTALL.md) for the
 separate iOS, macOS, Safari, and Linux install paths.
 
 Run the Linux host with:

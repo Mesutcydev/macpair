@@ -182,6 +182,20 @@ final class HostSessionCoordinator: ObservableObject {
     /// Records connection-signal timeline; dumps a report on connection loss.
     private let connectionDebugger: ConnectionDebugger
 
+    // MARK: - App Streaming
+    /// Shared with the input service's layout provider: when a window is the stream target this
+    /// holds the window's synthetic single-"display" layout so pointer input maps into the window.
+    let streamWindowGeometry: StreamWindowGeometryStore
+    #if os(macOS)
+    let applicationRegistry = HostApplicationRegistry()
+    /// The window currently streamed (nil ⇒ display streaming). Drives input geometry + loss detection.
+    var activeWindowTarget: WindowStreamTarget?
+    /// Prevents the normal display-layout observer from racing a window capture restart/teardown.
+    var isWindowStreamTransitioning = false
+    /// Low-frequency task that keeps the window origin aligned for input and detects window loss.
+    var windowTrackingTask: Task<Void, Never>?
+    #endif
+
     init(
         hostIdentity: HostIdentity,
         captureEngine: any CaptureEngineProtocol,
@@ -199,8 +213,10 @@ final class HostSessionCoordinator: ObservableObject {
         fileTransferManager: HostFileTransferManager,
         productMode: HostProductMode = .full,
         sessionTokenUnsealer: ((Data) -> Data?)? = nil,
+        streamWindowGeometry: StreamWindowGeometryStore = StreamWindowGeometryStore(),
         ensureDiscoveryAdvertising: @escaping @MainActor @Sendable () async -> Void = {}
     ) {
+        self.streamWindowGeometry = streamWindowGeometry
         self.hostIdentity = hostIdentity
         self.captureEngine = captureEngine
         self.encoderPipeline = encoderPipeline
@@ -328,7 +344,15 @@ final class HostSessionCoordinator: ObservableObject {
         if description.localizedCaseInsensitiveContains("listener")
             || description.localizedCaseInsensitiveContains("address")
             || description.localizedCaseInsensitiveContains("in use") {
-            let otherProduct = productMode.isTerminalOnly ? "Vamp Host" : "Vamp Terminal Host"
+            let otherProduct: String
+            switch productMode {
+            case .full:
+                otherProduct = "Vamp Terminal Host"
+            case .terminalOnly:
+                otherProduct = "Vamp Host"
+            case .mini:
+                otherProduct = "Vamp Host or Vamp Terminal Host"
+            }
             return "\(productMode.productTitle) could not open port \(RemoteDesktopConstants.defaultSignalingPort). Quit \(otherProduct) if it is running, then restart this host."
         }
         return description
@@ -1360,6 +1384,12 @@ final class HostSessionCoordinator: ObservableObject {
     }
 
     private func handleObservedDisplayLayoutChange(_ layout: DisplayLayout, sessionID: UUID) async {
+        #if os(macOS)
+        // A window stream has its own geometry/tracking loop. The normal display-layout
+        // observer cannot resolve a window ID in the monitor layout and would otherwise
+        // fall back to the primary display, silently replacing the app stream.
+        if activeWindowTarget != nil || isWindowStreamTransitioning { return }
+        #endif
         let requestedDisplayID = captureEngine.diagnostics.currentDisplayID ?? layout.primaryDisplayID ?? layout.displays.first?.id
         guard let requestedDisplayID else {
             _ = sendDisplayStateMessages(layout: layout, sessionID: sessionID, reason: "layout_changed_empty")
@@ -1501,6 +1531,11 @@ final class HostSessionCoordinator: ObservableObject {
         initialDataChannelRetryTask = nil
         latestObservedLayout = nil
         activeStreamDisplayRestartKey = nil
+        #if os(macOS)
+        // A window stream must not outlive its session — clear input geometry + tracking so a
+        // reconnect never inherits a stale window layout.
+        clearWindowStreaming()
+        #endif
         isApplyingPerformanceProfile = false
         needsPerformanceProfileReapply = false
         errorMessage = userErrorMessage
@@ -1538,6 +1573,10 @@ final class HostSessionCoordinator: ObservableObject {
             if #available(macOS 15.0, *) {
                 flags.insert(.supportsHDR10)
             }
+        }
+        // App Streaming (window capture) needs ScreenCaptureKit APIs added in macOS 14.
+        if #available(macOS 14, *) {
+            flags.insert(.supportsAppStreaming)
         }
         return flags
     }()
@@ -2002,3 +2041,434 @@ final class HostSessionCoordinator: ObservableObject {
         }
     }
 }
+
+#if os(macOS)
+import AppKit
+import ApplicationServices
+
+// MARK: - App Streaming (window target)
+//
+// These reuse the existing streaming pipeline wholesale. A window target differs from a display
+// target in exactly three ways: the capture filter (ScreenCaptureEngine.startCapture(windowID:)),
+// the encoder's `DisplayDescriptor` (synthesized from the window's pixel size), and the input
+// layout (a synthetic single-"display" layout keyed to the window origin). Everything else —
+// WebRTC session, data channel, encoder, adaptive control, input injection — is untouched, and
+// the WebRTC connection is never torn down when the target changes.
+extension HostSessionCoordinator {
+
+    /// Client → host: publish the current application registry.
+    func handleApplicationListRequest(_ message: ApplicationListRequestMessage) async {
+        guard activeSessionID == message.sessionID else { return }
+        // Returning to the app browser is also the explicit end of a window stream. Stop
+        // capture before publishing the new inventory so the host does not keep encoding
+        // an invisible window between app selections.
+        if activeWindowTarget != nil {
+            await stopActiveWindowStream()
+        }
+        let snapshot = ApplicationListSnapshotMessage(
+            sessionID: message.sessionID,
+            senderDeviceID: message.senderDeviceID,
+            applications: applicationRegistry.snapshot()
+        )
+        if let envelope = try? DataChannelEnvelope.applicationListSnapshot(snapshot) {
+            try? webRTCSessionManager.sendDataMessage(envelope)
+        }
+    }
+
+    /// Client → host: retarget the live stream. Reuses the proven display-switch path for a
+    /// `.display` target; resolves + captures a window for `.window` / `.application`.
+    func handleStreamTargetSwitchRequest(_ message: StreamTargetSwitchRequestMessage) async {
+        guard activeSessionID == message.sessionID else { return }
+        let startTime = Date()
+        switch message.target.kind {
+        case .display:
+            // Back to a whole display: drop window input geometry, then delegate unchanged.
+            clearWindowStreaming()
+            await handleDisplaySwitchRequest(DisplaySwitchRequestMessage(
+                sessionID: message.sessionID,
+                targetDisplayID: message.target.identifier,
+                senderDeviceID: message.senderDeviceID,
+                requestedAt: message.requestedAt
+            ))
+        case .window:
+            await switchToWindow(windowIDString: message.target.identifier, request: message, startTime: startTime)
+        case .application:
+            await switchToApplication(
+                bundleID: message.target.identifier,
+                launchIfNeeded: message.launchIfNeeded,
+                request: message,
+                startTime: startTime
+            )
+        }
+    }
+
+    // MARK: Target resolution
+
+    private func switchToWindow(windowIDString: String, request: StreamTargetSwitchRequestMessage, startTime: Date) async {
+        guard let windowIDValue = CGWindowID(windowIDString),
+              let info = applicationRegistry.windowInfo(windowID: windowIDValue) else {
+            sendTargetResult(request: request, resolved: request.target, status: .failed,
+                             reason: "That window is no longer available.", descriptor: nil, startTime: startTime)
+            return
+        }
+        let owner = NSRunningApplication(processIdentifier: info.ownerPID)
+        sendTargetResult(request: request, resolved: .window(windowIDString), status: .accepted,
+                         reason: nil, descriptor: nil, startTime: startTime)
+        await beginWindowStream(
+            window: info,
+            bundleID: owner?.bundleIdentifier ?? "",
+            name: owner?.localizedName ?? "Application",
+            request: request,
+            startTime: startTime
+        )
+    }
+
+    private func switchToApplication(bundleID: String, launchIfNeeded: Bool, request: StreamTargetSwitchRequestMessage, startTime: Date) async {
+        let existing = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first
+        if existing == nil && !launchIfNeeded {
+            sendTargetResult(request: request, resolved: request.target, status: .failed,
+                             reason: "\(bundleID) is not running.", descriptor: nil, startTime: startTime)
+            return
+        }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            sendTargetResult(request: request, resolved: request.target, status: .failed,
+                             reason: "\(bundleID) is not installed.", descriptor: nil, startTime: startTime)
+            return
+        }
+
+        sendTargetResult(request: request, resolved: request.target, status: .accepted,
+                         reason: nil, descriptor: nil, startTime: startTime)
+
+        // openApplication launches if needed and activates if already running — one API, no
+        // deprecated activate(options:) and no launch/activate race to reason about.
+        let runningApp: NSRunningApplication
+        do {
+            let config = NSWorkspace.OpenConfiguration()
+            config.activates = true
+            runningApp = try await NSWorkspace.shared.openApplication(at: url, configuration: config)
+        } catch {
+            sendTargetResult(request: request, resolved: request.target, status: .failed,
+                             reason: "Could not launch \(bundleID): \(error.localizedDescription)", descriptor: nil, startTime: startTime)
+            return
+        }
+
+        // A freshly launched app does not have its window immediately — wait, bounded.
+        guard let window = await resolveWindowWithRetry(pid: runningApp.processIdentifier,
+                                                        deadline: Date().addingTimeInterval(4.0)) else {
+            sendTargetResult(request: request, resolved: request.target, status: .failed,
+                             reason: "\(runningApp.localizedName ?? bundleID) has no streamable window yet.",
+                             descriptor: nil, startTime: startTime)
+            return
+        }
+        await beginWindowStream(
+            window: window,
+            bundleID: bundleID,
+            name: runningApp.localizedName ?? "Application",
+            request: request,
+            startTime: startTime
+        )
+    }
+
+    /// Bounded poll for an app's streamable window after launch/activate. Never infinite.
+    private func resolveWindowWithRetry(pid: pid_t, deadline: Date) async -> WindowInfo? {
+        while Date() < deadline {
+            if let window = applicationRegistry.streamableWindow(forPID: pid) { return window }
+            try? await Task.sleep(nanoseconds: 150_000_000)
+        }
+        return applicationRegistry.streamableWindow(forPID: pid)
+    }
+
+    // MARK: Capture
+
+    private func beginWindowStream(window rawWindow: WindowInfo, bundleID: String, name: String, request: StreamTargetSwitchRequestMessage, startTime: Date) async {
+        isWindowStreamTransitioning = true
+        defer { isWindowStreamTransitioning = false }
+        var window = rawWindow
+        // Fit-to-phone: resize the Mac window to the client's viewport aspect (sent per-device, so
+        // it's exact for any iPhone) so the stream fills the screen with no letterbox bars. Best
+        // effort — an app with a minimum size may not shrink fully.
+        if let aspect = request.clientViewportAspect, aspect > 0 {
+            Self.resizeWindow(pid: window.ownerPID, toAspect: aspect)
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            if let resized = applicationRegistry.windowInfo(windowID: window.windowID) {
+                window = resized
+            }
+        }
+        let scale = applicationRegistry.windowScaleFactor(bounds: window.bounds)
+        let descriptor = Self.windowDescriptor(windowID: window.windowID, name: name, bounds: window.bounds, scale: scale)
+        let preset = minQualityPreset(performanceStateController.profile.effectivePreset, .balanced)
+
+        // Cancel tracking for the previous window before replacing its capture pipeline.
+        // The old task must not report a loss while this switch is in progress.
+        clearWindowStreaming()
+
+        // Input must map into the window from the first frame.
+        updateWindowInputGeometry(descriptor: descriptor)
+
+        do {
+            try await restartStreamingPipelineForWindow(descriptor: descriptor, windowID: window.windowID, qualityPreset: preset)
+            activeWindowTarget = WindowStreamTarget(
+                windowID: window.windowID,
+                ownerPID: window.ownerPID,
+                bundleIdentifier: bundleID,
+                descriptor: descriptor
+            )
+            startWindowTracking(sessionID: request.sessionID, senderDeviceID: request.senderDeviceID)
+            await publishHostStatusUpdate()
+            sendTargetResult(request: request, resolved: .window(String(window.windowID)), status: .completed,
+                             reason: nil, descriptor: descriptor, startTime: startTime)
+        } catch {
+            clearWindowStreaming()
+            sendTargetResult(request: request, resolved: request.target, status: .failed,
+                             reason: "Could not start window capture: \(error.localizedDescription)",
+                             descriptor: nil, startTime: startTime)
+        }
+    }
+
+    private func restartStreamingPipelineForWindow(descriptor: DisplayDescriptor, windowID: CGWindowID, qualityPreset: StreamQualityPreset) async throws {
+        streamingCoordinator.handleDisplayRestart()
+        await captureEngine.stopCapture()
+        await encoderPipeline.stopEncoding()
+        // Window capture is SDR-only (ScreenCaptureEngine.startCapture(windowID:)); pin the
+        // encoder to SDR so capture/encode never disagree on bit depth.
+        try await encoderPipeline.configure(
+            for: descriptor,
+            qualityPreset: qualityPreset,
+            codec: negotiatedEncoderCodec,
+            dynamicRange: .sdr
+        )
+        try await encoderPipeline.startEncoding()
+        try await captureEngine.startCapture(
+            windowID: String(windowID),
+            qualityPreset: qualityPreset,
+            allowsHighResolution: captureAllowsHighResolution
+        )
+        encoderPipeline.forceKeyframe()
+        startAdaptiveStreamingControl(for: qualityPreset)
+        try await waitForFirstFrame(timeoutSeconds: startupFirstFrameTimeoutSeconds)
+        // The window descriptor's id is a windowID, so display-layout recovery never matches it —
+        // a monitor reconfigure won't clobber the window stream (it drops to target-lost instead).
+        markActiveStreamDisplay(descriptor)
+    }
+
+    // MARK: Window tracking (movement + loss)
+
+    private func startWindowTracking(sessionID: UUID, senderDeviceID: UUID) {
+        windowTrackingTask?.cancel()
+        // Inherits @MainActor from the enclosing coordinator, so member access is main-isolated.
+        windowTrackingTask = Task { [weak self] in
+            var misses = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                guard let self else { return }
+                guard let target = self.activeWindowTarget, self.activeSessionID == sessionID else { return }
+                if let info = self.applicationRegistry.windowInfo(windowID: target.windowID) {
+                    misses = 0
+                    let scale = self.applicationRegistry.windowScaleFactor(bounds: info.bounds)
+                    let sizeChanged = info.bounds.size != target.descriptor.frame.size
+                    let scaleChanged = abs(scale - target.descriptor.scaleFactor) > 0.01
+                    // Movement only needs a cheap geometry update. A resize or moving to a
+                    // differently-scaled screen requires a fresh encoder/capture configuration
+                    // so the video aspect and the input mapper stay in lockstep.
+                    if sizeChanged || scaleChanged {
+                        await self.reconfigureWindowStream(
+                            target: target,
+                            bounds: info.bounds,
+                            scale: scale,
+                            sessionID: sessionID,
+                            senderDeviceID: senderDeviceID
+                        )
+                    } else if info.bounds.origin != target.descriptor.frame.origin {
+                        var updated = target
+                        updated.descriptor.frame = DesktopRect(origin: info.bounds.origin, size: updated.descriptor.frame.size)
+                        self.activeWindowTarget = updated
+                        self.updateWindowInputGeometry(descriptor: updated.descriptor)
+                    }
+                } else {
+                    // Require two consecutive misses (~400 ms) before declaring loss so a
+                    // transient absence (Space switch, brief occlusion) isn't a false positive.
+                    misses += 1
+                    if misses >= 2 {
+                        self.notifyTargetLost(sessionID: sessionID, senderDeviceID: senderDeviceID,
+                                              target: .window(String(target.windowID)),
+                                              reason: "The application window is no longer available.")
+                        await self.stopWindowStreamPipeline()
+                        self.clearWindowStreaming()
+                        return
+                    }
+                }
+            }
+        }
+    }
+
+    func clearWindowStreaming() {
+        activeWindowTarget = nil
+        windowTrackingTask?.cancel()
+        windowTrackingTask = nil
+        streamWindowGeometry.set(nil)
+        activeStreamDisplayRestartKey = nil
+    }
+
+    private func stopActiveWindowStream() async {
+        guard activeWindowTarget != nil else { return }
+        isWindowStreamTransitioning = true
+        defer { isWindowStreamTransitioning = false }
+        await stopWindowStreamPipeline()
+        clearWindowStreaming()
+    }
+
+    private func stopWindowStreamPipeline() async {
+        adaptiveStreamingTask?.cancel()
+        adaptiveStreamingTask = nil
+        await captureEngine.stopCapture()
+        await encoderPipeline.stopEncoding()
+    }
+
+    private func reconfigureWindowStream(
+        target: WindowStreamTarget,
+        bounds: DesktopRect,
+        scale: Double,
+        sessionID: UUID,
+        senderDeviceID: UUID
+    ) async {
+        isWindowStreamTransitioning = true
+        defer { isWindowStreamTransitioning = false }
+        let descriptor = Self.windowDescriptor(
+            windowID: target.windowID,
+            name: target.descriptor.name,
+            bounds: bounds,
+            scale: scale
+        )
+        do {
+            try await restartStreamingPipelineForWindow(
+                descriptor: descriptor,
+                windowID: target.windowID,
+                qualityPreset: currentQualityPreset
+            )
+            guard activeSessionID == sessionID else {
+                await stopWindowStreamPipeline()
+                clearWindowStreaming()
+                return
+            }
+            activeWindowTarget = WindowStreamTarget(
+                windowID: target.windowID,
+                ownerPID: target.ownerPID,
+                bundleIdentifier: target.bundleIdentifier,
+                descriptor: descriptor
+            )
+            updateWindowInputGeometry(descriptor: descriptor)
+            let request = StreamTargetSwitchRequestMessage(
+                sessionID: sessionID,
+                target: .window(String(target.windowID)),
+                launchIfNeeded: false,
+                senderDeviceID: senderDeviceID
+            )
+            sendTargetResult(
+                request: request,
+                resolved: .window(String(target.windowID)),
+                status: .completed,
+                reason: nil,
+                descriptor: descriptor,
+                startTime: Date()
+            )
+        } catch {
+            await stopWindowStreamPipeline()
+            clearWindowStreaming()
+            let request = StreamTargetSwitchRequestMessage(
+                sessionID: sessionID,
+                target: .window(String(target.windowID)),
+                launchIfNeeded: false,
+                senderDeviceID: senderDeviceID
+            )
+            sendTargetResult(
+                request: request,
+                resolved: .window(String(target.windowID)),
+                status: .failed,
+                reason: "The app window changed size and could not be restarted.",
+                descriptor: nil,
+                startTime: Date()
+            )
+        }
+    }
+
+    // MARK: Helpers
+
+    private func updateWindowInputGeometry(descriptor: DisplayDescriptor) {
+        streamWindowGeometry.set(DisplayLayout(
+            displays: [descriptor],
+            primaryDisplayID: descriptor.id,
+            virtualBounds: descriptor.frame
+        ))
+    }
+
+    /// Resize the app's focused window to the given aspect (keep width, height = width / aspect),
+    /// via the Accessibility API (already-granted). Best effort — no-op if AX can't reach the window.
+    private static func resizeWindow(pid: pid_t, toAspect aspect: Double) {
+        let axApp = AXUIElementCreateApplication(pid)
+        var focusedRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &focusedRef) == .success,
+              let focused = focusedRef, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return }
+        let axWindow = focused as! AXUIElement
+
+        var currentSize = CGSize(width: 1280, height: 800)
+        var sizeRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(axWindow, kAXSizeAttribute as CFString, &sizeRef) == .success,
+           let sizeRef, CFGetTypeID(sizeRef) == AXValueGetTypeID() {
+            AXValueGetValue(sizeRef as! AXValue, .cgSize, &currentSize)
+        }
+        let width = max(currentSize.width, 320)
+        var newSize = CGSize(width: width, height: (width / CGFloat(aspect)).rounded())
+        if let value = AXValueCreate(.cgSize, &newSize) {
+            AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, value)
+        }
+    }
+
+    private static func windowDescriptor(windowID: CGWindowID, name: String, bounds: DesktopRect, scale: Double) -> DisplayDescriptor {
+        DisplayDescriptor(
+            id: String(windowID),
+            name: name,
+            frame: bounds, // points, CG top-left global — same space as CGEvent + display frames
+            visibleFrame: bounds,
+            pixelSize: DesktopSize(width: bounds.size.width * scale, height: bounds.size.height * scale),
+            scaleFactor: scale,
+            refreshRate: nil,
+            rotation: 0,
+            isPrimary: false,
+            isActive: true
+        )
+    }
+
+    private func notifyTargetLost(sessionID: UUID, senderDeviceID: UUID, target: StreamTarget, reason: String) {
+        let message = StreamTargetSwitchResultMessage(
+            sessionID: sessionID,
+            resolvedTarget: target,
+            senderDeviceID: senderDeviceID,
+            status: .failed,
+            reason: reason,
+            startedAt: Date()
+        )
+        if let envelope = try? DataChannelEnvelope.streamTargetSwitchResult(message) {
+            try? webRTCSessionManager.sendDataMessage(envelope)
+        }
+        Task { await eventLogStore.append(EventLogItem(
+            severity: .info, category: "AppStreaming", message: "Stream target lost: \(reason)")) }
+    }
+
+    private func sendTargetResult(request: StreamTargetSwitchRequestMessage, resolved: StreamTarget, status: DisplaySwitchStatus, reason: String?, descriptor: DisplayDescriptor?, startTime: Date) {
+        let message = StreamTargetSwitchResultMessage(
+            sessionID: request.sessionID,
+            resolvedTarget: resolved,
+            senderDeviceID: request.senderDeviceID,
+            status: status,
+            reason: reason,
+            width: descriptor.map { Int($0.frame.size.width.rounded()) },
+            height: descriptor.map { Int($0.frame.size.height.rounded()) },
+            scaleFactor: descriptor?.scaleFactor,
+            startedAt: startTime
+        )
+        if let envelope = try? DataChannelEnvelope.streamTargetSwitchResult(message) {
+            try? webRTCSessionManager.sendDataMessage(envelope)
+        }
+    }
+}
+#endif

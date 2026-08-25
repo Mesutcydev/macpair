@@ -212,7 +212,7 @@ final class HostTerminalService: @unchecked Sendable {
             self.journal?.append(sessionID: sessionID, type: .sessionAttached, payload: Data())
             if self.detachedSessions.remove(sessionID) != nil {
                 let count = self.activeTerminals.values.filter { $0.sessionID == sessionID }.count
-                self.logger.info("Transport reattached — \\(count) terminal(s) resume for session \\(sessionID.uuidString)")
+                self.logger.info("Transport reattached — \(count) terminal(s) resume for session \(sessionID.uuidString)")
             }
         }
     }

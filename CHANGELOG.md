@@ -4,6 +4,16 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Vamp Mini Host, a separate macOS menu-bar app with its own host identity and
+  trusted-peer store. It provides pairing review, exact fingerprint confirmation,
+  permission guidance, Tailscale status, and Start / Stop / Restart controls.
+- A standalone [Vamp Mini Host product page](docs/mini-host/index.html) and a
+  dedicated `VampMiniHost` packaging target.
+
 ## [2.3.0] - 2026-08-22 — build 47
 
 ### Fixed

@@ -10,6 +10,7 @@ import os
 
 public enum CaptureEngineError: Error, LocalizedError, Sendable {
     case displayNotFound(String)
+    case windowNotFound(String)
     case permissionDenied
     case configurationFailed(String)
     case alreadyCapturing
@@ -19,6 +20,8 @@ public enum CaptureEngineError: Error, LocalizedError, Sendable {
         switch self {
         case .displayNotFound(let id):
             return "Display '\(id)' not found in shareable content."
+        case .windowNotFound(let id):
+            return "Window '\(id)' not found in shareable content (it may have closed)."
         case .permissionDenied:
             return "Screen recording permission was denied."
         case .configurationFailed(let msg):
@@ -178,53 +181,13 @@ public final class ScreenCaptureEngine: NSObject, CaptureEngineProtocol, @unchec
             logger.info("Starting capture: \(config.summaryDescription, privacy: .public)")
 
             let filter = SCContentFilter(display: scDisplay, excludingWindows: [])
-            let streamConfig: SCStreamConfiguration
-            if dynamicRange == .hdr10 {
-                if #available(macOS 15.0, *) {
-                    streamConfig = SCStreamConfiguration(preset: .captureHDRStreamCanonicalDisplay)
-                } else {
-                    throw CaptureEngineError.configurationFailed("HDR capture requires macOS 15 or newer.")
-                }
-            } else {
-                streamConfig = SCStreamConfiguration()
-            }
-            streamConfig.width = config.width
-            streamConfig.height = config.height
-            streamConfig.minimumFrameInterval = config.minimumFrameInterval
-            streamConfig.queueDepth = config.queueDepth
-            if dynamicRange == .sdr {
-                streamConfig.pixelFormat = config.pixelFormat
-                // Normalize the SDR wire path so a wide-gamut display profile does
-                // not arrive at the encoder as P3/HDR-ish data that the client then
-                // presents as BT.709. This keeps dark terminal UI contrast intact.
-                streamConfig.colorSpaceName = CGColorSpace.sRGB
-                streamConfig.colorMatrix = kCVImageBufferYCbCrMatrix_ITU_R_709_2
-            }
-            if dynamicRange == .hdr10 {
-                // The HDR preset doesn't pin a pixel format, but the encoder/decoder are
-                // hard-coded to 10-bit. Without this, capture could hand back 8-bit buffers
-                // and the three stages would disagree on bit depth. Force a 10-bit biplanar
-                // format so capture/encode/decode all agree.
-                streamConfig.pixelFormat = kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
-            }
-            streamConfig.showsCursor = config.showsCursor
-
-            if #available(macOS 13.0, *) {
-                streamConfig.capturesAudio = true
-            }
-
-            let handler = StreamOutputHandler(engine: self, displayID: displayID)
-            let scStream = SCStream(filter: filter, configuration: streamConfig, delegate: handler)
-            try scStream.addStreamOutput(handler, type: .screen, sampleHandlerQueue: .global(qos: .userInteractive))
-            if #available(macOS 13.0, *) {
-                try scStream.addStreamOutput(handler, type: .audio, sampleHandlerQueue: .global(qos: .userInteractive))
-            }
-
-            installStream(scStream, handler: handler)
-            lock.withLock { streamConfiguration = streamConfig }
-
-            try await scStream.startCapture()
-            transitionState(.running)
+            try await startStream(
+                filter: filter,
+                config: config,
+                streamID: displayID,
+                dynamicRange: dynamicRange,
+                capturesAudio: true
+            )
             logger.info("Capture started for display \(displayID, privacy: .public)")
 
         } catch let error as CaptureEngineError {
@@ -234,6 +197,142 @@ public final class ScreenCaptureEngine: NSObject, CaptureEngineProtocol, @unchec
             logger.error("Capture start failed: \(error.localizedDescription, privacy: .public)")
             throw CaptureEngineError.streamFailed(error.localizedDescription)
         }
+    }
+
+    /// Capture a single application window instead of a whole display. The entire
+    /// downstream pipeline (encode → transport → decode → input) is identical; only the
+    /// `SCContentFilter` and the capture surface size differ. Requires macOS 14 for
+    /// `SCContentFilter.contentRect`/`pointPixelScale`, which size the Retina surface
+    /// correctly without hand-rolled backing-scale math.
+    public func startCapture(windowID: String, qualityPreset: StreamQualityPreset, allowsHighResolution: Bool) async throws {
+        let currentState = withLock { _captureState }
+        guard currentState == .stopped || currentState == .failed || currentState == .permissionBlocked else {
+            throw CaptureEngineError.alreadyCapturing
+        }
+        guard #available(macOS 14.0, *) else {
+            throw CaptureEngineError.configurationFailed("Window streaming requires macOS 14 or newer.")
+        }
+
+        transitionState(.starting)
+        wakeDisplay()
+        updateCaptureRequestDiagnostics(displayID: windowID, qualityPreset: qualityPreset)
+
+        do {
+            let content: SCShareableContent
+            do {
+                content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            } catch {
+                let nsError = error as NSError
+                if nsError.domain == "com.apple.ScreenCaptureKit" {
+                    transitionState(.permissionBlocked)
+                    throw CaptureEngineError.permissionDenied
+                }
+                throw error
+            }
+
+            // Only on-screen windows are streamable. A minimized/hidden window won't be
+            // here, so the host must activate it first (see StreamTargetSwitch handling).
+            guard let scWindow = content.windows.first(where: { String($0.windowID) == windowID }) else {
+                transitionState(.failed)
+                throw CaptureEngineError.windowNotFound(windowID)
+            }
+
+            let filter = SCContentFilter(desktopIndependentWindow: scWindow)
+            let pixelScale = CGFloat(filter.pointPixelScale)
+            let contentRect = filter.contentRect
+            let pixelWidth = Int((contentRect.width * pixelScale).rounded())
+            let pixelHeight = Int((contentRect.height * pixelScale).rounded())
+            guard pixelWidth > 0, pixelHeight > 0 else {
+                transitionState(.failed)
+                throw CaptureEngineError.configurationFailed("Window has zero size.")
+            }
+
+            let config = CaptureConfiguration.forPreset(
+                qualityPreset,
+                displayWidth: pixelWidth,
+                displayHeight: pixelHeight,
+                scaleFactor: Double(pixelScale),
+                allowsHighResolution: allowsHighResolution
+            )
+            logger.info("Starting window capture: \(config.summaryDescription, privacy: .public)")
+
+            // A window stream is video-only for now.
+            // ponytail: add per-app audio once the window video path is proven.
+            try await startStream(
+                filter: filter,
+                config: config,
+                streamID: windowID,
+                dynamicRange: .sdr,
+                capturesAudio: false
+            )
+            logger.info("Capture started for window \(windowID, privacy: .public)")
+        } catch let error as CaptureEngineError {
+            throw error
+        } catch {
+            transitionState(.failed)
+            logger.error("Window capture start failed: \(error.localizedDescription, privacy: .public)")
+            throw CaptureEngineError.streamFailed(error.localizedDescription)
+        }
+    }
+
+    /// Shared SCStream construction for both display and window capture. Given an
+    /// already-built content filter and target `CaptureConfiguration`, wires the stream
+    /// outputs and starts capture. Keeping one path here means display and window
+    /// streaming can never drift on color/pixel-format/queue handling.
+    private func startStream(
+        filter: SCContentFilter,
+        config: CaptureConfiguration,
+        streamID: String,
+        dynamicRange: StreamDynamicRange,
+        capturesAudio: Bool
+    ) async throws {
+        let streamConfig: SCStreamConfiguration
+        if dynamicRange == .hdr10 {
+            if #available(macOS 15.0, *) {
+                streamConfig = SCStreamConfiguration(preset: .captureHDRStreamCanonicalDisplay)
+            } else {
+                throw CaptureEngineError.configurationFailed("HDR capture requires macOS 15 or newer.")
+            }
+        } else {
+            streamConfig = SCStreamConfiguration()
+        }
+        streamConfig.width = config.width
+        streamConfig.height = config.height
+        streamConfig.minimumFrameInterval = config.minimumFrameInterval
+        streamConfig.queueDepth = config.queueDepth
+        if dynamicRange == .sdr {
+            streamConfig.pixelFormat = config.pixelFormat
+            // Normalize the SDR wire path so a wide-gamut display profile does
+            // not arrive at the encoder as P3/HDR-ish data that the client then
+            // presents as BT.709. This keeps dark terminal UI contrast intact.
+            streamConfig.colorSpaceName = CGColorSpace.sRGB
+            streamConfig.colorMatrix = kCVImageBufferYCbCrMatrix_ITU_R_709_2
+        }
+        if dynamicRange == .hdr10 {
+            // The HDR preset doesn't pin a pixel format, but the encoder/decoder are
+            // hard-coded to 10-bit. Without this, capture could hand back 8-bit buffers
+            // and the three stages would disagree on bit depth. Force a 10-bit biplanar
+            // format so capture/encode/decode all agree.
+            streamConfig.pixelFormat = kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
+        }
+        streamConfig.showsCursor = config.showsCursor
+
+        if #available(macOS 13.0, *) {
+            streamConfig.capturesAudio = capturesAudio
+        }
+
+        let handler = StreamOutputHandler(engine: self, displayID: streamID)
+        let scStream = SCStream(filter: filter, configuration: streamConfig, delegate: handler)
+        try scStream.addStreamOutput(handler, type: .screen, sampleHandlerQueue: .global(qos: .userInteractive))
+        if #available(macOS 13.0, *), capturesAudio {
+            try scStream.addStreamOutput(handler, type: .audio, sampleHandlerQueue: .global(qos: .userInteractive))
+        }
+
+        installStream(scStream, handler: handler)
+        lock.withLock { streamConfiguration = streamConfig }
+
+        try await scStream.startCapture()
+        transitionState(.running)
     }
 
     public func stopCapture() async {

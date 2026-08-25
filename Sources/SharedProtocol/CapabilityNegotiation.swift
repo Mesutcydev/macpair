@@ -17,6 +17,7 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
     public var supportsTerminalChat: Bool
     public var supportsTaskPlans: Bool
     public var supportsWorkspaces: Bool
+    public var supportsAppStreaming: Bool
 
     public init(
         videoCodec: VideoCodec,
@@ -28,7 +29,8 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         supportsMultipleTerminals: Bool = false,
         supportsTerminalChat: Bool = false,
         supportsTaskPlans: Bool = false,
-        supportsWorkspaces: Bool = false
+        supportsWorkspaces: Bool = false,
+        supportsAppStreaming: Bool = false
     ) {
         self.videoCodec = videoCodec
         self.supportsMultiDisplay = supportsMultiDisplay
@@ -40,6 +42,7 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         self.supportsTerminalChat = supportsTerminalChat
         self.supportsTaskPlans = supportsTaskPlans
         self.supportsWorkspaces = supportsWorkspaces
+        self.supportsAppStreaming = supportsAppStreaming
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -53,6 +56,7 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         case supportsTerminalChat
         case supportsTaskPlans
         case supportsWorkspaces
+        case supportsAppStreaming
     }
 
     public init(from decoder: Decoder) throws {
@@ -67,6 +71,7 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         supportsTerminalChat = try container.decodeIfPresent(Bool.self, forKey: .supportsTerminalChat) ?? false
         supportsTaskPlans = try container.decodeIfPresent(Bool.self, forKey: .supportsTaskPlans) ?? false
         supportsWorkspaces = try container.decodeIfPresent(Bool.self, forKey: .supportsWorkspaces) ?? false
+        supportsAppStreaming = try container.decodeIfPresent(Bool.self, forKey: .supportsAppStreaming) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -81,6 +86,7 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         try container.encode(supportsTerminalChat, forKey: .supportsTerminalChat)
         try container.encode(supportsTaskPlans, forKey: .supportsTaskPlans)
         try container.encode(supportsWorkspaces, forKey: .supportsWorkspaces)
+        try container.encode(supportsAppStreaming, forKey: .supportsAppStreaming)
     }
 }
 
@@ -110,7 +116,8 @@ public enum CapabilityNegotiator {
             supportsMultipleTerminals: host.contains(.supportsMultipleTerminals) && client.contains(.supportsMultipleTerminals),
             supportsTerminalChat: host.contains(.supportsTerminalChat) && client.contains(.supportsTerminalChat),
             supportsTaskPlans: host.contains(.supportsTaskPlans) && client.contains(.supportsTaskPlans),
-            supportsWorkspaces: host.contains(.supportsWorkspaces) && client.contains(.supportsWorkspaces)
+            supportsWorkspaces: host.contains(.supportsWorkspaces) && client.contains(.supportsWorkspaces),
+            supportsAppStreaming: host.contains(.supportsAppStreaming) && client.contains(.supportsAppStreaming)
         )
     }
 }

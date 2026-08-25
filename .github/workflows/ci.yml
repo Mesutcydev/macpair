@@ -64,6 +64,16 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
           build
 
+      - name: Build menu-bar mini host
+        run: >-
+          xcodebuild
+          -project RemoteDesktopToolApps.xcodeproj
+          -scheme VampMiniHost
+          -configuration Debug
+          -destination 'platform=macOS'
+          CODE_SIGNING_ALLOWED=NO
+          build
+
       - name: Build iOS terminal client
         run: >-
           xcodebuild

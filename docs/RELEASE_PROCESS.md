@@ -1,16 +1,18 @@
 # Release process
 
-Vamp releases are built from a clean, committed source tree. The iOS IPA is
-unsigned and must be re-signed by the installer's sideloading tool. The two
-macOS hosts are local utilities: Vamp Host is the complete host, while Vamp
-Terminal Host is the terminal-only variant.
+Vamp releases are built from a clean, committed source tree. The iOS IPAs are
+unsigned and must be re-signed by the installer's sideloading tool. The macOS
+hosts are local utilities: Vamp Host is the complete host, Vamp Terminal Host
+is the terminal-only variant, and Vamp Mini Host is the pairing-first menu-bar
+variant. Vamp Assistant remains a separate compatible control surface on port
+9575.
 
 ## Prepare
 
 1. Update `CHANGELOG.md`, versions, documentation, and dependency locks.
 2. Run `swift test`.
-3. Build `MacHost` and `VampTerminalHost` from `RemoteDesktopToolApps.xcodeproj` with signing disabled.
-4. Build the `VampTerminalApp` scheme for a generic iOS device with signing disabled.
+3. Build `MacHost`, `VampTerminalHost`, and `VampMiniHost` from `RemoteDesktopToolApps.xcodeproj` with signing disabled.
+4. Build the `VampTerminalApp` and standalone `VampStream` schemes for a generic iOS device with signing disabled.
 5. Run `swift test --parallel` and the Linux host tests.
 6. Review `git diff`, secret scanning results, dependency notices, and the provenance
    attestation in `PROVENANCE.md`.
@@ -22,18 +24,26 @@ From the clean tagged commit:
 
 ```bash
 scripts/package-vamp-terminal-ios.sh --clean
+scripts/package-vamp-stream-ios.sh --clean
+scripts/package-vamp-mini-host.sh --clean
 ```
 
-The iOS packaging script:
+The packaging scripts:
 
-- builds an arm64 device IPA;
+- build arm64 device IPAs for Vamp Terminal and Vamp Stream;
+- build and ad-hoc sign the Vamp Mini Host DMG;
 - creates SHA-256 checksum files;
 - records the source commit and tree state in JSON manifests; and
 - generates a CycloneDX SBOM.
 
-The iOS script creates an unsigned, arm64 IPA for a sideload tool to re-sign. It
-also creates a checksum, source manifest, and CycloneDX SBOM, and refuses a dirty
-tree unless `--allow-dirty` is explicitly used for development.
+The Vamp Terminal and Vamp Stream scripts create unsigned, arm64 IPAs for a
+sideload tool to re-sign. Their app bundles contain no provisioning profile,
+code signature, or project-owned entitlements; Local Network access is declared
+through `Info.plist` because the Bonjour discovery contract does not require a
+team-managed entitlement. The Mini Host script creates an ad-hoc signed DMG for
+local macOS distribution. All scripts create checksums, source manifests, and
+CycloneDX SBOMs, and refuse a dirty tree unless `--allow-dirty` is explicitly
+used for development.
 
 Packaging with `--release` refuses a dirty tree, a missing commit, or a version that
 does not match the `vX.Y.Z` tag.

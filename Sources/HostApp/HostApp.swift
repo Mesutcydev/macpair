@@ -6,7 +6,7 @@ import SharedUI
 import AppKit
 #endif
 
-#if !VAMP_TERMINAL_HOST
+#if !VAMP_TERMINAL_HOST && !VAMP_MINI_HOST
 @main
 struct HostApp: App {
     /// One process-wide owner prevents duplicate signaling/browser runtimes if

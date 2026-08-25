@@ -12,24 +12,32 @@ this repository. Vamp Linux Host is a separate loopback WebSocket companion.
 | --- | --- |
 | Full host | `Vamp Host` — remote display, input, and optional Terminal Mode |
 | Light host | `Vamp Terminal Host` — always-on terminal and Safari control only |
+| Mini host | `Vamp Mini Host` — pairing-first menu-bar host with permission guidance |
 | Linux host | `Vamp Linux Host` — Python browser host; not a WebRTC peer |
 | Remote-desktop client | `Vamp Control` — macOS and iOS/iPadOS. Terminal Mode is an overlay |
 | Terminal client | `Vamp Terminal` — eight concurrent tabs and ten agent launchers |
+| App-stream client | `Vamp Stream` — focused iOS/iPadOS app-window streaming client |
+| Assistant compatibility | `Vamp Assistant` — separate full-screen control surface on private port `9575` |
 | Browser client | Safari control on host loopback `9475` |
 | Full host bundle ID | `com.mesutcy.remotedesktop.host` |
 | Light host bundle ID | `com.mesutcy.remotedesktop.terminalhost` |
+| Mini host bundle ID | `com.mesutcy.remotedesktop.minhost` |
 | Control macOS bundle ID | `com.mesutcy.remotedesktop.macclient` |
 | Control iOS bundle ID | `com.mesutcy.remotedesktop.ios` |
 | Terminal iOS bundle ID | `com.mesutcy.remotedesktop.terminal` |
+| Stream iOS bundle ID | `com.mesutcydev.remotedesktop.stream` |
 | Project | `RemoteDesktopToolApps.xcodeproj` |
 | Full host scheme | `MacHost` |
 | Light host scheme | `VampTerminalHost` |
+| Mini host scheme | `VampMiniHost` |
 | iOS terminal scheme | `VampTerminalApp` |
+| Stream project/spec | `vampstream-project.yml` / `VampStream` |
 | Bonjour service | `_screenharbor._tcp` (wire-compatibility contract only) |
 | Signaling ports | `9471` plain, `9473` TLS |
 | Data port | `9472` |
 | Browser control | loopback `9475`, exposed privately with Tailscale Serve |
 | URL scheme | `vamphost://action/{start,stop,restart}` and `vampterminalhost://` |
+| Mini URL scheme | `vampminihost://` |
 | License | Apache-2.0 |
 
 Run only one macOS host at a time. Vamp Control and Vamp Terminal cannot attach
@@ -50,7 +58,15 @@ xcodebuild -project RemoteDesktopToolApps.xcodeproj -scheme MacHost \
 xcodebuild -project RemoteDesktopToolApps.xcodeproj -scheme VampTerminalHost \
   -configuration Release CODE_SIGNING_ALLOWED=NO build
 
+xcodebuild -project RemoteDesktopToolApps.xcodeproj -scheme VampMiniHost \
+  -configuration Release CODE_SIGNING_ALLOWED=NO build
+
 xcodebuild -project RemoteDesktopToolApps.xcodeproj -scheme VampTerminalApp \
+  -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+
+xcodegen generate --spec vampstream-project.yml
+xcodebuild -project VampStream.xcodeproj -scheme VampStream \
   -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
 ```
@@ -59,6 +75,8 @@ Package an AltStore-ready IPA with:
 
 ```bash
 scripts/package-vamp-terminal-ios.sh --clean --allow-dirty
+scripts/package-vamp-stream-ios.sh --clean --allow-dirty
+scripts/package-vamp-mini-host.sh --clean --allow-dirty
 ```
 
 Do not add a hard-coded Apple team or private credential to the public project.
@@ -123,6 +141,7 @@ action did not resolve, `7` for a fingerprint mismatch, and `8` on timeout.
 ## Source map
 
 - `Sources/HostApp`: full host, light host mode, terminal PTY service, and Safari control
+- `Sources/HostApp/VampMiniHostApp.swift`: standalone menu-bar pairing and permission surface
 - `Sources/ClientiOS`: shared connection services and the Vamp Terminal client
 - `Sources/SharedProtocol`: versioned wire messages and terminal routing
 - `Sources/SharedModels`: capability metadata and shared session models
@@ -132,6 +151,7 @@ action did not resolve, `7` for a fingerprint mismatch, and `8` on timeout.
 - `scripts/vamp`: agent CLI wrapper
 - `scripts/package-vamp-terminal-ios.sh`: unsigned iOS packaging
 - `docs/index.html`: GitHub Pages product site
+- `docs/mini-host/index.html`: Vamp Mini Host product page
 
 ## Verification
 

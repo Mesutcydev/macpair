@@ -131,6 +131,40 @@ final class ControlChannelAuthEnforcementTests: XCTestCase {
         router.stopListening()
     }
 
+    func testApplicationListReachesHandlerAfterAuth() async throws {
+        let sessionManager = ControlAuthTestSessionManager()
+        let inputService = RecordingInputInjectionService()
+        let eventLogStore = RecordingEventLogStore()
+        let modeProvider = HostSessionModeController(mode: .fullControl)
+        let router = HostInputCommandRouter(
+            inputService: inputService,
+            webRTCSessionManager: sessionManager,
+            eventLogStore: eventLogStore,
+            modeProvider: modeProvider
+        )
+
+        let sessionID = UUID()
+        let token = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
+
+        let reached = expectation(description: "applicationList reached handler")
+        router.onApplicationListRequest = { _ in reached.fulfill() }
+
+        router.startListening(sessionID: sessionID, expectedSessionTokenHex: token)
+        try sessionManager.emit(try DataChannelEnvelope.controlAuth(
+            ControlChannelAuthMessage(sessionID: sessionID, sessionToken: token)
+        ))
+
+        let req = ApplicationListRequestMessage(sessionID: sessionID, senderDeviceID: UUID())
+        let envelope = try XCTUnwrap(
+            try DataChannelEnvelope.applicationListRequest(req).authenticated(using: token, counter: 1)
+        )
+        try sessionManager.emit(envelope)
+
+        await fulfillment(of: [reached], timeout: 1.0)
+        XCTAssertEqual(router.commandsRejected, 0, "applicationList should not be rejected after valid auth")
+        router.stopListening()
+    }
+
     func testTerminalOnlyHostRejectsRemoteInputAfterAuthentication() async throws {
         let sessionManager = ControlAuthTestSessionManager()
         let inputService = RecordingInputInjectionService()

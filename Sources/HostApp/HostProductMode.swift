@@ -11,19 +11,34 @@ import SharedModels
 enum HostProductMode: String, CaseIterable, Sendable {
     case full
     case terminalOnly
+    /// A pairing-first menu-bar host. It uses the same authenticated terminal-safe
+    /// transport policy as the light host, but has its own product identity and UI.
+    case mini
 
     var isTerminalOnly: Bool {
-        self == .terminalOnly
+        self == .terminalOnly || self == .mini
     }
 
     var productTitle: String {
-        isTerminalOnly ? "Vamp Terminal Host" : "Vamp Host"
+        switch self {
+        case .full:
+            return "Vamp Host"
+        case .terminalOnly:
+            return "Vamp Terminal Host"
+        case .mini:
+            return "Vamp Mini Host"
+        }
     }
 
     var productSubtitle: String {
-        isTerminalOnly
-            ? "A focused Mac host for Vamp Terminal."
-            : "Remote desktop and terminal access for your Mac."
+        switch self {
+        case .full:
+            return "Remote desktop and terminal access for your Mac."
+        case .terminalOnly:
+            return "A focused Mac host for Vamp Terminal."
+        case .mini:
+            return "A pairing-first menu-bar host for your Mac."
+        }
     }
 
     /// H.264 remains in the terminal-only advertisement because the current
@@ -33,7 +48,7 @@ enum HostProductMode: String, CaseIterable, Sendable {
     var advertisedCapabilities: HostCapabilityFlags {
         switch self {
         case .full:
-            return [
+            var flags: HostCapabilityFlags = [
                 .supportsHEVC,
                 .supportsH264,
                 .supportsMultiDisplay,
@@ -45,7 +60,16 @@ enum HostProductMode: String, CaseIterable, Sendable {
                 .supportsTaskPlans,
                 .supportsWorkspaces
             ]
+            // App Streaming (window capture) needs ScreenCaptureKit APIs added in macOS 14.
+            // Older hosts simply never advertise it, so clients keep plain Remote Control.
+            if #available(macOS 14, *) { flags.insert(.supportsAppStreaming) }
+            return flags
         case .terminalOnly:
+            return [
+                .supportsH264, .supportsTerminal, .supportsMultipleTerminals,
+                .supportsTerminalChat, .supportsTaskPlans, .supportsWorkspaces
+            ]
+        case .mini:
             return [
                 .supportsH264, .supportsTerminal, .supportsMultipleTerminals,
                 .supportsTerminalChat, .supportsTaskPlans, .supportsWorkspaces

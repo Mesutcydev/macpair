@@ -17,8 +17,11 @@
 		A1B2C3D4E5F60718293A4B58 /* DisplayLayoutViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE20C7CB525B18119599A1C3 /* DisplayLayoutViewModel.swift */; };
 		A1B2C3D4E5F60718293A4B59 /* VampTerminalGlassDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B69 /* VampTerminalGlassDesign.swift */; };
 		E1BB00000000000000000001 /* HostProductMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1AA00000000000000000003 /* HostProductMode.swift */; };
+		E1BB00000000000000000010 /* HostApplicationRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1AA00000000000000000010 /* HostApplicationRegistry.swift */; };
+		E1BB00000000000000000011 /* HostAppStreamingSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1AA00000000000000000011 /* HostAppStreamingSupport.swift */; };
 		E1BB00000000000000000002 /* VampTerminalHostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1AA00000000000000000001 /* VampTerminalHostApp.swift */; };
 		E1BB00000000000000000003 /* VampTerminalHostShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1AA00000000000000000002 /* VampTerminalHostShellView.swift */; };
+		E1BB00000000000000000020 /* VampMiniHostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1AA00000000000000000020 /* VampMiniHostApp.swift */; };
 		A1B2C3D4E5F60718293A4B79 /* HostBrowserControlService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B7A /* HostBrowserControlService.swift */; };
 		A1B2C3D4E5F60718293A4B7B /* VampTerminalGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B7C /* VampTerminalGuideView.swift */; };
 		A1B2C3D4E5F60718293A4B71 /* SharedModels in Frameworks */ = {isa = PBXBuildFile; productRef = 26AF90C14843BB13D805DDF9 /* SharedModels */; };
@@ -332,6 +335,7 @@
 		D17F53E0DA55162CDAB386DF /* AppLockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockService.swift; sourceTree = "<group>"; };
 		D558188560181B46BFD46260 /* MacHostApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacHostApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1AA00000000000000000004 /* VampTerminalHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VampTerminalHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E1AA00000000000000000005 /* VampMiniHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VampMiniHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D92BD154FC9AC9151035F4FC /* AppLockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockView.swift; sourceTree = "<group>"; };
 		DAF7B95E22912BBDF556A2B5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		DC7EE3B36E9BA387CB123F19 /* Host.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Host.swift; sourceTree = "<group>"; };
@@ -366,6 +370,9 @@
 		E1AA00000000000000000001 /* VampTerminalHostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VampTerminalHostApp.swift; sourceTree = "<group>"; };
 		E1AA00000000000000000002 /* VampTerminalHostShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VampTerminalHostShellView.swift; sourceTree = "<group>"; };
 		E1AA00000000000000000003 /* HostProductMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostProductMode.swift; sourceTree = "<group>"; };
+		E1AA00000000000000000010 /* HostApplicationRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostApplicationRegistry.swift; sourceTree = "<group>"; };
+		E1AA00000000000000000011 /* HostAppStreamingSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostAppStreamingSupport.swift; sourceTree = "<group>"; };
+		E1AA00000000000000000020 /* VampMiniHostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VampMiniHostApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -551,6 +558,7 @@
 				A1B2C3D4E5F60718293A4B68 /* VampTerminalApp.app */,
 				D558188560181B46BFD46260 /* MacHostApp.app */,
 				E1AA00000000000000000004 /* VampTerminalHost.app */,
+				E1AA00000000000000000005 /* VampMiniHost.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -663,6 +671,8 @@
 				EACF4E052F4BBAF1F41178CE /* EncoderToTransportBridge.swift */,
 				EACFBE879030547A2902BB54 /* HostApp.swift */,
 				E1AA00000000000000000003 /* HostProductMode.swift */,
+				E1AA00000000000000000010 /* HostApplicationRegistry.swift */,
+				E1AA00000000000000000011 /* HostAppStreamingSupport.swift */,
 				8FC5D080852BD2D052359900 /* HostAppEnvironment.swift */,
 				70259DDE9965A730656047EE /* HostAppLinks.swift */,
 				A1B2C3D4E5F60718293A4B7A /* HostBrowserControlService.swift */,
@@ -695,6 +705,7 @@
 				B41C9C1DAFE5775895C103C5 /* TailscaleDetection.swift */,
 				E1AA00000000000000000001 /* VampTerminalHostApp.swift */,
 				E1AA00000000000000000002 /* VampTerminalHostShellView.swift */,
+				E1AA00000000000000000020 /* VampMiniHostApp.swift */,
 			);
 			path = HostApp;
 			sourceTree = "<group>";
@@ -833,6 +844,37 @@
 			productReference = E1AA00000000000000000004 /* VampTerminalHost.app */;
 			productType = "com.apple.product-type.application";
 		};
+		E1CC00000000000000000002 /* VampMiniHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E1EE00000000000000000002 /* Build configuration list for PBXNativeTarget "VampMiniHost" */;
+			buildPhases = (
+				1408B839AE374777BB725003 /* Sources */,
+				64A952BB788D81DAD0B1F955 /* Resources */,
+				8E0F6C9430F077BBC39096AC /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VampMiniHost;
+			packageProductDependencies = (
+				6DEDFDAACFFF0CD0D0BAF218 /* SharedModels */,
+				A9978F498AFA5B651D1DA3CC /* SharedProtocol */,
+				CA8ADBAD627AB808CEA605E9 /* SharedUtilities */,
+				9084FBE40EBAFFD850233F4D /* CaptureEngine */,
+				4D9850CE3EA48C1C387568AB /* EncodeEngine */,
+				78072D375540E9EC8B8E396E /* TransportWebRTC */,
+				F5036702DCBFF58EE06AFA8E /* InputControl */,
+				7A1588072C3B7243CD3B49B8 /* Permissions */,
+				33F0C30863F0680B4078D21B /* Discovery */,
+				9D63D80560EB98263A2DE968 /* Diagnostics */,
+				A1B2C3D4E5F60718293A4B7D /* HostWidgetShared */,
+				A1B2C3D4E5F60718293A4B7F /* SharedUI */,
+			);
+			productName = VampMiniHost;
+			productReference = E1AA00000000000000000005 /* VampMiniHost.app */;
+			productType = "com.apple.product-type.application";
+		};
 		D8296085E56FF7DDDE339F5E /* iOSRemoteLiveActivityExtension */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 212E0A4D563DE4690977FA66 /* Build configuration list for PBXNativeTarget "iOSRemoteLiveActivityExtension" */;
@@ -921,6 +963,7 @@
 			targets = (
 				6D1ABDDEDBE5C5E6D74D7B13 /* MacHostApp */,
 				E1CC00000000000000000001 /* VampTerminalHost */,
+				E1CC00000000000000000002 /* VampMiniHost */,
 				654DCDE5AE63309A3BB58107 /* iOSRemoteApp */,
 				D8296085E56FF7DDDE339F5E /* iOSRemoteLiveActivityExtension */,
 				A1B2C3D4E5F60718293A4BA0 /* VampTerminalApp */,
@@ -1053,6 +1096,8 @@
 				B1C0DE5E5510F1E500000003 /* HostSessionJournal.swift in Sources */,
 				F0A590A3B563B96CCDCEDE38 /* HostAgentSemanticService.swift in Sources */,
 				E1BB00000000000000000001 /* HostProductMode.swift in Sources */,
+				E1BB00000000000000000010 /* HostApplicationRegistry.swift in Sources */,
+				E1BB00000000000000000011 /* HostAppStreamingSupport.swift in Sources */,
 				3D11D2CFF21A842B4D1E7528 /* HostWakeReadiness.swift in Sources */,
 				D47D00000000000000000002 /* HostWatchdog.swift in Sources */,
 				F5543EB4165394B4E788B5F5 /* HostWakeReadinessCard.swift in Sources */,
@@ -1067,6 +1112,7 @@
 				078183DF431BF02632EDB1BC /* TailscaleDetection.swift in Sources */,
 				E1BB00000000000000000002 /* VampTerminalHostApp.swift in Sources */,
 				E1BB00000000000000000003 /* VampTerminalHostShellView.swift in Sources */,
+				E1BB00000000000000000020 /* VampMiniHostApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1602,6 +1648,60 @@
 			};
 			name = Release;
 		};
+		E1DD00000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "Configuration/VampMiniHost.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 47;
+				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
+				ENABLE_POINTER_AUTHENTICATION = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/VampMiniHost-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 2.3.0;
+				OTHER_LDFLAGS = "$(inherited) -framework AppIntents";
+				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.minhost;
+				PRODUCT_NAME = "Vamp Mini Host";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = VAMP_MINI_HOST;
+			};
+			name = Debug;
+		};
+		E1DD00000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "Configuration/VampMiniHost.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 47;
+				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
+				ENABLE_POINTER_AUTHENTICATION = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/VampMiniHost-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 2.3.0;
+				OTHER_LDFLAGS = "$(inherited) -framework AppIntents";
+				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.minhost;
+				PRODUCT_NAME = "Vamp Mini Host";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = VAMP_MINI_HOST;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1655,6 +1755,15 @@
 			buildConfigurations = (
 				E1DD00000000000000000001 /* Debug */,
 				E1DD00000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E1EE00000000000000000002 /* Build configuration list for PBXNativeTarget "VampMiniHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E1DD00000000000000000003 /* Debug */,
+				E1DD00000000000000000004 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

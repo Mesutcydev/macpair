@@ -6,7 +6,7 @@
 set -euo pipefail
 
 [[ $# -eq 6 ]] || {
-  printf 'Usage: %s <artifact> <vamp-terminal|vamp-host|vamp-terminal-host|vamp-control-ios|vamp-control-macos> <version> <build> <commit> <output>\n' "$0" >&2
+  printf 'Usage: %s <artifact> <vamp-terminal|vamp-host|vamp-terminal-host|vamp-mini-host|vamp-stream-ios|vamp-control-ios|vamp-control-macos> <version> <build> <commit> <output>\n' "$0" >&2
   exit 64
 }
 
@@ -19,7 +19,7 @@ output="$6"
 
 [[ -f "$artifact" ]] || { printf 'Artifact not found: %s\n' "$artifact" >&2; exit 1; }
 case "$component" in
-  vamp-terminal|vamp-host|vamp-terminal-host|vamp-control-ios|vamp-control-macos) ;;
+  vamp-terminal|vamp-host|vamp-terminal-host|vamp-mini-host|vamp-stream-ios|vamp-control-ios|vamp-control-macos) ;;
   *) printf 'Unsupported Vamp component: %s\n' "$component" >&2; exit 64 ;;
 esac
 
@@ -39,6 +39,8 @@ bundle_ids = {
     "vamp-terminal": "com.mesutcy.remotedesktop.terminal",
     "vamp-host": "com.mesutcy.remotedesktop.host",
     "vamp-terminal-host": "com.mesutcy.remotedesktop.terminalhost",
+    "vamp-mini-host": "com.mesutcy.remotedesktop.minhost",
+    "vamp-stream-ios": "com.mesutcy.remotedesktop.stream",
     "vamp-control-ios": "com.mesutcy.remotedesktop.ios",
     "vamp-control-macos": "com.mesutcy.remotedesktop.macclient",
 }
@@ -46,6 +48,8 @@ app_names = {
     "vamp-terminal": "Vamp Terminal",
     "vamp-host": "Vamp Host",
     "vamp-terminal-host": "Vamp Terminal Host",
+    "vamp-mini-host": "Vamp Mini Host",
+    "vamp-stream-ios": "Vamp Stream",
     "vamp-control-ios": "Vamp Control iOS",
     "vamp-control-macos": "Vamp Control macOS",
 }
@@ -53,6 +57,8 @@ signatures = {
     "vamp-terminal": "unsigned",
     "vamp-host": "ad-hoc",
     "vamp-terminal-host": "ad-hoc",
+    "vamp-mini-host": "ad-hoc",
+    "vamp-stream-ios": "unsigned",
     "vamp-control-ios": "unsigned",
     "vamp-control-macos": "ad-hoc",
 }
@@ -76,7 +82,7 @@ dependencies = [
         "licenses": [{"license": {"id": "BSD-3-Clause"}}],
     }
 ]
-if component == "vamp-terminal":
+if component in {"vamp-terminal", "vamp-stream-ios"}:
     dependencies.append(
         {
             "type": "library",

@@ -168,6 +168,8 @@ let package = Package(
             ] + clientLocalExcludes,
             sources: [
                 "AppHaptics.swift",
+                "BeetCodeRemoteClient.swift",
+                "AppStreamViewModel.swift",
                 "BonjourWakeService.swift",
                 "ClientAppEnvironment.swift",
                 "ClientAudioRenderer.swift",

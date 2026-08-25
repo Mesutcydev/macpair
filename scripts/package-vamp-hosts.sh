@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Build the two direct-distribution macOS hosts used by Vamp Terminal.
+# Build the direct-distribution macOS hosts used by Vamp Terminal and Vamp Mini Host.
 # The apps are ad-hoc signed with Apple's local '-' identity, never notarized,
 # and are intended for user-controlled open-source testing and distribution.
 
@@ -25,9 +25,10 @@ Options:
   --allow-dirty        Permit packaging from an uncommitted development tree
   --help               Show this help
 
-The resulting ZIPs contain Vamp Host (full remote desktop + Terminal Mode) and
-Vamp Terminal Host (terminal-only). They are ad-hoc signed, not notarized, and
-may require the user to approve them in macOS Privacy & Security.
+The resulting ZIPs contain Vamp Host (full remote desktop + Terminal Mode),
+Vamp Terminal Host (terminal-only), and Vamp Mini Host (pairing-first menu bar).
+They are ad-hoc signed, not notarized, and may require the user to approve them
+in macOS Privacy & Security.
 EOF
 }
 
@@ -68,7 +69,7 @@ if [[ "$OUTPUT_DIR" != /* ]]; then
   OUTPUT_DIR="$ROOT/$OUTPUT_DIR"
 fi
 
-for tool in xcodebuild codesign ditto plutil file shasum python3; do
+for tool in xcodebuild codesign ditto plutil file otool shasum python3; do
   command -v "$tool" >/dev/null 2>&1 || fail "Required tool not found: $tool"
 done
 
@@ -88,7 +89,7 @@ if [[ "$CLEAN" -eq 1 ]]; then
   rm -rf "$WORK"
   # Remove only generated Vamp host files so stale downloads cannot be
   # mistaken for the build just produced.
-  find "$OUTPUT_DIR" -maxdepth 1 -type f \( -name 'VampHost-macOS-*' -o -name 'VampTerminalHost-macOS-*' \) -delete 2>/dev/null || true
+  find "$OUTPUT_DIR" -maxdepth 1 -type f \( -name 'VampHost-macOS-*' -o -name 'VampTerminalHost-macOS-*' -o -name 'VampMiniHost-macOS-*' \) -delete 2>/dev/null || true
 fi
 
 mkdir -p "$WORK" "$OUTPUT_DIR"
@@ -210,9 +211,15 @@ with open(os.environ["MANIFEST"], "w", encoding="utf-8") as handle:
     handle.write("\n")
 PY
 
+  local package_kind
+  case "$scheme" in
+    MacHost) package_kind="vamp-host" ;;
+    VampTerminalHost) package_kind="vamp-terminal-host" ;;
+    VampMiniHost) package_kind="vamp-mini-host" ;;
+    *) fail "Unknown host scheme: $scheme" ;;
+  esac
   "$ROOT/scripts/generate-vamp-sbom.sh" \
-    "$artifact" "$([[ "$scheme" == "MacHost" ]] && printf vamp-host || printf vamp-terminal-host)" \
-    "$version" "$build" "$COMMIT" "$sbom"
+    "$artifact" "$package_kind" "$version" "$build" "$COMMIT" "$sbom"
 
   log "Created $(basename "$artifact")"
   log "SHA-256 $sha256"
@@ -220,5 +227,6 @@ PY
 
 package_host "MacHost" "Vamp Host" "com.mesutcy.remotedesktop.host" "VampHost"
 package_host "VampTerminalHost" "Vamp Terminal Host" "com.mesutcy.remotedesktop.terminalhost" "VampTerminalHost"
+package_host "VampMiniHost" "Vamp Mini Host" "com.mesutcy.remotedesktop.minhost" "VampMiniHost"
 
 log "Host artifacts are ready in $OUTPUT_DIR"

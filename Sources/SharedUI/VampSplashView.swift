@@ -15,6 +15,7 @@ public struct VampSplashConfig {
     enum Layout { case iosFullScreen, macPanel }
 
     var layout: Layout
+    var iconAssetName: String
     var iconSize: CGFloat
     var wordmarkLead: String            // "Vamp"
     var wordmarkAccent: String          // " Remote Control" / " Host"
@@ -45,7 +46,7 @@ public struct VampSplashConfig {
         // launch window. Wall-clock looping periods (3.6–6s) miss those beats entirely
         // before the Vamp splash dismisses the overlay.
         VampSplashConfig(
-            layout: .iosFullScreen, iconSize: 116,
+            layout: .iosFullScreen, iconAssetName: "SplashIcon", iconSize: 116,
             wordmarkLead: "Vamp", wordmarkAccent: " Remote Control", accentColor: vsHex(0x35C6D3),
             wordmarkSize: 29, taglineSize: 14,
             taglines: ["Your Mac, anywhere.", "Private by design.", "Ready when you are."],
@@ -56,9 +57,24 @@ public struct VampSplashConfig {
             floatPeriod: 2.8, winkPeriod: 2.0, gleamPeriod: 1.8, twinklePeriod: 1.6, taglinePeriod: 2.4)
     }
 
+    /// Vamp Stream has its own product name and launch copy while reusing the
+    /// shared splash animation and icon asset.
+    public static func vampStream() -> VampSplashConfig {
+        VampSplashConfig(
+            layout: .iosFullScreen, iconAssetName: "VampStreamSplashIcon", iconSize: 116,
+            wordmarkLead: "Vamp", wordmarkAccent: " Stream", accentColor: vsHex(0x000000),
+            wordmarkSize: 29, taglineSize: 14,
+            taglines: ["Use a Mac App on your iPhone.", "Private by design.", "Ready to connect."],
+            statusText: nil, version: nil, progressWidth: 132,
+            backgroundStops: [vsHex(0x1B213A), vsHex(0x0C101B), vsHex(0x07080D)],
+            auroraInner: vsHex(0x3E8BFF, 0.30), auroraMid: vsHex(0xFF8A38, 0.16), glowPeakAlpha: 0.42,
+            progressStops: [vsHex(0x82B8FF, 0.12), vsHex(0x82B8FF, 0.9), vsHex(0xFF9A3D, 0.9), vsHex(0x82B8FF, 0.12)],
+            floatPeriod: 2.8, winkPeriod: 2.0, gleamPeriod: 1.8, twinklePeriod: 1.6, taglinePeriod: 2.4)
+    }
+
     public static func macClient(version: String) -> VampSplashConfig {
         VampSplashConfig(
-            layout: .macPanel, iconSize: 92,
+            layout: .macPanel, iconAssetName: "SplashIcon", iconSize: 92,
             wordmarkLead: "Vamp", wordmarkAccent: " Remote Control", accentColor: vsHex(0x35C6D3),
             wordmarkSize: 26, taglineSize: 13.5,
             taglines: ["Your Mac, anywhere.", "Private by design."],
@@ -71,7 +87,7 @@ public struct VampSplashConfig {
 
     public static func host(version: String, statusText: String) -> VampSplashConfig {
         VampSplashConfig(
-            layout: .macPanel, iconSize: 92,
+            layout: .macPanel, iconAssetName: "SplashIcon", iconSize: 92,
             wordmarkLead: "Vamp", wordmarkAccent: " Host", accentColor: vsHex(0x35C6D3),
             wordmarkSize: 26, taglineSize: 13.5,
             taglines: ["Sharing this Mac."],
@@ -232,7 +248,7 @@ struct VampSplashView: View {
                 .opacity(glowOpacity)
 
             ZStack {
-                Image("SplashIcon")
+                Image(config.iconAssetName)
                     .resizable()
                     .interpolation(.high)
                     .frame(width: size, height: size)

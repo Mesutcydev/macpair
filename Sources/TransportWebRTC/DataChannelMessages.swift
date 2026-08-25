@@ -74,6 +74,11 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
     case sessionSnapshot
     /// Host → client: one replayed journal event (step D).
     case sessionSyncEvent
+    /// App Streaming registry: client → host request, host → client snapshot.
+    case applicationList
+    /// App Streaming target control: client → host switch request, host → client
+    /// result (also unsolicited on window loss). Reuses the live retarget path.
+    case streamTargetSwitch
 
     /// One source of truth for the control-channel authentication contract.
     /// Any kind that can inject input, change host state, read/write host data,
@@ -89,7 +94,7 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
              .workspaceDirectoryResponse, .workspaceAccessRequest,
              .workspaceAccessResponse, .taskPlanEvent, .agentPrompt,
              .providerSemanticEvent, .sessionSyncRequest, .sessionSnapshot,
-             .sessionSyncEvent:
+             .sessionSyncEvent, .applicationList, .streamTargetSwitch:
             return true
         default:
             return false
@@ -205,6 +210,38 @@ extension DataChannelEnvelope {
     public static func displaySwitchResult(_ message: DisplaySwitchResultMessage) throws -> DataChannelEnvelope {
         DataChannelEnvelope(
             kind: .displaySwitch,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func applicationListRequest(_ message: ApplicationListRequestMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .applicationList,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func applicationListSnapshot(_ message: ApplicationListSnapshotMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .applicationList,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func streamTargetSwitch(_ message: StreamTargetSwitchRequestMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .streamTargetSwitch,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func streamTargetSwitchResult(_ message: StreamTargetSwitchResultMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .streamTargetSwitch,
             sessionID: message.sessionID,
             payload: try makeEncoder().encode(message)
         )
@@ -477,6 +514,22 @@ extension DataChannelEnvelope {
 
     public func decodeDisplaySwitchResult() throws -> DisplaySwitchResultMessage {
         try Self.makeDecoder().decode(DisplaySwitchResultMessage.self, from: payload)
+    }
+
+    public func decodeApplicationListRequest() throws -> ApplicationListRequestMessage {
+        try Self.makeDecoder().decode(ApplicationListRequestMessage.self, from: payload)
+    }
+
+    public func decodeApplicationListSnapshot() throws -> ApplicationListSnapshotMessage {
+        try Self.makeDecoder().decode(ApplicationListSnapshotMessage.self, from: payload)
+    }
+
+    public func decodeStreamTargetSwitchRequest() throws -> StreamTargetSwitchRequestMessage {
+        try Self.makeDecoder().decode(StreamTargetSwitchRequestMessage.self, from: payload)
+    }
+
+    public func decodeStreamTargetSwitchResult() throws -> StreamTargetSwitchResultMessage {
+        try Self.makeDecoder().decode(StreamTargetSwitchResultMessage.self, from: payload)
     }
 
     public func decodeChatMessage() throws -> SessionChatMessage {

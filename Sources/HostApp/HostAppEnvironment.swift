@@ -175,7 +175,8 @@ final class HostAppEnvironment: ObservableObject {
         webRTCSessionManager: any WebRTCSessionManaging,
         discoveryAdvertiser: any HostDiscoveryAdvertiserProtocol,
         productMode: HostProductMode = .full,
-        recordingService: SessionRecordingService = SessionRecordingService()
+        recordingService: SessionRecordingService = SessionRecordingService(),
+        streamWindowGeometry: StreamWindowGeometryStore = StreamWindowGeometryStore()
     ) {
         let preferredMode = UserDefaults.standard.string(forKey: Keys.sessionMode)
             .flatMap(SessionControlMode.init(rawValue:))
@@ -253,7 +254,15 @@ final class HostAppEnvironment: ObservableObject {
         // Durable session registry (step B): the Mac is authoritative about
         // which sessions and PTYs exist — running, detached, or reaped —
         // even across app restarts.
-        let registryProductName = productMode.isTerminalOnly ? "Terminal Host" : "Vamp Host"
+        let registryProductName: String
+        switch productMode {
+        case .full:
+            registryProductName = "Vamp Host"
+        case .terminalOnly:
+            registryProductName = "Terminal Host"
+        case .mini:
+            registryProductName = "Vamp Mini Host"
+        }
         let sessionRegistry = HostSessionRegistry(
             rootURL: HostSessionRegistry.standardRootURL(productName: registryProductName)
         )
@@ -328,6 +337,7 @@ final class HostAppEnvironment: ObservableObject {
                 let key = SessionTokenSealing.deriveKeyAgreementKey(from: identity.privateKey)
                 return SessionTokenSealing.open(sealed, with: key)
             },
+            streamWindowGeometry: streamWindowGeometry,
             ensureDiscoveryAdvertising: { [weak discoveryAdvertiserViewModel = self.discoveryAdvertiserViewModel] in
                 await discoveryAdvertiserViewModel?.ensureAdvertising()
             }
@@ -346,6 +356,14 @@ final class HostAppEnvironment: ObservableObject {
         self.inputCommandRouter.onDisplaySwitchRequest = { [sessionCoordinator = self.sessionCoordinator] message in
             await sessionCoordinator.handleDisplaySwitchRequest(message)
         }
+        #if os(macOS)
+        self.inputCommandRouter.onApplicationListRequest = { [sessionCoordinator = self.sessionCoordinator] message in
+            await sessionCoordinator.handleApplicationListRequest(message)
+        }
+        self.inputCommandRouter.onStreamTargetSwitchRequest = { [sessionCoordinator = self.sessionCoordinator] message in
+            await sessionCoordinator.handleStreamTargetSwitchRequest(message)
+        }
+        #endif
         // Remote login-screen unlock uses the same Accessibility-backed input path as
         // normal control, so it stays unavailable in sandboxed builds.
         if runtimePolicy.supportsRemoteUnlock {
@@ -438,7 +456,7 @@ final class HostAppEnvironment: ObservableObject {
         // Resumable-session sync (step D): answer a reconnecting client with
         // the authoritative snapshot plus a bounded replay of the journaled
         // semantic events it missed while away.
-        self.inputCommandRouter.onSessionSyncRequest = { [weak self] message in
+        self.inputCommandRouter.onSessionSyncRequest = { [weak self, webRTCSessionManager = self.webRTCSessionManager] message in
             guard let self else { return }
             let record = self.sessionRegistry.sessionRecord(message.sessionID)
             let terminals = (record?.terminals ?? []).map { terminal in
@@ -459,7 +477,7 @@ final class HostAppEnvironment: ObservableObject {
                 terminals: terminals
             )
             if let envelope = try? DataChannelEnvelope.sessionSnapshot(snapshot) {
-                try? self.webRTCSessionManager.sendDataMessage(envelope)
+                try? webRTCSessionManager.sendDataMessage(envelope)
             }
             let events = self.sessionJournal.events(sessionID: message.sessionID, after: message.afterSequence)
             for event in events {
@@ -470,7 +488,7 @@ final class HostAppEnvironment: ObservableObject {
                     payload: event.payload
                 )
                 if let envelope = try? DataChannelEnvelope.sessionSyncEvent(syncEvent) {
-                    try? self.webRTCSessionManager.sendDataMessage(envelope)
+                    try? webRTCSessionManager.sendDataMessage(envelope)
                 }
             }
         }
@@ -641,8 +659,12 @@ final class HostAppEnvironment: ObservableObject {
         (displayLayoutProvider as? any DisplayLayoutObserving)?.layoutChanges()
     }
 
-    static func placeholder(mode: HostProductMode = .full) -> HostAppEnvironment {
-        let cryptoIdentity = CryptoIdentityService(tag: "com.remotedesktop.host.p256")
+    static func placeholder(
+        mode: HostProductMode = .full,
+        identityTag: String = "com.remotedesktop.host.p256",
+        trustedPeerDirectory: URL? = nil
+    ) -> HostAppEnvironment {
+        let cryptoIdentity = CryptoIdentityService(tag: identityTag)
         let fingerprint = cryptoIdentity.fingerprint
         let host = HostIdentity(
             id: HostIdentity.stableID(publicKeyFingerprint: fingerprint) ?? UUID(),
@@ -688,6 +710,9 @@ final class HostAppEnvironment: ObservableObject {
         let captureEngine: any CaptureEngineProtocol = services
         let encoderPipeline: any EncoderPipelineProtocol = services
         #endif
+        // Shared between the input layout provider and the session coordinator: when a window is
+        // the stream target this holds the window's synthetic layout so input maps into the window.
+        let streamWindowGeometry = StreamWindowGeometryStore()
         #if os(macOS)
         let inputService: any InputInjectionServiceProtocol
         if !mode.isTerminalOnly && runtimePolicy.supportsRemoteInput {
@@ -696,7 +721,12 @@ final class HostAppEnvironment: ObservableObject {
             inputService = HostInputInjectionService(
                 bridge: inputBridge,
                 accessibilityChecker: { AXIsProcessTrusted() },
-                layoutProvider: { try await dlp.currentDisplayLayout() }
+                layoutProvider: { [streamWindowGeometry] in
+                    // Window target present ⇒ translate input against the window's origin/size;
+                    // otherwise the real display layout, unchanged.
+                    if let windowLayout = streamWindowGeometry.windowLayout { return windowLayout }
+                    return try await dlp.currentDisplayLayout()
+                }
             )
         } else {
             inputService = DisabledInputInjectionService()
@@ -709,7 +739,7 @@ final class HostAppEnvironment: ObservableObject {
         let peerConnectionProvider = LANPeerConnectionProvider()
         peerConnectionProvider.useFixedDataPort = true
         let webRTCSessionManager = WebRTCSessionManager(peerConnectionProvider: peerConnectionProvider)
-        let trustedPeerStore = PersistentTrustedPeerStore()
+        let trustedPeerStore = PersistentTrustedPeerStore(directory: trustedPeerDirectory)
         let peerTrustGate = PeerTrustGate(store: trustedPeerStore)
         let environment = HostAppEnvironment(
             hostIdentity: host,
@@ -726,7 +756,8 @@ final class HostAppEnvironment: ObservableObject {
             webRTCSessionManager: webRTCSessionManager,
             discoveryAdvertiser: BonjourHostDiscoveryAdvertiser(),
             productMode: mode,
-            recordingService: recordingService
+            recordingService: recordingService,
+            streamWindowGeometry: streamWindowGeometry
         )
         #if os(macOS)
         environment.encoderCaptureFrameBridge = encoderBridge

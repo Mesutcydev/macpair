@@ -68,6 +68,10 @@ public protocol CaptureEngineProtocol {
         allowsHighResolution: Bool,
         dynamicRange: StreamDynamicRange
     ) async throws
+    /// Capture a single application window (App Streaming). The downstream pipeline is
+    /// identical to display capture; only the content filter and surface size differ.
+    /// Engines that cannot do window capture get the throwing default below.
+    func startCapture(windowID: String, qualityPreset: StreamQualityPreset, allowsHighResolution: Bool) async throws
     /// Reconfigures the active SCStream frame interval without restarting capture.
     func updateFrameRateLimit(_ framesPerSecond: Int) async throws
     func stopCapture() async
@@ -98,6 +102,17 @@ public extension CaptureEngineProtocol {
     }
 
     func updateFrameRateLimit(_ framesPerSecond: Int) async throws {}
+
+    /// Default: window capture is unsupported. `ScreenCaptureEngine` overrides this.
+    func startCapture(windowID: String, qualityPreset: StreamQualityPreset, allowsHighResolution: Bool) async throws {
+        throw CaptureEngineUnsupported.windowCapture
+    }
+}
+
+/// Cross-platform error for capture-engine capabilities a given engine does not provide.
+/// (`CaptureEngineError` is macOS-only; this default lives in the platform-neutral protocol.)
+public enum CaptureEngineUnsupported: Error, Sendable {
+    case windowCapture
 }
 
 public protocol DisplayLayoutProviding {
