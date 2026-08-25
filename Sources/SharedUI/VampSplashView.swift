@@ -13,8 +13,10 @@ private func vsHex(_ hex: UInt32, _ a: Double = 1) -> Color {
 
 public struct VampSplashConfig {
     enum Layout { case iosFullScreen, macPanel }
+    enum VisualStyle { case classic, streamGlass }
 
     var layout: Layout
+    var visualStyle: VisualStyle = .classic
     var iconAssetName: String
     var iconSize: CGFloat
     var wordmarkLead: String            // "Vamp"
@@ -60,7 +62,7 @@ public struct VampSplashConfig {
     /// Vamp Stream has its own product name and launch copy while reusing the
     /// shared splash animation and icon asset.
     public static func vampStream() -> VampSplashConfig {
-        VampSplashConfig(
+        var config = VampSplashConfig(
             layout: .iosFullScreen, iconAssetName: "VampStreamSplashIcon", iconSize: 116,
             wordmarkLead: "Vamp", wordmarkAccent: " Stream", accentColor: vsHex(0x000000),
             wordmarkSize: 29, taglineSize: 14,
@@ -70,6 +72,8 @@ public struct VampSplashConfig {
             auroraInner: vsHex(0x3E8BFF, 0.30), auroraMid: vsHex(0xFF8A38, 0.16), glowPeakAlpha: 0.42,
             progressStops: [vsHex(0x82B8FF, 0.12), vsHex(0x82B8FF, 0.9), vsHex(0xFF9A3D, 0.9), vsHex(0x82B8FF, 0.12)],
             floatPeriod: 2.8, winkPeriod: 2.0, gleamPeriod: 1.8, twinklePeriod: 1.6, taglinePeriod: 2.4)
+        config.visualStyle = .streamGlass
+        return config
     }
 
     public static func macClient(version: String) -> VampSplashConfig {
@@ -150,10 +154,15 @@ struct VampSplashView: View {
     private func composition(t: Double, motion: Bool) -> some View {
         switch config.layout {
         case .iosFullScreen:
-            panelContent(t: t, motion: motion)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(background)
-                .ignoresSafeArea()
+            if config.visualStyle == .streamGlass {
+                streamGlassContent(t: t, motion: motion)
+                    .ignoresSafeArea()
+            } else {
+                panelContent(t: t, motion: motion)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(background)
+                    .ignoresSafeArea()
+            }
         case .macPanel:
             // Full-bleed: the splash fills its whole window (see the splash window, which sizes
             // that window to cover the app window). A small fixed card floating in the large app
@@ -173,6 +182,86 @@ struct VampSplashView: View {
     private var background: some View {
         RadialGradient(colors: config.backgroundStops,
                        center: .top, startRadius: 0, endRadius: 640)
+    }
+
+    private func streamGlassContent(t: Double, motion: Bool) -> some View {
+        let arrival = motion ? min(max(t / 0.55, 0), 1) : 1
+        let eased = arrival * arrival * (3 - 2 * arrival)
+        let shimmer = motion ? phase(t, 1.8) : 0.55
+
+        return ZStack {
+            Image(config.iconAssetName)
+                .resizable()
+                .scaledToFill()
+                .scaleEffect(1.18)
+                .blur(radius: 24)
+                .overlay(Color.black.opacity(0.60))
+
+            LinearGradient(
+                colors: [.white.opacity(0.08), .clear, .black.opacity(0.34)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                VStack(spacing: 22) {
+                    Image(config.iconAssetName)
+                        .resizable()
+                        .interpolation(.high)
+                        .frame(width: 112, height: 112)
+                        .clipShape(RoundedRectangle(cornerRadius: 27, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 27, style: .continuous)
+                                .stroke(.white.opacity(0.32), lineWidth: 1)
+                        }
+                        .shadow(color: .black.opacity(0.38), radius: 26, y: 16)
+
+                    VStack(spacing: 8) {
+                        Text("Vamp Stream")
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .tracking(-0.7)
+                            .foregroundStyle(.white)
+                        Text("Use a Mac App on your iPhone")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.72))
+                    }
+
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(.white.opacity(0.14))
+                        Capsule()
+                            .fill(.white.opacity(0.88))
+                            .frame(width: 42)
+                            .offset(x: shimmer * 94)
+                    }
+                    .frame(width: 136, height: 3)
+                    .clipShape(Capsule())
+                }
+                .padding(.horizontal, 34)
+                .padding(.vertical, 36)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 38, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 38, style: .continuous)
+                        .stroke(.white.opacity(0.20), lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(0.26), radius: 34, y: 18)
+                .scaleEffect(0.96 + 0.04 * eased)
+                .offset(y: 16 * (1 - eased))
+                .opacity(eased)
+
+                Spacer()
+
+                Text("PRIVATE  ·  DIRECT  ·  YOURS")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.8)
+                    .foregroundStyle(.white.opacity(0.52))
+                    .padding(.bottom, 42)
+            }
+            .padding(.horizontal, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
     }
 
     // MARK: composition layers

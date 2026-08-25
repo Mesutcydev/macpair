@@ -11,12 +11,12 @@ import SharedModels
 enum HostProductMode: String, CaseIterable, Sendable {
     case full
     case terminalOnly
-    /// A pairing-first menu-bar host. It uses the same authenticated terminal-safe
-    /// transport policy as the light host, but has its own product identity and UI.
+    /// A pairing-first menu-bar host with the full authenticated streaming stack,
+    /// its own product identity, and a compact settings surface.
     case mini
 
     var isTerminalOnly: Bool {
-        self == .terminalOnly || self == .mini
+        self == .terminalOnly
     }
 
     var productTitle: String {
@@ -37,7 +37,7 @@ enum HostProductMode: String, CaseIterable, Sendable {
         case .terminalOnly:
             return "A focused Mac host for Vamp Terminal."
         case .mini:
-            return "A pairing-first menu-bar host for your Mac."
+            return "A compact menu-bar host for Vamp Stream."
         }
     }
 
@@ -47,7 +47,7 @@ enum HostProductMode: String, CaseIterable, Sendable {
     /// screen, audio, input, or multi-display capabilities.
     var advertisedCapabilities: HostCapabilityFlags {
         switch self {
-        case .full:
+        case .full, .mini:
             var flags: HostCapabilityFlags = [
                 .supportsHEVC,
                 .supportsH264,
@@ -65,11 +65,6 @@ enum HostProductMode: String, CaseIterable, Sendable {
             if #available(macOS 14, *) { flags.insert(.supportsAppStreaming) }
             return flags
         case .terminalOnly:
-            return [
-                .supportsH264, .supportsTerminal, .supportsMultipleTerminals,
-                .supportsTerminalChat, .supportsTaskPlans, .supportsWorkspaces
-            ]
-        case .mini:
             return [
                 .supportsH264, .supportsTerminal, .supportsMultipleTerminals,
                 .supportsTerminalChat, .supportsTaskPlans, .supportsWorkspaces

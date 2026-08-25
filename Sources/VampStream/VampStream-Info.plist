@@ -27,8 +27,6 @@
 		<!-- Vamp Assistant is a private-network HTTP peer; the client rejects public HTTP addresses. -->
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
 	</dict>
 	<key>NSBonjourServices</key>
 	<array>

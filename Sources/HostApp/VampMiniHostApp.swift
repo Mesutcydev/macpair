@@ -83,6 +83,7 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate {
 
 private struct VampMiniHostPopover: View {
     @ObservedObject var environment: HostAppEnvironment
+    @ObservedObject private var permissionsViewModel: HostPermissionsViewModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -91,6 +92,11 @@ private struct VampMiniHostPopover: View {
     @State private var tailscaleInfo: TailscaleConnectionInfo?
     @State private var tailscaleInstalled = false
     @State private var copiedFingerprint = false
+
+    init(environment: HostAppEnvironment) {
+        self.environment = environment
+        _permissionsViewModel = ObservedObject(wrappedValue: environment.permissionsViewModel)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -129,6 +135,7 @@ private struct VampMiniHostPopover: View {
         .frame(width: 370, height: 610)
         .background(VampMiniHostBackdrop())
         .task {
+            await permissionsViewModel.refresh(requestOSPromptIfNeeded: false)
             await refreshPeers()
             let snapshot = await Task.detached(priority: .utility) {
                 getTailscaleDetectionSnapshot()
@@ -199,10 +206,10 @@ private struct VampMiniHostPopover: View {
             }
         }
         .padding(12)
-        .background(statusColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(statusColor.opacity(0.24), lineWidth: 1)
+                .stroke(Color.primary.opacity(0.12), lineWidth: 1)
         }
     }
 
@@ -311,24 +318,24 @@ private struct VampMiniHostPopover: View {
 
     private var permissionsCard: some View {
         VampMiniHostSection(title: "Permissions", systemImage: "lock.shield.fill") {
-            Text("Mini Host does not capture the display or inject keyboard and pointer events, so those permissions are not required.")
+            Text("Screen Recording is required to stream Mac apps. Accessibility is required for keyboard and pointer control.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             VampMiniPermissionRow(
                 title: "Screen Recording",
-                summary: "Not required for this app",
+                summary: permissionSummary(for: .screenRecording),
                 systemImage: "rectangle.inset.filled.and.person.filled"
             ) {
-                openPrivacySettings("Privacy_ScreenCapture")
+                Task { await permissionsViewModel.openSettings(for: .screenRecording) }
             }
             VampMiniPermissionRow(
                 title: "Accessibility",
-                summary: "Not required for this app",
+                summary: permissionSummary(for: .accessibility),
                 systemImage: "accessibility"
             ) {
-                openPrivacySettings("Privacy_Accessibility")
+                Task { await permissionsViewModel.openSettings(for: .accessibility) }
             }
             VampMiniPermissionRow(
                 title: "Local Network",
@@ -440,6 +447,19 @@ private struct VampMiniHostPopover: View {
         trustedPeers = (try? await environment.trustedPeerStore.trustedPeers()) ?? []
     }
 
+    private func permissionSummary(for kind: PermissionKind) -> String {
+        guard let status = permissionsViewModel.statuses.first(where: { $0.kind == kind }) else {
+            return permissionsViewModel.isRefreshing ? "Checking…" : "Needs checking"
+        }
+        switch status.authorizationState {
+        case .granted: return "Ready"
+        case .denied: return "Required · open Settings"
+        case .notDetermined: return "Required · not requested"
+        case .restricted: return "Restricted"
+        case .unknown: return "Checking…"
+        }
+    }
+
     private func openPrivacySettings(_ pane: String) {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?\(pane)") else { return }
         NSWorkspace.shared.open(url)
@@ -514,11 +534,12 @@ private struct VampMiniHostSection<Content: View>: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.primary.opacity(0.10), lineWidth: 1)
+                .stroke(Color.primary.opacity(0.12), lineWidth: 1)
         }
+        .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
     }
 }
 
@@ -585,11 +606,11 @@ private struct VampMiniHostMark: View {
 private struct VampMiniHostBackdrop: View {
     var body: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor)
+            Rectangle().fill(.ultraThinMaterial)
             LinearGradient(
-                colors: [Color.blue.opacity(0.08), Color.clear, Color.purple.opacity(0.06)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                colors: [Color.white.opacity(0.10), Color.clear, Color.black.opacity(0.05)],
+                startPoint: .top,
+                endPoint: .bottom
             )
         }
         .ignoresSafeArea()

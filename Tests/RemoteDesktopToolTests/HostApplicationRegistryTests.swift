@@ -90,13 +90,15 @@ final class HostApplicationRegistryTests: XCTestCase {
         XCTAssertFalse(HostProductMode.terminalOnly.advertisedCapabilities.contains(.supportsAppStreaming))
     }
 
-    func testMiniHostIsTerminalSafeAndUsesItsOwnProductSurface() {
+    func testMiniHostSupportsStreamingAndUsesItsOwnProductSurface() {
         XCTAssertEqual(HostProductMode.mini.productTitle, "Vamp Mini Host")
-        XCTAssertTrue(HostProductMode.mini.isTerminalOnly)
-        XCTAssertEqual(HostProductMode.mini.supportedCodecs, ["h264"])
-        XCTAssertTrue(HostProductMode.mini.advertisedCapabilities.isTerminalOnlyHost)
-        XCTAssertFalse(HostProductMode.mini.advertisedCapabilities.contains(.supportsAppStreaming))
-        XCTAssertFalse(HostProductMode.mini.advertisedCapabilities.contains(.supportsMultiDisplay))
+        XCTAssertFalse(HostProductMode.mini.isTerminalOnly)
+        XCTAssertEqual(HostProductMode.mini.supportedCodecs, ["hevc", "h264"])
+        XCTAssertFalse(HostProductMode.mini.advertisedCapabilities.isTerminalOnlyHost)
+        XCTAssertTrue(HostProductMode.mini.advertisedCapabilities.contains(.supportsMultiDisplay))
+        if #available(macOS 14, *) {
+            XCTAssertTrue(HostProductMode.mini.advertisedCapabilities.contains(.supportsAppStreaming))
+        }
     }
 }
 #endif
