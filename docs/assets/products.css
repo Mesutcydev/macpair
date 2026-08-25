@@ -110,6 +110,9 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
 .family-card--lead .card-number { color: var(--on-accent); background: var(--accent); }
 .family-card--lead .card-tag, .family-card--lead .card-meta span { border-color: var(--line-strong); color: var(--muted); }
 .family-card .text-button, .path-card .text-button { align-self: flex-start; margin-top: 24px; }
+.family-preview { overflow: hidden; margin: 24px 0 4px; border: 2px solid var(--ink); background: #111; }
+.family-preview img { display: block; width: 100%; aspect-ratio: 1.15; object-fit: cover; object-position: top; }
+.family-preview--assistant img { object-position: center 34%; }
 .family-card--lead .text-button { color: var(--ink); }
 .family-card--support { min-height: 310px; }
 .family-grid--two .family-card--wide { grid-column: 1 / -1; }
@@ -129,11 +132,8 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
 .gallery-card { overflow: hidden; border: 2px solid var(--ink); background: var(--product-glass); box-shadow: 5px 5px 0 var(--ink); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: transform .18s ease, box-shadow .18s ease; }
 .gallery-card:hover { transform: translate(-3px, -3px); box-shadow: 8px 8px 0 var(--accent); }
 .gallery-card img { display: block; width: 100%; aspect-ratio: 1.48; object-fit: cover; object-position: top; }
-.gallery-side .gallery-card:first-child img {
-  object-fit: contain;
-  object-position: center;
-  background: #111;
-}
+.gallery-grid--assistant { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gallery-card--tool img { aspect-ratio: 989 / 768; object-fit: cover; object-position: top; background: #111; }
 .gallery-card--square img { aspect-ratio: 1; }
 .gallery-copy { padding: 20px; border-top: 2px solid var(--ink); }
 .gallery-copy h3 { color: var(--ink); font: 700 22px/1 "Space Grotesk", sans-serif; letter-spacing: -.04em; }
