@@ -54,6 +54,10 @@ targets:
         NSCameraUsageDescription: "Vamp Stream uses the camera to scan the private Vamp Assistant pairing QR code."
         NSLocalNetworkUsageDescription: "Vamp Stream uses your local network to discover and connect to Macs running Vamp Host or Vamp Assistant."
         NSAppTransportSecurity:
+          # Vamp Assistant is intentionally a private-network HTTP peer on
+          # port 9575. The client enforces the LAN/Tailscale-only address
+          # policy in BeetCodeRemoteEndpoint before any request is made.
+          NSAllowsArbitraryLoads: true
           NSAllowsLocalNetworking: true
         NSBonjourServices:
           - _screenharbor._tcp
