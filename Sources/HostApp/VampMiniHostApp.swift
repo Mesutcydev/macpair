@@ -39,6 +39,11 @@ struct VampMiniHostApp: App {
             VampMiniHostPopover(environment: hostEnvironment)
         } label: {
             VampMiniHostTrayLabel(environment: hostEnvironment)
+                .contextMenu {
+                    Button("Quit Vamp Mini Host") {
+                        NSApp.terminate(nil)
+                    }
+                }
         }
         .menuBarExtraStyle(.window)
     }
