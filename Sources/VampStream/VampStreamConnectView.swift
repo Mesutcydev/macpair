@@ -6,6 +6,7 @@ struct VampStreamConnectView: View {
     let environment: ClientAppEnvironment
     var onConnect: (DiscoveredHostRow) -> Void
     var onPairVampAssistant: () -> Void
+    var onScanVampHost: () -> Void
     var savedVampAssistantAddress: String?
     var vampAssistantError: String?
     var onReconnectVampAssistant: () -> Void
@@ -15,6 +16,7 @@ struct VampStreamConnectView: View {
         environment: ClientAppEnvironment,
         onConnect: @escaping (DiscoveredHostRow) -> Void,
         onPairVampAssistant: @escaping () -> Void,
+        onScanVampHost: @escaping () -> Void,
         savedVampAssistantAddress: String?,
         vampAssistantError: String?,
         onReconnectVampAssistant: @escaping () -> Void
@@ -22,6 +24,7 @@ struct VampStreamConnectView: View {
         self.environment = environment
         self.onConnect = onConnect
         self.onPairVampAssistant = onPairVampAssistant
+        self.onScanVampHost = onScanVampHost
         self.savedVampAssistantAddress = savedVampAssistantAddress
         self.vampAssistantError = vampAssistantError
         self.onReconnectVampAssistant = onReconnectVampAssistant
@@ -41,6 +44,16 @@ struct VampStreamConnectView: View {
             .padding(.horizontal, 22)
             .padding(.top, 16)
             .padding(.bottom, 18)
+
+            Button(action: onScanVampHost) {
+                Label("Scan Vamp Host QR", systemImage: "qrcode.viewfinder")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(PR.accent)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 12)
 
             ScrollView {
                 VStack(spacing: 12) {

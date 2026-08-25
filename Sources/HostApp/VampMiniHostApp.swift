@@ -1,7 +1,9 @@
 #if VAMP_MINI_HOST && os(macOS)
 import AppKit
+import Darwin
 import SwiftUI
 import SharedModels
+import SharedUtilities
 import Permissions
 
 /// Storage used by the standalone Vamp Mini Host product.
@@ -74,10 +76,7 @@ private struct VampMiniHostTrayLabel: View {
     @ObservedObject var environment: HostAppEnvironment
 
     var body: some View {
-        Image(systemName: environment.sessionCoordinator.phase == .error
-            ? "exclamationmark.shield.fill"
-            : "shield.lefthalf.filled")
-            .symbolRenderingMode(.hierarchical)
+        VampMiniHostAppIcon(size: 18)
             .accessibilityLabel("Vamp Mini Host")
     }
 }
@@ -142,7 +141,7 @@ private struct VampMiniHostPopover: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            VampMiniHostMark(size: 34)
+            VampMiniHostAppIcon(size: 34)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Vamp Mini Host")
                     .font(.headline)
@@ -192,6 +191,35 @@ private struct VampMiniHostPopover: View {
 
     private var pairingCard: some View {
         VampMiniHostSection(title: "Pairing", systemImage: "person.badge.key.fill") {
+            if let pairingLink, let pairingAddress {
+                HStack(alignment: .top, spacing: 10) {
+                    HostBrowserPairingQRCode(
+                        pairingURL: pairingLink,
+                        accessibilityLabel: "QR code for Vamp Stream pairing"
+                    )
+                    .frame(width: 118, height: 118)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Scan with Vamp Stream")
+                            .font(.callout.weight(.semibold))
+                        Text("Adds this Mac to the private host list. You still confirm the fingerprint before pairing.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(pairingAddress)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .lineLimit(2)
+                    }
+                }
+            } else {
+                Label("Start the host on a private LAN or tailnet to show its pairing QR.", systemImage: "qrcode")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Text("Compare this fingerprint with the client through a separate trusted channel before accepting a new device.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -342,6 +370,22 @@ private struct VampMiniHostPopover: View {
 
     private var isRunning: Bool {
         environment.sessionCoordinator.phase != .idle && environment.sessionCoordinator.phase != .error
+    }
+
+    private var pairingAddress: String? {
+        guard isRunning else { return nil }
+        if let address = localIPv4AddressForPairing() {
+            return "\(address):\(RemoteDesktopConstants.defaultSignalingPort)"
+        }
+        return tailscaleInfo?.connectAddress
+    }
+
+    private var pairingLink: String? {
+        guard let pairingAddress else { return nil }
+        return VampHostPairingLink.make(
+            address: pairingAddress,
+            displayName: environment.hostIdentity.displayName
+        )
     }
 
     private var statusTitle: String {
@@ -501,21 +545,14 @@ private struct VampMiniStatusBadge: View {
     }
 }
 
-private struct VampMiniHostMark: View {
+private struct VampMiniHostAppIcon: View {
     let size: CGFloat
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                .fill(Color.primary.opacity(0.10))
-                .overlay {
-                    RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                        .stroke(Color.primary.opacity(0.16), lineWidth: 1)
-                }
-            Image(systemName: "shield.lefthalf.filled")
-                .font(.system(size: size * 0.48, weight: .semibold))
-                .foregroundStyle(.primary)
-        }
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
         .frame(width: size, height: size)
         .accessibilityLabel("Vamp Mini Host")
     }
@@ -533,5 +570,31 @@ private struct VampMiniHostBackdrop: View {
         }
         .ignoresSafeArea()
     }
+}
+
+/// First non-loopback IPv4 address, preferring Wi-Fi and Ethernet interfaces.
+/// It gives the QR a directly connectable LAN address when Tailscale is absent.
+private func localIPv4AddressForPairing() -> String? {
+    var fallback: String?
+    var ifaddr: UnsafeMutablePointer<ifaddrs>?
+    guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return nil }
+    defer { freeifaddrs(ifaddr) }
+
+    for ptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
+        guard let socketAddress = ptr.pointee.ifa_addr else { continue }
+        guard socketAddress.pointee.sa_family == UInt8(AF_INET) else { continue }
+        let interfaceName = String(cString: ptr.pointee.ifa_name)
+        guard interfaceName != "lo0" else { continue }
+
+        var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        let length = socklen_t(socketAddress.pointee.sa_len)
+        guard getnameinfo(socketAddress, length, &hostname, socklen_t(hostname.count), nil, 0, NI_NUMERICHOST) == 0 else {
+            continue
+        }
+        let address = String(cString: hostname)
+        if interfaceName.hasPrefix("en") { return address }
+        if fallback == nil { fallback = address }
+    }
+    return fallback
 }
 #endif

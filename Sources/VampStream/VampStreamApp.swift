@@ -1,4 +1,5 @@
 import SwiftUI
+import SharedModels
 import SharedUI
 
 /// Vamp Stream — a standalone iPhone client that does ONE thing: stream an individual Mac
@@ -36,6 +37,8 @@ struct VampStreamRootView: View {
     @ObservedObject private var sessionCoordinator: ClientSessionCoordinator
     @State private var connectingName: String?
     @State private var showVampAssistantPairing = false
+    @State private var showVampHostScanner = false
+    @State private var hostScannerError: String?
 
     init(
         environment: ClientAppEnvironment,
@@ -84,6 +87,27 @@ struct VampStreamRootView: View {
         .sheet(isPresented: $showVampAssistantPairing) {
             BeetCodePairingView(model: vampAssistant)
                 .presentationDetents([.large])
+        }
+        .sheet(isPresented: $showVampHostScanner) {
+            NavigationStack {
+                BeetCodeQRScannerView(onPayload: handleVampHostPayload)
+                    .navigationTitle("Scan Vamp Host")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { showVampHostScanner = false }
+                        }
+                    }
+            }
+            .presentationDetents([.large])
+        }
+        .alert("QR code not recognised", isPresented: Binding(
+            get: { hostScannerError != nil },
+            set: { if !$0 { hostScannerError = nil } }
+        )) {
+            Button("OK", role: .cancel) { hostScannerError = nil }
+        } message: {
+            Text(hostScannerError ?? "Scan the QR shown by Vamp Mini Host.")
         }
     }
 
@@ -135,11 +159,35 @@ struct VampStreamRootView: View {
                     }
                 },
                 onPairVampAssistant: { showVampAssistantPairing = true },
+                onScanVampHost: { showVampHostScanner = true },
                 savedVampAssistantAddress: vampAssistant.savedAddress,
                 vampAssistantError: vampAssistant.lastError,
                 onReconnectVampAssistant: {
                     Task { await vampAssistant.reconnectSaved() }
                 }
+            )
+        }
+    }
+
+    private func handleVampHostPayload(_ payload: String) {
+        guard let pairing = VampHostPairingLink.parse(payload),
+              let host = environment.sharedHostsViewModel.addManualHost(address: pairing.address) else {
+            hostScannerError = "Scan the QR shown by Vamp Mini Host, then try again."
+            showVampHostScanner = false
+            return
+        }
+        showVampHostScanner = false
+        connectingName = pairing.displayName ?? host.title
+        connect(to: host)
+    }
+
+    private func connect(to host: DiscoveredHostRow) {
+        environment.sharedHostsViewModel.connect(to: host)
+        Task {
+            if sessionCoordinator.activeSessionID != nil { await sessionCoordinator.disconnect() }
+            await sessionCoordinator.connect(
+                to: host.endpoint,
+                qualityPreset: environment.effectivePreferredQualityPreset
             )
         }
     }

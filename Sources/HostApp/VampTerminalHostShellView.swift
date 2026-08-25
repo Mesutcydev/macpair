@@ -10,8 +10,14 @@ import SwiftUI
 /// or the direct Tailscale path.
 struct HostBrowserPairingQRCode: View {
     let pairingURL: String
+    let accessibilityLabelText: String
 
     @State private var image: NSImage?
+
+    init(pairingURL: String, accessibilityLabel: String = "QR code for Safari pairing") {
+        self.pairingURL = pairingURL
+        self.accessibilityLabelText = accessibilityLabel
+    }
 
     var body: some View {
         Group {
@@ -29,7 +35,7 @@ struct HostBrowserPairingQRCode: View {
         }
         .frame(width: 156, height: 156)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("QR code for Safari pairing")
+        .accessibilityLabel(accessibilityLabelText)
         .task(id: pairingURL) {
             image = Self.makeImage(from: pairingURL)
         }
