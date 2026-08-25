@@ -39,7 +39,12 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Vamp Stream uses your local network to discover and connect to Macs running Vamp Host or Vamp Assistant.</string>
 	<key>UILaunchScreen</key>
-	<dict/>
+	<dict>
+		<key>UIImageName</key>
+		<string>AppBackdrop</string>
+		<key>UIImageRespectsSafeAreaInsets</key>
+		<false/>
+	</dict>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

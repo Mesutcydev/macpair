@@ -185,87 +185,7 @@ struct VampSplashView: View {
     }
 
     private func streamGlassContent(t: Double, motion: Bool) -> some View {
-        let reveal = motion ? min(max(t / 0.7, 0), 1) : 1
-        let eased = reveal * reveal * (3 - 2 * reveal)
-        let progress = motion ? min(max((t - 0.12) / 1.45, 0), 1) : 1
-
-        return GeometryReader { geometry in
-            ZStack {
-                Image(config.iconAssetName)
-                    .resizable()
-                    .interpolation(.high)
-                    .scaledToFill()
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .scaleEffect(motion ? 1.08 - (0.04 * eased) : 1.04)
-                    .clipped()
-
-                LinearGradient(
-                    stops: [
-                        .init(color: .black.opacity(0.14), location: 0),
-                        .init(color: .black.opacity(0.22), location: 0.42),
-                        .init(color: .black.opacity(0.82), location: 1)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-
-                LinearGradient(
-                    colors: [.black.opacity(0.24), .clear, .black.opacity(0.18)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-
-                VStack(alignment: .leading, spacing: 0) {
-                    Label {
-                        Text("VAMP STREAM")
-                            .font(.system(size: 12, weight: .bold))
-                            .tracking(1.7)
-                    } icon: {
-                        Image(systemName: "rectangle.on.rectangle")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .foregroundStyle(.white.opacity(0.92))
-                    .padding(.horizontal, 14)
-                    .frame(height: 40)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .overlay { Capsule().stroke(.white.opacity(0.20), lineWidth: 0.75) }
-
-                    Spacer()
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Use a Mac App\non your iPhone")
-                            .font(.system(size: min(geometry.size.width * 0.115, 52), weight: .bold, design: .rounded))
-                            .tracking(-1.2)
-                            .foregroundStyle(.white)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        Text("Private app streaming from your Mac, ready wherever you are.")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.72))
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: 330, alignment: .leading)
-
-                        GeometryReader { bar in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(.white.opacity(0.18))
-                                Capsule()
-                                    .fill(.white.opacity(0.94))
-                                    .frame(width: max(8, bar.size.width * progress))
-                            }
-                        }
-                        .frame(height: 3)
-                        .padding(.top, 12)
-                    }
-                    .offset(y: 20 * (1 - eased))
-                    .opacity(eased)
-                }
-                .padding(.horizontal, 28)
-                .padding(.top, max(geometry.safeAreaInsets.top, 54) + 10)
-                .padding(.bottom, geometry.safeAreaInsets.bottom + 28)
-            }
-            .frame(width: geometry.size.width, height: geometry.size.height)
-            .background(Color.black)
-        }
+        StreamConnectionSplash(t: t, motion: motion)
     }
 
     // MARK: composition layers
@@ -451,6 +371,131 @@ struct VampSplashView: View {
             .frame(width: big, height: big)
             .scaleEffect(scale)
             .offset(x: dx, y: -big * 0.28 + dy)
+    }
+}
+
+private struct StreamConnectionSplash: View {
+    let t: Double
+    let motion: Bool
+
+    private var reveal: Double {
+        guard motion else { return 1 }
+        let value = min(max(t / 0.62, 0), 1)
+        return value * value * (3 - 2 * value)
+    }
+
+    private var pulse: Double {
+        guard motion else { return 0.58 }
+        return t.truncatingRemainder(dividingBy: 1.15) / 1.15
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                StreamSplashBackdrop(size: geometry.size, reveal: reveal)
+                StreamSplashBrand()
+                    .padding(.top, max(geometry.safeAreaInsets.top, 54) + 12)
+                    .frame(maxHeight: .infinity, alignment: .top)
+
+                StreamSplashConnection(pulse: pulse, reveal: reveal)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.43)
+
+                StreamSplashCopy(reveal: reveal)
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, max(geometry.safeAreaInsets.bottom, 18) + 34)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .background(Color.black)
+        }
+    }
+}
+
+private struct StreamSplashBackdrop: View {
+    let size: CGSize
+    let reveal: Double
+
+    var body: some View {
+        Image("AppBackdrop")
+            .resizable()
+            .interpolation(.high)
+            .scaledToFill()
+            .frame(width: size.width, height: size.height)
+            .scaleEffect(1.035 + (0.015 * (1 - reveal)))
+            .clipped()
+            .overlay(Color(red: 0.015, green: 0.035, blue: 0.055).opacity(0.72))
+            .overlay {
+                LinearGradient(
+                    colors: [.black.opacity(0.18), .clear, .black.opacity(0.56)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+    }
+}
+
+private struct StreamSplashBrand: View {
+    var body: some View {
+        Text("VAMP STREAM")
+            .font(.system(size: 11, weight: .semibold))
+            .tracking(2.4)
+            .foregroundStyle(.white.opacity(0.74))
+    }
+}
+
+private struct StreamSplashConnection: View {
+    let pulse: Double
+    let reveal: Double
+
+    var body: some View {
+        HStack(spacing: 18) {
+            device(systemName: "macbook", label: "Mac")
+            ZStack {
+                Capsule()
+                    .fill(.white.opacity(0.18))
+                    .frame(width: 92, height: 1)
+                Circle()
+                    .fill(.white)
+                    .frame(width: 6, height: 6)
+                    .shadow(color: .white.opacity(0.75), radius: 7)
+                    .offset(x: -43 + (86 * pulse))
+            }
+            .frame(width: 92, height: 24)
+            device(systemName: "iphone", label: "iPhone")
+        }
+        .offset(y: 12 * (1 - reveal))
+        .opacity(reveal)
+    }
+
+    private func device(systemName: String, label: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: systemName)
+                .font(.system(size: 38, weight: .light))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(.white)
+                .frame(width: 58, height: 58)
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.white.opacity(0.55))
+        }
+    }
+}
+
+private struct StreamSplashCopy: View {
+    let reveal: Double
+
+    var body: some View {
+        VStack(spacing: 9) {
+            Text("Vamp Stream")
+                .font(.system(size: 31, weight: .semibold, design: .rounded))
+                .tracking(-0.65)
+                .foregroundStyle(.white)
+            Text("Use a Mac App on your iPhone")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.white.opacity(0.66))
+        }
+        .offset(y: 10 * (1 - reveal))
+        .opacity(reveal)
     }
 }
 

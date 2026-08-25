@@ -62,7 +62,9 @@ targets:
           NSAllowsArbitraryLoads: true
         NSBonjourServices:
           - _screenharbor._tcp
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIImageName: AppBackdrop
+          UIImageRespectsSafeAreaInsets: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
@@ -75,7 +77,7 @@ targets:
     settings:
       base:
         MARKETING_VERSION: 0.1.0
-        CURRENT_PROJECT_VERSION: 4
+        CURRENT_PROJECT_VERSION: 5
         PRODUCT_BUNDLE_IDENTIFIER: com.mesutcy.remotedesktop.stream
         PRODUCT_NAME: Vamp Stream
         CODE_SIGN_ENTITLEMENTS: Configuration/VampStream.entitlements
