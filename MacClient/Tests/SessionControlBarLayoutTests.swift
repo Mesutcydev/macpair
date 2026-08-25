@@ -1,4 +1,5 @@
 import CoreGraphics
+import SharedModels
 import SharedUtilities
 import XCTest
 
@@ -58,5 +59,10 @@ final class SessionControlBarLayoutTests: XCTestCase {
         XCTAssertTrue(titles.contains("Fill Screen"))
         XCTAssertTrue(titles.contains("Actual Size"))
         XCTAssertEqual(DisplayMappingEngine.DisplayMode.fitDisplay.title, "Fit Display")
+    }
+
+    func testControlPrimaryClickTranslatesToSecondaryClick() {
+        XCTAssertEqual(RemotePrimaryClickTranslation.button(controlPressed: false), MouseButton.left)
+        XCTAssertEqual(RemotePrimaryClickTranslation.button(controlPressed: true), MouseButton.right)
     }
 }

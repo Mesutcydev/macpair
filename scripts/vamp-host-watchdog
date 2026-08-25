@@ -13,6 +13,7 @@ watchdog_pause="$watchdog_support_dir/watchdog-paused"
 watchdog_recovering="$watchdog_support_dir/watchdog-recovering"
 watchdog_log="$watchdog_support_dir/watchdog.log"
 watchdog_last_restart=0
+watchdog_pause_seconds=60
 
 mkdir -p "$watchdog_support_dir"
 
@@ -32,8 +33,16 @@ restart_host() {
 
 while :; do
   if [ -e "$watchdog_pause" ]; then
-    sleep 5
-    continue
+    watchdog_now="$(date +%s)"
+    watchdog_pause_timestamp="0"
+    read -r watchdog_pause_timestamp _ < "$watchdog_pause" || true
+    case "$watchdog_pause_timestamp" in (*[!0-9]*|'') watchdog_pause_timestamp="0" ;; esac
+    if [ "$watchdog_pause_timestamp" -gt 0 ] && [ $((watchdog_now - watchdog_pause_timestamp)) -le "$watchdog_pause_seconds" ]; then
+      sleep 5
+      continue
+    fi
+    rm -f "$watchdog_pause"
+    log_event "expired intentional-quit pause; recovery resumed"
   fi
 
   watchdog_now="$(date +%s)"

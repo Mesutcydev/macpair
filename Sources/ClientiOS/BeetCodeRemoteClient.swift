@@ -124,21 +124,68 @@ struct BeetCodeControlStatus: Decodable, Equatable, Sendable {
     let displayY: Double?
     let displayWidth: Double?
     let displayHeight: Double?
+    let displays: [BeetCodeRemoteDisplay]?
+}
+
+struct BeetCodeRemoteDisplay: Decodable, Equatable, Hashable, Identifiable, Sendable {
+    let id: UInt32
+    let name: String
+    let x: Double
+    let y: Double
+    let width: Double
+    let height: Double
 }
 
 struct BeetCodeRemoteApplication: Decodable, Equatable, Hashable, Identifiable, Sendable {
-    let windowID: UInt32
+    let windowID: UInt32?
     let bundleIdentifier: String?
     let name: String
     let windowTitle: String?
     let width: Double
     let height: Double
+    let isRunning: Bool
+    let isActive: Bool
+    let iconPNGBase64: String?
 
-    var id: UInt32 { windowID }
+    var id: String {
+        if let bundleIdentifier, !bundleIdentifier.isEmpty { return bundleIdentifier }
+        if let windowID { return "window:\(windowID)" }
+        return "name:\(name)"
+    }
+
+    var detail: String {
+        if let windowTitle, !windowTitle.isEmpty, windowTitle != name {
+            return "\(windowTitle) · \(Int(width))×\(Int(height))"
+        }
+        if width > 0, height > 0 { return "\(Int(width))×\(Int(height))" }
+        return isRunning ? "Running" : "Installed"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case windowID, bundleIdentifier, name, windowTitle, width, height
+        case isRunning, isActive, iconPNGBase64
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        windowID = try values.decodeIfPresent(UInt32.self, forKey: .windowID)
+        bundleIdentifier = try values.decodeIfPresent(String.self, forKey: .bundleIdentifier)
+        name = try values.decode(String.self, forKey: .name)
+        windowTitle = try values.decodeIfPresent(String.self, forKey: .windowTitle)
+        width = try values.decodeIfPresent(Double.self, forKey: .width) ?? 0
+        height = try values.decodeIfPresent(Double.self, forKey: .height) ?? 0
+        isRunning = try values.decodeIfPresent(Bool.self, forKey: .isRunning) ?? (windowID != nil)
+        isActive = try values.decodeIfPresent(Bool.self, forKey: .isActive) ?? false
+        iconPNGBase64 = try values.decodeIfPresent(String.self, forKey: .iconPNGBase64)
+    }
 }
 
 private struct BeetCodeRemoteApplicationsResponse: Decodable, Sendable {
     let applications: [BeetCodeRemoteApplication]
+}
+
+private struct BeetCodeRemoteApplicationResponse: Decodable, Sendable {
+    let application: BeetCodeRemoteApplication
 }
 
 struct BeetCodeDisplayGeometry: Equatable, Sendable {
@@ -261,6 +308,33 @@ struct BeetCodeRemoteClient: Sendable {
         return response.applications
     }
 
+    func launchApplication(
+        bundleIdentifier: String,
+        clientViewportAspect: Double? = nil
+    ) async throws -> BeetCodeRemoteApplication {
+        var body: [String: Any] = ["bundleIdentifier": bundleIdentifier]
+        if let clientViewportAspect { body["clientViewportAspect"] = clientViewportAspect }
+        let response: BeetCodeRemoteApplicationResponse = try await request(
+            "api/control/apps/launch",
+            method: "POST",
+            body: body)
+        return response.application
+    }
+
+    func resizeApplication(
+        windowID: UInt32,
+        clientViewportAspect: Double
+    ) async throws -> BeetCodeRemoteApplication {
+        let response: BeetCodeRemoteApplicationResponse = try await request(
+            "api/control/apps/resize",
+            method: "POST",
+            body: [
+                "windowID": windowID,
+                "clientViewportAspect": clientViewportAspect,
+            ])
+        return response.application
+    }
+
     func sendControlBatch(_ commands: [BeetCodeInputCommand]) async throws -> BeetCodeAcceptedResponse {
         guard !commands.isEmpty else { throw BeetCodeRemoteError.invalidResponse }
         let body = ["commands": commands.map { $0.wireBody() }]
@@ -269,6 +343,7 @@ struct BeetCodeRemoteClient: Sendable {
 
     func screenStream(
         resolution: String = "1080p",
+        displayID: UInt32? = nil,
         windowID: UInt32? = nil
     ) -> AsyncThrowingStream<BeetCodeScreenFrame, Error> {
         AsyncThrowingStream { continuation in
@@ -278,6 +353,9 @@ struct BeetCodeRemoteClient: Sendable {
                         url: baseURL.appending(path: "api/control/screen/stream"),
                         resolvingAgainstBaseURL: false)
                     var queryItems = [URLQueryItem(name: "resolution", value: resolution)]
+                    if let displayID {
+                        queryItems.append(URLQueryItem(name: "display", value: String(displayID)))
+                    }
                     if let windowID {
                         queryItems.append(URLQueryItem(name: "window", value: String(windowID)))
                     }
@@ -689,11 +767,19 @@ final class BeetCodeVideoRendererViewModel: ObservableObject {
         }
     }
 
-    func start(client: BeetCodeRemoteClient, windowID: UInt32? = nil) {
+    func start(
+        client: BeetCodeRemoteClient,
+        resolution: String = "1080p",
+        displayID: UInt32? = nil,
+        windowID: UInt32? = nil
+    ) {
         stop()
         lastError = nil
         acceptingFrames = true
-        let stream = client.screenStream(windowID: windowID)
+        let stream = client.screenStream(
+            resolution: resolution,
+            displayID: displayID,
+            windowID: windowID)
         streamTask = Task { [weak self] in
             guard let self else { return }
             do {

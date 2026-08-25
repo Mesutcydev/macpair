@@ -6,12 +6,29 @@ import SharedModels
 #if canImport(UIKit)
 import UIKit
 
-/// Full-screen Vamp Assistant control surface. The same authenticated H.264 transport can target either
-/// the Mac display or one selected application window.
+/// Full-screen Vamp Assistant desktop-control surface.
+///
+/// The default initializer preserves the original whole-display Remote Control experience.
+/// The separate Assistant App Stream destination supplies a window ID and an app-picker action;
+/// the picker itself is never embedded into the original remote-control screen.
 struct BeetCodeRemoteView: View {
+    private enum StreamResolution: String, CaseIterable, Identifiable {
+        case p480 = "480p"
+        case p720 = "720p"
+        case p1080 = "1080p"
+        case native
+
+        var id: String { rawValue }
+        var title: String { rawValue == "native" ? "Native" : rawValue }
+    }
+
     let session: BeetCodeRemoteSessionViewModel.Session
+    let windowID: UInt32?
+    let streamTitle: String?
+    let streamGeometryRevision: String
     let onClose: () -> Void
     let onRefresh: () async -> String?
+    let onChooseApplication: (() -> Void)?
 
     @StateObject private var renderer: BeetCodeVideoRendererViewModel
     @StateObject private var input: BeetCodeRemoteInputController
@@ -21,21 +38,31 @@ struct BeetCodeRemoteView: View {
     @State private var viewportOffset: CGSize = .zero
     @State private var isRefreshing = false
     @State private var refreshError: String?
-    @State private var applications: [BeetCodeRemoteApplication] = []
-    @State private var selectedApplication: BeetCodeRemoteApplication?
-    @State private var isLoadingApplications = false
-    @State private var applicationsError: String?
-    @State private var showApplicationPicker = false
-    @State private var didPresentInitialApplicationPicker = false
+    @State private var selectedDisplayID: UInt32?
+    @State private var controlsHidden = false
+    @StateObject private var annotationStore = AnnotationOverlayStore()
+    @AppStorage("vampstream.assistant.resolution") private var resolution = StreamResolution.p1080.rawValue
+    // Fit is a session property, not a global preference. Persisting Fill made
+    // every later portrait connection reopen with the landscape Mac cropped
+    // to its center, which looked like half the display had disappeared.
+    @State private var fillScreen = false
 
     init(
         session: BeetCodeRemoteSessionViewModel.Session,
+        windowID: UInt32? = nil,
+        streamTitle: String? = nil,
+        streamGeometryRevision: String = "",
         onClose: @escaping () -> Void,
-        onRefresh: @escaping () async -> String?
+        onRefresh: @escaping () async -> String?,
+        onChooseApplication: (() -> Void)? = nil
     ) {
         self.session = session
+        self.windowID = windowID
+        self.streamTitle = streamTitle
+        self.streamGeometryRevision = streamGeometryRevision
         self.onClose = onClose
         self.onRefresh = onRefresh
+        self.onChooseApplication = onChooseApplication
         _renderer = StateObject(wrappedValue: BeetCodeVideoRendererViewModel())
         _input = StateObject(wrappedValue: BeetCodeRemoteInputController(client: session.client))
     }
@@ -49,32 +76,13 @@ struct BeetCodeRemoteView: View {
             }
         }
         .background(Color.black.ignoresSafeArea())
-        .task(id: "\(session.address)-\(session.status.ready)-\(selectedApplication?.windowID ?? 0)") {
+        .task(id: streamTaskID) {
             guard session.status.ready else { return }
-            renderer.start(client: session.client, windowID: selectedApplication?.windowID)
-        }
-        .task(id: "assistant-picker-\(session.address)-\(session.status.ready)") {
-            guard session.status.ready, !didPresentInitialApplicationPicker else { return }
-            didPresentInitialApplicationPicker = true
-            await loadApplications()
-            showApplicationPicker = true
-        }
-        .sheet(isPresented: $showApplicationPicker) {
-            VampAssistantAppPicker(
-                applications: applications,
-                selectedWindowID: selectedApplication?.windowID,
-                isLoading: isLoadingApplications,
-                errorMessage: applicationsError,
-                onRefresh: { Task { await loadApplications() } },
-                onSelectDesktop: {
-                    selectedApplication = nil
-                    showApplicationPicker = false
-                },
-                onSelectApplication: { application in
-                    selectedApplication = application
-                    showApplicationPicker = false
-                }
-            )
+            renderer.start(
+                client: session.client,
+                resolution: resolution,
+                displayID: windowID == nil ? selectedDisplayID : nil,
+                windowID: windowID)
         }
         .onDisappear {
             renderer.stop()
@@ -82,11 +90,15 @@ struct BeetCodeRemoteView: View {
         }
     }
 
+    private var streamTaskID: String {
+        "\(session.address)-\(session.status.ready)-\(windowID ?? 0)-\(selectedDisplayID ?? 0)-\(resolution)-\(streamGeometryRevision)"
+    }
+
     private var permissionState: some View {
         VStack(spacing: 16) {
             Image(systemName: "lock.shield")
                 .font(.system(size: 46, weight: .light))
-                .foregroundStyle(.orange)
+                .foregroundStyle(.white.opacity(0.92))
             Text("Mac Control is not ready")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
@@ -103,7 +115,7 @@ struct BeetCodeRemoteView: View {
             if let refreshError {
                 Text(refreshError)
                     .font(.footnote)
-                    .foregroundStyle(.red.opacity(0.9))
+                    .foregroundStyle(.white.opacity(0.82))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 34)
             }
@@ -125,7 +137,8 @@ struct BeetCodeRemoteView: View {
             .accessibilityLabel(isRefreshing ? "Checking Vamp Assistant permissions" : "Check Vamp Assistant permissions again")
             Button("Back", action: onClose)
                 .buttonStyle(.borderedProminent)
-                .tint(.orange)
+                .tint(.white)
+                .foregroundStyle(.black)
                 .padding(.top, 6)
                 .accessibilityHint("Return to the host picker")
         }
@@ -147,7 +160,7 @@ struct BeetCodeRemoteView: View {
                 if renderer.latestPixelBuffer != nil {
                     VideoFrameRendererView(
                         pixelBuffer: renderer.latestPixelBuffer,
-                        displayMode: .fitDisplay)
+                        displayMode: fillScreen ? .fillScreen : .fitDisplay)
                         .scaleEffect(viewportZoom, anchor: .center)
                         .offset(viewportOffset)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -184,7 +197,11 @@ struct BeetCodeRemoteView: View {
                         onLongPress: { input.toggleDragLock(at: $0) },
                         onHoverDelta: { input.relativePointerMove(deltaX: $0, deltaY: $1) }
                     )
-                    .allowsHitTesting(!keyboardActive)
+                    .allowsHitTesting(!keyboardActive && !annotationStore.isVisible)
+
+                    if annotationStore.isVisible {
+                        AnnotationCanvasOverlay(store: annotationStore)
+                    }
                 } else {
                     VStack(spacing: 12) {
                         if let error = renderer.lastError {
@@ -197,7 +214,11 @@ struct BeetCodeRemoteView: View {
                                 .multilineTextAlignment(.center)
                                 .foregroundStyle(.white.opacity(0.72))
                             Button("Reconnect") {
-                                renderer.start(client: session.client, windowID: selectedApplication?.windowID)
+                                renderer.start(
+                                    client: session.client,
+                                    resolution: resolution,
+                                    displayID: windowID == nil ? selectedDisplayID : nil,
+                                    windowID: windowID)
                             }
                             .buttonStyle(.bordered)
                             .tint(.white)
@@ -222,14 +243,19 @@ struct BeetCodeRemoteView: View {
                         .padding(.vertical, 8)
                         .background(.red.opacity(0.82), in: Capsule())
                         .padding(.horizontal, 18)
-                        .padding(.bottom, 18)
+                        .padding(.bottom, 86)
                         .frame(maxHeight: .infinity, alignment: .bottom)
                         .accessibilityLabel("Input error: \(inputError)")
                 }
             }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                topBar
-                    .background(.black.opacity(0.28))
+            .overlay(alignment: .top) {
+                if onChooseApplication != nil {
+                    appStreamTopBar
+                        .background(.black.opacity(0.28))
+                }
+            }
+            .overlay(alignment: .bottom) {
+                classicBottomChrome(bottomInset: proxy.safeAreaInsets.bottom)
             }
             .overlay(alignment: .bottom) {
                 if keyboardActive {
@@ -271,37 +297,26 @@ struct BeetCodeRemoteView: View {
         .ignoresSafeArea(edges: [.horizontal, .bottom])
     }
 
-    private var topBar: some View {
+    private var appStreamTopBar: some View {
         HStack(spacing: 10) {
-            Button(action: onClose) {
-                Label("Hosts", systemImage: "chevron.left")
+            Button(action: { onChooseApplication?() }) {
+                Label("Apps", systemImage: "chevron.left")
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 13)
                     .padding(.vertical, 8)
                     .background(.ultraThinMaterial, in: Capsule())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Back to hosts")
+            .accessibilityLabel("Back to apps")
 
             Spacer()
 
-            Button {
-                showApplicationPicker = true
-                Task { await loadApplications() }
-            } label: {
-                Label(
-                    selectedApplication?.name ?? "Apps",
-                    systemImage: selectedApplication == nil ? "macwindow.on.rectangle" : "macwindow.badge.plus"
-                )
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 13)
-                    .padding(.vertical, 8)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: 150)
-            .buttonStyle(.plain)
-            .accessibilityLabel("Choose Mac app to stream")
+            Text(streamTitle ?? "Mac app")
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 13)
+                .padding(.vertical, 8)
+                .background(.ultraThinMaterial, in: Capsule())
+                .lineLimit(1)
 
             Spacer()
 
@@ -337,21 +352,188 @@ struct BeetCodeRemoteView: View {
         .padding(.vertical, 6)
     }
 
+    @ViewBuilder
+    private func classicBottomChrome(bottomInset: CGFloat) -> some View {
+        if controlsHidden {
+            HStack {
+                Spacer()
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                        controlsHidden = false
+                    }
+                } label: {
+                    Image(systemName: "eye")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .frame(width: 32, height: 32)
+                        .background(Color.black.opacity(0.58), in: Capsule())
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.20), lineWidth: 0.8))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Show remote controls")
+            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, max(bottomInset, 0) + 14)
+        } else {
+            classicChromePill
+                .padding(.horizontal, 14)
+                .padding(.bottom, max(bottomInset, 0) + 12)
+        }
+    }
+
+    private var classicChromePill: some View {
+        HStack(spacing: 0) {
+            classicIconButton(systemName: "xmark", isDestructive: true, action: onClose)
+
+            classicUnavailableButton(
+                systemName: "magicmouse",
+                label: "Bluetooth input status is available for Vamp Host sessions")
+
+            classicIconButton(
+                systemName: annotationStore.isVisible ? "pencil.slash" : "pencil.tip",
+                isActive: annotationStore.isVisible
+            ) {
+                annotationStore.isVisible.toggle()
+            }
+
+            classicIconButton(
+                systemName: keyboardActive ? "keyboard.chevron.compact.down" : "keyboard",
+                isActive: keyboardActive
+            ) {
+                keyboardActive.toggle()
+            }
+
+            if windowID == nil, let displays = session.status.displays, displays.count > 1 {
+                Menu {
+                    ForEach(displays) { display in
+                        Button {
+                            selectedDisplayID = display.id
+                        } label: {
+                            if selectedDisplayID == display.id {
+                                Label(display.name, systemImage: "checkmark")
+                            } else {
+                                Text(display.name)
+                            }
+                        }
+                    }
+                } label: {
+                    classicIconLabel(systemName: "display.2", isActive: false, isDimmed: false, isDestructive: false)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Switch display")
+            }
+
+            classicUnavailableButton(
+                systemName: "terminal.fill",
+                label: "Terminal is not available in this Assistant control session")
+            classicUnavailableButton(
+                systemName: "speaker.slash.fill",
+                label: "Remote audio is not available in this Assistant control session")
+            classicUnavailableButton(
+                systemName: "pip.enter",
+                label: "Picture in Picture is not available in this Assistant control session")
+
+            Menu {
+                Button {
+                    fillScreen = false
+                    input.setFillScreen(false)
+                    resetViewportZoom()
+                } label: {
+                    Label("Fit Display", systemImage: fillScreen ? "rectangle.arrowtriangle.2.inward" : "checkmark")
+                }
+                Button {
+                    fillScreen = true
+                    input.setFillScreen(true)
+                    resetViewportZoom()
+                } label: {
+                    Label("Fill Screen", systemImage: fillScreen ? "checkmark" : "rectangle.arrowtriangle.2.outward")
+                }
+            } label: {
+                classicIconLabel(
+                    systemName: fillScreen ? "rectangle.arrowtriangle.2.outward" : "rectangle.arrowtriangle.2.inward",
+                    isActive: fillScreen,
+                    isDimmed: false,
+                    isDestructive: false)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remote display sizing")
+            .accessibilityValue(fillScreen ? "Fill Screen" : "Fit Display")
+
+            classicUnavailableButton(
+                systemName: "chart.bar",
+                label: "Connection statistics are unavailable for this Assistant stream")
+
+            Rectangle()
+                .fill(Color.white.opacity(0.18))
+                .frame(width: 1, height: 22)
+                .padding(.horizontal, 6)
+
+            classicIconButton(systemName: "eye.slash", isDimmed: true) {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                    controlsHidden = true
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        // The remote image can be nearly white or highly detailed. Native
+        // clear glass alone inherits too much of that content and makes the
+        // classic controls disappear, so retain colorless glass while giving
+        // it a neutral legibility backing and a stable edge.
+        .background(Color.black.opacity(0.62), in: Capsule(style: .continuous))
+        .prGlassSurface(in: Capsule(style: .continuous))
+        .overlay(Capsule(style: .continuous)
+            .strokeBorder(Color.white.opacity(0.20), lineWidth: 0.8))
+        .shadow(color: .black.opacity(0.28), radius: 12, y: 5)
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private func classicUnavailableButton(systemName: String, label: String) -> some View {
+        Button(action: {}) {
+            classicIconLabel(systemName: systemName, isActive: false, isDimmed: true, isDestructive: false)
+        }
+        .buttonStyle(.plain)
+        .disabled(true)
+        .accessibilityLabel(label)
+        .accessibilityHint(label)
+    }
+
+    private func classicIconButton(
+        systemName: String,
+        isActive: Bool = false,
+        isDimmed: Bool = false,
+        isDestructive: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            classicIconLabel(
+                systemName: systemName,
+                isActive: isActive,
+                isDimmed: isDimmed,
+                isDestructive: isDestructive)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func classicIconLabel(
+        systemName: String,
+        isActive: Bool,
+        isDimmed: Bool,
+        isDestructive: Bool
+    ) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(
+                isDestructive ? Color.red.opacity(0.86)
+                    : (isActive ? Color.white : Color.white.opacity(isDimmed ? 0.42 : 0.82)))
+            .frame(maxWidth: .infinity, minHeight: 30)
+            .contentShape(Rectangle())
+    }
+
     private func configureInput(viewSize: CGSize) {
         input.setGeometry(renderer.geometry)
         input.setViewSize(viewSize)
-    }
-
-    private func loadApplications() async {
-        guard !isLoadingApplications else { return }
-        isLoadingApplications = true
-        applicationsError = nil
-        defer { isLoadingApplications = false }
-        do {
-            applications = try await session.client.applications()
-        } catch {
-            applicationsError = error.localizedDescription
-        }
+        input.setFillScreen(fillScreen)
     }
 
     private func keyName(for keyCode: UInt16) -> String {
@@ -442,138 +624,6 @@ struct BeetCodeRemoteView: View {
     }
 }
 
-private struct VampAssistantAppPicker: View {
-    let applications: [BeetCodeRemoteApplication]
-    let selectedWindowID: UInt32?
-    let isLoading: Bool
-    let errorMessage: String?
-    let onRefresh: () -> Void
-    let onSelectDesktop: () -> Void
-    let onSelectApplication: (BeetCodeRemoteApplication) -> Void
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: 10) {
-                    Button(action: onSelectDesktop) {
-                        VampAssistantAppRow(
-                            name: "Entire Mac display",
-                            detail: "Remote control",
-                            systemImage: "display",
-                            isSelected: selectedWindowID == nil
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    ForEach(applications) { application in
-                        Button { onSelectApplication(application) } label: {
-                            VampAssistantAppRow(
-                                name: application.name,
-                                detail: application.windowTitle ?? "App window",
-                                systemImage: "macwindow",
-                                isSelected: selectedWindowID == application.windowID
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    if isLoading {
-                        ProgressView("Looking for open Mac apps…")
-                            .padding(.vertical, 28)
-                    } else if let errorMessage {
-                        ContentUnavailableView(
-                            "Apps unavailable",
-                            systemImage: "wifi.exclamationmark",
-                            description: Text(errorMessage)
-                        )
-                    } else if applications.isEmpty {
-                        ContentUnavailableView(
-                            "No streamable apps",
-                            systemImage: "macwindow",
-                            description: Text("Open an app window on your Mac, then refresh.")
-                        )
-                    }
-                }
-                .padding(16)
-            }
-            .background(VampAssistantPickerBackdrop())
-            .navigationTitle("Stream a Mac app")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: onRefresh) {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .disabled(isLoading)
-                    .accessibilityLabel("Refresh Mac apps")
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-        .preferredColorScheme(.dark)
-    }
-}
-
-private struct VampAssistantAppRow: View {
-    let name: String
-    let detail: String
-    let systemImage: String
-    let isSelected: Bool
-
-    var body: some View {
-        HStack(spacing: 13) {
-            Image(systemName: systemImage)
-                .font(.system(size: 19, weight: .medium))
-                .frame(width: 42, height: 42)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(name)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineLimit(1)
-            }
-            Spacer()
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.primary)
-            } else {
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(13)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.16), lineWidth: 0.8)
-        }
-    }
-}
-
-private struct VampAssistantPickerBackdrop: View {
-    var body: some View {
-        ZStack {
-            Color(red: 0.035, green: 0.05, blue: 0.075)
-            Image("AppBackdrop")
-                .resizable()
-                .scaledToFill()
-                .opacity(0.62)
-            LinearGradient(
-                colors: [Color.black.opacity(0.44), Color.black.opacity(0.20), Color.black.opacity(0.58)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        }
-        .ignoresSafeArea()
-    }
-}
-
 /// Vamp Assistant's coordinate contract is global display points, while the iPhone gesture surface is
 /// a letterboxed video. This mapper matches the host's aspect-fit policy and ignores letterbox
 /// taps for clicks while clamping pointer movement to the nearest display edge.
@@ -582,6 +632,7 @@ final class BeetCodeRemoteInputController: ObservableObject {
     private let client: BeetCodeRemoteClient
     private var geometry: BeetCodeDisplayGeometry?
     private var viewSize: CGSize = .zero
+    private var fillScreen = false
     private var pendingMove: BeetCodeInputCommand?
     private var pendingScrollDX = 0.0
     private var pendingScrollDY = 0.0
@@ -589,7 +640,7 @@ final class BeetCodeRemoteInputController: ObservableObject {
     private var sendTail: Task<Void, Never>?
     private var flushLink: CADisplayLink?
     @Published private(set) var lastError: String?
-    private(set) var dragLocked = false
+    @Published private(set) var dragLocked = false
 
     init(client: BeetCodeRemoteClient) {
         self.client = client
@@ -602,6 +653,31 @@ final class BeetCodeRemoteInputController: ObservableObject {
 
     func setGeometry(_ geometry: BeetCodeDisplayGeometry?) { self.geometry = geometry }
     func setViewSize(_ size: CGSize) { viewSize = size }
+    func setFillScreen(_ enabled: Bool) { fillScreen = enabled }
+
+    func clickCurrentPointer() {
+        route(.click(x: nil, y: nil, button: "left", count: 1))
+    }
+
+    func doubleClickCurrentPointer() {
+        route(.click(x: nil, y: nil, button: "left", count: 2))
+    }
+
+    func rightClickCurrentPointer() {
+        route(.click(x: nil, y: nil, button: "right", count: 1))
+    }
+
+    func toggleDragLockCurrentPointer() {
+        route(dragLocked ? .up(button: "left") : .down(button: "left"))
+        dragLocked.toggle()
+    }
+
+    func scrollRelative(deltaX: Double, deltaY: Double) {
+        pendingScrollDX += deltaX
+        pendingScrollDY += deltaY
+        hasPendingScroll = true
+        ensureFlushLink()
+    }
 
     func tap(at point: CGPoint) {
         guard let mapped = map(point, clamp: false) else { return }
@@ -700,7 +776,13 @@ final class BeetCodeRemoteInputController: ObservableObject {
         let imageAspect = CGFloat(geometry.imageWidth) / CGFloat(geometry.imageHeight)
         let viewAspect = viewSize.width / viewSize.height
         let size: CGSize
-        if imageAspect > viewAspect {
+        if fillScreen {
+            if imageAspect > viewAspect {
+                size = CGSize(width: viewSize.height * imageAspect, height: viewSize.height)
+            } else {
+                size = CGSize(width: viewSize.width, height: viewSize.width / imageAspect)
+            }
+        } else if imageAspect > viewAspect {
             size = CGSize(width: viewSize.width, height: viewSize.width / imageAspect)
         } else {
             size = CGSize(width: viewSize.height * imageAspect, height: viewSize.height)

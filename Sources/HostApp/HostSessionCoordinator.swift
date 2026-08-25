@@ -308,19 +308,34 @@ final class HostSessionCoordinator: ObservableObject {
             // don't see the "stlsp" TXT key continue using the plain port.
             if let bonjourSig = signalingService as? BonjourSignalingService,
                RemoteDesktopConstants.isValidPublicKeyFingerprint(hostIdentity.publicKeyFingerprint) {
-                do {
-                    // Same rationale as above: this also blocks on a semaphore, so run it
-                    // off the main actor to avoid stalling the UI for up to 5s.
-                    let fingerprint = hostIdentity.publicKeyFingerprint
-                    let tlsPort = try await Task.detached(priority: .userInitiated) { [bonjourSig] in
-                        try bonjourSig.startTLSListening(
-                            pin: fingerprint,
-                            port: RemoteDesktopConstants.defaultTLSSignalingPort
-                        )
-                    }.value
-                    logger.info("TLS signaling listener on port \(tlsPort)")
-                } catch {
-                    logger.warning("TLS signaling listener could not start (plain TCP only): \(error.localizedDescription)")
+                let fingerprint = hostIdentity.publicKeyFingerprint
+                var lastTLSError: Error?
+                for attempt in 1...3 {
+                    do {
+                        let tlsPort = try await Task.detached(priority: .userInitiated) { [bonjourSig] in
+                            try bonjourSig.startTLSListening(
+                                pin: fingerprint,
+                                port: RemoteDesktopConstants.defaultTLSSignalingPort
+                            )
+                        }.value
+                        logger.info("TLS signaling listener on port \(tlsPort)")
+                        lastTLSError = nil
+                        break
+                    } catch {
+                        lastTLSError = error
+                        logger.warning("TLS signaling listener attempt \(attempt)/3 failed: \(error.localizedDescription)")
+                        if attempt < 3 {
+                            try? await Task.sleep(for: .milliseconds(200))
+                        }
+                    }
+                }
+                if let lastTLSError {
+                    logger.error("TLS signaling listener could not start after retries (plain TCP remains for first-time clients): \(lastTLSError.localizedDescription)")
+                    await eventLogStore.append(EventLogItem(
+                        severity: .warning,
+                        category: "Trust",
+                        message: "Secure signaling on port 9473 failed to start. Discovered clients still require TLS; first-time typed addresses may use plaintext 9471 until a fingerprint is saved."
+                    ))
                 }
             }
 
@@ -609,10 +624,12 @@ final class HostSessionCoordinator: ObservableObject {
             logger.warning("Client \(clientName) rejected by trust gate")
             signalingService.dropCurrentConnection()
             phase = .awaitingClient
+            let reason = await peerTrustGate.lastDenialReason
+                ?? "Rejected connection from \(clientName)"
             await eventLogStore.append(EventLogItem(
                 severity: .warning,
                 category: "Trust",
-                message: "Rejected connection from \(clientName)"
+                message: reason
             ))
             return
         }
@@ -665,14 +682,10 @@ final class HostSessionCoordinator: ObservableObject {
             cancelDisconnectGraceTimer()
 
             // Apply client offer and generate answer
-            var answer = try await webRTCSessionManager.applyRemoteOffer(offer)
-            // Echo the token only when it arrived in the clear. A sealed token
-            // must never be echoed back on plaintext signaling — that would
-            // re-expose exactly what the seal protected. The client that
-            // sealed the token does not expect an echo.
-            if offer.sealedSessionToken == nil {
-                answer.sessionToken = sessionTokenHex
-            }
+            let answer = try await webRTCSessionManager.applyRemoteOffer(offer)
+            // Never put the session token on the signaling answer. The client
+            // already holds the value it generated; echoing it re-exposes the
+            // control-channel secret on plaintext 9471.
 
             // Start the streaming coordinator and state observers BEFORE
             // sending the answer so we don't miss early transport transitions.

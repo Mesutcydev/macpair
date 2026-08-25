@@ -10,10 +10,15 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "linux-host"))
 from vamp_terminal_host import (  # noqa: E402
+    AGENT_PROVIDERS,
+    AiderSemanticParser,
     ClaudeSemanticParser,
     CodexSemanticParser,
     GeminiSemanticParser,
+    KimiSemanticParser,
     OpenCodeSemanticParser,
+    PiSemanticParser,
+    QwenSemanticParser,
     PairingState,
     PtyTerminal,
     RequestHandler,
@@ -21,12 +26,15 @@ from vamp_terminal_host import (  # noqa: E402
     json_bytes,
     origin_allowed,
     parse_args,
+    validate_listen_address,
 )
 
 
 class LinuxHostTests(unittest.TestCase):
     def test_pairing_rotates_and_rejects_wrong_code(self):
         pairing = PairingState()
+        self.assertEqual(len(pairing.code), 12)
+        self.assertTrue(pairing.code.isdigit())
         code = pairing.code
         self.assertIsNone(pairing.pair("000000" if code != "000000" else "111111"))
         result = pairing.pair(code)
@@ -75,7 +83,7 @@ class LinuxHostTests(unittest.TestCase):
         self.assertTrue(capabilities["multipleTerminals"])
         self.assertTrue(capabilities["workspaces"])
         self.assertTrue(capabilities["chat"])
-        self.assertEqual(capabilities["agentProviders"], ["claude", "codex", "opencode", "gemini"])
+        self.assertEqual(capabilities["agentProviders"], list(AGENT_PROVIDERS))
         self.assertFalse(capabilities["taskPlans"])
         self.assertFalse(capabilities["remoteControl"])
 
@@ -100,16 +108,18 @@ class LinuxHostTests(unittest.TestCase):
         self.assertNotIn("event.code===1008||event.code===1006", browser)
         self.assertIn("type:'agentPrompt'", browser)
         self.assertIn("message.type==='agentEvent'", browser)
-        self.assertIn("agentProviders={claude:", browser)
+        self.assertIn("agentProviders={opencode:", browser)
         self.assertIn("Codex CLI", browser)
         self.assertIn("OpenCode", browser)
         self.assertIn("Gemini CLI", browser)
+        for provider in AGENT_PROVIDERS:
+            self.assertIn(provider, browser)
         self.assertIn("provider:node.agent", browser)
         self.assertIn("white-space:pre", browser)
         self.assertIn("crypto.getRandomValues", browser)
         self.assertNotIn("crypto.randomUUID", browser)
         self.assertIn('id="pair-form"', browser)
-        self.assertIn('maxlength="6"', browser)
+        self.assertIn('maxlength="12"', browser)
         self.assertIn("function scheduleOutput", browser)
         self.assertIn("const existing=new Map", browser)
         self.assertIn("let viewportFrame=0", browser)
@@ -179,6 +189,33 @@ class LinuxHostTests(unittest.TestCase):
             {"eventType": "messageDelta", "text": "Hi"},
         ])
         self.assertEqual(parser.consume(b'{"type":"result"}\n'), [{"eventType": "completed"}])
+
+    def test_all_added_provider_streams_become_semantic_chat_events(self):
+        pi = PiSemanticParser()
+        self.assertEqual(pi.consume(b'{"type":"session","id":"pi-1"}\n'), [])
+        self.assertEqual(pi.session_id, "pi-1")
+        self.assertEqual(pi.consume(b'{"type":"message_update","assistantMessageEvent":{"type":"text_delta","delta":"Pi"}}\n'), [
+            {"eventType": "messageDelta", "text": "Pi"},
+        ])
+        self.assertEqual(pi.consume(b'{"type":"agent_end"}\n'), [{"eventType": "completed"}])
+
+        kimi = KimiSemanticParser()
+        self.assertEqual(kimi.consume(b'{"session_id":"kimi-1","role":"assistant","content":"Kimi"}\n'), [
+            {"eventType": "messageDelta", "text": "Kimi"},
+        ])
+        self.assertEqual(kimi.session_id, "kimi-1")
+        self.assertEqual(kimi.consume(b'{"type":"end"}\n'), [{"eventType": "completed"}])
+
+        qwen = QwenSemanticParser()
+        self.assertEqual(qwen.consume(b'{"session_id":"qwen-1","type":"stream_event","event":{"delta":{"type":"text_delta","text":"Qwen"}}}\n'), [
+            {"eventType": "messageDelta", "text": "Qwen"},
+        ])
+        self.assertEqual(qwen.session_id, "qwen-1")
+        self.assertEqual(qwen.consume(b'{"type":"result","is_error":false}\n'), [{"eventType": "completed"}])
+
+        aider = AiderSemanticParser()
+        self.assertEqual(aider.consume("Aider\n".encode()), [{"eventType": "messageDelta", "text": "Aider\n"}])
+        self.assertFalse(aider.did_finish)
 
     def test_claude_runner_streams_semantic_events_without_a_tui(self):
         class Connection:
@@ -289,8 +326,16 @@ class LinuxHostTests(unittest.TestCase):
     def test_non_loopback_listen_requires_explicit_flag(self):
         default = parse_args(["--listen", "0.0.0.0"])
         self.assertFalse(default.allow_non_loopback)
-        allowed = parse_args(["--listen", "0.0.0.0", "--allow-non-loopback"])
+        allowed = parse_args(["--listen", "192.168.1.10", "--allow-non-loopback"])
         self.assertTrue(allowed.allow_non_loopback)
+
+    def test_wildcard_listen_is_always_refused(self):
+        with self.assertRaises(SystemExit):
+            validate_listen_address("0.0.0.0", True)
+        with self.assertRaises(SystemExit):
+            validate_listen_address("::", False)
+        validate_listen_address("127.0.0.1", False)
+        validate_listen_address("192.168.1.10", True)
 
     def test_background_host_searches_provider_install_locations(self):
         directories = PtyTerminal._launcher_search_directories()

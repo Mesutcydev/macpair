@@ -5,6 +5,19 @@ import Foundation
 /// discovery: its one-time pairing code and bearer token belong to a separate HTTP protocol.
 @MainActor
 final class BeetCodeRemoteSessionViewModel: ObservableObject {
+    enum Availability: Equatable {
+        case checking
+        case ready
+        case unavailable
+    }
+
+    struct SavedAssistant: Codable, Equatable, Hashable, Identifiable {
+        let address: String
+        var displayName: String
+
+        var id: String { address }
+    }
+
     struct Session {
         let client: BeetCodeRemoteClient
         let address: String
@@ -13,16 +26,36 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
     }
 
     @Published private(set) var session: Session?
-    @Published private(set) var savedAddress: String?
+    @Published private(set) var savedAssistants: [SavedAssistant]
     @Published private(set) var isPairing = false
     @Published private(set) var lastError: String?
+    @Published private(set) var availabilityByAddress: [String: Availability] = [:]
 
     private let defaults: UserDefaults
-    private let savedAddressKey = "vampstream.beetcode.savedAddress"
+    private let legacySavedAddressKey = "vampstream.beetcode.savedAddress"
+    private let savedAssistantsKey = "vampstream.assistant.savedAssistants.v1"
+
+    var savedAddress: String? { savedAssistants.first?.address }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        savedAddress = defaults.string(forKey: savedAddressKey)
+        var loaded: [SavedAssistant] = []
+        if let data = defaults.data(forKey: savedAssistantsKey),
+           let decoded = try? JSONDecoder().decode([SavedAssistant].self, from: data) {
+            loaded = decoded
+        }
+
+        // One-time migration from the old single-address slot. Never discard a
+        // previously paired Mac just because the storage model now supports many.
+        if let legacy = defaults.string(forKey: legacySavedAddressKey),
+           !loaded.contains(where: { $0.address == legacy }) {
+            loaded.append(SavedAssistant(address: legacy, displayName: "Vamp Assistant"))
+        }
+        savedAssistants = loaded
+        if let data = try? JSONEncoder().encode(loaded) {
+            defaults.set(data, forKey: savedAssistantsKey)
+            defaults.removeObject(forKey: legacySavedAddressKey)
+        }
     }
 
     func pair(address: String, code: String) async {
@@ -54,9 +87,9 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
                 throw error
                 #endif
             }
-        let displayName = response.product?.isEmpty == false ? response.product! : "Vamp Assistant Mac"
+            let displayName = response.product?.isEmpty == false ? response.product! : "Vamp Assistant Mac"
             if tokenWasPersisted {
-                save(address: endpoint.url.absoluteString)
+                save(address: endpoint.url.absoluteString, displayName: displayName)
             }
             session = Session(
                 client: client,
@@ -69,16 +102,20 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
     }
 
     func reconnectSaved() async {
-        guard let savedAddress else {
+        guard let saved = savedAssistants.first else {
             lastError = BeetCodeRemoteError.invalidAddress.localizedDescription
             return
         }
+        await reconnect(saved)
+    }
+
+    func reconnect(_ saved: SavedAssistant) async {
         isPairing = true
         lastError = nil
         defer { isPairing = false }
 
         do {
-            let endpoint = try BeetCodeRemoteEndpoint.parse(address: savedAddress)
+            let endpoint = try BeetCodeRemoteEndpoint.parse(address: saved.address)
             guard let token = BeetCodeTokenStore.load(for: endpoint.url), !token.isEmpty else {
                 throw BeetCodeRemoteError.notConnected
             }
@@ -87,22 +124,53 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
             session = Session(
                 client: client,
                 address: endpoint.url.absoluteString,
-                displayName: "Vamp Assistant Mac",
+                displayName: saved.displayName,
                 status: status)
+            availabilityByAddress[saved.address] = status.ready ? .ready : .unavailable
         } catch {
             session = nil
+            availabilityByAddress[saved.address] = .unavailable
             lastError = "Reconnect failed: \(Self.userFacingConnectionError(error))"
         }
     }
 
+    func refreshAvailability() async {
+        for saved in savedAssistants {
+            availabilityByAddress[saved.address] = .checking
+            do {
+                let endpoint = try BeetCodeRemoteEndpoint.parse(address: saved.address)
+                guard let token = BeetCodeTokenStore.load(for: endpoint.url), !token.isEmpty else {
+                    availabilityByAddress[saved.address] = .unavailable
+                    continue
+                }
+                let client = BeetCodeRemoteClient(baseURL: endpoint.url, token: token)
+                let status = try await client.controlStatus()
+                availabilityByAddress[saved.address] = status.ready ? .ready : .unavailable
+            } catch {
+                availabilityByAddress[saved.address] = .unavailable
+            }
+        }
+    }
+
     func disconnect(clearSaved: Bool = false) {
+        let activeAddress = session?.address
         session = nil
         lastError = nil
-        guard clearSaved, let savedAddress,
-              let endpoint = try? BeetCodeRemoteEndpoint.parse(address: savedAddress) else { return }
-        BeetCodeTokenStore.clear(for: endpoint.url)
-        defaults.removeObject(forKey: savedAddressKey)
-        self.savedAddress = nil
+        guard clearSaved,
+              let address = activeAddress ?? savedAddress,
+              let saved = savedAssistants.first(where: { $0.address == address }) else { return }
+        forget(saved)
+    }
+
+    func forget(_ saved: SavedAssistant) {
+        if session?.address == saved.address { session = nil }
+        if let endpoint = try? BeetCodeRemoteEndpoint.parse(address: saved.address) {
+            BeetCodeTokenStore.clear(for: endpoint.url)
+        }
+        savedAssistants.removeAll { $0.id == saved.id }
+        availabilityByAddress.removeValue(forKey: saved.address)
+        persistSavedAssistants()
+        lastError = nil
     }
 
     @discardableResult
@@ -124,9 +192,16 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
         }
     }
 
-    private func save(address: String) {
-        defaults.set(address, forKey: savedAddressKey)
-        savedAddress = address
+    private func save(address: String, displayName: String) {
+        let saved = SavedAssistant(address: address, displayName: displayName)
+        savedAssistants.removeAll { $0.id == saved.id }
+        savedAssistants.insert(saved, at: 0)
+        persistSavedAssistants()
+    }
+
+    private func persistSavedAssistants() {
+        guard let data = try? JSONEncoder().encode(savedAssistants) else { return }
+        defaults.set(data, forKey: savedAssistantsKey)
     }
 
     private static func userFacingConnectionError(_ error: Error) -> String {

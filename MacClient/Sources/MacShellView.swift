@@ -13,6 +13,7 @@ struct MacShellView: View {
     @ObservedObject var environment: ClientAppEnvironment
     @ObservedObject private var coordinator: ClientSessionCoordinator
     @StateObject private var reconnectCoordinator: ClientReconnectCoordinator
+    @StateObject private var assistant = MacAssistantSession()
 
     /// Latches once a session reaches `.receiving`, so a subsequent transient
     /// `.error`/`.connecting`/`.negotiating` keeps showing the session view
@@ -55,13 +56,15 @@ struct MacShellView: View {
 
     var body: some View {
         Group {
-            if showsSession {
+            if assistant.connected != nil {
+                MacAssistantRemoteView(model: assistant)
+            } else if showsSession {
                 MacRemoteSessionView(
                     environment: environment,
                     reconnectCoordinator: reconnectCoordinator
                 )
             } else {
-                MacHostsScreen(environment: environment)
+                MacHostsScreen(environment: environment, assistant: assistant)
             }
         }
         .tint(MacBrand.accent)
@@ -105,6 +108,9 @@ struct MacShellView: View {
     }
 
     private var windowTitle: String {
+        if let session = assistant.connected {
+            return "\(session.displayName) — Vamp Control"
+        }
         switch coordinator.phase {
         case .receiving:
             if let name = coordinator.connectedHostName {

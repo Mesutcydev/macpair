@@ -38,6 +38,7 @@ targets:
         includes:
           - "AppHaptics.swift"
           - "BonjourWakeService.swift"
+          - "BeetCodeRemoteClient.swift"
           - "ClientAppEnvironment.swift"
           - "ClientAudioRenderer.swift"
           - "ClientClipboardSyncManager.swift"
@@ -66,7 +67,7 @@ targets:
     settings:
       base:
         MARKETING_VERSION: 2.3.0
-        CURRENT_PROJECT_VERSION: 47
+        CURRENT_PROJECT_VERSION: 48
         PRODUCT_BUNDLE_IDENTIFIER: com.mesutcy.remotedesktop.macclient
         PRODUCT_NAME: Vamp Control macOS
         INFOPLIST_FILE: MacClient/Resources/MacClient-Info.plist
@@ -99,10 +100,18 @@ targets:
     type: bundle.unit-test
     platform: macOS
     deploymentTarget: "14.0"
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
     sources:
       - path: MacClient/Tests
       - path: MacClient/Sources/MacMenuBarSemanticState.swift
       - path: MacClient/Sources/SessionControlBarLayout.swift
+    dependencies:
+      - package: RemoteDesktopTool
+        product: SharedModels
+      - package: RemoteDesktopTool
+        product: SharedUtilities
 
 schemes:
   MacClient:

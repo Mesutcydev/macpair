@@ -37,8 +37,10 @@ DEFAULT_PORT = 9475
 DEFAULT_MAX_TERMINALS = 8
 PAIRING_TTL_SECONDS = 600
 PAIRED_TOKEN_TTL_SECONDS = 30 * 60
+PAIRING_CODE_DIGITS = 12
 PAIRING_MAX_ATTEMPTS = 8
 LOOPBACK_BIND_ADDRESSES = frozenset({"127.0.0.1", "localhost", "::1"})
+WILDCARD_BIND_ADDRESSES = frozenset({"0.0.0.0", "::", "*"})
 PAIRING_ATTEMPT_WINDOW_SECONDS = 60
 # Subprotocol name used to carry the bearer token during the WebSocket
 # handshake. The client offers this name followed by the token; the server
@@ -47,11 +49,21 @@ PAIRING_ATTEMPT_WINDOW_SECONDS = 60
 WEBSOCKET_AUTH_PROTOCOL = "vamp-auth"
 ROOT = Path(__file__).resolve().parent
 MAX_AGENT_PROMPT_BYTES = 64 * 1024
-AGENT_PROVIDERS = ("claude", "codex", "opencode", "gemini")
+AGENT_PROVIDERS = (
+    "opencode", "pi", "commandcode", "chatgpt", "claude", "kimi",
+    "qwen", "codex", "aider", "grok", "gemini",
+)
 AGENT_DISPLAY_NAMES = {
-    "claude": "Claude Code",
-    "codex": "Codex CLI",
     "opencode": "OpenCode",
+    "pi": "Pi",
+    "commandcode": "CommandCode",
+    "chatgpt": "ChatGPT CLI",
+    "claude": "Claude Code",
+    "kimi": "Kimi",
+    "qwen": "Qwen Code",
+    "codex": "Codex CLI",
+    "aider": "Aider",
+    "grok": "Grok CLI",
     "gemini": "Gemini CLI",
 }
 
@@ -65,6 +77,30 @@ def clamp(value: Any, minimum: int, maximum: int, default: int) -> int:
         return max(minimum, min(maximum, int(value)))
     except (TypeError, ValueError):
         return default
+
+
+def random_pairing_code() -> str:
+    return f"{secrets.randbelow(10 ** PAIRING_CODE_DIGITS):0{PAIRING_CODE_DIGITS}d}"
+
+
+def normalize_pairing_code(raw: str) -> str | None:
+    digits = "".join(character for character in raw if character.isdigit())
+    return digits if len(digits) == PAIRING_CODE_DIGITS else None
+
+
+def validate_listen_address(listen: str, allow_non_loopback: bool) -> None:
+    if listen in LOOPBACK_BIND_ADDRESSES:
+        return
+    if listen in WILDCARD_BIND_ADDRESSES:
+        raise SystemExit(
+            "refusing wildcard bind; keep the origin on 127.0.0.1 and use "
+            "`tailscale serve` or Cloudflare Access"
+        )
+    if not allow_non_loopback:
+        raise SystemExit(
+            "refusing non-loopback bind; pass --allow-non-loopback if you accept the risk, "
+            "or use `tailscale serve --bg http://127.0.0.1:%d`" % DEFAULT_PORT
+        )
 
 
 def json_bytes(value: Any) -> bytes:
@@ -241,6 +277,165 @@ class GeminiSemanticParser:
         return []
 
 
+def content_events(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, str) and value:
+        return [{"eventType": "messageDelta", "text": value}]
+    if not isinstance(value, list):
+        return []
+    events: list[dict[str, Any]] = []
+    for part in value:
+        if not isinstance(part, dict) or not isinstance(part.get("text"), str) or not part["text"]:
+            continue
+        kind = str(part.get("type") or "").lower()
+        events.append({
+            "eventType": "thinkingDelta" if kind in {"thinking", "reasoning"} else "messageDelta",
+            "text": part["text"],
+        })
+    return events
+
+
+class PiSemanticParser:
+    """Turn Pi's documented JSON event stream into browser Chat events."""
+
+    def __init__(self) -> None:
+        self.session_id: str | None = None
+        self.did_finish = False
+
+    def consume(self, raw_line: bytes) -> list[dict[str, Any]]:
+        value = decode_json_object(raw_line)
+        if value is None:
+            return []
+        events: list[dict[str, Any]] = []
+        if str(value.get("type") or "").lower() == "session":
+            session_id = value.get("id")
+            if isinstance(session_id, str) and session_id:
+                self.session_id = session_id
+        assistant_event = value.get("assistantMessageEvent") if isinstance(value.get("assistantMessageEvent"), dict) else {}
+        delta_type = str(assistant_event.get("type") or "").lower()
+        delta = assistant_event.get("delta")
+        if isinstance(delta, str) and delta:
+            events.append({"eventType": "thinkingDelta" if delta_type == "thinking_delta" else "messageDelta", "text": delta})
+        if str(value.get("type") or "").lower() == "agent_end":
+            self.did_finish = True
+            events.append({"eventType": "completed"})
+        if str(value.get("type") or "").lower() == "error":
+            self.did_finish = True
+            events.append({"eventType": "failed", "message": json_error_message(value, "Pi failed")})
+        return events
+
+
+class GrokSemanticParser:
+    """Turn Grok CLI streaming-json records into browser Chat events."""
+
+    def __init__(self) -> None:
+        self.session_id: str | None = None
+        self.did_finish = False
+
+    def consume(self, raw_line: bytes) -> list[dict[str, Any]]:
+        value = decode_json_object(raw_line)
+        if value is None:
+            return []
+        event_type = str(value.get("type") or "").lower()
+        if event_type == "text" and isinstance(value.get("data"), str):
+            return [{"eventType": "messageDelta", "text": value["data"]}]
+        if event_type in {"thought", "thinking"} and isinstance(value.get("data"), str):
+            return [{"eventType": "thinkingDelta", "text": value["data"]}]
+        if event_type == "end":
+            session_id = value.get("sessionId")
+            if isinstance(session_id, str) and session_id:
+                self.session_id = session_id
+            self.did_finish = True
+            return [{"eventType": "completed"}]
+        if event_type == "error":
+            self.did_finish = True
+            return [{"eventType": "failed", "message": json_error_message(value, "Grok failed")}]
+        return []
+
+
+class KimiSemanticParser:
+    """Turn Kimi's documented stream-json assistant messages into Chat events."""
+
+    def __init__(self) -> None:
+        self.session_id: str | None = None
+        self.did_finish = False
+
+    def consume(self, raw_line: bytes) -> list[dict[str, Any]]:
+        value = decode_json_object(raw_line)
+        if value is None:
+            return []
+        self.session_id = value.get("session_id") or value.get("sessionId") or self.session_id
+        events: list[dict[str, Any]] = []
+        if str(value.get("role") or "").lower() == "assistant":
+            events.extend(content_events(value.get("content")))
+        event_type = str(value.get("type") or "").lower()
+        if event_type == "error":
+            self.did_finish = True
+            events.append({"eventType": "failed", "message": json_error_message(value, "Kimi failed")})
+        elif event_type in {"end", "completed", "result"}:
+            self.did_finish = True
+            events.append({"eventType": "completed"})
+        return events
+
+
+class QwenSemanticParser:
+    """Turn Qwen Code stream-json records into browser Chat events."""
+
+    def __init__(self) -> None:
+        self.session_id: str | None = None
+        self.did_finish = False
+        self.did_emit_message = False
+
+    def consume(self, raw_line: bytes) -> list[dict[str, Any]]:
+        value = decode_json_object(raw_line)
+        if value is None:
+            return []
+        self.session_id = value.get("session_id") or value.get("sessionId") or self.session_id
+        events: list[dict[str, Any]] = []
+        event_type = str(value.get("type") or "").lower()
+        if event_type == "assistant":
+            message = value.get("message") if isinstance(value.get("message"), dict) else value
+            events.extend(content_events(message.get("content")))
+            self.did_emit_message |= any(event.get("eventType") == "messageDelta" for event in events)
+        elif event_type == "stream_event":
+            nested = value.get("event") if isinstance(value.get("event"), dict) else value
+            delta = nested.get("delta")
+            delta_type = ""
+            if isinstance(delta, dict):
+                delta_type = str(delta.get("type") or "").lower()
+                delta = delta.get("text") or delta.get("value")
+            if isinstance(delta, str) and delta:
+                events.append({
+                    "eventType": "thinkingDelta" if "thinking" in delta_type else "messageDelta",
+                    "text": delta,
+                })
+                self.did_emit_message |= "thinking" not in delta_type
+        elif event_type == "result":
+            if not self.did_emit_message and isinstance(value.get("result"), str) and value["result"].strip():
+                self.did_emit_message = True
+                events.append({"eventType": "messageDelta", "text": value["result"]})
+            self.did_finish = True
+            if value.get("is_error") is True:
+                events.append({"eventType": "failed", "message": json_error_message(value, "Qwen failed")})
+            else:
+                events.append({"eventType": "completed"})
+        elif event_type == "error":
+            self.did_finish = True
+            events.append({"eventType": "failed", "message": json_error_message(value, "Qwen failed")})
+        return events
+
+
+class AiderSemanticParser:
+    """Aider's scripted --message mode is plain streaming text."""
+
+    def __init__(self) -> None:
+        self.session_id: str | None = None
+        self.did_finish = False
+
+    def consume(self, raw_line: bytes) -> list[dict[str, Any]]:
+        text = raw_line.decode("utf-8", errors="replace").replace("\r", "")
+        return [{"eventType": "messageDelta", "text": text}] if text else []
+
+
 def decode_json_object(raw_line: bytes) -> dict[str, Any] | None:
     try:
         value = json.loads(raw_line.decode("utf-8"))
@@ -263,9 +458,16 @@ def json_error_message(value: dict[str, Any], fallback: str) -> str:
 
 def semantic_parser(provider: str) -> Any:
     parsers = {
-        "claude": ClaudeSemanticParser,
-        "codex": CodexSemanticParser,
         "opencode": OpenCodeSemanticParser,
+        "pi": PiSemanticParser,
+        "commandcode": AiderSemanticParser,
+        "chatgpt": CodexSemanticParser,
+        "claude": ClaudeSemanticParser,
+        "kimi": KimiSemanticParser,
+        "qwen": QwenSemanticParser,
+        "codex": CodexSemanticParser,
+        "aider": AiderSemanticParser,
+        "grok": GrokSemanticParser,
         "gemini": GeminiSemanticParser,
     }
     return parsers[provider]()
@@ -281,7 +483,7 @@ class PairingState:
 
     def rotate(self) -> None:
         with self._lock:
-            self.code = f"{secrets.randbelow(1_000_000):06d}"
+            self.code = random_pairing_code()
             self.expires_at = now() + PAIRING_TTL_SECONDS
             # A new pairing code is a new approval window. Existing bearer
             # tokens must not survive a rotate, or a stolen browser session
@@ -297,13 +499,18 @@ class PairingState:
 
     def pair(self, code: str) -> tuple[str, float] | None:
         with self._lock:
-            if now() > self.expires_at or not secrets.compare_digest(code.strip(), self.code):
+            normalized = normalize_pairing_code(code)
+            if (
+                normalized is None
+                or now() > self.expires_at
+                or not secrets.compare_digest(normalized, self.code)
+            ):
                 return None
             token = secrets.token_urlsafe(32)
             token_expires_at = now() + PAIRED_TOKEN_TTL_SECONDS
             self._tokens[self._digest(token)] = token_expires_at
             # A pairing code is a one-time approval, never a reusable password.
-            self.code = f"{secrets.randbelow(1_000_000):06d}"
+            self.code = random_pairing_code()
             self.expires_at = now() + PAIRING_TTL_SECONDS
             return token, token_expires_at
 
@@ -558,7 +765,11 @@ class PtyTerminal:
             if self.agent_process is not None and self.agent_process.poll() is None:
                 self.connection.send_error("agent-busy", "An agent is still working on the previous message", self.terminal_id)
                 return
-            executable = self._resolve_launcher(provider)
+            launcher_name = {
+                "commandcode": "cmd",
+                "chatgpt": "codex",
+            }.get(provider, provider)
+            executable = self._resolve_launcher(launcher_name)
             if executable is None:
                 self._send_agent_event(
                     provider,
@@ -594,6 +805,25 @@ class PtyTerminal:
 
     def _agent_arguments(self, provider: str, executable: str, prompt: str) -> list[str]:
         session_id = self.agent_session_ids.get(provider)
+        if provider == "opencode":
+            arguments = [executable, "run", "--format", "json"]
+            if session_id:
+                arguments += ["--session", session_id]
+            return arguments + ["--", prompt]
+        if provider == "pi":
+            arguments = [executable, "--mode", "json"]
+            if session_id:
+                arguments += ["--session", session_id]
+            return arguments + ["--", prompt]
+        if provider == "commandcode":
+            return [executable, "-p", "--skip-onboarding", "--no-auto-update", "--", prompt]
+        if provider == "chatgpt":
+            if session_id:
+                return [
+                    executable, "exec", "resume", session_id,
+                    "--json", "--skip-git-repo-check", "--", prompt,
+                ]
+            return [executable, "exec", "--json", "--skip-git-repo-check", "--", prompt]
         if provider == "claude":
             arguments = [
                 executable,
@@ -605,11 +835,6 @@ class PtyTerminal:
             if session_id:
                 arguments += ["--resume", session_id]
             return arguments + ["--", prompt]
-        if provider == "opencode":
-            arguments = [executable, "run", "--format", "json"]
-            if session_id:
-                arguments += ["--session", session_id]
-            return arguments + ["--", prompt]
         if provider == "codex":
             if session_id:
                 return [
@@ -617,6 +842,26 @@ class PtyTerminal:
                     "--json", "--skip-git-repo-check", "--", prompt,
                 ]
             return [executable, "exec", "--json", "--skip-git-repo-check", "--", prompt]
+        if provider == "kimi":
+            arguments = [executable, "--output-format", "stream-json"]
+            if session_id:
+                arguments += ["--session", session_id]
+            return arguments + ["--prompt", prompt]
+        if provider == "qwen":
+            # Linux deliberately stays in the provider's safe plan mode; the
+            # browser approval card must never be turned into a blanket
+            # unattended approval bypass.
+            arguments = [executable, "--output-format", "stream-json", "--include-partial-messages", "--approval-mode", "plan"]
+            if session_id:
+                arguments += ["--resume", session_id]
+            return arguments + ["--prompt", prompt]
+        if provider == "aider":
+            return [executable, "--message", prompt, "--stream", "--no-pretty", "--no-auto-commits", "--no-check-update"]
+        if provider == "grok":
+            arguments = [executable, "--output-format", "streaming-json", "--single"]
+            if session_id:
+                arguments = [executable, "--resume", session_id] + arguments[1:]
+            return arguments + ["--", prompt]
         if provider == "gemini":
             arguments = [executable, "--output-format", "stream-json", "--approval-mode", "plan"]
             if session_id:
@@ -1041,12 +1286,8 @@ def main() -> int:
     args = parse_args()
     if not 1 <= args.port <= 65535:
         raise SystemExit("--port must be between 1 and 65535")
+    validate_listen_address(args.listen, args.allow_non_loopback)
     if args.listen not in LOOPBACK_BIND_ADDRESSES:
-        if not args.allow_non_loopback:
-            raise SystemExit(
-                "refusing non-loopback bind; pass --allow-non-loopback if you accept the risk, "
-                "or use `tailscale serve --bg http://127.0.0.1:%d`" % args.port
-            )
         print("warning: non-loopback binding is unsafe; prefer Tailscale Serve over a public listener", flush=True)
 
     host = VampTerminalHost(args.max_terminals)

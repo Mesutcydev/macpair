@@ -5,9 +5,8 @@ import CoreImage.CIFilterBuiltins
 import SwiftUI
 
 /// Generates the one-time private browser pairing link shown by both host
-/// products. The QR contains only the host URL and current six-digit code;
-/// the browser still exchanges that code for a short-lived token over HTTPS
-/// or the direct Tailscale path.
+/// products. The QR contains only the host URL. The operator types the
+/// 12-digit code shown on the Mac; the browser exchanges it for a token.
 struct HostBrowserPairingQRCode: View {
     let pairingURL: String
     let accessibilityLabelText: String
@@ -322,10 +321,7 @@ struct VampTerminalHostShellView: View {
         } else {
             baseURL = "http://127.0.0.1:\(port)"
         }
-        return HostBrowserPairingLink.make(
-            baseURL: baseURL,
-            code: environment.browserControlStatus.pairingCode
-        )
+        return HostBrowserPairingLink.make(baseURL: baseURL)
     }
 
     private var statusTitle: String {

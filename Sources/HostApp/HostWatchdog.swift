@@ -23,6 +23,7 @@ enum HostWatchdogInstaller {
         watchdog_recovering="$watchdog_support_dir/watchdog-recovering"
         watchdog_log="$watchdog_support_dir/watchdog.log"
         watchdog_last_restart=0
+        watchdog_pause_seconds=60
 
         mkdir -p "$watchdog_support_dir"
 
@@ -42,8 +43,16 @@ enum HostWatchdogInstaller {
 
         while :; do
           if [ -e "$watchdog_pause" ]; then
-            sleep 5
-            continue
+            watchdog_now="$(date +%s)"
+            watchdog_pause_timestamp="0"
+            read -r watchdog_pause_timestamp _ < "$watchdog_pause" || true
+            case "$watchdog_pause_timestamp" in (*[!0-9]*|'') watchdog_pause_timestamp="0" ;; esac
+            if [ "$watchdog_pause_timestamp" -gt 0 ] && [ $((watchdog_now - watchdog_pause_timestamp)) -le "$watchdog_pause_seconds" ]; then
+              sleep 5
+              continue
+            fi
+            rm -f "$watchdog_pause"
+            log_event "expired intentional-quit pause; recovery resumed"
           fi
 
           watchdog_now="$(date +%s)"
@@ -223,7 +232,7 @@ final class HostProcessHeartbeat {
         timer = nil
         let isWatchdogRecovery = FileManager.default.fileExists(atPath: recoveringURL.path)
         if Self.shouldPauseForTermination(isWatchdogRecovery: isWatchdogRecovery) {
-            let marker = Data("intentional-quit\n".utf8)
+            let marker = Data("\(Int(Date().timeIntervalSince1970)) intentional-quit\n".utf8)
             try? marker.write(to: pauseURL, options: .atomic)
         }
         try? FileManager.default.removeItem(at: heartbeatURL)

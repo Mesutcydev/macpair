@@ -6,11 +6,46 @@ import SharedModels
 import SharedUtilities
 import SwiftUI
 
+@MainActor
+protocol MacRemoteInputHandling: AnyObject {
+    var isEnabled: Bool { get set }
+    func updateViewGeometry(size: CGSize, pixelScale: Double)
+    func updateDisplayMode(_ displayMode: DisplayMappingEngine.DisplayMode)
+    func containsRemoteContent(_ point: CGPoint) -> Bool
+    func remoteContentRect(in viewSize: CGSize) -> CGRect?
+    func pointerMoved(to viewPoint: CGPoint)
+    func pointerButton(_ button: MouseButton, action: ButtonAction, at viewPoint: CGPoint)
+    func scrolled(deltaX: Double, deltaY: Double, isPrecise: Bool)
+    func keyEvent(_ event: NSEvent, action: KeyAction)
+}
+
+extension MacRemoteInputController: MacRemoteInputHandling {
+    func containsRemoteContent(_ point: CGPoint) -> Bool {
+        mapper?.viewToDisplayLocal(DesktopPoint(x: point.x, y: point.y)) != nil
+    }
+
+    func remoteContentRect(in viewSize: CGSize) -> CGRect? {
+        guard let rect = mapper?.fittedContentRect else { return nil }
+        return CGRect(
+            x: rect.origin.x,
+            y: rect.origin.y,
+            width: rect.size.width,
+            height: rect.size.height)
+    }
+
+    func keyEvent(_ event: NSEvent, action: KeyAction) {
+        keyEvent(
+            keyCode: event.keyCode,
+            action: action,
+            modifiers: Self.modifierFlags(from: event.modifierFlags))
+    }
+}
+
 /// SwiftUI wrapper around the AppKit streaming surface: renders decoded frames
 /// into an `AVSampleBufferDisplayLayer` and captures mouse/keyboard input.
 struct MacVideoStreamView: NSViewRepresentable {
     let renderer: VideoRendererViewModel
-    let input: MacRemoteInputController
+    let input: any MacRemoteInputHandling
     var isInputEnabled: Bool
     var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay
     /// Bottom region reserved for local session chrome; the stream view must not
@@ -63,7 +98,7 @@ struct MacVideoStreamView: NSViewRepresentable {
 /// into a remote input command.
 final class RemoteStreamNSView: NSView {
 
-    var input: MacRemoteInputController?
+    var input: (any MacRemoteInputHandling)?
     var isInputEnabled = true
     var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay {
         didSet { updateVideoGravity() }
@@ -77,6 +112,9 @@ final class RemoteStreamNSView: NSView {
     /// Set when a double-click was forwarded as `.doubleClick` so the matching
     /// local mouse-up isn't also forwarded (the host posts the full pair itself).
     private var suppressNextUpForButton: Set<MouseButton> = []
+    /// AppKit no longer consistently promotes Control-primary click into a secondary event.
+    /// Track the translated pair explicitly so down/up can never split across buttons.
+    private var controlClickIsDown = false
     /// Whether the local cursor is currently hidden over the stream content.
     /// `NSCursor.hide()`/`unhide()` are counter-balanced app-wide, so every
     /// hide must be matched by exactly one unhide.
@@ -139,8 +177,7 @@ final class RemoteStreamNSView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
-        if displayMode == .actualSize, let mapper = input?.mapper {
-            let rect = mapper.fittedContentRect
+        if displayMode == .actualSize, let rect = input?.remoteContentRect(in: bounds.size) {
             displayLayer.frame = NSRect(
                 x: rect.origin.x,
                 y: rect.origin.y,
@@ -277,9 +314,7 @@ final class RemoteStreamNSView: NSView {
             return
         }
         input?.pointerMoved(to: point)
-        let insideContent = input?.mapper?.viewToDisplayLocal(
-            DesktopPoint(x: Double(point.x), y: Double(point.y))
-        ) != nil
+        let insideContent = input?.containsRemoteContent(point) == true
         setLocalCursorHidden(insideContent)
     }
 
@@ -307,7 +342,12 @@ final class RemoteStreamNSView: NSView {
         guard !isPointInLocalChrome(point) else { return }
         window?.makeFirstResponder(self)
         onBackgroundPointerActivity?()
-        handleButton(.left, isDown: true, event: event)
+        let translated = RemotePrimaryClickTranslation.button(
+            controlPressed: event.modifierFlags.contains(.control))
+        if translated == .right {
+            controlClickIsDown = true
+        }
+        handleButton(translated, isDown: true, event: event)
     }
 
     private func isPointInLocalChrome(_ point: CGPoint) -> Bool {
@@ -316,7 +356,12 @@ final class RemoteStreamNSView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
-        handleButton(.left, isDown: false, event: event)
+        if controlClickIsDown {
+            controlClickIsDown = false
+            handleButton(.right, isDown: false, event: event)
+        } else {
+            handleButton(.left, isDown: false, event: event)
+        }
     }
 
     override func rightMouseDown(with event: NSEvent) {
@@ -367,20 +412,12 @@ final class RemoteStreamNSView: NSView {
     override func keyDown(with event: NSEvent) {
         guard isInputEnabled else { return }
         // No super: avoids the system beep for "unhandled" keys.
-        input?.keyEvent(
-            keyCode: event.keyCode,
-            action: .down,
-            modifiers: MacRemoteInputController.modifierFlags(from: event.modifierFlags)
-        )
+        input?.keyEvent(event, action: .down)
     }
 
     override func keyUp(with event: NSEvent) {
         guard isInputEnabled else { return }
-        input?.keyEvent(
-            keyCode: event.keyCode,
-            action: .up,
-            modifiers: MacRemoteInputController.modifierFlags(from: event.modifierFlags)
-        )
+        input?.keyEvent(event, action: .up)
     }
 
     /// Forward Cmd-shortcuts to the host (Cmd+C/V, Cmd+Tab won't get here, but
@@ -395,9 +432,8 @@ final class RemoteStreamNSView: NSView {
         }
         // Cmd-shortcuts don't generate a matching keyUp through this path, so send
         // the full down/up pair here — otherwise the key sticks down on the host.
-        let modifiers = MacRemoteInputController.modifierFlags(from: event.modifierFlags)
-        input?.keyEvent(keyCode: event.keyCode, action: .down, modifiers: modifiers)
-        input?.keyEvent(keyCode: event.keyCode, action: .up, modifiers: modifiers)
+        input?.keyEvent(event, action: .down)
+        input?.keyEvent(event, action: .up)
         return true
     }
 
@@ -405,11 +441,7 @@ final class RemoteStreamNSView: NSView {
         guard isInputEnabled else { return }
         guard let flag = Self.modifierFlag(forKeyCode: event.keyCode) else { return }
         let isDown = event.modifierFlags.contains(flag)
-        input?.keyEvent(
-            keyCode: event.keyCode,
-            action: isDown ? .down : .up,
-            modifiers: MacRemoteInputController.modifierFlags(from: event.modifierFlags)
-        )
+        input?.keyEvent(event, action: isDown ? .down : .up)
     }
 
     private static func modifierFlag(forKeyCode keyCode: UInt16) -> NSEvent.ModifierFlags? {

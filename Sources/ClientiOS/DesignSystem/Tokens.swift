@@ -21,8 +21,11 @@ enum PR {
     /// freeze the app on the launch color — the original palette bug.
     static var accent: Color { PaletteManager.shared.selected.color }
     static var accent2: Color { PaletteManager.shared.selected.color }
-    static let warn = Color.orange
-    static let err = Color.red
+    // The Vamp surfaces are intentionally monochrome. Severity is conveyed by
+    // iconography and copy so warning/error controls never revive the legacy
+    // warm accent palette.
+    static let warn = Color.primary
+    static let err = Color.primary
 
     static let r6: CGFloat = 6
     static let r8: CGFloat = 8
@@ -120,15 +123,20 @@ struct PRAppBackground: View {
 
     var body: some View {
 #if canImport(UIKit)
-        ZStack {
-            Color(uiColor: .systemGroupedBackground)
+        GeometryReader { geometry in
+            ZStack {
+                Color(uiColor: .systemGroupedBackground)
 
-            if !reduceTransparency {
-                // Brand wallpaper backdrop (shared by both iOS apps).
-                Image("AppBackdrop")
-                    .resizable()
-                    .scaledToFill()
-                    .opacity(colorScheme == .dark ? 0.85 : 0.55)
+                if !reduceTransparency {
+                    // Brand wallpaper backdrop (shared by both iOS apps). Its explicit
+                    // geometry prevents the source image's intrinsic width from widening
+                    // a root ZStack and clipping the leading edge on compact iPhones.
+                    Image("AppBackdrop")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
+                        .opacity(colorScheme == .dark ? 0.85 : 0.55)
 
                 // Legibility scrim keeps glass cards readable over the art.
                 Color.black.opacity(colorScheme == .dark ? 0.22 : 0.04)
@@ -178,16 +186,34 @@ struct PRAppBackground: View {
 
                 PRBackdropGrid()
 
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(colorScheme == .dark ? 0.025 : 0.075),
-                        Color.clear,
-                        Color.black.opacity(colorScheme == .dark ? 0.075 : 0.022)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.025 : 0.075),
+                            Color.clear,
+                            Color.black.opacity(colorScheme == .dark ? 0.075 : 0.022)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+
+                    // iOS may keep light status-bar glyphs while the launch splash
+                    // hands off to a light canvas. A short, continuous luminance veil
+                    // keeps those glyphs readable without creating a header band or seam.
+                    LinearGradient(
+                        colors: [
+                            Color.black.opacity(colorScheme == .dark ? 0.08 : 0.34),
+                            Color.black.opacity(colorScheme == .dark ? 0.025 : 0.08),
+                            Color.clear,
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 132)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipped()
         }
         .ignoresSafeArea()
 #else

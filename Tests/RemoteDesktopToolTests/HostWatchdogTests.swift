@@ -13,6 +13,13 @@ final class HostWatchdogTests: XCTestCase {
         )
     }
 
+    func testIntentionalQuitPauseExpiresInsteadOfDisablingRecoveryForever() {
+        let script = HostWatchdogInstaller.helperScript
+        XCTAssertTrue(script.contains("watchdog_pause_seconds=60"))
+        XCTAssertTrue(script.contains("expired intentional-quit pause; recovery resumed"))
+        XCTAssertTrue(script.contains("rm -f \"$watchdog_pause\""))
+    }
+
     func testLaunchAgentRunsInstalledHelperAndStaysAlive() {
         let helper = URL(fileURLWithPath: "/tmp/Vamp Watchdog/vamp-host-watchdog")
         let log = URL(fileURLWithPath: "/tmp/Vamp Host/watchdog-launchd.log")

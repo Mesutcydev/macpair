@@ -29,7 +29,13 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Mesut Cy. All rights reserved.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Vamp Control uses your local network to discover and connect to Macs running Vamp Host.</string>
+	<string>Vamp Control uses your local network to connect to Vamp Host, Vamp Mini Host, and Vamp Assistant.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- The client itself restricts plain HTTP to private LAN, local, and Tailscale hosts. -->
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_screenharbor._tcp</string>

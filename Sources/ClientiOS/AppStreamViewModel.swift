@@ -45,6 +45,7 @@ final class AppStreamViewModel: ObservableObject {
     private var listRetryTask: Task<Void, Never>?
     private var launchTimeoutTask: Task<Void, Never>?
     private var pendingTargetName: String?
+    private var clientViewportAspect: Double?
 
     init(environment: ClientAppEnvironment) {
         self.environment = environment
@@ -89,6 +90,13 @@ final class AppStreamViewModel: ObservableObject {
     }
 
     // MARK: - Intents
+
+    func updateClientViewport(size: CGSize) {
+        guard size.width > 0, size.height > 0 else { return }
+        let aspect = Double(size.width / size.height)
+        guard aspect.isFinite, (0.25...4).contains(aspect) else { return }
+        clientViewportAspect = aspect
+    }
 
     func requestApplicationList() {
         guard environment.sessionCoordinator.activeSessionID != nil else {
@@ -151,10 +159,7 @@ final class AppStreamViewModel: ObservableObject {
             sessionID: sessionID,
             target: .application(application.bundleIdentifier),
             senderDeviceID: environment.clientIdentity.id,
-            // Keep the Mac window's native aspect. The client chooses portrait or landscape
-            // after the host reports the resolved window size; forcing every app to the phone's
-            // landscape aspect makes portrait apps appear as a narrow image with side bars.
-            clientViewportAspect: nil
+            clientViewportAspect: clientViewportAspect
         )
         do {
             try environment.webRTCSessionManager.sendDataMessage(

@@ -19,6 +19,8 @@ public enum HostWidgetConstants {
 
     /// UserDefaults key holding the JSON-encoded pending `HostWidgetAction`.
     public static let pendingActionKey = "host.widget.pendingAction"
+    /// Fingerprint-bound approval written by `vamp` after an independent check.
+    public static let pendingTrustKey = "host.widget.pendingTrust"
 
     /// Darwin notification posted by the widget when the user taps a button,
     /// observed by the running host app to apply the action without delay.
@@ -214,5 +216,34 @@ public enum HostWidgetStore {
         else { return nil }
         try? FileManager.default.removeItem(at: url)
         return action
+    }
+
+    private struct PendingTrustApproval: Codable {
+        var fingerprint: String
+        var createdAt: TimeInterval
+    }
+
+    public static func setPendingTrustApproval(fingerprint: String, namespace: String? = nil) {
+        let normalized = fingerprint.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard normalized.count == 64,
+              normalized.allSatisfy(\.isHexDigit) else { return }
+        guard let url = fileURL(HostWidgetConstants.pendingTrustKey + ".json", namespace: namespace) else { return }
+        let payload = PendingTrustApproval(fingerprint: normalized, createdAt: Date().timeIntervalSince1970)
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? data.write(to: url, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
+
+    /// Returns and clears a fingerprint written by `vamp` if it is fresh.
+    public static func consumePendingTrustApproval(namespace: String? = nil) -> String? {
+        guard let url = fileURL(HostWidgetConstants.pendingTrustKey + ".json", namespace: namespace),
+              let data = try? Data(contentsOf: url) else { return nil }
+        try? FileManager.default.removeItem(at: url)
+        guard let payload = try? JSONDecoder().decode(PendingTrustApproval.self, from: data)
+        else { return nil }
+        guard Date().timeIntervalSince1970 - payload.createdAt <= 60 else { return nil }
+        let fingerprint = payload.fingerprint.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard fingerprint.count == 64, fingerprint.allSatisfy(\.isHexDigit) else { return nil }
+        return fingerprint
     }
 }

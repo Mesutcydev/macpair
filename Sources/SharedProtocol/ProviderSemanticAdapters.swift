@@ -32,6 +32,10 @@ public enum AgentProviderKind: String, Codable, CaseIterable, Sendable {
     case codex
     case pi
     case commandCode
+    case kimi
+    case qwen
+    case aider
+    case gemini
 }
 
 /// A Chat submission routed to a provider's machine-readable runner. The
@@ -512,5 +516,181 @@ public final class CommandCodeAdapter: ProviderSemanticAdapter, @unchecked Senda
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
         partial = Data()
         return [.messageDelta(text.replacingOccurrences(of: "\r", with: ""))]
+    }
+}
+
+/// Kimi's `--prompt --output-format stream-json` mode emits one JSON message
+/// per line. Kimi intentionally keeps thinking/progress on stderr, so only
+/// assistant content is projected into Chat.
+public final class KimiAdapter: ProviderSemanticAdapter, @unchecked Sendable {
+    private let base = BaseProviderAdapter()
+    public init() {}
+
+    public func consume(_ data: Data, sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        base.framer.append(data).flatMap { parse($0, sessionID: sessionID, terminalID: terminalID) }
+    }
+
+    public func finish(sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        base.framer.flush().flatMap { parse($0, sessionID: sessionID, terminalID: terminalID) }
+    }
+
+    private func parse(_ object: [String: Any], sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        var events = base.planEvents(from: object, sessionID: sessionID, terminalID: terminalID)
+        let identifier = BaseProviderAdapter.string(object["session_id"])
+            ?? BaseProviderAdapter.string(object["sessionId"])
+            ?? BaseProviderAdapter.string(BaseProviderAdapter.nested(object, "session", "id"))
+        if let event = base.sessionIdentifierEvent(identifier) { events.append(event) }
+
+        let role = BaseProviderAdapter.string(object["role"])?.lowercased()
+        if role == "assistant" {
+            events += contentEvents(object["content"])
+        }
+        let type = BaseProviderAdapter.string(object["type"])?.lowercased()
+        if type == "error" { events.append(.failed(BaseProviderAdapter.string(object["message"]) ?? BaseProviderAdapter.string(object["error"]))) }
+        if type == "end" || type == "completed" || type == "result" { events.append(.completed) }
+        return events
+    }
+
+    private func contentEvents(_ value: Any?) -> [ProviderSemanticEvent] {
+        if let text = BaseProviderAdapter.string(value), !text.isEmpty { return [.messageDelta(text)] }
+        guard let parts = value as? [[String: Any]] else { return [] }
+        return parts.compactMap { part in
+            guard let text = BaseProviderAdapter.string(part["text"]), !text.isEmpty else { return nil }
+            let type = BaseProviderAdapter.string(part["type"])?.lowercased()
+            return type == "thinking" || type == "reasoning" ? .thinkingDelta(text) : .messageDelta(text)
+        }
+    }
+}
+
+/// Qwen's `--prompt --output-format stream-json --include-partial-messages`
+/// uses Claude-compatible partial event names for live content and emits a
+/// final result record containing the resumable project session ID.
+public final class QwenAdapter: ProviderSemanticAdapter, @unchecked Sendable {
+    private let base = BaseProviderAdapter()
+    private var didEmitMessage = false
+    public init() {}
+
+    public func consume(_ data: Data, sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        base.framer.append(data).flatMap { parse($0, sessionID: sessionID, terminalID: terminalID) }
+    }
+
+    public func finish(sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        base.framer.flush().flatMap { parse($0, sessionID: sessionID, terminalID: terminalID) }
+    }
+
+    private func parse(_ object: [String: Any], sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        var events = base.planEvents(from: object, sessionID: sessionID, terminalID: terminalID)
+        let identifier = BaseProviderAdapter.string(object["session_id"])
+            ?? BaseProviderAdapter.string(object["sessionId"])
+        if let event = base.sessionIdentifierEvent(identifier) { events.append(event) }
+
+        let type = BaseProviderAdapter.string(object["type"])?.lowercased()
+        if type == "assistant" {
+            if let message = object["message"] as? [String: Any] { events += contentEvents(message["content"]) }
+            else { events += contentEvents(object["content"]) }
+        }
+        if type == "stream_event" {
+            let event = object["event"] as? [String: Any]
+            let delta = event?["delta"] ?? object["delta"]
+            let deltaType = BaseProviderAdapter.string(BaseProviderAdapter.nested(event ?? [:], "delta", "type"))?.lowercased()
+            if let text = BaseProviderAdapter.string(delta) {
+                events.append(deltaType == "thinking_delta" ? .thinkingDelta(text) : .messageDelta(text))
+                didEmitMessage = didEmitMessage || deltaType != "thinking_delta"
+            } else if let deltaObject = delta as? [String: Any], let text = BaseProviderAdapter.string(deltaObject["text"]) {
+                events.append(deltaType == "thinking_delta" ? .thinkingDelta(text) : .messageDelta(text))
+                didEmitMessage = didEmitMessage || deltaType != "thinking_delta"
+            }
+        }
+        if type == "result" {
+            if !didEmitMessage, let result = BaseProviderAdapter.string(object["result"]), !result.isEmpty {
+                didEmitMessage = true
+                events.append(.messageDelta(result))
+            }
+            events.append((object["is_error"] as? Bool) == true
+                ? .failed(BaseProviderAdapter.string(object["result"]))
+                : .completed)
+        }
+        if type == "error" { events.append(.failed(BaseProviderAdapter.string(object["message"]) ?? BaseProviderAdapter.string(object["error"]))) }
+        return events
+    }
+
+    private func contentEvents(_ value: Any?) -> [ProviderSemanticEvent] {
+        if let text = BaseProviderAdapter.string(value), !text.isEmpty {
+            didEmitMessage = true
+            return [.messageDelta(text)]
+        }
+        guard let parts = value as? [[String: Any]] else { return [] }
+        return parts.compactMap { part in
+            guard let text = BaseProviderAdapter.string(part["text"]), !text.isEmpty else { return nil }
+            let type = BaseProviderAdapter.string(part["type"])?.lowercased()
+            if type == "thinking" || type == "reasoning" { return .thinkingDelta(text) }
+            didEmitMessage = true
+            return .messageDelta(text)
+        }
+    }
+}
+
+/// Aider's documented `--message --stream` mode writes human-readable text,
+/// not a stable JSON protocol. Keep it honest with the same bounded line
+/// adapter used for other plain-text headless providers.
+public final class AiderAdapter: ProviderSemanticAdapter, @unchecked Sendable {
+    private var partial = Data()
+    public init() {}
+
+    public func consume(_ data: Data, sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        partial.append(data)
+        let lines = partial.split(separator: 0x0A, omittingEmptySubsequences: false)
+        guard !lines.isEmpty else { return [] }
+        let complete = lines.dropLast()
+        partial = Data(lines.last!)
+        var text = ""
+        for line in complete {
+            text += (String(data: Data(line), encoding: .utf8) ?? "").replacingOccurrences(of: "\r", with: "") + "\n"
+        }
+        return text.isEmpty ? [] : [.messageDelta(text)]
+    }
+
+    public func finish(sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        guard !partial.isEmpty,
+              let text = String(data: partial, encoding: .utf8),
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+        partial = Data()
+        return [.messageDelta(text.replacingOccurrences(of: "\r", with: ""))]
+    }
+}
+
+/// Gemini CLI's `--output-format stream-json` emits an `init` session record,
+/// assistant messages, and a terminal `result` record.
+public final class GeminiAdapter: ProviderSemanticAdapter, @unchecked Sendable {
+    private let base = BaseProviderAdapter()
+    public init() {}
+
+    public func consume(_ data: Data, sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        base.framer.append(data).flatMap { parse($0, sessionID: sessionID, terminalID: terminalID) }
+    }
+
+    public func finish(sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        base.framer.flush().flatMap { parse($0, sessionID: sessionID, terminalID: terminalID) }
+    }
+
+    private func parse(_ object: [String: Any], sessionID: UUID, terminalID: UUID) -> [ProviderSemanticEvent] {
+        var events = base.planEvents(from: object, sessionID: sessionID, terminalID: terminalID)
+        let type = BaseProviderAdapter.string(object["type"])?.lowercased()
+        let identifier = BaseProviderAdapter.string(object["session_id"])
+            ?? BaseProviderAdapter.string(object["sessionId"])
+        if let event = base.sessionIdentifierEvent(identifier) { events.append(event) }
+        if type == "message", BaseProviderAdapter.string(object["role"])?.lowercased() == "assistant",
+           let text = BaseProviderAdapter.string(object["content"]), !text.isEmpty {
+            events.append(.messageDelta(text))
+        }
+        if type == "result" {
+            if let error = BaseProviderAdapter.string(object["error"]), !error.isEmpty {
+                events.append(.failed(error))
+            } else {
+                events.append(.completed)
+            }
+        }
+        if type == "error" { events.append(.failed(BaseProviderAdapter.string(object["message"]) ?? BaseProviderAdapter.string(object["error"]))) }
+        return events
     }
 }

@@ -6,6 +6,7 @@ import SharedModels
 /// Discovers hosts on the local network and starts sessions.
 struct MacHostsScreen: View {
     @ObservedObject var environment: ClientAppEnvironment
+    @ObservedObject var assistant: MacAssistantSession
     @ObservedObject private var hostsVM: HostsListViewModel
     @ObservedObject private var coordinator: ClientSessionCoordinator
 
@@ -26,9 +27,11 @@ struct MacHostsScreen: View {
     /// off; drives a warning alert so we don't fire a doomed long-timeout connect
     /// to an address that can't resolve without Tailscale up.
     @State private var pendingTailscaleHost: DiscoveredHostRow?
+    @State private var showsAssistantPairing = false
 
-    init(environment: ClientAppEnvironment) {
+    init(environment: ClientAppEnvironment, assistant: MacAssistantSession) {
         self.environment = environment
+        self.assistant = assistant
         self.hostsVM = environment.sharedHostsViewModel
         self.coordinator = environment.sessionCoordinator
     }
@@ -94,6 +97,9 @@ struct MacHostsScreen: View {
         } message: {
             Text("This looks like a Tailscale address. Make sure the Tailscale VPN is connected on this Mac, then try again — otherwise the host can’t be reached.")
         }
+        .sheet(isPresented: $showsAssistantPairing) {
+            MacAssistantPairingSheet(model: assistant)
+        }
     }
 
     private var isConnecting: Bool {
@@ -129,7 +135,7 @@ struct MacHostsScreen: View {
         } else if isInitialScan {
             centeredState {
                 DiscoveryHero(isScanning: true)
-                Text("Searching for Macs running Vamp Host…")
+                Text("Searching for Vamp Host and Vamp Mini Host…")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
@@ -159,11 +165,13 @@ struct MacHostsScreen: View {
                 .padding(.bottom, 4)
             Text("No Macs found yet")
                 .font(.title2.weight(.semibold))
-            Text("Open Vamp Host on the Mac you want to control, and make sure both Macs are on the same network — or reachable over Tailscale.")
+            Text("Open Vamp Host, Vamp Mini Host, or pair Vamp Assistant. Keep both Macs on the same LAN or reachable over Tailscale.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 440)
 
+            assistantCard
+                .padding(.top, 10)
             vampHostBox
                 .padding(.top, 10)
             if isScanning {
@@ -227,6 +235,8 @@ struct MacHostsScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     header
+
+                    assistantCard
 
                     if let message = errorBannerMessage {
                         Label(message, systemImage: "exclamationmark.triangle.fill")
@@ -292,6 +302,61 @@ struct MacHostsScreen: View {
         return "\(count) \(noun) found · \(online) online"
     }
 
+    private var assistantCard: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "sparkles.rectangle.stack")
+                .font(.title2)
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 48, height: 48)
+                .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Vamp Assistant")
+                    .font(.headline)
+                Text(assistant.savedAddress ?? "Private LAN or Tailscale control · port 9575")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if let error = assistant.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .lineLimit(2)
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            if assistant.isWorking {
+                ProgressView().controlSize(.small)
+            } else if assistant.savedAddress != nil {
+                Button("Reconnect") { Task { await assistant.reconnect() } }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                Menu {
+                    Button("Pair a Different Mac") { showsAssistantPairing = true }
+                    Button("Forget Saved Assistant", role: .destructive) {
+                        assistant.disconnect(forget: true)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+            } else {
+                Button("Pair") { showsAssistantPairing = true }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+            }
+        }
+        .padding(14)
+        .macGlassSurface(
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous),
+            isInteractive: true
+        )
+        .accessibilityElement(children: .contain)
+    }
+
     private var errorBannerMessage: String? {
         if let message = coordinator.errorMessage, coordinator.phase == .error || coordinator.phase == .idle {
             return message
@@ -345,7 +410,7 @@ struct MacHostsScreen: View {
                 ProgressView().controlSize(.large)
                 Text(connectingStatusText)
                     .font(.title3.weight(.semibold))
-                Text("If this is the first connection, approve this Mac in the Vamp Host window on the other computer.")
+                Text("If this is the first connection, approve this Mac in the Vamp Host or Vamp Mini Host window on the other computer.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

@@ -43,7 +43,7 @@ systemctl --user enable --now vamp-terminal-host.service
 python3 linux-host/vamp_terminal_host.py
 ```
 
-Open the printed local URL, enter the six-digit code shown in the host
+Open the printed local URL, enter the 12-digit code shown in the host
 terminal, then use the tab bar. The browser keeps the resulting paired token
 for its 30-day lifetime, so refreshing the page reconnects without another
 code. For private tailnet access, keep the process bound to loopback and run:
@@ -79,7 +79,7 @@ cloudflared tunnel run vamp-terminal
 
 Cloudflare Tunnel forwards the browser's WebSocket connection as well as the
 pairing request. If the hostname is protected by Cloudflare Access, complete
-that sign-in first, then enter the six-digit Vamp pairing code.
+that sign-in first, then enter the 12-digit Vamp pairing code.
 
 Do not bind this process to a public interface or use port forwarding. The
 pairing code is a short-lived bearer credential, not an account or identity
@@ -89,19 +89,21 @@ system.
 
 ```text
 --listen 127.0.0.1       Bind address (loopback by default)
---allow-non-loopback     Required before --listen on a non-loopback address
+--allow-non-loopback     Required before --listen on a specific non-loopback address. Wildcard 0.0.0.0/:: is always refused.
 --port 9475              Browser service port
 --max-terminals 8        Per-connection PTY limit, capped at 8
 ```
 
 Agent sessions can be created from the host shell with `tmux` or `screen`, then
 attached through a tab. Each browser tab can switch between Chat and Terminal.
-Enter `claude`, `codex`, `opencode`, or `gemini` once in Chat to select an
-installed provider. Subsequent messages use that provider's documented
-non-interactive JSON stream and continue the same provider session. Each CLI
-must already be installed and authenticated for the Linux user running the
-host. Linux semantic Chat does not add a provider's unsafe approval-bypass
-flags; use Terminal for interactive approval flows.
+Enter any supported provider name once in Chat — `opencode`, `pi`,
+`commandcode`, `chatgpt`, `claude`, `kimi`, `qwen`, `codex`, `aider`, `grok`,
+or `gemini`. Subsequent messages use that provider's documented
+non-interactive mode and continue the same provider session where the CLI
+supports resumable IDs. Each CLI must already be installed and authenticated
+for the Linux user running the host. Linux semantic Chat does not add a
+provider's unsafe approval-bypass flags; use Terminal for interactive approval
+flows.
 
 Shell submissions still use a bounded, command-scoped projection; startup
 banners, interactive TUI redraws, and raw ANSI controls stay in Terminal. The
@@ -111,8 +113,7 @@ incrementally in the browser so split UTF-8 characters are not corrupted.
 
 ## Current capability boundary
 
-The Linux companion provides terminal tabs, semantic Chat for Claude Code,
-Codex CLI, OpenCode, and Gemini CLI, command-scoped shell Chat, clipboard,
-resize, and workspace selection. Structured task plans, adapters for
-interactive-only agent CLIs, and remote desktop remain unsupported. Use the
-macOS Vamp Host when those features are required.
+The Linux companion provides terminal tabs, semantic Chat for all supported
+launchers, command-scoped shell Chat, clipboard, resize, and workspace
+selection. Structured task plans and remote desktop remain unsupported. Use
+the macOS Vamp Host when those features are required.

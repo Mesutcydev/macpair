@@ -94,6 +94,7 @@ extension VampAgentProvider {
         case .codex: return "Codex CLI"
         case .aider: return "Aider"
         case .grok: return "Grok CLI"
+        case .gemini: return "Gemini CLI"
         }
     }
 
@@ -119,6 +120,7 @@ extension VampAgentProvider {
         case .codex: return "codex"
         case .aider: return "aider"
         case .grok: return "grok"
+        case .gemini: return "gemini"
         }
     }
 
@@ -134,6 +136,7 @@ extension VampAgentProvider {
         case .codex: return "codex"
         case .aider: return "aider"
         case .grok: return "grok"
+        case .gemini: return "gemini"
         }
     }
 
@@ -188,6 +191,7 @@ extension VampAgentProvider {
         case .grok: return "ProviderGrok"
         case .codex, .chatGPT: return "ProviderOpenAI"
         case .pi, .commandCode, .qwen, .aider: return nil
+        case .gemini: return nil
         }
     }
 
@@ -202,6 +206,7 @@ extension VampAgentProvider {
         case .qwen: return "QW"
         case .aider: return "A"
         case .grok: return "G"
+        case .gemini: return "Gm"
         default: return "·"
         }
     }
@@ -218,6 +223,7 @@ extension VampAgentProvider {
         case .qwen: return "q.circle"
         case .aider: return "a.circle"
         case .grok: return "x.circle"
+        case .gemini: return "sparkles"
         default: return "terminal"
         }
     }
@@ -233,6 +239,7 @@ extension VampAgentProvider {
         case .qwen: return Color(red: 0.27, green: 0.47, blue: 0.95)
         case .aider: return Color(red: 0.40, green: 0.76, blue: 0.55)
         case .grok: return Color(red: 0.90, green: 0.66, blue: 0.28)
+        case .gemini: return Color(red: 0.35, green: 0.55, blue: 0.98)
         }
     }
 
@@ -247,6 +254,7 @@ extension VampAgentProvider {
         case .qwen: return Color(red: 0.035, green: 0.050, blue: 0.105)
         case .aider: return Color(red: 0.035, green: 0.075, blue: 0.050)
         case .grok: return Color(red: 0.070, green: 0.055, blue: 0.025)
+        case .gemini: return Color(red: 0.035, green: 0.050, blue: 0.100)
         }
     }
 
@@ -261,6 +269,7 @@ extension VampAgentProvider {
         case .qwen: return Color(red: 0.88, green: 0.93, blue: 1.00)
         case .aider: return Color(red: 0.88, green: 1.00, blue: 0.91)
         case .grok: return Color(red: 1.00, green: 0.95, blue: 0.82)
+        case .gemini: return Color(red: 0.90, green: 0.94, blue: 1.00)
         }
     }
 
@@ -276,6 +285,7 @@ extension VampAgentProvider {
         case .qwen: return UIColor(red: 0.035, green: 0.050, blue: 0.105, alpha: 1)
         case .aider: return UIColor(red: 0.035, green: 0.075, blue: 0.050, alpha: 1)
         case .grok: return UIColor(red: 0.070, green: 0.055, blue: 0.025, alpha: 1)
+        case .gemini: return UIColor(red: 0.035, green: 0.050, blue: 0.100, alpha: 1)
         }
     }
 
@@ -290,6 +300,7 @@ extension VampAgentProvider {
         case .qwen: return UIColor(red: 0.88, green: 0.93, blue: 1.00, alpha: 1)
         case .aider: return UIColor(red: 0.88, green: 1.00, blue: 0.91, alpha: 1)
         case .grok: return UIColor(red: 1.00, green: 0.95, blue: 0.82, alpha: 1)
+        case .gemini: return UIColor(red: 0.90, green: 0.94, blue: 1.00, alpha: 1)
         }
     }
 #endif

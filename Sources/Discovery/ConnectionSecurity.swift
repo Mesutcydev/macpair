@@ -7,7 +7,7 @@ import os
 /// Provides TLS-enabled `NWParameters` using a pre-shared key (PSK) model.
 ///
 /// Rather than full PKI certificates, we use a connection PIN / session token:
-/// - Host generates a 6-digit connection PIN displayed to the user.
+/// - Host generates a 12-digit connection PIN displayed to the user.
 /// - Client enters the PIN to derive a shared symmetric key.
 /// - TLS is established using the derived key for encryption.
 ///
@@ -77,7 +77,7 @@ public enum ConnectionSecurity {
         return params
     }
 
-    /// Derive a symmetric key from a 6-digit PIN.
+    /// Derive a symmetric key from a 12-digit PIN.
     /// Uses HKDF with a fixed salt so both sides derive the same key from the same PIN.
     public static func deriveKey(from pin: String) -> SymmetricKey {
         let pinData = Data(pin.utf8)

@@ -1,38 +1,33 @@
 # Vamp
 
-**Vamp is an open-source, local-first remote desktop and terminal suite for Mac, iPhone, iPad, Safari, and Linux.** Connections use a trusted LAN or private Tailscale network. Every new device needs visible host approval. There is no product account and no hosted relay.
+**Vamp currently promotes two open-source, local-first products: Vamp Assistant and Vamp Stream.** Connections use a trusted LAN or private Tailscale network. Every new device needs visible approval. There is no product account and no hosted relay.
 
-Four kits share that trust plane:
-
-| Kit | Install | Wire |
+| Product | Purpose | Platforms |
 | --- | --- | --- |
-| Remote desktop | Vamp Host + Vamp Control | signed WebRTC |
-| Mac terminal | Vamp Terminal Host + Vamp Terminal or Safari | signed WebRTC / browser on `:9475` |
-| Pairing companion | Vamp Mini Host | signed WebRTC, menu-bar control surface |
-| App streaming | Vamp Stream + Vamp Host or Vamp Mini Host | signed WebRTC app-window stream |
-| Linux shell | Vamp Linux Host + a browser | WebSocket on loopback `:9475` |
+| [Vamp Assistant](https://thevamp.app/assistant/) | Native AI chat, local/BYOK models, Code workspaces, specialist bots, approval-gated tools, and private remote sessions | macOS, iPhone, iPad, browser |
+| [Vamp Stream](https://thevamp.app/stream/) | Focused visual client for a Mac display or app window | iPhone, iPad |
 
-Vamp Control and Vamp Terminal cannot attach to Vamp Linux Host. Safari control is built into the macOS hosts; there is no Safari download. Run only one macOS host at a time — both use the same signaling ports.
+Vamp Stream can use Vamp Host, the lightweight **Vamp Stream Host** (the
+`VampMiniHost` implementation), or Vamp Assistant as its Mac side. Host and
+Vamp Stream Host use the signed WebRTC stack; Assistant uses its authenticated
+private Remote Sessions endpoint. Terminal, Terminal Host, Control, standalone
+browser control, and Linux Host source and technical documentation remain in
+the repository, but they are not part of the current public promotion.
 
-## Apps
+## Current public apps
 
 | App | Purpose | Bundle ID |
 | --- | --- | --- |
-| Vamp Host | Full macOS host: screen, input, clipboard, files, audio, opt-in terminal, Safari control | `com.mesutcy.remotedesktop.host` |
-| Vamp Terminal Host | Light macOS host: always-on terminal and Safari control only | `com.mesutcy.remotedesktop.terminalhost` |
-| Vamp Mini Host | Separate pairing-first menu-bar host with trusted-device review and permission guidance | `com.mesutcy.remotedesktop.minhost` |
-| Vamp Linux Host | Dependency-free Python browser host; not a WebRTC peer | local process |
-| Vamp Stream | Focused iPhone/iPad app-window streaming client; also pairs with Vamp Assistant for its separate full-screen control surface | `com.mesutcydev.remotedesktop.stream` |
-| Vamp Assistant | Separate compatible macOS full-screen control host on private port `9575` | existing Assistant bundle |
-| Vamp Control | Remote-desktop client for macOS, iPhone, and iPad. Terminal Mode is an overlay, not the eight-tab workspace | `com.mesutcy.remotedesktop.macclient` / `com.mesutcy.remotedesktop.ios` |
-| Vamp Terminal | Eight-tab terminal client for iPhone and iPad, with agent launchers | `com.mesutcy.remotedesktop.terminal` |
+| Vamp Stream | Focused iPhone/iPad visual streaming client | `com.mesutcy.remotedesktop.stream` |
+| Vamp Assistant | Native macOS AI product with its own iOS and browser remotes | See [Assistant source](https://github.com/Mesutcydev/vamp-assistant) |
 
-The iOS apps are unsigned IPAs for AltStore-style re-signing. The macOS and Linux hosts are built and run by the owner of the machine.
+The iOS apps are unsigned IPAs for AltStore-style re-signing. Supporting Mac
+hosts are installed and run by the owner of the machine.
 
 ## Download and install
 
 Current builds are on [thevamp.app](https://thevamp.app/#download). Read the
-[install reference](docs/INSTALL.md) and the [AltStore guide](docs/VAMP_TERMINAL_SIDELOAD.md)
+[install reference](docs/INSTALL.md) and the [iOS sideload guide](docs/IOS_SIDELOAD.md)
 before sideloading an iOS build.
 
 The macOS hosts are local utilities, not App Store products. On first launch:
@@ -40,16 +35,15 @@ The macOS hosts are local utilities, not App Store products. On first launch:
 1. Drag the app to `/Applications`.
 2. Control-click the app and choose **Open**, if that option is available.
 3. Otherwise open **System Settings → Privacy & Security** and choose **Open Anyway**.
-4. For Vamp Host, grant **Screen Recording** and **Accessibility** in System Settings → Privacy & Security. Vamp Terminal Host does not request either permission.
-
-Vamp Mini Host also does not request Screen Recording or Accessibility: it is a
-pairing-first, terminal-safe/view-only host surface.
+4. For Vamp Stream Host, grant **Screen Recording** for video and
+   **Accessibility** for keyboard/pointer control in System Settings → Privacy
+   & Security.
 
 Do not disable Gatekeeper globally.
 
 ## Build from source
 
-Requirements: macOS 13 or later, Xcode 26 or later, and Python 3 for the Linux host.
+Requirements: macOS 13 or later and Xcode 26 or later.
 
 ```bash
 xcodebuild \
@@ -60,30 +54,20 @@ xcodebuild \
   build
 ```
 
-Build the terminal-only macOS host by changing the scheme to `VampTerminalHost`.
-Build the pairing-first menu-bar host by changing the scheme to `VampMiniHost`.
-Build the current iPhone/iPad and macOS host artifacts with:
+Build the Stream client and its lightweight supporting host with:
 
 ```bash
-scripts/package-vamp-terminal-ios.sh --clean
 scripts/package-vamp-stream-ios.sh --clean
 scripts/package-vamp-mini-host.sh --clean
-scripts/package-vamp-hosts.sh --clean
 ```
 
 No Apple account, certificate, provisioning profile, or notarization credential is
 required to build the unsigned IPA. AltStore or another sideloading tool must
 re-sign it with the installing user's Apple ID/team.
 
-The generated files are written to `dist/VampTerminal/`, `dist/VampStream/`,
-`dist/VampMiniHost/`, and `dist/VampTerminalHosts/`. See [docs/INSTALL.md](docs/INSTALL.md) for the
-separate iOS, macOS, Safari, and Linux install paths.
-
-Run the Linux host with:
-
-```bash
-scripts/vamp-linux-host --listen 127.0.0.1 --port 9475
-```
+The generated files are written under `dist/VampStream/` and
+`dist/VampStreamHost/`. See [docs/INSTALL.md](docs/INSTALL.md) for the supported
+Assistant and Stream install paths.
 
 ## Agent and automation interface
 

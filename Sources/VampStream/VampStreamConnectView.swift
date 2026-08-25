@@ -7,9 +7,12 @@ struct VampStreamConnectView: View {
     var onConnect: (DiscoveredHostRow) -> Void
     var onPairVampAssistant: () -> Void
     var onScanVampHost: () -> Void
-    var savedVampAssistantAddress: String?
+    var pairedVampAssistants: [BeetCodeRemoteSessionViewModel.SavedAssistant]
+    var vampAssistantAvailability: [String: BeetCodeRemoteSessionViewModel.Availability]
     var vampAssistantError: String?
-    var onReconnectVampAssistant: () -> Void
+    var onRemoteControl: (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void
+    var onAppStream: (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void
+    var onForgetVampAssistant: (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void
     @ObservedObject private var hostsVM: HostsListViewModel
 
     init(
@@ -17,17 +20,23 @@ struct VampStreamConnectView: View {
         onConnect: @escaping (DiscoveredHostRow) -> Void,
         onPairVampAssistant: @escaping () -> Void,
         onScanVampHost: @escaping () -> Void,
-        savedVampAssistantAddress: String?,
+        pairedVampAssistants: [BeetCodeRemoteSessionViewModel.SavedAssistant],
+        vampAssistantAvailability: [String: BeetCodeRemoteSessionViewModel.Availability],
         vampAssistantError: String?,
-        onReconnectVampAssistant: @escaping () -> Void
+        onRemoteControl: @escaping (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void,
+        onAppStream: @escaping (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void,
+        onForgetVampAssistant: @escaping (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void
     ) {
         self.environment = environment
         self.onConnect = onConnect
         self.onPairVampAssistant = onPairVampAssistant
         self.onScanVampHost = onScanVampHost
-        self.savedVampAssistantAddress = savedVampAssistantAddress
+        self.pairedVampAssistants = pairedVampAssistants
+        self.vampAssistantAvailability = vampAssistantAvailability
         self.vampAssistantError = vampAssistantError
-        self.onReconnectVampAssistant = onReconnectVampAssistant
+        self.onRemoteControl = onRemoteControl
+        self.onAppStream = onAppStream
+        self.onForgetVampAssistant = onForgetVampAssistant
         self.hostsVM = environment.sharedHostsViewModel
     }
 
@@ -59,8 +68,15 @@ struct VampStreamConnectView: View {
                 VStack(spacing: 12) {
                     vampAssistantCard
 
-                    if let savedVampAssistantAddress {
-                        savedVampAssistantCard(savedVampAssistantAddress)
+                    if !pairedVampAssistants.isEmpty {
+                        Text("PAIRED VAMP ASSISTANTS")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(PR.dim)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 6)
+                        ForEach(pairedVampAssistants) { assistant in
+                            savedVampAssistantCard(assistant)
+                        }
                     }
                     if let vampAssistantError {
                         vampAssistantErrorCard(vampAssistantError)
@@ -98,10 +114,10 @@ struct VampStreamConnectView: View {
                         .foregroundStyle(PR.fg)
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Pair Vamp Assistant")
+                    Text(pairedVampAssistants.isEmpty ? "Pair Vamp Assistant" : "Pair another Vamp Assistant")
                         .font(.headline)
                         .foregroundStyle(PR.fg)
-                    Text("Remote control and app streaming · port 9575")
+                    Text("Remote Control + App Stream · port 9575")
                         .font(.caption)
                         .foregroundStyle(PR.dim)
                 }
@@ -118,35 +134,76 @@ struct VampStreamConnectView: View {
         .accessibilityHint("Enter the private address and one-time pairing code shown by Vamp Assistant")
     }
 
-    private func savedVampAssistantCard(_ address: String) -> some View {
-        Button(action: onReconnectVampAssistant) {
+    private func savedVampAssistantCard(
+        _ assistant: BeetCodeRemoteSessionViewModel.SavedAssistant
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 14) {
                 ZStack {
                     Circle().fill(PR.fg.opacity(0.08)).frame(width: 40, height: 40)
-                    Image(systemName: "arrow.clockwise")
+                    Image(systemName: "macbook")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(PR.fg)
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Reconnect to Vamp Assistant")
+                    Text(assistant.displayName)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(PR.fg)
-                    Text(address)
+                    Text(assistant.address)
                         .font(.caption.monospaced())
                         .foregroundStyle(PR.dim)
                         .lineLimit(1)
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(PR.dim)
+                availabilityDot(for: assistant)
+                Menu {
+                    Button("Forget this Mac", role: .destructive) {
+                        onForgetVampAssistant(assistant)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
+                        .foregroundStyle(PR.dim)
+                }
             }
-            .padding(14)
-            .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+
+            HStack(spacing: 10) {
+                Button { onRemoteControl(assistant) } label: {
+                    Label("Remote Control", systemImage: "display")
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, 10)
+                .prGlassSurface(in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+                Button { onAppStream(assistant) } label: {
+                    Label("App Stream", systemImage: "macwindow.badge.plus")
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, 10)
+                .prGlassSurface(in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Reconnect to Vamp Assistant")
-        .accessibilityValue(address)
+        .padding(14)
+        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(assistant.displayName), \(assistant.address)")
+    }
+
+    private func availabilityDot(
+        for assistant: BeetCodeRemoteSessionViewModel.SavedAssistant
+    ) -> some View {
+        let availability = vampAssistantAvailability[assistant.address] ?? .checking
+        let color: Color = availability == .ready ? .green : availability == .unavailable ? .red : .gray
+        return Circle()
+            .fill(color)
+            .frame(width: 8, height: 8)
+            .overlay(Circle().stroke(.white.opacity(0.45), lineWidth: 0.6))
+            .shadow(color: color.opacity(0.75), radius: 4)
+            .accessibilityLabel(availability == .ready ? "Mac ready" : availability == .checking ? "Checking Mac" : "Mac unavailable")
     }
 
     private func vampAssistantErrorCard(_ message: String) -> some View {

@@ -184,11 +184,32 @@ open_app() {
 open_action() {
   local action="$1" fingerprint="${2:-}"
   open_app
+  if [[ "$action" == approve-pairing || "$action" == approve-connection ]]; then
+    if [[ -n "$fingerprint" ]]; then
+      write_trust_approval "$fingerprint"
+    fi
+    open "${URL_SCHEME}://action/${action}"
+    return
+  fi
   if [[ -n "$fingerprint" ]]; then
     open "${URL_SCHEME}://action/${action}?fingerprint=${fingerprint}"
   else
     open "${URL_SCHEME}://action/${action}"
   fi
+}
+
+write_trust_approval() {
+  local fingerprint="$1"
+  local trust_file
+  trust_file="$(dirname "$SNAPSHOT_FILE")/host.widget.pendingTrust.json"
+  mkdir -p "$(dirname "$trust_file")"
+  python3 - "$trust_file" "$fingerprint" <<'PY'
+import json, os, sys, time
+path, fingerprint = sys.argv[1], sys.argv[2].strip().lower()
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump({"fingerprint": fingerprint, "createdAt": time.time()}, handle)
+os.chmod(path, 0o600)
+PY
 }
 
 read_snapshot_field() {
@@ -574,6 +595,7 @@ Examples:
   ${CLI_NAME} terminal agent claude --session claude
   ${CLI_NAME} terminal agent opencode --session opencode
   ${CLI_NAME} terminal agent qwen --session qwen
+  ${CLI_NAME} terminal agent gemini --session gemini
   ${CLI_NAME} terminal attach work
 
 Start a session once on the Mac, then use Vamp Terminal → + → Attach / create
@@ -631,9 +653,9 @@ cmd_terminal() {
       shift || true
       local session="$agent"
       case "$agent" in
-        opencode|pi|commandcode|chatgpt|claude|kimi|qwen|codex|aider|grok) ;;
+        opencode|pi|commandcode|chatgpt|claude|kimi|qwen|codex|aider|grok|gemini) ;;
         -h|--help|"") terminal_usage; return 0 ;;
-        *) err "Unsupported agent: $agent (use opencode, pi, commandcode, chatgpt, claude, kimi, qwen, codex, aider, or grok)"; exit 4 ;;
+        *) err "Unsupported agent: $agent (use opencode, pi, commandcode, chatgpt, claude, kimi, qwen, codex, aider, grok, or gemini)"; exit 4 ;;
       esac
       while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -647,7 +669,12 @@ cmd_terminal() {
         shift || true
       done
       command -v tmux >/dev/null 2>&1 || { err "tmux is required for persistent agent sessions"; exit 3; }
-      exec tmux new-session -A -s "$session" -- "$agent"
+      local launcher="$agent"
+      case "$agent" in
+        commandcode) launcher="cmd" ;;
+        chatgpt) launcher="codex" ;;
+      esac
+      exec tmux new-session -A -s "$session" -- "$launcher"
       ;;
     *)
       err "Unknown terminal command: $action"

@@ -116,7 +116,7 @@ struct VampTerminalGuideView: View {
                 Text("Safari task chat is available too")
                     .font(.headline)
                     .foregroundStyle(VampGlassPalette.ink)
-                Text("On the Mac, open Host Settings → Safari control, copy the Tailscale Serve command, and open its private HTTPS URL in Safari. Pair with the six-digit host code. The browser workspace supports the same eight-tab PTY limit, command approval cards, clipboard, tmux/screen handoff, and agent launchers.")
+                Text("On the Mac, open Host Settings → Safari control, copy the Tailscale Serve command, and open its private HTTPS URL in Safari. Pair with the 12-digit host code. The browser workspace supports the same eight-tab PTY limit, command approval cards, clipboard, tmux/screen handoff, and agent launchers.")
                     .font(.footnote)
                     .foregroundStyle(VampGlassPalette.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)

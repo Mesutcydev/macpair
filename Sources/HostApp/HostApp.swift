@@ -617,20 +617,12 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
         for url in urls {
             guard let action = HostWidgetAction.from(url: url) else { continue }
             if let environment = HostAppEnvironment.shared {
-                if action == .approvePairing || action == .approveConnection,
-                   let fingerprint = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                       .queryItems?.first(where: { $0.name == "fingerprint" })?.value {
-                    _ = environment.resolveTrustPrompt(
-                        approved: true,
-                        matchingFingerprint: fingerprint
-                    )
+                if action == .approvePairing || action == .approveConnection {
+                    _ = environment.consumeCLITrustApproval()
                     continue
                 }
-                // App already running — apply in-process immediately.
                 environment.applyWidgetAction(action)
             } else {
-                // Cold launch from the widget: stage the action so the bridge
-                // applies it once the environment finishes initializing.
                 HostWidgetStore.setPendingAction(action)
                 CFNotificationCenterPostNotification(
                     CFNotificationCenterGetDarwinNotifyCenter(),

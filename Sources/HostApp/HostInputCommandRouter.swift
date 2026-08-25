@@ -48,7 +48,7 @@ final class HostInputCommandRouter: @unchecked Sendable {
     /// existing behavior. When off, remote login-screen unlock is refused even for
     /// an authenticated, trusted client. (Terminal Mode has its own gate in the
     /// environment's terminal-open handler.)
-    var remoteUnlockEnabled: @Sendable () -> Bool = { true }
+    var remoteUnlockEnabled: @Sendable () -> Bool = { false }
 
     /// Called when the client requests a mid-session quality preset change.
     /// The coordinator sets this closure to apply the new preset to the pipeline.
@@ -471,6 +471,7 @@ final class HostInputCommandRouter: @unchecked Sendable {
     }
 
     private func handlePingEnvelope(_ envelope: DataChannelEnvelope) async {
+        guard validateControlEnvelopeAuth(envelope) else { return }
         guard let message = try? envelope.decodePing() else { return }
         if let loss = message.lossPermille {
             webRTCSessionManager.recordClientLossReport(loss)

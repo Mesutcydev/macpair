@@ -1128,7 +1128,7 @@ struct MacRemoteSessionView: View {
 
 // MARK: - Session toolbar chrome
 
-private struct SessionToolbarStatusPill: View {
+struct SessionToolbarStatusPill: View {
     let hostName: String
     let qualityColor: Color
     let qualityLabel: String
@@ -1172,7 +1172,7 @@ private struct SessionToolbarStatusPill: View {
     }
 }
 
-private struct SessionToolbarLiveStats: View {
+struct SessionToolbarLiveStats: View {
     let framesPerSecond: Double?
     let latencyMs: Double?
     let bitrateKbps: Double?
@@ -1205,7 +1205,7 @@ private struct SessionToolbarLiveStats: View {
     }
 }
 
-private struct SessionToolbarMetric: View {
+struct SessionToolbarMetric: View {
     let label: LocalizedStringKey
     let value: String
 
@@ -1222,7 +1222,7 @@ private struct SessionToolbarMetric: View {
     }
 }
 
-private struct SessionToolbarIconLabel: View {
+struct SessionToolbarIconLabel: View {
     let systemImage: String
     var isActive: Bool = false
 
@@ -1235,7 +1235,7 @@ private struct SessionToolbarIconLabel: View {
     }
 }
 
-private struct SessionToolbarToggleLabel: View {
+struct SessionToolbarToggleLabel: View {
     let title: String
     let systemImage: String
     var isActive: Bool = false
@@ -1254,7 +1254,7 @@ private struct SessionToolbarToggleLabel: View {
     }
 }
 
-private struct SessionToolbarDisconnectButton: View {
+struct SessionToolbarDisconnectButton: View {
     let action: () -> Void
     @State private var hovering = false
 
@@ -1284,7 +1284,7 @@ private struct SessionToolbarDisconnectButton: View {
     }
 }
 
-private struct SessionToolbarIconButtonStyle: ButtonStyle {
+struct SessionToolbarIconButtonStyle: ButtonStyle {
     var active: Bool = false
     @State private var hovering = false
 
@@ -1307,7 +1307,7 @@ private struct SessionToolbarIconButtonStyle: ButtonStyle {
     }
 }
 
-private struct SessionToolbarToggleButtonStyle: ButtonStyle {
+struct SessionToolbarToggleButtonStyle: ButtonStyle {
     var active: Bool = false
     @State private var hovering = false
 
@@ -1339,7 +1339,7 @@ private struct SessionToolbarToggleButtonStyle: ButtonStyle {
     }
 }
 
-private extension View {
+extension View {
     func sessionToolbarClusterChrome() -> some View {
         self
             .background {

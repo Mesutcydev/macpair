@@ -35,6 +35,7 @@ struct HostAgentCommandsView: View {
         .init(id: "terminal-agent-codex", command: "vamp terminal agent codex --session codex", hint: "Run Codex CLI inside tmux so Vamp Terminal can reattach"),
         .init(id: "terminal-agent-aider", command: "vamp terminal agent aider --session aider", hint: "Run Aider inside tmux so Vamp Terminal can reattach"),
         .init(id: "terminal-agent-grok", command: "vamp terminal agent grok --session grok", hint: "Run Grok CLI inside tmux so Vamp Terminal can reattach"),
+        .init(id: "terminal-agent-gemini", command: "vamp terminal agent gemini --session gemini", hint: "Run Gemini CLI inside tmux so Vamp Terminal can reattach"),
         .init(id: "open", command: "open -b com.mesutcy.remotedesktop.host", hint: "Launch Vamp Host"),
     ]
 

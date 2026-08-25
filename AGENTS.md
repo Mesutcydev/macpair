@@ -97,7 +97,7 @@ vamp terminal attach work
 vamp terminal agent opencode --session opencode
 vamp terminal agent claude --session claude
 vamp terminal agent codex --session codex
-# also: pi, commandcode, chatgpt, kimi, qwen, aider, grok
+# also: pi, commandcode, chatgpt, kimi, qwen, aider, grok, gemini
 vamp browser serve
 ```
 

@@ -107,40 +107,63 @@ final class PeerTrustGateTests: XCTestCase {
         }
     }
 
-    func testFingerprintMismatchRequiresApproval() async throws {
+    func testFingerprintMismatchIsHardFail() async throws {
         let peer = TrustedPeer(displayName: "Device", fingerprint: fp(10))
         try await store.trustPeer(peer)
 
         let result = await gate.evaluate(peerID: peer.id, displayName: "Device", fingerprint: fp(11))
-        if case .requiresApproval = result {
-            // Expected — fingerprint changed (possible MITM)
+        if case .fingerprintChanged(let peerID, _, let previous, let newFingerprint) = result {
+            XCTAssertEqual(peerID, peer.id)
+            XCTAssertEqual(previous, fp(10))
+            XCTAssertEqual(newFingerprint, fp(11))
         } else {
-            XCTFail("Expected requiresApproval for fingerprint mismatch, got \(result)")
+            XCTFail("Expected fingerprintChanged for key swap, got \(result)")
         }
+    }
+
+    func testFingerprintMismatchDoesNotPromptAllow() async throws {
+        let peer = TrustedPeer(displayName: "Device", fingerprint: fp(10))
+        try await store.trustPeer(peer)
+
+        let promptCalled = PromptFlag()
+        await gate.setApprovalHandler { _, _, _ in
+            promptCalled.markCalled()
+            return true
+        }
+
+        let approved = await gate.evaluateAndPrompt(
+            peerID: peer.id,
+            displayName: "Device",
+            fingerprint: fp(11)
+        )
+        XCTAssertFalse(approved)
+        XCTAssertFalse(promptCalled.wasCalled)
+        let reason = await gate.lastDenialReason
+        XCTAssertNotNil(reason)
     }
 
     // MARK: - Fingerprint format validation (M-2)
 
-    func testMalformedFingerprintTooShortRequiresApproval() async {
+    func testMalformedFingerprintTooShortIsRejected() async {
         let result = await gate.evaluate(peerID: UUID(), displayName: "Device", fingerprint: "short")
-        if case .requiresApproval = result { } else {
-            XCTFail("Expected requiresApproval for malformed fingerprint, got \(result)")
+        if case .invalidIdentity = result { } else {
+            XCTFail("Expected invalidIdentity for malformed fingerprint, got \(result)")
         }
     }
 
-    func testMalformedFingerprintUppercaseRequiresApproval() async {
+    func testMalformedFingerprintUppercaseIsRejected() async {
         let upper = String(repeating: "A", count: 64)
         let result = await gate.evaluate(peerID: UUID(), displayName: "Device", fingerprint: upper)
-        if case .requiresApproval = result { } else {
-            XCTFail("Expected requiresApproval for uppercase fingerprint, got \(result)")
+        if case .invalidIdentity = result { } else {
+            XCTFail("Expected invalidIdentity for uppercase fingerprint, got \(result)")
         }
     }
 
-    func testMalformedFingerprintTooLongRequiresApproval() async {
+    func testMalformedFingerprintTooLongIsRejected() async {
         let tooLong = String(repeating: "a", count: 65)
         let result = await gate.evaluate(peerID: UUID(), displayName: "Device", fingerprint: tooLong)
-        if case .requiresApproval = result { } else {
-            XCTFail("Expected requiresApproval for 65-char fingerprint, got \(result)")
+        if case .invalidIdentity = result { } else {
+            XCTFail("Expected invalidIdentity for 65-char fingerprint, got \(result)")
         }
     }
 

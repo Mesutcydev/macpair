@@ -93,6 +93,55 @@ final class ProviderSemanticAdapterTests: XCTestCase {
         XCTAssertEqual(events, [.completed])
     }
 
+    func testKimiAdapterConsumesAssistantMessagesAndCompletion() {
+        let adapter = KimiAdapter()
+        let data = Data((
+            #"{"session_id":"kimi-1","role":"assistant","content":"Hello"}"# + "\n" +
+            #"{"type":"end"}"# + "\n"
+        ).utf8)
+        let events = adapter.consume(data, sessionID: sessionID, terminalID: terminalID)
+        XCTAssertTrue(events.contains(.sessionIdentifier("kimi-1")))
+        XCTAssertTrue(events.contains(.messageDelta("Hello")))
+        XCTAssertTrue(events.contains(.completed))
+    }
+
+    func testQwenAdapterConsumesPartialEventsAndResult() {
+        let adapter = QwenAdapter()
+        let data = Data((
+            #"{"type":"stream_event","session_id":"qwen-1","event":{"delta":{"type":"text_delta","text":"Hi"}}}"# + "\n" +
+            #"{"type":"result","is_error":false}"# + "\n"
+        ).utf8)
+        let events = adapter.consume(data, sessionID: sessionID, terminalID: terminalID)
+        XCTAssertTrue(events.contains(.sessionIdentifier("qwen-1")))
+        XCTAssertTrue(events.contains(.messageDelta("Hi")))
+        XCTAssertTrue(events.contains(.completed))
+    }
+
+    func testAiderAdapterFramesPlainText() {
+        let adapter = AiderAdapter()
+        XCTAssertEqual(
+            adapter.consume(Data("Aider answer\n".utf8), sessionID: sessionID, terminalID: terminalID),
+            [.messageDelta("Aider answer\n")]
+        )
+        XCTAssertEqual(
+            adapter.finish(sessionID: sessionID, terminalID: terminalID),
+            []
+        )
+    }
+
+    func testGeminiAdapterConsumesMessagesAndResult() {
+        let adapter = GeminiAdapter()
+        let data = Data((
+            #"{"type":"init","session_id":"gemini-1"}"# + "\n" +
+            #"{"type":"message","role":"assistant","content":"Ready"}"# + "\n" +
+            #"{"type":"result"}"# + "\n"
+        ).utf8)
+        let events = adapter.consume(data, sessionID: sessionID, terminalID: terminalID)
+        XCTAssertTrue(events.contains(.sessionIdentifier("gemini-1")))
+        XCTAssertTrue(events.contains(.messageDelta("Ready")))
+        XCTAssertTrue(events.contains(.completed))
+    }
+
     func testClaudeCurrentTaskResultSchemaKeepsStableTasks() throws {
         let adapter = ClaudeAdapter()
         let createAudit = Data((#"{"type":"user","tool_use_result":{"task":{"id":"1","subject":"Audit"}}}"# + "\n").utf8)

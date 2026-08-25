@@ -46,10 +46,20 @@ final class BeetCodeRemoteClientTests: XCTestCase {
     func testRemoteApplicationListPayloadDecodesStableWindowIdentity() throws {
         let data = Data(#"{"windowID":42,"bundleIdentifier":"com.apple.Safari","name":"Safari","windowTitle":"Start Page","width":1280,"height":800}"#.utf8)
         let application = try JSONDecoder().decode(BeetCodeRemoteApplication.self, from: data)
-        XCTAssertEqual(application.id, 42)
+        XCTAssertEqual(application.id, "com.apple.Safari")
         XCTAssertEqual(application.bundleIdentifier, "com.apple.Safari")
         XCTAssertEqual(application.name, "Safari")
         XCTAssertEqual(application.windowTitle, "Start Page")
+        XCTAssertTrue(application.isRunning)
+        XCTAssertFalse(application.isActive)
+    }
+
+    func testInstalledRemoteApplicationDecodesWithoutWindow() throws {
+        let data = Data(#"{"windowID":null,"bundleIdentifier":"com.apple.TextEdit","name":"TextEdit","width":0,"height":0,"isRunning":false,"isActive":false}"#.utf8)
+        let application = try JSONDecoder().decode(BeetCodeRemoteApplication.self, from: data)
+        XCTAssertNil(application.windowID)
+        XCTAssertEqual(application.id, "com.apple.TextEdit")
+        XCTAssertFalse(application.isRunning)
     }
 
     func testMultipartParserHandlesSplitH264PartAndGeometry() throws {

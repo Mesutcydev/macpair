@@ -1,6 +1,15 @@
 import AppKit
 import CoreGraphics
+import SharedModels
 import SwiftUI
+
+/// AppKit no longer consistently promotes Control-primary click to a secondary
+/// event. Keeping this mapping pure makes the restored build-47 behavior testable.
+enum RemotePrimaryClickTranslation {
+    static func button(controlPressed: Bool) -> MouseButton {
+        controlPressed ? .right : .left
+    }
+}
 
 /// Layout constants for the floating session control bar.
 enum SessionControlBarMetrics {

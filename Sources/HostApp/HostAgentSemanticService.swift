@@ -308,17 +308,19 @@ final class HostAgentSemanticService: @unchecked Sendable {
         case .codex: return CodexAdapter()
         case .pi: return PiAdapter()
         case .commandCode: return CommandCodeAdapter()
+        case .kimi: return KimiAdapter()
+        case .qwen: return QwenAdapter()
+        case .aider: return AiderAdapter()
+        case .gemini: return GeminiAdapter()
         }
     }
 
     static func launch(provider: AgentProviderKind, prompt: String, previousSessionID: String?) -> (executable: String, arguments: [String]) {
         switch provider {
         case .grok:
-            // Vamp has already obtained an explicit, visible approval for this
-            // semantic turn. Headless providers cannot present their own TTY
-            // permission prompt; without this flag they wait forever with no
-            // stdout, leaving Chat stuck on "Waiting for agent response".
-            var args = ["--always-approve", "--output-format", "streaming-json", "--single"]
+            // Match the Linux host: no unattended approval bypass. If the
+            // provider needs a TTY confirmation, use Terminal instead of Chat.
+            var args = ["--output-format", "streaming-json", "--single"]
             if let previousSessionID { args = ["--resume", previousSessionID] + args }
             return ("grok", args + ["--", prompt])
         case .openCode:
@@ -329,11 +331,11 @@ final class HostAgentSemanticService: @unchecked Sendable {
             if let previousSessionID { args += ["--session", previousSessionID] }
             return ("opencode", args + ["--", prompt])
         case .claude:
-            var args = ["--print", "--verbose", "--dangerously-skip-permissions", "--output-format", "stream-json", "--include-partial-messages"]
+            var args = ["--print", "--verbose", "--output-format", "stream-json", "--include-partial-messages"]
             if let previousSessionID { args += ["--resume", previousSessionID] }
             return ("claude", args + ["--", prompt])
         case .codex:
-            var args = ["exec", "--dangerously-bypass-approvals-and-sandbox"]
+            var args = ["exec"]
             if let previousSessionID { args += ["resume", previousSessionID] }
             args += ["--json", "--skip-git-repo-check"]
             return ("codex", args + ["--", prompt])
@@ -347,12 +349,28 @@ final class HostAgentSemanticService: @unchecked Sendable {
             if let previousSessionID { args += ["--session", previousSessionID] }
             return ("pi", args + ["--", prompt])
         case .commandCode:
-            // Print mode runs the full agent loop non-interactively and prints
-            // the answer on stdout. --auto-accept mirrors the approval already
-            // granted in Chat; onboarding and auto-update are suppressed so a
-            // headless turn is deterministic.
-            let args = ["-p", "--auto-accept", "--skip-onboarding", "--no-auto-update"]
+            // Print mode runs the full agent loop non-interactively. Onboarding
+            // and auto-update are suppressed so a headless turn is deterministic.
+            // Interactive file approvals stay in Terminal, matching Linux.
+            let args = ["-p", "--skip-onboarding", "--no-auto-update"]
             return ("cmd", args + ["--", prompt])
+        case .kimi:
+            var args = ["--output-format", "stream-json"]
+            if let previousSessionID { args += ["--session", previousSessionID] }
+            return ("kimi", args + ["--prompt", prompt])
+        case .qwen:
+            var args = ["--output-format", "stream-json", "--include-partial-messages", "--approval-mode", "plan"]
+            if let previousSessionID { args += ["--resume", previousSessionID] }
+            return ("qwen", args + ["--prompt", prompt])
+        case .aider:
+            // Scripted `--message` mode. Edit confirmation stays with the
+            // provider (no `--yes`), matching the Linux host.
+            let args = ["--message", prompt, "--stream", "--no-pretty", "--no-auto-commits", "--no-check-update"]
+            return ("aider", args)
+        case .gemini:
+            var args = ["--output-format", "stream-json", "--approval-mode", "plan"]
+            if let previousSessionID { args += ["--resume", previousSessionID] }
+            return ("gemini", args + ["--prompt", prompt])
         }
     }
 

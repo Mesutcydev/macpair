@@ -21,7 +21,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ "$OUTPUT_DIR" == /* ]] || OUTPUT_DIR="$ROOT/$OUTPUT_DIR"
-for tool in xcodebuild xcodegen codesign ditto plutil file shasum python3; do command -v "$tool" >/dev/null || fail "Missing $tool"; done
+for tool in xcodebuild xcodegen codesign ditto hdiutil plutil file shasum python3; do command -v "$tool" >/dev/null || fail "Missing $tool"; done
 [[ -f "$ROOT/macclient-project.yml" ]] || fail "Missing macclient-project.yml"
 COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
 if [[ "$ALLOW_DIRTY" -ne 1 ]] && [[ -n "$(git -C "$ROOT" status --porcelain)" ]]; then fail "Use --allow-dirty for local artifacts"; fi
@@ -77,4 +77,34 @@ payload={"schemaVersion":1,"artifact":os.environ["ARTIFACT"],"application":"Vamp
 with open(os.environ["MANIFEST"],"w",encoding="utf-8") as f: json.dump(payload,f,indent=2); f.write("\n")
 PY
 "$ROOT/scripts/generate-vamp-sbom.sh" "$ZIP" vamp-control-macos "$VERSION" "$BUILD" "$COMMIT" "$ZIP.sbom.cdx.json"
+
+# Also ship the normal macOS drag-to-Applications disk image. Keep the ZIP for
+# users and automation that already consume it, but make the DMG the primary
+# human installation artifact.
+DMG_STAGE="$WORK/dmg-root"
+[[ "$DMG_STAGE" == "$ROOT/.packaging-vamp-control-macos/dmg-root" ]] || fail "Unexpected DMG staging path"
+rm -rf "$DMG_STAGE"
+mkdir -p "$DMG_STAGE"
+ditto "$APP" "$DMG_STAGE/Vamp Control macOS.app"
+ln -s /Applications "$DMG_STAGE/Applications"
+DMG_NAME="VampControl-macOS-${VERSION}-build-${BUILD}-adhoc.dmg"
+DMG="$OUTPUT_DIR/$DMG_NAME"
+rm -f "$DMG"
+hdiutil create -quiet -ov -fs HFS+ -volname "Vamp Control" -srcfolder "$DMG_STAGE" "$DMG"
+DMG_SHA256="$(shasum -a 256 "$DMG" | awk '{print $1}')"
+DMG_SIZE="$(stat -f '%z' "$DMG")"
+printf '%s  %s\n' "$DMG_SHA256" "$DMG_NAME" > "$DMG.sha256"
+ARTIFACT="$DMG_NAME" VERSION="$VERSION" BUILD="$BUILD" COMMIT="$COMMIT" SHA256="$DMG_SHA256" SIZE="$DMG_SIZE" \
+ TREE_STATE="$TREE_STATE" MANIFEST="$DMG.manifest.json" python3 - <<'PY'
+import datetime, json, os
+payload={"schemaVersion":1,"artifact":os.environ["ARTIFACT"],"application":"Vamp Control macOS",
+"installedDisplayName":"Vamp Control","platform":"macOS","minimumOSVersion":"13.0",
+"version":os.environ["VERSION"],"build":os.environ["BUILD"],"bundleIdentifier":"com.mesutcy.remotedesktop.macclient",
+"architecture":["arm64"],"signature":"ad-hoc","appleNotarized":False,
+"sourceCommit":os.environ["COMMIT"],"sourceTreeState":os.environ["TREE_STATE"],"sha256":os.environ["SHA256"],
+"sizeBytes":int(os.environ["SIZE"]),"createdAt":datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00","Z")}
+with open(os.environ["MANIFEST"],"w",encoding="utf-8") as f: json.dump(payload,f,indent=2); f.write("\n")
+PY
+"$ROOT/scripts/generate-vamp-sbom.sh" "$DMG" vamp-control-macos "$VERSION" "$BUILD" "$COMMIT" "$DMG.sbom.cdx.json"
 log "Created $ZIP"
+log "Created $DMG"

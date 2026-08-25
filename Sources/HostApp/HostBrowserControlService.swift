@@ -106,11 +106,11 @@ enum HostBrowserControlBindError {
     }
 }
 
-/// Normalizes the six-digit code shown by the host. Pairing codes can be
+/// Normalizes the 12-digit code shown by the host. Pairing codes can be
 /// pasted with spaces or hyphens, and whole-number digits from another locale
 /// should behave the same as ASCII digits.
 enum HostBrowserPairingCode {
-    static let length = 6
+    static let length = 12
 
     static func normalize(_ raw: String) -> String? {
         var digits = ""
@@ -135,24 +135,27 @@ enum HostBrowserPairingCode {
     static func generate() -> String {
         // Draw from the CSPRNG explicitly rather than `Int.random(in:)` so the
         // pairing code's entropy source is auditable and guaranteed not to fall
-        // back to a non-cryptographic generator on any platform. Rejection
-        // sampling keeps the draw uniform: 4_294_000_000 is the largest
-        // multiple of one million that fits in UInt32.
-        let unbiasedLimit: UInt32 = 4_294_000_000
-        var value: UInt32 = 0
+        // back to a non-cryptographic generator on any platform. 12 decimal
+        // digits are ~39.8 bits. Rejection sampling keeps the draw uniform:
+        // 2^32 is not enough, so we draw 8 bytes and reduce modulo 10^12
+        // only after discarding values above the largest multiple of 10^12
+        // that fits in UInt64.
+        let modulus: UInt64 = 1_000_000_000_000
+        let unbiasedLimit = (UInt64.max / modulus) * modulus
+        var value: UInt64 = 0
         repeat {
             let drawn = withUnsafeMutableBytes(of: &value) { buffer -> Bool in
                 guard let base = buffer.baseAddress else { return false }
                 return SecRandomCopyBytes(kSecRandomDefault, buffer.count, base) == errSecSuccess
             }
             guard drawn else {
-                // SecRandomCopyBytes failing is effectively impossible on Apple
-                // platforms; fall back to the system RNG rather than returning
-                // a predictable code.
-                return String(format: "%06d", Int.random(in: 0...999_999))
+                var fallback = [UInt8](repeating: 0, count: 8)
+                _ = SecRandomCopyBytes(kSecRandomDefault, fallback.count, &fallback)
+                let reduced = fallback.reduce(UInt64(0)) { ($0 << 8) | UInt64($1) } % modulus
+                return String(format: "%012llu", reduced)
             }
         } while value >= unbiasedLimit
-        return String(format: "%06d", value % 1_000_000)
+        return String(format: "%012llu", value % modulus)
     }
 
     static func isExpired(
@@ -164,22 +167,21 @@ enum HostBrowserPairingCode {
     }
 }
 
-/// Builds the private URL encoded in the host QR card. The authenticated
-/// browser token is still issued by POST /api/pair and is never placed in the
-/// QR code or URL.
+/// Builds the private URL encoded in the host QR card. The pairing code is
+/// never placed in the URL: the operator types it on a trusted screen, and
+/// POST /api/pair exchanges it for a short-lived bearer token.
 enum HostBrowserPairingLink {
-    static func make(baseURL: String, code: String) -> String? {
-        guard let normalizedCode = HostBrowserPairingCode.normalize(code),
-              var components = URLComponents(string: baseURL),
+    static func make(baseURL: String) -> String? {
+        guard var components = URLComponents(string: baseURL),
               let scheme = components.scheme, !scheme.isEmpty,
               let host = components.host, !host.isEmpty else {
             return nil
         }
 
-        var queryItems = components.queryItems ?? []
-        queryItems.removeAll { $0.name == "pair" }
-        queryItems.append(URLQueryItem(name: "pair", value: normalizedCode))
-        components.queryItems = queryItems
+        if var queryItems = components.queryItems {
+            queryItems.removeAll { $0.name == "pair" }
+            components.queryItems = queryItems.isEmpty ? nil : queryItems
+        }
         return components.url?.absoluteString
     }
 }
@@ -444,6 +446,13 @@ final class HostBrowserControlService: @unchecked Sendable {
         guard tailscaleListenerHost != nil else { return true }
         guard let path else { return false }
         if path.usesInterfaceType(.loopback) { return true }
+        // Never accept the LAN or cellular NIC even if a peer spoofs a CGNAT
+        // source. Tailscale arrives as `.other` (utun).
+        if path.usesInterfaceType(.wifi)
+            || path.usesInterfaceType(.wiredEthernet)
+            || path.usesInterfaceType(.cellular) {
+            return false
+        }
         // Network.framework labels Tailscale's utun as `.other`, but `.other`
         // also covers unrelated tunnels. Require the peer address itself to
         // be in Tailscale's documented CGNAT IPv4 block or ULA IPv6 prefix.
@@ -577,7 +586,7 @@ final class HostBrowserControlService: @unchecked Sendable {
             sendProviderAsset(path: path, to: client)
         case ("POST", "/api/pair"):
             // Pairing creates a bearer credential. A hostile web page must not
-            // be able to submit the visible six-digit code through the user's
+            // be able to submit the visible 12-digit code through the user's
             // browser, so apply the same-origin rule used by the WebSocket
             // upgrade. Native/non-browser clients may omit Origin.
             guard Self.isAllowedBrowserOrigin(
@@ -592,7 +601,7 @@ final class HostBrowserControlService: @unchecked Sendable {
             // drops the JSON body. The URL code is still validated against
             // the same one-time pairing secret below; this is not a second
             // authentication path.
-            handlePair(body: body, pairingCodeFromURL: request.query["pair"], client: client)
+            handlePair(body: body, client: client)
         default:
             sendHTTP(.notFound, body: "Not found", to: client)
         }
@@ -616,7 +625,7 @@ final class HostBrowserControlService: @unchecked Sendable {
         sendHTTP(.ok, contentType: contentType, data: data, to: client)
     }
 
-    private func handlePair(body: Data, pairingCodeFromURL: String?, client: BrowserClient) {
+    private func handlePair(body: Data, client: BrowserClient) {
         // The expiry work item normally rotates the code exactly at the
         // deadline. Refresh synchronously as well so a delayed serial-queue
         // callback can never leave the listener accepting stale state or
@@ -634,11 +643,9 @@ final class HostBrowserControlService: @unchecked Sendable {
             return
         }
         let payload = try? JSONDecoder().decode(BrowserPairRequest.self, from: body)
-        let submittedCodes = [
-            payload?.code.flatMap(HostBrowserPairingCode.normalize),
-            pairingCodeFromURL.flatMap(HostBrowserPairingCode.normalize)
-        ].compactMap { $0 }
-        guard submittedCodes.contains(where: { Self.constantTimeEqual($0, pairingCode) }),
+        let submittedCode = payload?.code.flatMap(HostBrowserPairingCode.normalize)
+        guard let submittedCode,
+              Self.constantTimeEqual(submittedCode, pairingCode),
               !HostBrowserPairingCode.isExpired(
                   issuedAt: pairingCodeIssuedAt,
                   lifetime: Self.pairingCodeLifetime
@@ -1049,6 +1056,10 @@ final class HostBrowserControlService: @unchecked Sendable {
         case "codex", "chatgpt": return .codex
         case "pi": return .pi
         case "commandcode", "command-code", "cmd": return .commandCode
+        case "kimi": return .kimi
+        case "qwen", "qwen-code": return .qwen
+        case "aider": return .aider
+        case "gemini", "gemini-cli": return .gemini
         default: return nil
         }
     }
@@ -1548,9 +1559,9 @@ enum BrowserControlWebAssets {
 <div class="terminal-keybar" id="terminal-keybar" aria-label="Terminal controls" aria-hidden="true" hidden><button type="button" data-terminal-key="\u001b">Esc</button><button type="button" data-terminal-key="\u0003">Ctrl-C</button><button type="button" data-terminal-key="\u0009">Tab</button><button type="button" data-terminal-key="\u001b[A">↑</button><button type="button" data-terminal-key="\u001b[B">↓</button><button type="button" data-terminal-key="\u001b[D">←</button><button type="button" data-terminal-key="\u001b[C">→</button></div>
 <div class="composer" id="composer"><div class="clipboard-wrap"><button id="clipboard" class="clipboard-trigger" type="button" title="Clipboard actions" aria-label="Clipboard actions" aria-expanded="false"><span class="clipboard-glyph" aria-hidden="true">⧉</span></button><div id="clipboard-menu" class="clipboard-menu hidden" role="menu" aria-label="Clipboard actions"><button id="paste" type="button" role="menuitem">Paste into terminal</button><button id="copyhost" type="button" role="menuitem">Copy Mac clipboard to Safari</button><button id="sethost" type="button" role="menuitem">Send Safari clipboard to Mac</button></div></div><input id="input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a command…"><button id="more" type="button" title="More controls" aria-label="More controls">•••</button><button class="send" id="send" type="button" title="Review command" aria-label="Review command">↑</button></div>
 </div>
-<div class="modal" id="pair" role="dialog" aria-modal="true" aria-labelledby="pair-title"><div class="modal-card"><div class="pair-mark" aria-hidden="true">⌁</div><h2 id="pair-title">Open this workspace</h2><p id="pair-help">Scan the QR code from Vamp Host, or enter the six-digit code shown in Settings → Browser control. The code expires after ten minutes.</p><label class="field-label" for="code">Pairing code</label><input id="code" inputmode="numeric" maxlength="6" placeholder="000000" aria-describedby="pair-help pair-error" autocomplete="one-time-code"><div class="error" id="pair-error" role="alert" aria-live="polite"></div><button id="pair-button" type="button">Pair browser</button></div></div>
+<div class="modal" id="pair" role="dialog" aria-modal="true" aria-labelledby="pair-title"><div class="modal-card"><div class="pair-mark" aria-hidden="true">⌁</div><h2 id="pair-title">Open this workspace</h2><p id="pair-help">Scan the QR code from Vamp Host, or enter the 12-digit code shown in Settings → Browser control. The code expires after ten minutes.</p><label class="field-label" for="code">Pairing code</label><input id="code" inputmode="numeric" maxlength="12" placeholder="000000000000" aria-describedby="pair-help pair-error" autocomplete="one-time-code"><div class="error" id="pair-error" role="alert" aria-live="polite"></div><button id="pair-button" type="button">Pair browser</button></div></div>
 <div class="modal hidden" id="launch-modal"><div class="modal-card more-card"><div class="more-kicker">New session</div><h2 id="launch-title">Choose workspace</h2><p id="launch-copy">Every session keeps its own working directory.</p><div class="workspace-list" id="workspace-list"></div><div class="more-footer"><button id="launch-cancel" class="secondary" type="button">Cancel</button></div></div></div>
-<div class="modal hidden" id="more-modal"><div class="modal-card more-card"><div class="more-kicker">Terminal actions</div><h2>Open a session</h2><p>Start a fresh shell, attach a persistent tmux or screen session, or open a coding agent in a new tab.</p><div class="more-actions"><button id="more-shell" type="button"><span class="provider-mark" style="--provider:#e8e8e8">›_</span><span><b>New shell</b><br><small>Open an independent terminal tab</small></span></button><button id="more-tmux" type="button" class="secondary"><span class="provider-mark" style="--provider:#9dd6ff">▣</span><span><b>Attach / create tmux</b><br><small>Resume a named workspace</small></span></button><button id="more-screen" type="button" class="secondary"><span class="provider-mark" style="--provider:#b8a6ff">▤</span><span><b>Attach screen</b><br><small>Resume a GNU screen session</small></span></button></div><div class="provider-title">Agent launchers</div><div class="provider-grid"><button type="button" data-provider="opencode" style="--provider:#00c8ce"><img class="provider-logo" src="/assets/providers/opencode.png" alt=""><span>OpenCode</span></button><button type="button" data-provider="pi" style="--provider:#f57a48"><span class="provider-mark">π</span><span>Pi</span></button><button type="button" data-provider="commandcode" style="--provider:#b883ff"><span class="provider-mark">⌘</span><span>CommandCode</span></button><button type="button" data-provider="chatgpt" style="--provider:#10a37f"><img class="provider-logo" src="/assets/providers/openai.jpg" alt=""><span>ChatGPT CLI</span></button><button type="button" data-provider="claude" style="--provider:#dc6a42"><img class="provider-logo" src="/assets/providers/claude.jpg" alt=""><span>Claude Code</span></button><button type="button" data-provider="kimi" style="--provider:#4c8dff"><img class="provider-logo" src="/assets/providers/kimi.jpg" alt=""><span>Kimi</span></button><button type="button" data-provider="qwen" style="--provider:#4678f2"><span class="provider-mark">Q</span><span>Qwen Code</span></button><button type="button" data-provider="codex" style="--provider:#10a37f"><img class="provider-logo" src="/assets/providers/openai.jpg" alt=""><span>Codex CLI</span></button><button type="button" data-provider="aider" style="--provider:#66c28c"><span class="provider-mark">A</span><span>Aider</span></button><button type="button" data-provider="grok" style="--provider:#e6a94f"><img class="provider-logo" src="/assets/providers/grok.jpg" alt=""><span>Grok CLI</span></button></div><label class="more-command">Custom command or session<input id="more-command" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tmux attach -t work"></label><div class="more-footer"><button id="appearance-toggle" class="secondary appearance-toggle" type="button">Appearance · System</button><button id="more-cancel" class="secondary" type="button">Cancel</button><button id="more-open" type="button">Open tab</button></div></div></div>
+<div class="modal hidden" id="more-modal"><div class="modal-card more-card"><div class="more-kicker">Terminal actions</div><h2>Open a session</h2><p>Start a fresh shell, attach a persistent tmux or screen session, or open a coding agent in a new tab.</p><div class="more-actions"><button id="more-shell" type="button"><span class="provider-mark" style="--provider:#e8e8e8">›_</span><span><b>New shell</b><br><small>Open an independent terminal tab</small></span></button><button id="more-tmux" type="button" class="secondary"><span class="provider-mark" style="--provider:#9dd6ff">▣</span><span><b>Attach / create tmux</b><br><small>Resume a named workspace</small></span></button><button id="more-screen" type="button" class="secondary"><span class="provider-mark" style="--provider:#b8a6ff">▤</span><span><b>Attach screen</b><br><small>Resume a GNU screen session</small></span></button></div><div class="provider-title">Agent launchers</div><div class="provider-grid"><button type="button" data-provider="opencode" style="--provider:#00c8ce"><img class="provider-logo" src="/assets/providers/opencode.png" alt=""><span>OpenCode</span></button><button type="button" data-provider="pi" style="--provider:#f57a48"><span class="provider-mark">π</span><span>Pi</span></button><button type="button" data-provider="commandcode" style="--provider:#b883ff"><span class="provider-mark">⌘</span><span>CommandCode</span></button><button type="button" data-provider="chatgpt" style="--provider:#10a37f"><img class="provider-logo" src="/assets/providers/openai.jpg" alt=""><span>ChatGPT CLI</span></button><button type="button" data-provider="claude" style="--provider:#dc6a42"><img class="provider-logo" src="/assets/providers/claude.jpg" alt=""><span>Claude Code</span></button><button type="button" data-provider="kimi" style="--provider:#4c8dff"><img class="provider-logo" src="/assets/providers/kimi.jpg" alt=""><span>Kimi</span></button><button type="button" data-provider="qwen" style="--provider:#4678f2"><span class="provider-mark">Q</span><span>Qwen Code</span></button><button type="button" data-provider="codex" style="--provider:#10a37f"><img class="provider-logo" src="/assets/providers/openai.jpg" alt=""><span>Codex CLI</span></button><button type="button" data-provider="aider" style="--provider:#66c28c"><span class="provider-mark">A</span><span>Aider</span></button><button type="button" data-provider="grok" style="--provider:#e6a94f"><img class="provider-logo" src="/assets/providers/grok.jpg" alt=""><span>Grok CLI</span></button><button type="button" data-provider="gemini" style="--provider:#587fe8"><span class="provider-mark">Gm</span><span>Gemini CLI</span></button></div><label class="more-command">Custom command or session<input id="more-command" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tmux attach -t work"></label><div class="more-footer"><button id="appearance-toggle" class="secondary appearance-toggle" type="button">Appearance · System</button><button id="more-cancel" class="secondary" type="button">Cancel</button><button id="more-open" type="button">Open tab</button></div></div></div>
 <script>
 const $=id=>document.getElementById(id);
 let ws=null,token=null,sessionId=null,active=null,order=[],tabs=new Map();
@@ -2473,8 +2484,12 @@ createTab = (startup = null, title = null, agent = null, workspace = null) => {
     'CommandCode': 'commandcode',
     'ChatGPT / Codex CLI': 'chatgpt',
     'Claude Code': 'claude',
+    'Kimi': 'kimi',
+    'Qwen Code': 'qwen',
     'Codex CLI': 'codex',
-    'Grok CLI': 'grok'
+    'Aider': 'aider',
+    'Grok CLI': 'grok',
+    'Gemini CLI': 'gemini'
   };
   const sessionAgent = agent || knownAgentTitles[title] || null;
   const tab = {
@@ -2731,7 +2746,7 @@ const vampNormalizePairingCode = (raw) => {
   for (const character of Array.from(value)) {
     // iOS Safari may insert LRM/RLM or directional-isolate marks into a
     // numeric one-time-code field. They are invisible in the UI but used to
-    // make a visibly correct six-digit code fail local validation.
+    // make a visibly correct 12-digit code fail local validation.
     if (/\s/u.test(character) || /\p{Cf}/u.test(character) || character === '-' || character === '·') continue;
     if (/^[0-9]$/.test(character)) {
       digits += character;
@@ -2742,7 +2757,7 @@ const vampNormalizePairingCode = (raw) => {
     else if (codePoint >= 0x6f0 && codePoint <= 0x6f9) digits += String(codePoint - 0x6f0);
     else return '';
   }
-  return digits.length === 6 ? digits : '';
+  return digits.length === 12 ? digits : '';
 };
 
 let vampPairInFlight = false;
@@ -2750,7 +2765,7 @@ pair = async (pairingCodeFromURL = null) => {
   if (vampPairInFlight) return;
   const code = vampNormalizePairingCode(pairingCodeFromURL || $('code').value);
   if (!code) {
-    $('pair-error').textContent = 'Enter the six-digit code from Vamp Host.';
+    $('pair-error').textContent = 'Enter the 12-digit code from Vamp Host.';
     return;
   }
   vampPairInFlight = true;
@@ -2758,11 +2773,7 @@ pair = async (pairingCodeFromURL = null) => {
   const button = $('pair-button');
   button.disabled = true;
   try {
-    // QR links carry the code in the URL as a fallback for captive portals,
-    // Safari form quirks, and proxies that omit a small JSON POST body. The
-    // host validates both forms against the same one-time secret.
-    const pairQuery = pairingCodeFromURL ? '?pair=' + encodeURIComponent(code) : '';
-    const response = await fetch('/api/pair' + pairQuery, {
+    const response = await fetch('/api/pair', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code })
@@ -3231,7 +3242,8 @@ const providerCommands = {
   qwen: vampProviderCommand('qwen', 'qwen', 'Qwen Code'),
   codex: vampProviderCommand('codex', 'codex', 'Codex CLI'),
   aider: vampProviderCommand('aider', 'aider', 'Aider'),
-  grok: vampProviderCommand('grok', 'grok', 'Grok CLI')
+  grok: vampProviderCommand('grok', 'grok', 'Grok CLI'),
+  gemini: vampProviderCommand('gemini', 'gemini', 'Gemini CLI')
 };
 document.querySelectorAll('[data-provider]').forEach((button) => {
   button.onclick = () => {
@@ -3277,13 +3289,7 @@ if (!$('pair').classList.contains('hidden')) $('composer').classList.add('hidden
 renderDashboard();
 window.addEventListener('beforeunload', () => ws?.close());
 vampRefreshStatus();
-const vampPairFromURL = vampNormalizePairingCode(new URLSearchParams(location.search).get('pair'));
-if (vampPairFromURL) {
-  $('code').value = vampPairFromURL;
-  // Keep the one-time code out of browser history after it has been read.
-  history.replaceState(null, '', location.pathname + location.hash);
-  setTimeout(() => pair(vampPairFromURL), 350);
-}
+
 </script>
 <script>
 // The browser client is a task stream, not a miniature terminal window. Keep
@@ -4624,7 +4630,7 @@ if (vampPairFromURL) {
     #pair-title { margin-top: 14px !important; font-size: 21px !important; letter-spacing: -.01em !important; }
     #pair-help { margin: 8px auto 0 !important; max-width: 330px !important; color: var(--bc-secondary) !important; font-size: 13.5px !important; line-height: 1.5 !important; }
     .field-label { display: block; text-align: center; margin: 22px 0 9px; color: var(--bc-tertiary); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; }
-    #code { width: 100%; min-height: 58px; padding: 0 16px; border: 1px solid var(--bc-line-strong); border-radius: 15px; background: var(--bc-page); color: var(--bc-text); font: 650 26px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .42em; text-indent: .42em; text-align: center; }
+    #code { width: 100%; min-height: 58px; padding: 0 12px; border: 1px solid var(--bc-line-strong); border-radius: 15px; background: var(--bc-page); color: var(--bc-text); font: 650 22px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-indent: .12em; text-align: center; }
     #code:focus-visible { outline: 2px solid var(--bc-text); outline-offset: 3px; }
     #pair-button { width: 100%; min-height: 52px; margin-top: 18px; border-radius: 15px; background: var(--bc-text); color: var(--bc-page); font-weight: 750; font-size: 15px; }
     #pair-button:disabled { opacity: .55; }
@@ -5274,7 +5280,7 @@ let latestScrollFrame = 0;
     if (active !== id) { tab.unread = true; renderTabs(); }
   };
 
-  const vampStructuredProviders = new Set(['grok', 'opencode', 'claude', 'codex', 'chatgpt', 'pi', 'commandcode']);
+  const vampStructuredProviders = new Set(['grok', 'opencode', 'claude', 'codex', 'chatgpt', 'pi', 'commandcode', 'kimi', 'qwen', 'aider', 'gemini']);
   const sendAgentPrompt = (tabID, value) => {
     const tab = tabs.get(tabID);
     if (!tab || !tab.agent || !vampStructuredProviders.has(tab.agent)) return false;

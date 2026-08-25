@@ -12,7 +12,9 @@ from urllib.request import Request, urlopen
 
 
 REPOSITORY = "Mesutcydev/macpair"
+ASSISTANT_REPOSITORY = "Mesutcydev/vamp-assistant"
 API_URL = f"https://api.github.com/repos/{REPOSITORY}/releases/latest"
+ASSISTANT_API_URL = f"https://api.github.com/repos/{ASSISTANT_REPOSITORY}/releases?per_page=100"
 ROOT = Path(__file__).resolve().parents[1]
 
 ASSET_PATTERNS = {
@@ -34,8 +36,13 @@ ASSET_PATTERNS = {
     "vamp-linux-host": re.compile(r"^VampTerminalHost-Linux-.+\.zip$"),
 }
 
+ASSISTANT_ASSET_PATTERNS = {
+    "vamp-assistant-macos": re.compile(r"^Vamp-Assistant-.+\.dmg$"),
+    "vamp-assistant-ios": re.compile(r"^Vamp-Assistant-iOS-.+-unsigned\.ipa$"),
+}
 
-def fetch_release() -> dict:
+
+def fetch_json(url: str):
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "macpair-pages-release-generator",
@@ -43,9 +50,17 @@ def fetch_release() -> dict:
     token = os.environ.get("GITHUB_TOKEN")
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    request = Request(API_URL, headers=headers)
+    request = Request(url, headers=headers)
     with urlopen(request, timeout=30) as response:
         return json.load(response)
+
+
+def fetch_release() -> dict:
+    return fetch_json(API_URL)
+
+
+def fetch_assistant_releases() -> list[dict]:
+    return fetch_json(ASSISTANT_API_URL)
 
 
 def build_number(asset: dict) -> int:
@@ -81,6 +96,20 @@ def choose_asset(assets: list[dict], pattern: re.Pattern[str], key: str) -> dict
     return max(matches, key=lambda asset: (build_number(asset), asset.get("updated_at", "")))
 
 
+def choose_assistant_asset(releases: list[dict], pattern: re.Pattern[str]) -> tuple[dict, dict] | None:
+    """Choose across release tags because Assistant macOS and iOS ship independently."""
+    candidates = []
+    for release in releases:
+        if release.get("draft") or release.get("prerelease"):
+            continue
+        for asset in release.get("assets", []):
+            if pattern.fullmatch(asset["name"]):
+                candidates.append((release, asset))
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: (item[0].get("published_at", ""), item[1].get("updated_at", "")))
+
+
 def checksum_url(raw_assets: list[dict], asset: dict) -> str | None:
     name = asset["name"] + ".sha256"
     for other in raw_assets:
@@ -100,6 +129,7 @@ def asset_label(name: str) -> str:
 
 def main() -> int:
     release = fetch_release()
+    assistant_releases = fetch_assistant_releases()
     raw_assets = release.get("assets", [])
     selected = {
         key: choose_asset(raw_assets, pattern, key)
@@ -129,8 +159,33 @@ def main() -> int:
         if sha_url:
             entry["sha256Url"] = sha_url
         assets[key] = entry
+    assistant_selected = {
+        key: choose_assistant_asset(assistant_releases, pattern)
+        for key, pattern in ASSISTANT_ASSET_PATTERNS.items()
+    }
+    missing_assistant = [key for key, result in assistant_selected.items() if result is None]
+    if missing_assistant:
+        print(f"Missing expected Assistant assets: {', '.join(missing_assistant)}", file=sys.stderr)
+        return 1
+    for key, result in assistant_selected.items():
+        assistant_release, asset = result
+        entry = {
+            "name": asset["name"],
+            "url": asset["browser_download_url"],
+            "label": asset_label(asset["name"]),
+            "releaseUrl": assistant_release["html_url"],
+            "tag": assistant_release["tag_name"],
+        }
+        sha_url = checksum_url(assistant_release.get("assets", []), asset)
+        if sha_url:
+            entry["sha256Url"] = sha_url
+        assets[key] = entry
     payload = {
         "repository": REPOSITORY,
+        "repositories": {
+            "suite": REPOSITORY,
+            "assistant": ASSISTANT_REPOSITORY,
+        },
         "tag": release["tag_name"],
         "name": release.get("name", release["tag_name"]),
         "url": release["html_url"],
@@ -143,7 +198,8 @@ def main() -> int:
     output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {output}")
 
-    rewrite_static_links(docs / "index.html", assets, release["html_url"])
+    for relative_path in ("index.html", "assistant/index.html", "stream/index.html", "mini-host/index.html"):
+        rewrite_static_links(docs / relative_path, assets, release["html_url"])
     return 0
 
 

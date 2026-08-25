@@ -18,6 +18,7 @@ enum VampAgentProvider: String, CaseIterable, Identifiable {
     case codex
     case aider
     case grok
+    case gemini
 
     var id: String { rawValue }
 
@@ -33,6 +34,7 @@ enum VampAgentProvider: String, CaseIterable, Identifiable {
         case .codex: return "Codex"
         case .aider: return "Aider"
         case .grok: return "Grok"
+        case .gemini: return "Gemini"
         }
     }
 
@@ -44,7 +46,10 @@ enum VampAgentProvider: String, CaseIterable, Identifiable {
         case .codex, .chatGPT: return .codex
         case .pi: return .pi
         case .commandCode: return .commandCode
-        case .kimi, .qwen, .aider: return nil
+        case .kimi: return .kimi
+        case .qwen: return .qwen
+        case .aider: return .aider
+        case .gemini: return .gemini
         }
     }
 }

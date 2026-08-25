@@ -18,6 +18,8 @@ Build/
 .packaging-vamp-stream-ios/
 .packaging-vamp-mini-host/
 .packaging-vamp-hosts/
+.derived-*/
+.argent/
 .screenharbor-packaging/
 .dmg-staging/
 .pkg-verify/
@@ -153,6 +155,7 @@ RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/*
 !RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/VampTerminalHost.xcscheme
 !RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/MacHost.xcscheme
 !RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/iOSRemote.xcscheme
+!RemoteDesktopToolApps.xcodeproj/xcshareddata/xcschemes/VampMiniHost.xcscheme
 
 !Configuration/
 Configuration/*
@@ -165,6 +168,9 @@ Configuration/*
 !Configuration/ClientiOS-Info.plist
 !Configuration/ClientiOS.entitlements
 !Configuration/ClientiOSLiveActivity-Info.plist
+!Configuration/VampStream.entitlements
+!Configuration/VampMiniHost.entitlements
+!Configuration/VampMiniHost-Info.plist
 
 !Sources/ClientiOSLiveActivity/
 !Sources/ClientiOSLiveActivity/RemoteSessionLiveActivityWidget.swift
@@ -179,6 +185,8 @@ Sources/HostApp/Assets.xcassets/.DS_Store
 !Sources/VampTerminal/Assets.xcassets/**
 !scripts/package-vamp-terminal-ios.sh
 !scripts/package-vamp-hosts.sh
+!scripts/package-vamp-stream-ios.sh
+!scripts/package-vamp-mini-host.sh
 !scripts/install-vamp-cli.command
 !scripts/vamp
 !scripts/vamp-linux-host

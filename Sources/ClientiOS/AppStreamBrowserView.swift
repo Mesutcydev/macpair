@@ -33,15 +33,19 @@ struct AppStreamBrowserView: View {
     }
 
     var body: some View {
-        Group {
-            switch vm.status {
-            case .streaming(_, let name):
-                streamSurface(name: name)
-            case .launching(let name):
-                launching(name: name)
-            default:
-                browser
+        GeometryReader { proxy in
+            Group {
+                switch vm.status {
+                case .streaming(_, let name):
+                    streamSurface(name: name)
+                case .launching(let name):
+                    launching(name: name)
+                default:
+                    browser
+                }
             }
+            .onAppear { vm.updateClientViewport(size: proxy.size) }
+            .onChangeCompat(of: proxy.size) { vm.updateClientViewport(size: $0) }
         }
         .task {
             rendererVM.onNeedsKeyframe = { [weak sc = environment.sessionCoordinator] in

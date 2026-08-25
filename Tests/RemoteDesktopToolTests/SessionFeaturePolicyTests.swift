@@ -397,6 +397,7 @@ final class LockStateRouterTests: XCTestCase {
         )
         let recorder = PasswordRecorder()
         router.lockStateProvider = { .lockedOrLoginWindow }
+        router.remoteUnlockEnabled = { true }
         router.onUnlockPassword = { password in
             await recorder.record(password)
         }
@@ -416,6 +417,43 @@ final class LockStateRouterTests: XCTestCase {
         let recordedPasswords = await recorder.snapshot()
         XCTAssertEqual(recordedPasswords, ["correct horse"])
         XCTAssertTrue(inputService.snapshotCommands().isEmpty, "Unlock password should use the dedicated unlock handler")
+
+        router.stopListening()
+    }
+
+    @MainActor
+    func testUnlockPasswordIsIgnoredWhenRemoteUnlockDisabled() async throws {
+        let sessionManager = RouterTestSessionManager()
+        let inputService = RecordingInputInjectionService()
+        let eventLogStore = RecordingEventLogStore()
+        let modeController = HostSessionModeController(mode: .viewOnly)
+        let router = HostInputCommandRouter(
+            inputService: inputService,
+            webRTCSessionManager: sessionManager,
+            eventLogStore: eventLogStore,
+            modeProvider: modeController
+        )
+        let recorder = PasswordRecorder()
+        router.lockStateProvider = { .lockedOrLoginWindow }
+        router.onUnlockPassword = { password in
+            await recorder.record(password)
+        }
+
+        let token = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
+        let sessionID = UUID()
+        router.startListening(sessionID: sessionID, expectedSessionTokenHex: token)
+        try sessionManager.emit(try DataChannelEnvelope.controlAuth(
+            ControlChannelAuthMessage(sessionID: sessionID, sessionToken: token)
+        ))
+        let envelope = try DataChannelEnvelope.unlockPassword(
+            UnlockPasswordMessage(sessionID: sessionID, password: "correct horse")
+        ).authenticated(using: token, counter: 1)
+        try sessionManager.emit(try XCTUnwrap(envelope))
+
+        try await Task.sleep(nanoseconds: 150_000_000)
+        let recordedPasswords = await recorder.snapshot()
+        XCTAssertTrue(recordedPasswords.isEmpty)
+        XCTAssertTrue(inputService.snapshotCommands().isEmpty)
 
         router.stopListening()
     }

@@ -318,7 +318,7 @@ private struct HostMinimalDashboard: View {
                     HostHomepagePairingCard(
                         sectionTitle: "Pair a browser",
                         title: "Open Safari control",
-                        subtitle: "Scan the QR code or enter the six-digit code on your phone.",
+                        subtitle: "Scan the QR code, then enter the 12-digit code shown on this Mac.",
                         environment: environment,
                         tailscaleInfo: tailscaleInfo,
                         copiedValue: copiedAddress,
@@ -991,10 +991,7 @@ private struct HostMinimalDashboard: View {
               !environment.browserControlStatus.pairingCode.isEmpty else { return nil }
 
         let baseURL = tailscaleInfo?.browserControlURL(port: port) ?? "http://127.0.0.1:\(port)"
-        return HostBrowserPairingLink.make(
-            baseURL: baseURL,
-            code: environment.browserControlStatus.pairingCode
-        )
+        return HostBrowserPairingLink.make(baseURL: baseURL)
     }
 
     private func copyHomepageValue(_ value: String) {
@@ -1236,7 +1233,7 @@ private struct HostSettingsView: View {
     @ObservedObject var environment: HostAppEnvironment
     let showOnboarding: () -> Void
     @State private var pendingMaxFileSize = ""
-    @AppStorage("host.remoteUnlock.enabled") private var remoteUnlockEnabled = true
+    @AppStorage("host.remoteUnlock.enabled") private var remoteUnlockEnabled = false
     @AppStorage("host.vampTerminal.promo.dismissed") private var vampTerminalPromoDismissed = false
     @State private var showPairedDevices = false
     @State private var showDiagnostics = false
@@ -1479,7 +1476,7 @@ private struct HostSettingsView: View {
 
             Section("Remote Unlock") {
                 Toggle("Enabled", isOn: $remoteUnlockEnabled)
-                Text("When on, a paired client Mac can type your Mac login password to unlock this Mac from the login window (rate-limited, never logged). Turn off if you never want the login screen unlocked remotely.")
+                Text("Off by default. When on, a paired client can type your Mac login password at the login window (rate-limited, never logged).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

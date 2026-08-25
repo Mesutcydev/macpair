@@ -1,16 +1,24 @@
 import SwiftUI
 
 struct BeetCodePairingView: View {
+    private enum PairingField: Hashable {
+        case address
+        case code
+    }
+
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var model: BeetCodeRemoteSessionViewModel
     @State private var address: String
     @State private var code = ""
     @State private var showScanner = false
     @State private var scanError: String?
+    @FocusState private var focusedField: PairingField?
 
     init(model: BeetCodeRemoteSessionViewModel) {
         self.model = model
-        _address = State(initialValue: model.savedAddress ?? "")
+        // Pairing adds a Mac. Existing Assistants reconnect from their own cards,
+        // so never prefill this form with another saved Mac's address.
+        _address = State(initialValue: "")
     }
 
     private var canPair: Bool {
@@ -58,10 +66,13 @@ struct BeetCodePairingView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(PR.dim)
                         TextField("192.168.1.20:9575", text: $address)
+                            .focused($focusedField, equals: .address)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .keyboardType(.URL)
                             .textContentType(.URL)
+                            .submitLabel(.next)
+                            .onSubmit { focusedField = .code }
                             .padding(14)
                             .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
                             .accessibilityLabel("Vamp Assistant private address")
@@ -76,6 +87,7 @@ struct BeetCodePairingView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(PR.dim)
                         TextField("000000", text: $code)
+                            .focused($focusedField, equals: .code)
                             .keyboardType(.numberPad)
                             .textContentType(.oneTimeCode)
                             .onChangeCompat(of: code) { newValue in
@@ -128,6 +140,7 @@ struct BeetCodePairingView: View {
                 }
                 .padding(22)
             }
+            .scrollDismissesKeyboard(.interactively)
             .background(pairingBackground)
             .navigationTitle("Vamp Assistant")
             .navigationBarTitleDisplayMode(.inline)
@@ -137,6 +150,12 @@ struct BeetCodePairingView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .accessibilityHint("Close Vamp Assistant pairing")
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { focusedField = nil }
+                        .fontWeight(.semibold)
+                        .accessibilityHint("Hide the keyboard and continue pairing")
                 }
             }
         }

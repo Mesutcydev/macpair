@@ -13,6 +13,7 @@ OUTPUT_DIR="$ROOT/dist/VampTerminalHosts"
 ARCHS="${VAMP_HOST_ARCHS:-arm64}"
 CLEAN=0
 ALLOW_DIRTY=0
+ONLY_SCHEME=""
 
 usage() {
   cat <<'EOF'
@@ -23,6 +24,7 @@ Options:
   --archs <value>      Xcode ARCHS value (default: arm64; use "arm64 x86_64" for universal)
   --clean              Remove the prior host packaging workspace first
   --allow-dirty        Permit packaging from an uncommitted development tree
+  --only <scheme>      Package only MacHost, VampTerminalHost, or VampMiniHost
   --help               Show this help
 
 The resulting ZIPs contain Vamp Host (full remote desktop + Terminal Mode),
@@ -54,6 +56,12 @@ while [[ $# -gt 0 ]]; do
     --allow-dirty)
       ALLOW_DIRTY=1
       shift
+      ;;
+    --only)
+      [[ $# -ge 2 ]] || fail "Missing value for --only"
+      ONLY_SCHEME="$2"
+      case "$ONLY_SCHEME" in MacHost|VampTerminalHost|VampMiniHost) ;; *) fail "Unsupported host scheme: $ONLY_SCHEME" ;; esac
+      shift 2
       ;;
     --help|-h)
       usage
@@ -293,8 +301,14 @@ PY
   fi
 }
 
-package_host "MacHost" "Vamp Host" "com.mesutcy.remotedesktop.host" "VampHost"
-package_host "VampTerminalHost" "Vamp Terminal Host" "com.mesutcy.remotedesktop.terminalhost" "VampTerminalHost"
-package_host "VampMiniHost" "Vamp Mini Host" "com.mesutcy.remotedesktop.minhost" "VampMiniHost"
+if [[ -z "$ONLY_SCHEME" || "$ONLY_SCHEME" == "MacHost" ]]; then
+  package_host "MacHost" "Vamp Host" "com.mesutcy.remotedesktop.host" "VampHost"
+fi
+if [[ -z "$ONLY_SCHEME" || "$ONLY_SCHEME" == "VampTerminalHost" ]]; then
+  package_host "VampTerminalHost" "Vamp Terminal Host" "com.mesutcy.remotedesktop.terminalhost" "VampTerminalHost"
+fi
+if [[ -z "$ONLY_SCHEME" || "$ONLY_SCHEME" == "VampMiniHost" ]]; then
+  package_host "VampMiniHost" "Vamp Mini Host" "com.mesutcy.remotedesktop.minhost" "VampMiniHost"
+fi
 
 log "Host artifacts are ready in $OUTPUT_DIR"

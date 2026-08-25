@@ -43,6 +43,9 @@ targets:
           - VampTerminalHomeView.swift
           - VampTerminalPaneView.swift
           - VampTerminalWorkspaceView.swift
+          # Legacy paywall source is intentionally not part of the open-source
+          # Stream target and may exist in older local working copies.
+          - StreamingPaywallView.swift
     info:
       path: Sources/VampStream/VampStream-Info.plist
       properties:
@@ -77,7 +80,7 @@ targets:
     settings:
       base:
         MARKETING_VERSION: 0.1.0
-        CURRENT_PROJECT_VERSION: 8
+        CURRENT_PROJECT_VERSION: 11
         PRODUCT_BUNDLE_IDENTIFIER: com.mesutcy.remotedesktop.stream
         PRODUCT_NAME: Vamp Stream
         CODE_SIGN_ENTITLEMENTS: Configuration/VampStream.entitlements
@@ -107,6 +110,21 @@ targets:
       - package: SwiftTerm
         product: SwiftTerm
 
+  VampStreamTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: Sources/VampStreamTests
+    dependencies:
+      - target: VampStream
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mesutcy.remotedesktop.stream.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Vamp Stream.app/Vamp Stream"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
 schemes:
   VampStream:
     build:
@@ -116,3 +134,7 @@ schemes:
       config: Debug
     archive:
       config: Release
+    test:
+      config: Debug
+      targets:
+        - VampStreamTests

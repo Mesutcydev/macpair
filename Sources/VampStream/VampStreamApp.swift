@@ -2,10 +2,9 @@ import SwiftUI
 import SharedModels
 import SharedUI
 
-/// Vamp Stream — a standalone iPhone client that does ONE thing: stream an individual Mac
-/// application to your iPhone. It is NOT Vamp Control: no desktop mirror, no tabs, no terminal.
-/// It reuses the shared Vamp client stack (pairing, discovery, WebRTC, decoder, input) but its own
-/// flow is focused: connect to a Mac → browse the Mac's apps → stream one app's window.
+/// Vamp Stream — a focused iPhone streaming client. Vamp Host connections open the Mac app
+/// browser, while a paired Vamp Assistant Mac offers two explicit experiences: the original
+/// whole-display Remote Control surface or a separate app/window stream picker.
 @main
 struct VampStreamApp: App {
     @UIApplicationDelegateAdaptor(VampStreamAppDelegate.self) private var appDelegate
@@ -23,15 +22,19 @@ struct VampStreamApp: App {
     var body: some Scene {
         WindowGroup {
             VampStreamRootView(environment: environment, appStream: appStream, vampAssistant: vampAssistant)
-                .preferredColorScheme(.dark)
                 .vampSplash(.vampStream(), minimumDuration: 1.7)
         }
     }
 }
 
-/// Focused root state machine. There is no tab bar and no desktop mirror — the app is either
-/// picking a Mac, connecting, or showing that Mac's applications.
+/// Focused root state machine. There is no tab bar: the app is either choosing a saved Mac,
+/// connecting, controlling its display, or selecting and streaming one of its app windows.
 struct VampStreamRootView: View {
+    private enum AssistantExperience {
+        case remoteControl
+        case appStream
+    }
+
     let environment: ClientAppEnvironment
     @ObservedObject var appStream: AppStreamViewModel
     @ObservedObject var vampAssistant: BeetCodeRemoteSessionViewModel
@@ -40,6 +43,7 @@ struct VampStreamRootView: View {
     @State private var showVampAssistantPairing = false
     @State private var showVampHostScanner = false
     @State private var hostScannerError: String?
+    @State private var assistantExperience: AssistantExperience = .remoteControl
 
     init(
         environment: ClientAppEnvironment,
@@ -62,9 +66,11 @@ struct VampStreamRootView: View {
     }
 
     var body: some View {
-        content
+        ZStack {
+            PRAppBackground()
+            content
+        }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(PRAppBackground().ignoresSafeArea())
         .onChangeCompat(of: isConnected) { connected in
             if connected { connectingName = nil }
         }
@@ -114,11 +120,20 @@ struct VampStreamRootView: View {
 
     @ViewBuilder private var content: some View {
         if let session = vampAssistant.session {
-            BeetCodeRemoteView(
-                session: session,
-                onClose: { vampAssistant.disconnect() },
-                onRefresh: { await vampAssistant.refreshStatus() }
-            )
+            switch assistantExperience {
+            case .remoteControl:
+                BeetCodeRemoteView(
+                    session: session,
+                    onClose: { vampAssistant.disconnect() },
+                    onRefresh: { await vampAssistant.refreshStatus() }
+                )
+            case .appStream:
+                VampAssistantAppStreamView(
+                    session: session,
+                    onClose: { vampAssistant.disconnect() },
+                    onRefreshStatus: { await vampAssistant.refreshStatus() }
+                )
+            }
         } else if isConnected {
             if let caps = sessionCoordinator.negotiatedCapabilities {
                 if caps.supportsAppStreaming {
@@ -159,14 +174,29 @@ struct VampStreamRootView: View {
                         )
                     }
                 },
-                onPairVampAssistant: { showVampAssistantPairing = true },
+                onPairVampAssistant: {
+                    assistantExperience = .remoteControl
+                    showVampAssistantPairing = true
+                },
                 onScanVampHost: { showVampHostScanner = true },
-                savedVampAssistantAddress: vampAssistant.savedAddress,
+                pairedVampAssistants: vampAssistant.savedAssistants,
+                vampAssistantAvailability: vampAssistant.availabilityByAddress,
                 vampAssistantError: vampAssistant.lastError,
-                onReconnectVampAssistant: {
-                    Task { await vampAssistant.reconnectSaved() }
+                onRemoteControl: { saved in
+                    assistantExperience = .remoteControl
+                    Task { await vampAssistant.reconnect(saved) }
+                },
+                onAppStream: { saved in
+                    assistantExperience = .appStream
+                    Task { await vampAssistant.reconnect(saved) }
+                },
+                onForgetVampAssistant: { saved in
+                    vampAssistant.forget(saved)
                 }
             )
+            .task(id: vampAssistant.savedAssistants) {
+                await vampAssistant.refreshAvailability()
+            }
         }
     }
 

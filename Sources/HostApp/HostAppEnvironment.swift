@@ -39,6 +39,7 @@ final class HostAppEnvironment: ObservableObject {
     /// reach it to start the widget bridge independent of any window/scene.
     static weak var shared: HostAppEnvironment?
     private var widgetBridge: HostWidgetBridge?
+    private var widgetSnapshotNamespace: String?
 
     private enum Keys {
         static let sessionMode = "com.remotedesktop.host.sessionMode"
@@ -368,7 +369,7 @@ final class HostAppEnvironment: ObservableObject {
         // normal control, so it stays unavailable in sandboxed builds.
         if runtimePolicy.supportsRemoteUnlock {
             self.inputCommandRouter.remoteUnlockEnabled = {
-                UserDefaults.standard.object(forKey: "host.remoteUnlock.enabled") as? Bool ?? true
+                UserDefaults.standard.object(forKey: "host.remoteUnlock.enabled") as? Bool ?? false
             }
             self.inputCommandRouter.onUnlockPassword = { [inputInjectionService = self.inputInjectionService, eventLogStore] password in
                 // Type the password then press Return via HID event tap. Pace the
@@ -793,6 +794,7 @@ final class HostAppEnvironment: ObservableObject {
     /// Called from the app delegate so it runs regardless of window/scene state.
     func activateWidgetBridge(hostName: String? = nil, snapshotNamespace: String? = nil) {
         guard widgetBridge == nil else { return }
+        widgetSnapshotNamespace = snapshotNamespace
         let bridge = HostWidgetBridge(
             environment: self,
             hostName: hostName,
@@ -824,6 +826,14 @@ final class HostAppEnvironment: ObservableObject {
         } else {
             HostWidgetStore.setPendingAction(action)
         }
+    }
+
+    /// Approve a pending pairing only when `vamp` wrote a fingerprint-bound
+    /// trust file after an independent check. URL query fingerprints are ignored.
+    func consumeCLITrustApproval() -> Bool {
+        guard let fingerprint = HostWidgetStore.consumePendingTrustApproval(namespace: widgetSnapshotNamespace)
+        else { return false }
+        return resolveTrustPrompt(approved: true, matchingFingerprint: fingerprint)
     }
 
     /// Write an "offline" snapshot so the widget reflects that the host app is no

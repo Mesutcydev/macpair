@@ -1158,12 +1158,12 @@ final class ClientSessionCoordinator: ObservableObject {
                 logger.debug("Ignoring host answer for inactive session \(sessionID.uuidString)")
                 return
             }
-            // The legacy echo applies only to plaintext tokens. A sealed token
-            // is never echoed (the host omits it to avoid re-exposing it), so
-            // possession is proven by the TLS-PSK + control-auth handshakes.
-            if !offerWasSealed,
+            // Hosts no longer echo the session token (it would re-expose the
+            // control-channel secret on plaintext signaling). If a legacy host
+            // still echoes one, it must match what we sent.
+            if let echoed = answer.sessionToken,
                let expected = expectedSessionTokenHex,
-               answer.sessionToken != expected {
+               echoed != expected {
                 throw RemoteDesktopError.negotiationFailed("Host session token mismatch")
             }
             try await webRTCSessionManager.applyRemoteAnswer(answer)

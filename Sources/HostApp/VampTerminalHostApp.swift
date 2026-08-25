@@ -321,10 +321,7 @@ private struct VampTerminalHostMenuBarContent: View {
     private var browserPairingURL: String? {
         guard let browserURL,
               !environment.browserControlStatus.pairingCode.isEmpty else { return nil }
-        return HostBrowserPairingLink.make(
-            baseURL: browserURL,
-            code: environment.browserControlStatus.pairingCode
-        )
+        return HostBrowserPairingLink.make(baseURL: browserURL)
     }
 
     private var isRunning: Bool {

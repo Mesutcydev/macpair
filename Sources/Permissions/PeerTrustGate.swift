@@ -10,6 +10,11 @@ public enum TrustEvaluation: Sendable, Hashable {
     case requiresApproval(peerID: UUID, displayName: String, fingerprint: String)
     /// Peer has been explicitly revoked.
     case revoked(peerID: UUID)
+    /// A known peer ID presented a different key. Treat as possible MITM —
+    /// do not offer a casual Allow prompt.
+    case fingerprintChanged(peerID: UUID, displayName: String, previousFingerprint: String, newFingerprint: String)
+    /// Fingerprint is missing or not a 64-character SHA-256 hex digest.
+    case invalidIdentity
 }
 
 /// Manages the trust decision flow for incoming connections.
@@ -31,6 +36,9 @@ public actor PeerTrustGate {
     /// The host UI presents a prompt and returns true to approve, false to deny.
     public var approvalHandler: (@MainActor @Sendable (UUID, String, String) async -> Bool)?
 
+    /// Last deny reason for the UI/event log. Consumed by the session coordinator.
+    public private(set) var lastDenialReason: String?
+
     public init(store: PersistentTrustedPeerStore) {
         self.store = store
     }
@@ -43,8 +51,9 @@ public actor PeerTrustGate {
     /// Evaluate trust for a connecting peer.
     public func evaluate(peerID: UUID, displayName: String, fingerprint: String) async -> TrustEvaluation {
         guard PublicKeyFingerprint.isValid(fingerprint) else {
-            logger.warning("evaluate: malformed fingerprint from peer \(peerID.uuidString, privacy: .public) — requires approval")
-            return .requiresApproval(peerID: peerID, displayName: displayName, fingerprint: fingerprint)
+            logger.warning("evaluate: malformed fingerprint from peer \(peerID.uuidString, privacy: .public) — rejected")
+            lastDenialReason = "Rejected \(displayName): identity fingerprint is not a valid SHA-256 digest"
+            return .invalidIdentity
         }
         do {
             let allPeers = try await store.allPeers()
@@ -57,8 +66,14 @@ public actor PeerTrustGate {
                     try await store.updateLastSeen(peerID: peerID)
                     return .trusted
                 }
-                // Fingerprint mismatch — treat as new/untrusted (possible MITM)
-                return .requiresApproval(peerID: peerID, displayName: displayName, fingerprint: fingerprint)
+                logger.error("Fingerprint change for peer \(peerID.uuidString, privacy: .public) — refusing automatic re-pair")
+                lastDenialReason = "Rejected \(displayName): identity key changed. Forget the old device in Paired Devices, then approve a new pairing after verifying the fingerprint."
+                return .fingerprintChanged(
+                    peerID: peerID,
+                    displayName: displayName,
+                    previousFingerprint: existing.fingerprint,
+                    newFingerprint: fingerprint
+                )
             }
             if let existing = allPeers.first(where: { $0.fingerprint == fingerprint }) {
                 if existing.isRevoked {
@@ -97,6 +112,9 @@ public actor PeerTrustGate {
         case .trusted:
             return true
         case .revoked:
+            lastDenialReason = "Rejected \(displayName): this device was previously revoked"
+            return false
+        case .invalidIdentity, .fingerprintChanged:
             return false
         case .requiresApproval(let id, let name, let fp):
             // Prevent concurrent prompts (TOCTOU guard)

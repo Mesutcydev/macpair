@@ -203,11 +203,7 @@ final class HostWidgetBridge {
                 await environment.stopRuntime()
                 await environment.startRuntimeIfNeeded()
             case .approvePairing, .approveConnection:
-                // Approval links contain no peer fingerprint and can be
-                // replayed by any process able to open our URL scheme. Keep
-                // the visible host prompt pending; fingerprint-bound approval
-                // is available in the app and through `vamp --fingerprint`.
-                break
+                _ = environment.consumeCLITrustApproval()
             case .rejectPairing, .rejectConnection:
                 environment.resolveTrustPrompt(approved: false)
             }
@@ -227,7 +223,7 @@ final class HostWidgetBridge {
                 await environment.stopRuntime()
                 await environment.startRuntimeIfNeeded()
             case .approvePairing, .approveConnection:
-                break
+                _ = environment.consumeCLITrustApproval()
             case .rejectPairing, .rejectConnection:
                 environment.resolveTrustPrompt(approved: false)
             }

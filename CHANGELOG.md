@@ -4,7 +4,26 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [Unreleased]
+
+### Security
+
+- Pairing codes for Safari/Linux browser control are 12 digits. The QR carries
+  only the host URL; the code is typed on a trusted screen and is no longer
+  accepted from `?pair=`.
+- Session answers no longer echo the control-channel token on signaling.
+  TLS signaling on 9473 retries three times; plaintext 9471 stays up if TLS
+  fails so a first-time typed address can still connect.
+- macOS headless agent launchers no longer pass provider yolo / skip-permissions
+  flags. Interactive approvals stay in Terminal, matching Linux.
+- Remote login-window unlock defaults to off.
+- `vamp approve-pairing` writes a fingerprint-bound local trust file instead of
+  putting the fingerprint on `vamphost://`. URL-scheme approve links cannot
+  complete pairing by themselves.
+- A known peer that presents a new identity key is rejected as a possible MITM
+  instead of a casual Allow prompt. Forget the old device to re-pair.
+- Control-channel pings require the same HMAC as other envelopes.
+- Linux refuses wildcard binds (`0.0.0.0` / `::`) even with `--allow-non-loopback`.
 
 ### Added
 
@@ -13,6 +32,12 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
   permission guidance, Tailscale status, and Start / Stop / Restart controls.
 - A standalone [Vamp Mini Host product page](docs/mini-host/index.html) and a
   dedicated `VampMiniHost` packaging target.
+- Unified Chat and Terminal launcher support across Vamp Host, Vamp Terminal Host,
+  Vamp Terminal iOS, and the Linux browser host for OpenCode, Pi, CommandCode,
+  ChatGPT/Codex, Claude, Kimi, Qwen, Codex, Aider, Grok, and Gemini.
+- Provider-native semantic adapters for Kimi, Qwen, Aider, and Gemini, including
+  resumable session IDs where each CLI exposes them. Linux runners keep provider
+  approval and sandbox modes safe; use Terminal for interactive approvals.
 
 ## [2.3.0] - 2026-08-22 — build 47
 

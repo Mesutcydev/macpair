@@ -24,16 +24,14 @@ final class HostTerminalServiceTests: XCTestCase {
     }
 
     func testBrowserPairingCodeAcceptsFormattedAndLocalizedDigits() {
-        XCTAssertEqual(HostBrowserPairingCode.normalize(" 12-34·56 "), "123456")
-        XCTAssertEqual(HostBrowserPairingCode.normalize("١٢٣٤٥٦"), "123456")
-        XCTAssertEqual(HostBrowserPairingCode.normalize("\u{200E}123456\u{2069}"), "123456")
-        XCTAssertNil(HostBrowserPairingCode.normalize("12345"))
-        XCTAssertNil(HostBrowserPairingCode.normalize("12a456"))
+        XCTAssertEqual(HostBrowserPairingCode.normalize(" 12-34·56-78-90-12 "), "123456789012")
+        XCTAssertEqual(HostBrowserPairingCode.normalize("١٢٣٤٥٦٧٨٩٠١٢"), "123456789012")
+        XCTAssertEqual(HostBrowserPairingCode.normalize("\u{200E}123456789012\u{2069}"), "123456789012")
+        XCTAssertNil(HostBrowserPairingCode.normalize("123456"))
+        XCTAssertNil(HostBrowserPairingCode.normalize("12a456789012"))
     }
 
-    func testBrowserPairingCodeGenerateIsSixDigitsAndNormalizable() {
-        // Draw a batch; every code must be exactly six ASCII digits and must
-        // round-trip through the same normalizer the pair endpoint applies.
+    func testBrowserPairingCodeGenerateIsTwelveDigitsAndNormalizable() {
         for _ in 0..<64 {
             let code = HostBrowserPairingCode.generate()
             XCTAssertEqual(code.count, HostBrowserPairingCode.length)
@@ -46,7 +44,7 @@ final class HostTerminalServiceTests: XCTestCase {
         let source = BrowserControlWebAssets.indexHTML
         XCTAssertTrue(source.contains("<body class=\"pairing\">") )
         XCTAssertTrue(source.contains("class=\"field-label\" for=\"code\""))
-        XCTAssertTrue(source.contains("maxlength=\"6\""))
+        XCTAssertTrue(source.contains("maxlength=\"12\""))
         XCTAssertTrue(source.contains("body.pairing .modal#pair"))
         XCTAssertTrue(source.contains("backdrop-filter: none !important"))
         XCTAssertTrue(source.contains("const vampScheduleViewportUpdate"))
@@ -68,18 +66,17 @@ final class HostTerminalServiceTests: XCTestCase {
         ))
     }
 
-    func testBrowserPairingLinkReplacesPairCodeWithoutDroppingOtherQueryItems() {
+    func testBrowserPairingLinkStripsPairCodeWithoutDroppingOtherQueryItems() {
         let link = HostBrowserPairingLink.make(
-            baseURL: "https://mac.example.test/workspace?source=qr&pair=000000",
-            code: "12 34-56"
+            baseURL: "https://mac.example.test/workspace?source=qr&pair=000000000000"
         )
 
-        XCTAssertEqual(link, "https://mac.example.test/workspace?source=qr&pair=123456")
+        XCTAssertEqual(link, "https://mac.example.test/workspace?source=qr")
     }
 
-    func testBrowserPairingLinkRejectsInvalidCodeAndHostURL() {
-        XCTAssertNil(HostBrowserPairingLink.make(baseURL: "127.0.0.1:9475", code: "123456"))
-        XCTAssertNil(HostBrowserPairingLink.make(baseURL: "http://127.0.0.1:9475", code: "12345"))
+    func testBrowserPairingLinkRejectsHostURLWithoutScheme() {
+        XCTAssertNil(HostBrowserPairingLink.make(baseURL: "127.0.0.1:9475"))
+        XCTAssertEqual(HostBrowserPairingLink.make(baseURL: "http://127.0.0.1:9475"), "http://127.0.0.1:9475")
     }
 
     func testBrowserControlBindErrorNamesOccupantAndSkipsSelf() {
@@ -129,12 +126,10 @@ final class HostTerminalServiceTests: XCTestCase {
         let (_, crossOriginResponse) = try await URLSession.shared.data(for: crossOriginRequest)
         XCTAssertEqual((crossOriginResponse as? HTTPURLResponse)?.statusCode, 403)
 
-        var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/api/pair?pair=\(status.pairingCode)")!)
+        var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/api/pair")!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // Exercise the QR fallback: the URL carries the valid code while a
-        // browser/proxy may omit or corrupt the small JSON body.
-        request.httpBody = Data("{\"code\":\"00000\"}".utf8)
+        request.httpBody = Data("{\"code\":\"\(status.pairingCode)\"}".utf8)
         let (body, response) = try await URLSession.shared.data(for: request)
         XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
         struct PairResponse: Decodable { let token: String }
