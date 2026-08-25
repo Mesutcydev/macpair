@@ -185,83 +185,87 @@ struct VampSplashView: View {
     }
 
     private func streamGlassContent(t: Double, motion: Bool) -> some View {
-        let arrival = motion ? min(max(t / 0.55, 0), 1) : 1
-        let eased = arrival * arrival * (3 - 2 * arrival)
-        let shimmer = motion ? phase(t, 1.8) : 0.55
+        let reveal = motion ? min(max(t / 0.7, 0), 1) : 1
+        let eased = reveal * reveal * (3 - 2 * reveal)
+        let progress = motion ? min(max((t - 0.12) / 1.45, 0), 1) : 1
 
-        return ZStack {
-            Image(config.iconAssetName)
-                .resizable()
-                .scaledToFill()
-                .scaleEffect(1.18)
-                .blur(radius: 24)
-                .overlay(Color.black.opacity(0.60))
+        return GeometryReader { geometry in
+            ZStack {
+                Image(config.iconAssetName)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFill()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .scaleEffect(motion ? 1.08 - (0.04 * eased) : 1.04)
+                    .clipped()
 
-            LinearGradient(
-                colors: [.white.opacity(0.08), .clear, .black.opacity(0.34)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+                LinearGradient(
+                    stops: [
+                        .init(color: .black.opacity(0.14), location: 0),
+                        .init(color: .black.opacity(0.22), location: 0.42),
+                        .init(color: .black.opacity(0.82), location: 1)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
 
-            VStack(spacing: 0) {
-                Spacer()
+                LinearGradient(
+                    colors: [.black.opacity(0.24), .clear, .black.opacity(0.18)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
 
-                VStack(spacing: 22) {
-                    Image(config.iconAssetName)
-                        .resizable()
-                        .interpolation(.high)
-                        .frame(width: 112, height: 112)
-                        .clipShape(RoundedRectangle(cornerRadius: 27, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 27, style: .continuous)
-                                .stroke(.white.opacity(0.32), lineWidth: 1)
-                        }
-                        .shadow(color: .black.opacity(0.38), radius: 26, y: 16)
+                VStack(alignment: .leading, spacing: 0) {
+                    Label {
+                        Text("VAMP STREAM")
+                            .font(.system(size: 12, weight: .bold))
+                            .tracking(1.7)
+                    } icon: {
+                        Image(systemName: "rectangle.on.rectangle")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundStyle(.white.opacity(0.92))
+                    .padding(.horizontal, 14)
+                    .frame(height: 40)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .overlay { Capsule().stroke(.white.opacity(0.20), lineWidth: 0.75) }
 
-                    VStack(spacing: 8) {
-                        Text("Vamp Stream")
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
-                            .tracking(-0.7)
+                    Spacer()
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Use a Mac App\non your iPhone")
+                            .font(.system(size: min(geometry.size.width * 0.115, 52), weight: .bold, design: .rounded))
+                            .tracking(-1.2)
                             .foregroundStyle(.white)
-                        Text("Use a Mac App on your iPhone")
-                            .font(.system(size: 15, weight: .medium))
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text("Private app streaming from your Mac, ready wherever you are.")
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(.white.opacity(0.72))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: 330, alignment: .leading)
+
+                        GeometryReader { bar in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(.white.opacity(0.18))
+                                Capsule()
+                                    .fill(.white.opacity(0.94))
+                                    .frame(width: max(8, bar.size.width * progress))
+                            }
+                        }
+                        .frame(height: 3)
+                        .padding(.top, 12)
                     }
-
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(.white.opacity(0.14))
-                        Capsule()
-                            .fill(.white.opacity(0.88))
-                            .frame(width: 42)
-                            .offset(x: shimmer * 94)
-                    }
-                    .frame(width: 136, height: 3)
-                    .clipShape(Capsule())
+                    .offset(y: 20 * (1 - eased))
+                    .opacity(eased)
                 }
-                .padding(.horizontal, 34)
-                .padding(.vertical, 36)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 38, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 38, style: .continuous)
-                        .stroke(.white.opacity(0.20), lineWidth: 1)
-                }
-                .shadow(color: .black.opacity(0.26), radius: 34, y: 18)
-                .scaleEffect(0.96 + 0.04 * eased)
-                .offset(y: 16 * (1 - eased))
-                .opacity(eased)
-
-                Spacer()
-
-                Text("PRIVATE  ·  DIRECT  ·  YOURS")
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(1.8)
-                    .foregroundStyle(.white.opacity(0.52))
-                    .padding(.bottom, 42)
+                .padding(.horizontal, 28)
+                .padding(.top, max(geometry.safeAreaInsets.top, 54) + 10)
+                .padding(.bottom, geometry.safeAreaInsets.bottom + 28)
             }
-            .padding(.horizontal, 24)
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .background(Color.black)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
     }
 
     // MARK: composition layers

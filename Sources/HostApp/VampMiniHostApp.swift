@@ -1,5 +1,6 @@
 #if VAMP_MINI_HOST && os(macOS)
 import AppKit
+import Combine
 import Darwin
 import SwiftUI
 import SharedModels
@@ -31,30 +32,26 @@ struct VampMiniHostApp: App {
         trustedPeerDirectory: VampMiniHostStorage.trustedPeerDirectory
     )
 
-    @StateObject private var hostEnvironment = environment
     @NSApplicationDelegateAdaptor(VampMiniHostAppDelegate.self) private var appDelegate
 
+    init() {
+        _ = Self.environment
+    }
+
     var body: some Scene {
-        MenuBarExtra {
-            VampMiniHostPopover(environment: hostEnvironment)
-        } label: {
-            Image(systemName: hostEnvironment.sessionCoordinator.phase == .error
-                ? "exclamationmark.triangle.fill"
-                : "rectangle.on.rectangle")
-                .symbolRenderingMode(.hierarchical)
-                .accessibilityLabel("Vamp Mini Host")
-                .contextMenu {
-                    Button("Quit Vamp Mini Host") {
-                        NSApp.terminate(nil)
-                    }
-                }
+        Settings {
+            EmptyView()
         }
-        .menuBarExtraStyle(.window)
     }
 }
 
 @MainActor
-private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate {
+private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
+    private var environment: HostAppEnvironment?
+    private var statusItem: NSStatusItem?
+    private var popover: NSPopover?
+    private var phaseObserver: AnyCancellable?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         startRuntimeWhenReady(attempt: 0)
@@ -68,6 +65,7 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate {
 
     private func startRuntimeWhenReady(attempt: Int) {
         if let environment = HostAppEnvironment.shared {
+            installStatusItemIfNeeded(environment: environment)
             Task { @MainActor in
                 await environment.startRuntimeIfNeeded()
             }
@@ -79,12 +77,185 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate {
             self?.startRuntimeWhenReady(attempt: attempt + 1)
         }
     }
+
+    private func installStatusItemIfNeeded(environment: HostAppEnvironment) {
+        guard statusItem == nil else { return }
+        self.environment = environment
+
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        if let button = item.button {
+            button.image = statusImage(for: environment.sessionCoordinator.phase)
+            button.image?.isTemplate = true
+            button.toolTip = "Vamp Mini Host"
+            button.target = self
+            button.action = #selector(statusItemPressed(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
+        statusItem = item
+
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.animates = true
+        popover.delegate = self
+        popover.contentSize = NSSize(width: 370, height: 610)
+        popover.contentViewController = NSHostingController(
+            rootView: VampMiniHostPopover(
+                environment: environment,
+                onClose: { [weak self] in self?.closePopover() }
+            )
+        )
+        self.popover = popover
+
+        phaseObserver = environment.sessionCoordinator.$phase
+            .receive(on: RunLoop.main)
+            .sink { [weak self] phase in
+                self?.statusItem?.button?.image = self?.statusImage(for: phase)
+                self?.statusItem?.button?.image?.isTemplate = true
+            }
+    }
+
+    private func statusImage(for phase: HostSessionCoordinator.SessionPhase) -> NSImage? {
+        let symbol = phase == .error ? "exclamationmark.triangle.fill" : "rectangle.on.rectangle"
+        return NSImage(
+            systemSymbolName: symbol,
+            accessibilityDescription: phase == .error ? "Vamp Mini Host needs attention" : "Vamp Mini Host"
+        )
+    }
+
+    @objc private func statusItemPressed(_ sender: NSStatusBarButton) {
+        guard let event = NSApp.currentEvent else { return }
+        if event.type == .rightMouseUp {
+            NSMenu.popUpContextMenu(makeContextMenu(), with: event, for: sender)
+        } else {
+            togglePopover(relativeTo: sender)
+        }
+    }
+
+    private func togglePopover(relativeTo button: NSStatusBarButton) {
+        guard let popover else { return }
+        if popover.isShown {
+            popover.performClose(nil)
+        } else {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    private func makeContextMenu() -> NSMenu {
+        let menu = NSMenu(title: "Vamp Mini Host")
+        addMenuItem("Open Mini Host", action: #selector(openPopover), to: menu)
+
+        let status = NSMenuItem(title: "Status: \(statusMenuTitle)", action: nil, keyEquivalent: "")
+        status.isEnabled = false
+        menu.addItem(status)
+        menu.addItem(.separator())
+
+        addMenuItem(isRuntimeActive ? "Stop Host" : "Start Host", action: #selector(toggleRuntime), to: menu)
+        addMenuItem("Restart Host", action: #selector(restartRuntime), to: menu)
+        menu.addItem(.separator())
+
+        addMenuItem("Copy Pairing Address", action: #selector(copyPairingAddress), to: menu)
+        addMenuItem("Copy Host Fingerprint", action: #selector(copyHostFingerprint), to: menu)
+        menu.addItem(.separator())
+
+        addMenuItem("Screen Recording Settings…", action: #selector(openScreenRecordingSettings), to: menu)
+        addMenuItem("Accessibility Settings…", action: #selector(openAccessibilitySettings), to: menu)
+        menu.addItem(.separator())
+
+        addMenuItem("Quit Vamp Mini Host", action: #selector(quitApp), keyEquivalent: "q", to: menu)
+        return menu
+    }
+
+    private func addMenuItem(
+        _ title: String,
+        action: Selector,
+        keyEquivalent: String = "",
+        to menu: NSMenu
+    ) {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+        item.target = self
+        menu.addItem(item)
+    }
+
+    private var isRuntimeActive: Bool {
+        guard let phase = environment?.sessionCoordinator.phase else { return false }
+        return phase != .idle && phase != .error
+    }
+
+    private var statusMenuTitle: String {
+        guard let environment else { return "Starting" }
+        if environment.pendingTrustPrompt != nil { return "Pairing approval required" }
+        switch environment.sessionCoordinator.phase {
+        case .streaming: return "Connected"
+        case .advertising, .awaitingClient: return "Ready"
+        case .error: return "Needs attention"
+        case .idle: return "Stopped"
+        default: return "Starting"
+        }
+    }
+
+    @objc private func openPopover() {
+        guard let button = statusItem?.button else { return }
+        if popover?.isShown != true { togglePopover(relativeTo: button) }
+    }
+
+    @objc private func toggleRuntime() {
+        guard let environment else { return }
+        Task {
+            if isRuntimeActive {
+                await environment.stopRuntime()
+            } else {
+                await environment.startRuntimeIfNeeded()
+            }
+        }
+    }
+
+    @objc private func restartRuntime() {
+        guard let environment else { return }
+        Task {
+            await environment.stopRuntime()
+            await environment.startRuntimeIfNeeded()
+        }
+    }
+
+    @objc private func copyPairingAddress() {
+        guard let address = localIPv4AddressForPairing() else { return }
+        copyToPasteboard("\(address):\(RemoteDesktopConstants.defaultSignalingPort)")
+    }
+
+    @objc private func copyHostFingerprint() {
+        guard let fingerprint = environment?.hostIdentity.publicKeyFingerprint else { return }
+        copyToPasteboard(fingerprint)
+    }
+
+    private func copyToPasteboard(_ value: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
+    }
+
+    @objc private func openScreenRecordingSettings() {
+        guard let environment else { return }
+        Task { await environment.permissionsViewModel.openSettings(for: .screenRecording) }
+    }
+
+    @objc private func openAccessibilitySettings() {
+        guard let environment else { return }
+        Task { await environment.permissionsViewModel.openSettings(for: .accessibility) }
+    }
+
+    @objc private func quitApp() {
+        NSApp.terminate(nil)
+    }
+
+    private func closePopover() {
+        popover?.performClose(nil)
+    }
 }
 
 private struct VampMiniHostPopover: View {
     @ObservedObject var environment: HostAppEnvironment
     @ObservedObject private var permissionsViewModel: HostPermissionsViewModel
-    @Environment(\.dismiss) private var dismiss
+    let onClose: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var trustedPeers: [TrustedPeer] = []
@@ -93,8 +264,9 @@ private struct VampMiniHostPopover: View {
     @State private var tailscaleInstalled = false
     @State private var copiedFingerprint = false
 
-    init(environment: HostAppEnvironment) {
+    init(environment: HostAppEnvironment, onClose: @escaping () -> Void = {}) {
         self.environment = environment
+        self.onClose = onClose
         _permissionsViewModel = ObservedObject(wrappedValue: environment.permissionsViewModel)
     }
 
@@ -159,14 +331,14 @@ private struct VampMiniHostPopover: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Vamp Mini Host")
                     .font(.headline)
-                Text("Pairing-first Mac host")
+                Text("Compact app-streaming host")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
             VampMiniStatusBadge(text: statusTitle, color: statusColor)
             Button {
-                dismiss()
+                onClose()
             } label: {
                 Image(systemName: "xmark")
                     .font(.caption.weight(.bold))
@@ -413,6 +585,7 @@ private struct VampMiniHostPopover: View {
     }
 
     private var statusTitle: String {
+        if environment.pendingTrustPrompt != nil { return "PAIRING" }
         switch environment.sessionCoordinator.phase {
         case .streaming: return "LIVE"
         case .advertising, .awaitingClient: return "READY"
@@ -428,6 +601,7 @@ private struct VampMiniHostPopover: View {
         case "READY": return "Waiting for a trusted device"
         case "ERROR": return "Host needs attention"
         case "STOPPED": return "Host is stopped"
+        case "PAIRING": return "Verify the device fingerprint"
         default: return "Starting secure host"
         }
     }
@@ -437,6 +611,7 @@ private struct VampMiniHostPopover: View {
         case "LIVE": return .blue
         case "READY": return .green
         case "ERROR": return .orange
+        case "PAIRING": return .orange
         default: return .secondary
         }
     }
@@ -471,11 +646,13 @@ private struct VampMiniTrustPromptCard: View {
     let onReject: () -> Void
     let onApprove: () -> Void
 
-    @State private var fingerprintConfirmation = ""
-
-    private var isConfirmed: Bool {
-        fingerprintConfirmation.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            == prompt.fingerprint.lowercased()
+    private var formattedFingerprint: String {
+        let value = prompt.fingerprint.lowercased().filter(\.isHexDigit)
+        return stride(from: 0, to: value.count, by: 8).map { offset in
+            let start = value.index(value.startIndex, offsetBy: offset)
+            let end = value.index(start, offsetBy: min(8, value.count - offset))
+            return String(value[start..<end])
+        }.joined(separator: " ")
     }
 
     var body: some View {
@@ -485,38 +662,29 @@ private struct VampMiniTrustPromptCard: View {
                 .foregroundStyle(.orange)
             Text(prompt.displayName)
                 .font(.headline)
-            Text("Compare the complete fingerprint out of band. Type it below to unlock Approve.")
+            Text("Confirm that this fingerprint matches Vamp Stream, then approve once.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(prompt.fingerprint)
+            Text(formattedFingerprint)
                 .font(.caption2.monospaced())
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
-            TextField("Type fingerprint to confirm", text: $fingerprintConfirmation)
-                .font(.caption.monospaced())
-                .textFieldStyle(.roundedBorder)
-                .textContentType(.none)
-                .autocorrectionDisabled()
-                .accessibilityLabel("Fingerprint confirmation")
             HStack {
                 Button("Reject", role: .destructive, action: onReject)
                     .buttonStyle(.bordered)
                 Spacer(minLength: 0)
                 Button("Approve", action: onApprove)
                     .buttonStyle(.borderedProminent)
+                    .tint(.primary)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(!isConfirmed)
             }
         }
         .padding(12)
-        .background(.orange.opacity(0.11), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(.orange.opacity(0.35), lineWidth: 1)
-        }
-        .onChange(of: prompt.id) { _ in
-            fingerprintConfirmation = ""
         }
     }
 }
@@ -606,7 +774,7 @@ private struct VampMiniHostMark: View {
 private struct VampMiniHostBackdrop: View {
     var body: some View {
         ZStack {
-            Rectangle().fill(.ultraThinMaterial)
+            Rectangle().fill(.regularMaterial)
             LinearGradient(
                 colors: [Color.white.opacity(0.10), Color.clear, Color.black.opacity(0.05)],
                 startPoint: .top,
