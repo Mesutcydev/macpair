@@ -68,8 +68,8 @@ workflow is available for GNU screen with `vamp terminal attach` and
 the `Attach screen` tab action.
 
 Supported agent launchers are `opencode`, `pi`, `commandcode`, `chatgpt`,
-`claude`, `kimi`, `qwen`, `codex`, `aider`, and `grok` when the corresponding
-CLI is installed on the Mac. Vamp starts each launcher inside its own named
+`claude`, `kimi`, `qwen`, `codex`, `aider`, `grok`, and `gemini` when the
+corresponding CLI is installed on the Mac. Vamp starts each launcher inside its own named
 tmux session; an unavailable executable produces the normal shell error in
 that tab. The app does not proxy agent APIs or credentials; it only transports
 the authenticated PTY and preserves the normal CLI's input/output behavior.

@@ -10,191 +10,50 @@
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="icon" type="image/png" href="assets/vamp-terminal-icon.png">
   <link rel="apple-touch-icon" href="assets/vamp-terminal-icon.png">
-  <meta name="description" content="Vamp is a local-first remote workspace for your Mac, iPhone, iPad, and Linux. Control the screen, open a terminal, or pair Safari as the client — no account, no hosted relay.">
-  <meta property="og:title" content="Vamp — your Mac, in reach">
-  <meta property="og:description" content="A private remote workspace for Mac, iPhone, iPad, and Linux. No account. No hosted relay. Every device approved by hand.">
+  <meta name="description" content="Vamp Assistant and Vamp Stream bring private AI work and focused Mac streaming to macOS, iPhone, iPad, and trusted browsers.">
+  <meta property="og:title" content="Vamp · Your Mac, in reach">
+  <meta property="og:description" content="Vamp Assistant and Vamp Stream — private Mac tools with no account and no hosted relay.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Vamp">
   <meta property="og:url" content="https://thevamp.app/">
   <meta property="og:image" content="https://thevamp.app/assets/og-image-v2.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Vamp — your Mac, in reach">
-  <meta name="twitter:description" content="A private remote workspace for Mac, iPhone, iPad, and Linux.">
-  <meta name="twitter:image" content="https://thevamp.app/assets/og-image-v2.png">
-  <script type="application/ld+json">
-  {"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://thevamp.app/#organization","name":"Vamp","url":"https://thevamp.app/","logo":"https://thevamp.app/assets/vamp-terminal-icon.png","sameAs":["https://github.com/Mesutcydev/macpair"],"contactPoint":{"@type":"ContactPoint","email":"security@mesut.uk","contactType":"security"}},{"@type":"WebSite","@id":"https://thevamp.app/#website","url":"https://thevamp.app/","name":"Vamp","publisher":{"@id":"https://thevamp.app/#organization"}},{"@type":"SoftwareApplication","name":"Vamp","operatingSystem":"macOS 13+, iOS 18+, iPadOS 18+, Linux","applicationCategory":"DeveloperApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://thevamp.app/","downloadUrl":"https://github.com/Mesutcydev/macpair/releases","license":"https://www.apache.org/licenses/LICENSE-2.0","publisher":{"@id":"https://thevamp.app/#organization"},"description":"Open-source, local-first remote desktop and terminal workspace for your Mac over LAN or Tailscale."}]}
-  </script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://thevamp.app/#organization","name":"Vamp","url":"https://thevamp.app/","sameAs":["https://github.com/Mesutcydev/macpair","https://github.com/Mesutcydev/vamp-assistant"]},{"@type":"WebSite","url":"https://thevamp.app/","name":"Vamp","publisher":{"@id":"https://thevamp.app/#organization"}}]}</script>
   <title>Vamp · Your Mac, in reach</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/site.css?v=suite-15">
+  <link rel="stylesheet" href="assets/site.css?v=suite-16">
+  <link rel="stylesheet" href="assets/products.css?v=family-7">
 </head>
 <body>
   <header class="site-header">
     <div class="container nav">
-      <a class="brand" href="#top" aria-label="Vamp home">
-        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" focusable="false"><circle cx="16" cy="16" r="14.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="16" cy="16" r="12.2" fill="none" stroke="currentColor" stroke-width=".55" opacity=".4"/><path fill="currentColor" d="M8.05 8.4h5.2L16 19.4l2.75-11h5.2L17.4 26.3h-2.8L8.05 8.4z"/></svg></span>
-        <span class="brand-word">Vamp</span>
-        <span class="brand-tag">suite</span>
-      </a>
-      <nav class="nav-links" aria-label="Primary navigation">
-        <a href="#browser" data-i18n="nav.browser">Browser</a>
-        <a href="#compare" data-i18n="nav.compare">Compare</a>
-        <a href="mini-host/">Mini Host</a>
-        <a href="iosappstream/">iOS App Stream</a>
-        <a href="#download" data-i18n="nav.download">Download</a>
-      </nav>
-      <div class="nav-actions">
-        <a class="primary-button" href="#download"><span data-i18n="nav.cta">Get Vamp</span><span aria-hidden="true">↗</span></a>
-        <a class="icon-button" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer" aria-label="Open GitHub" title="GitHub">GH</a>
-        <button class="icon-button language-button" id="language-toggle" type="button" aria-label="Türkçe'ye geç" title="Language"><span id="language-code">TR</span></button>
-        <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme"><span id="theme-icon">☾</span></button>
-        <button class="menu-button" id="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open navigation menu">☰</button>
-      </div>
+      <a class="brand" href="#top" aria-label="Vamp home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" focusable="false"><circle cx="16" cy="16" r="14.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="16" cy="16" r="12.2" fill="none" stroke="currentColor" stroke-width=".55" opacity=".4"/><path fill="currentColor" d="M8.05 8.4h5.2L16 19.4l2.75-11h5.2L17.4 26.3h-2.8L8.05 8.4z"/></svg></span><span class="brand-word">Vamp</span><span class="brand-tag">suite</span></a>
+      <nav class="nav-links" aria-label="Primary navigation"><a href="assistant/" data-i18n="nav.assistant">Assistant</a><a href="stream/" data-i18n="nav.stream">Stream</a></nav>
+      <div class="nav-actions"><a class="primary-button" href="#families"><span data-i18n="nav.explore">Explore Vamp</span><span aria-hidden="true">↓</span></a><a class="icon-button" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer" aria-label="Open GitHub">GH</a><button class="icon-button language-button" id="language-toggle" type="button" aria-label="Türkçe'ye geç"><span id="language-code">TR</span></button><button class="icon-button" id="theme-toggle" type="button" aria-label="Switch color theme"><span id="theme-icon">☾</span></button><button class="menu-button" id="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open navigation menu">☰</button></div>
     </div>
-    <nav class="container mobile-menu" id="mobile-menu" data-open="false" hidden aria-label="Mobile navigation">
-      <a href="#browser" data-i18n="nav.browser">Browser</a>
-      <a href="#compare" data-i18n="nav.compare">Compare</a>
-      <a href="mini-host/">Mini Host</a>
-      <a href="iosappstream/">iOS App Stream</a>
-      <a href="#download" data-i18n="nav.download">Download</a>
-      <a href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer" data-i18n="nav.github">Open GitHub ↗</a>
-    </nav>
+    <nav class="container mobile-menu" id="mobile-menu" data-open="false" hidden aria-label="Mobile navigation"><a href="assistant/" data-i18n="nav.assistant">Assistant</a><a href="stream/" data-i18n="nav.stream">Stream</a></nav>
   </header>
 
   <main id="top">
-    <section class="container hero" aria-labelledby="hero-title">
-      <div class="hero-copy">
-        <div class="eyebrow" data-i18n="hero.eyebrow">Remote desktop · terminal · private network</div>
-        <h1 id="hero-title"><span data-i18n="hero.title1">Your Mac.</span><br><span class="accent" data-i18n="hero.title2">In reach.</span></h1>
-        <p class="hero-sub" data-i18n="hero.copy">Control your Mac, open a remote terminal, or pair Safari as the client. LAN or Tailscale. No account. No hosted relay. Every new device needs your approval.</p>
-        <div class="hero-actions">
-          <a class="primary-button" href="#browser"><span data-i18n="hero.primary">See Safari control</span><span aria-hidden="true">↓</span></a>
-          <a class="secondary-button" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer"><span data-i18n="nav.github">Open GitHub ↗</span></a>
-        </div>
-        <div class="hero-note"><span aria-hidden="true">✦</span><span data-i18n="hero.note">Open source</span> <strong data-i18n="hero.noteStrong">· no account required.</strong></div>
-      </div>
-      <div class="hero-visual" aria-hidden="true">
-        <img class="hero-statue" src="assets/statue-hero.png" alt="">
+    <section class="container product-hero" aria-labelledby="hero-title">
+      <div class="product-hero-copy"><div class="eyebrow" data-i18n="home.eyebrow">AI companion · focused streaming</div><h1 id="hero-title"><span data-i18n="home.title1">Your Mac.</span><br><span class="marked" data-i18n="home.title2">In reach.</span></h1><p class="product-hero-sub" data-i18n="home.copy">Build with a private AI companion or stream the Mac surface you need to your phone. No product account. No hosted relay. Every connection stays yours.</p><div class="hero-actions"><a class="primary-button" href="assistant/"><span data-i18n="home.assistantCta">Meet Assistant</span><span aria-hidden="true">↗</span></a><a class="secondary-button" href="stream/"><span data-i18n="home.streamCta">Explore Stream</span></a></div><p class="product-hero-note" data-i18n="home.note">Open source · private LAN or Tailscale · peer-approved.</p></div>
+      <div class="product-visual" aria-label="Vamp Assistant on a Mac"><div class="visual-bar"><span>Vamp / Assistant</span><span class="live-status">LOCAL FIRST</span></div><img class="visual-shot" src="assets/assistant/app.png?v=20260825-dark" alt="Current Vamp Assistant dark-mode workspace with chats, composer, model status, and agent controls"><div class="visual-label">Two products<strong>One private suite</strong></div></div>
+    </section>
+    <div class="container product-rail product-rail--two"><div class="product-stat"><strong>Assistant</strong><span data-i18n="home.statAssistant">AI on Mac + iOS</span></div><div class="product-stat"><strong>Stream</strong><span data-i18n="home.statStream">Focused visual client</span></div></div>
+
+    <section class="container product-section" id="families" aria-labelledby="families-title"><div class="product-section-head"><div><div class="section-kicker"><span class="number">01</span><span class="bar"></span><span data-i18n="families.kicker">Product families</span></div><h2 class="section-title" id="families-title" data-i18n="families.title">Choose what you want to do.</h2></div><p class="section-lead" data-i18n="families.lead">Each family has one clear job. They share a private-network philosophy without pretending every app is the same product.</p></div>
+      <div class="family-grid family-grid--two">
+        <article class="family-card family-card--lead"><div class="card-topline"><span class="card-number">A</span><span class="card-tag">macOS · iOS · browser</span></div><h3>Vamp Assistant</h3><p data-i18n="families.assistant">A complete AI companion: local or BYOK models, chats, Code workspaces, specialist bots, browser and simulator tools, plus its own iOS and browser remotes.</p><div class="card-meta"><span>LOCAL AI</span><span>CODE</span><span>REMOTE SESSIONS</span></div><a class="text-button" href="assistant/" data-i18n="families.assistantCta">Explore Assistant ↗</a></article>
+        <article class="family-card family-card--lead"><div class="card-topline"><span class="card-number">S</span><span class="card-tag">iPhone · iPad</span></div><h3>Vamp Stream</h3><p data-i18n="families.stream">A focused visual client for opening one Mac app on your phone. Connect it to Vamp Host, Vamp Stream Host, or Assistant.</p><div class="card-meta"><span>APP WINDOWS</span><span>TOUCH INPUT</span></div><a class="text-button" href="stream/" data-i18n="families.streamCta">Explore Stream ↗</a></article>
+        <article class="family-card family-card--lead family-card--support family-card--wide"><div class="card-topline"><span class="card-number">C</span><span class="card-tag">client · host</span></div><h3>Vamp Control + Vamp Host</h3><p data-i18n="families.control">Vamp Control is the full remote-desktop client for Vamp Host. Install Host on the Mac you want to reach, then control its screen, keyboard, pointer, clipboard, and files from another Mac, iPhone, or iPad.</p><div class="card-meta"><span>MAC HOST</span><span>MACOS · IOS CLIENTS</span><span>FULL DISPLAY</span><span>FILES</span></div><div class="card-actions"><a class="text-button" data-release-link="vamp-host" href="https://github.com/Mesutcydev/macpair/releases" target="_blank" rel="noreferrer" data-i18n="families.hostCta">Vamp Host for Mac ↓</a><a class="text-button" data-release-link="vamp-control-macos" href="https://github.com/Mesutcydev/macpair/releases" target="_blank" rel="noreferrer" data-i18n="families.controlMacCta">Control for macOS ↓</a><a class="text-button" data-release-link="vamp-control-ios" href="https://github.com/Mesutcydev/macpair/releases" target="_blank" rel="noreferrer" data-i18n="families.controlIosCta">Control iOS IPA ↓</a></div></article>
       </div>
     </section>
 
-    <section class="container section" id="browser" aria-labelledby="browser-title">
-      <div class="section-head">
-        <div>
-          <div class="section-kicker"><span class="number">01</span><span class="bar"></span><span data-i18n="browser.kicker">Browser</span></div>
-          <h2 class="section-title" id="browser-title"><span data-i18n="browser.title1">Safari is the client.</span></h2>
-        </div>
-        <p class="section-lead" data-i18n="browser.lead">Eight tabs and ten agent launchers in the browser on the Mac host. Loopback 9475, Tailscale, or Cloudflare Access. No IPA. Pair with a six-digit code.</p>
-      </div>
-      <div class="browser-stage">
-        <div class="browser-copy">
-          <ol class="browser-points">
-            <li><span>01</span><div><strong data-i18n="browser.p1title">Pair from the host</strong><p data-i18n="browser.p1">Scan the QR on Vamp Host or type the six-digit code. It expires in ten minutes. The browser stays on your LAN or tailnet.</p></div></li>
-            <li><span>02</span><div><strong data-i18n="browser.p2title">Eight independent tabs</strong><p data-i18n="browser.p2">Task chat and a real PTY in the same workspace. tmux and screen attach. Clipboard moves both ways.</p></div></li>
-            <li><span>03</span><div><strong data-i18n="browser.p3title">Ten agent launchers</strong><p data-i18n="browser.p3">OpenCode, Claude, Codex, ChatGPT CLI, Grok, and the rest — same launchers as Vamp Terminal, without sideloading an IPA.</p></div></li>
-          </ol>
-          <div class="browser-meta">
-            <span class="chip">9475</span>
-            <span class="chip" data-i18n="browser.chipPair">pairing code</span>
-            <span class="chip" data-i18n="app.chipTabs">8 tabs</span>
-            <span class="chip" data-i18n="compare.tenLaunchers">10 launchers</span>
-          </div>
-          <a class="secondary-button" href="#download"><span data-i18n="browser.cta">Get a Mac host</span><span aria-hidden="true">↓</span></a>
-        </div>
-        <div class="browser-visual" aria-hidden="true">
-          <figure class="browser-frame browser-frame--desk">
-            <img src="assets/previews/browser-chat.png?v=suite-15" alt="" width="1924" height="989">
-          </figure>
-          <figure class="browser-frame browser-frame--phone">
-            <img src="assets/previews/browser-terminal-ios.png?v=suite-15" alt="" width="1086" height="2361">
-          </figure>
-          <figure class="browser-frame browser-frame--pair">
-            <img src="assets/previews/host-preview.png?v=suite-15" alt="" width="788" height="1008">
-          </figure>
-        </div>
-      </div>
-    </section>
-
-    <section class="container section" id="compare" aria-labelledby="compare-title">
-      <div class="section-head">
-        <div>
-          <div class="section-kicker"><span class="number">02</span><span class="bar"></span><span data-i18n="compare.kicker">Compare</span></div>
-          <h2 class="section-title" id="compare-title"><span data-i18n="compare.title1">What each app does.</span></h2>
-        </div>
-        <p class="section-lead" data-i18n="compare.lead">One Mac host at a time. Safari is built into the Mac hosts — no extra download.</p>
-      </div>
-      <div class="surface-card compare-card">
-        <div class="compare-table-wrap">
-          <table class="compare-table">
-            <thead><tr><th data-i18n="compare.capability">Capability</th><th>Vamp Host</th><th>Terminal Host</th><th>Linux Host</th><th>Control · Mac</th><th>Control · iOS</th><th>Vamp Terminal</th><th>Safari</th></tr></thead>
-            <tbody>
-              <tr><td data-i18n="compare.screen">Remote screen control</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
-              <tr><td data-i18n="compare.terminal">Remote terminal</td><td class="maybe" data-i18n="compare.optIn">opt-in</td><td class="yes" data-i18n="compare.alwaysOn">always on</td><td class="yes" data-i18n="compare.alwaysOn">always on</td><td class="maybe" data-i18n="compare.overlay">overlay</td><td class="maybe" data-i18n="compare.overlay">overlay</td><td class="yes" data-i18n="compare.eightTabs">8 tabs</td><td class="yes" data-i18n="compare.eightTabs">8 tabs</td></tr>
-              <tr><td data-i18n="compare.input">Keyboard &amp; pointer</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
-              <tr><td data-i18n="compare.clipboard">Clipboard sync</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-              <tr><td data-i18n="compare.files">File transfer</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
-              <tr><td data-i18n="compare.agents">Agent launchers</td><td class="maybe" data-i18n="compare.cli">CLI</td><td class="maybe" data-i18n="compare.cli">CLI</td><td class="maybe" data-i18n="compare.taskChat">task-chat</td><td class="no">—</td><td class="no">—</td><td class="yes" data-i18n="compare.tenLaunchers">10 launchers</td><td class="yes" data-i18n="compare.tenLaunchers">10 launchers</td></tr>
-              <tr><td data-i18n="compare.browser">Safari control</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
-              <tr><td data-i18n="compare.platform">Platform</td><td>macOS</td><td>macOS</td><td>Linux</td><td>macOS</td><td>iOS/iPadOS</td><td>iOS/iPadOS</td><td>browser</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="compare-hint" data-i18n="compare.swipe">Swipe the table to see every app →</p>
-      </div>
-    </section>
-
-    <section class="container section" id="download" aria-labelledby="download-title">
-      <div class="section-head">
-        <div>
-          <div class="section-kicker"><span class="number">03</span><span class="bar"></span><span data-i18n="download.kicker">Downloads</span></div>
-          <h2 class="section-title" id="download-title"><span data-i18n="download.title1">Current builds.</span></h2>
-        </div>
-        <p class="section-lead" data-i18n="download.lead">Build 47 is live. Verify the SHA-256 before installing.</p>
-      </div>
-      <div class="apps-grid" id="download-grid">
-        <div class="app-group-label" data-i18n="download.hosts">Hosts</div>
-        <article class="surface-card app-card" data-platform="macos" data-group="hosts"><div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-host.png?v=f87cd19" alt=""></span><span class="app-platform" data-i18n="app.platformMacHost">macOS · host</span></div><h3>Vamp Host</h3><p data-i18n="app.host">Full remote screen plus opt-in terminal. Run only one macOS host at a time.</p><div class="app-meta"><span class="chip" data-i18n="app.chipScreen">screen</span><span class="chip" data-i18n="app.chipTerminal">terminal</span></div><div class="app-footer"><a class="primary-button" data-release-link="vamp-host" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampHost-macOS-2.3.0-build-47-adhoc.zip" target="_blank" rel="noreferrer"><span data-i18n="app.download">Download</span><span aria-hidden="true">↓</span></a><a class="text-button checksum-link" data-release-sha256="vamp-host" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampHost-macOS-2.3.0-build-47-adhoc.zip.sha256" target="_blank" rel="noreferrer" data-i18n="app.checksum">SHA-256</a><span class="version" data-release-version="vamp-host">2.3.0 · build 47</span></div></article>
-        <article class="surface-card app-card" data-platform="macos" data-group="hosts"><div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-terminal.png?v=f87cd19" alt=""></span><span class="app-platform" data-i18n="app.platformMacHost">macOS · host</span></div><h3>Vamp Terminal Host</h3><p data-i18n="app.terminalHost">Always-on terminal and Safari control. No screen sharing. Do not run beside Vamp Host.</p><div class="app-meta"><span class="chip" data-i18n="app.chipTerminalOnly">terminal only</span><span class="chip" data-i18n="app.chipHeadless">headless</span></div><div class="app-footer"><a class="primary-button" data-release-link="vamp-terminal-host" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip" target="_blank" rel="noreferrer"><span data-i18n="app.download">Download</span><span aria-hidden="true">↓</span></a><a class="text-button checksum-link" data-release-sha256="vamp-terminal-host" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip.sha256" target="_blank" rel="noreferrer" data-i18n="app.checksum">SHA-256</a><span class="version" data-release-version="vamp-terminal-host">2.3.0 · build 47</span></div></article>
-        <article class="surface-card app-card" data-platform="macos" data-group="hosts"><div class="app-card-top"><span class="app-icon app-icon--glyph" aria-hidden="true">M</span><span class="app-platform">macOS · menu bar</span></div><h3>Vamp Mini Host</h3><p>Separate pairing-first host with trusted-device review, permission guidance, and Start / Stop / Restart controls.</p><div class="app-meta"><span class="chip">menu bar</span><span class="chip">pairing</span></div><div class="app-footer"><a class="primary-button" data-release-link="vamp-mini-host-dmg" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampMiniHost-macOS-2.3.0-build-49-adhoc.dmg" target="_blank" rel="noreferrer">DMG <span aria-hidden="true">↗</span></a><a class="text-button" href="mini-host/">Product page</a><span class="version" data-release-version="vamp-mini-host-dmg">2.3.0 · build 49</span></div></article>
-        <article class="surface-card app-card" data-platform="macos" data-group="hosts"><div class="app-card-top"><span class="app-icon app-icon--glyph" aria-hidden="true">A</span><span class="app-platform">macOS · Assistant</span></div><h3>Vamp Assistant</h3><p>Separate full-screen control host on private port 9575. Pair it from Vamp Stream with its one-time code.</p><div class="app-meta"><span class="chip">control</span><span class="chip">port 9575</span></div><div class="app-footer"><a class="primary-button" href="https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.3.0-build-49" target="_blank" rel="noreferrer">Release <span aria-hidden="true">↗</span></a><a class="text-button" href="iosappstream/">Works with Stream</a><span class="version">separate host</span></div></article>
-        <article class="surface-card app-card" data-platform="linux" data-group="hosts"><div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-terminal.png?v=f87cd19" alt=""></span><span class="app-platform" data-i18n="app.platformLinux">Linux · browser host</span></div><h3>Vamp Linux Host</h3><p data-i18n="app.linux">Browser-only Python host. Vamp Control and Vamp Terminal cannot attach.</p><div class="app-meta"><span class="chip">Python 3</span><span class="chip">WebSocket</span></div><div class="app-footer"><a class="primary-button" data-release-link="vamp-linux-host" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminalHost-Linux-2.3.6.zip" target="_blank" rel="noreferrer"><span data-i18n="app.download">Download</span><span aria-hidden="true">↓</span></a><a class="text-button checksum-link" data-release-sha256="vamp-linux-host" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminalHost-Linux-2.3.6.zip.sha256" target="_blank" rel="noreferrer" data-i18n="app.checksum">SHA-256</a><span class="version" data-release-version="vamp-linux-host">2.3.6</span></div></article>
-        <div class="app-group-label" data-i18n="download.clients">Clients</div>
-        <article class="surface-card app-card" data-platform="macos" data-group="clients"><div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-control.png?v=f87cd19" alt=""></span><span class="app-platform" data-i18n="app.platformMacClient">macOS · client</span></div><h3>Vamp Control · macOS</h3><p data-i18n="app.controlMac">Control an approved Mac from another Mac. Terminal overlay only — not agent launchers.</p><div class="app-meta"><span class="chip" data-i18n="app.chipScreenView">screen</span><span class="chip" data-i18n="app.chipControl">control</span></div><div class="app-footer"><a class="primary-button" data-release-link="vamp-control-macos" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampControl-macOS-2.3.0-build-47-adhoc.zip" target="_blank" rel="noreferrer"><span data-i18n="app.download">Download</span><span aria-hidden="true">↓</span></a><a class="text-button checksum-link" data-release-sha256="vamp-control-macos" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampControl-macOS-2.3.0-build-47-adhoc.zip.sha256" target="_blank" rel="noreferrer" data-i18n="app.checksum">SHA-256</a><span class="version" data-release-version="vamp-control-macos">2.3.0 · build 47</span></div></article>
-        <article class="surface-card app-card" data-platform="mobile" data-group="clients"><div class="app-card-top"><span class="app-icon app-icon--glyph" aria-hidden="true">S</span><span class="app-platform">iOS · iPadOS</span></div><h3>Vamp Stream</h3><p>Focused app streaming with Vamp Host and Mini Host, plus Vamp Assistant full-screen control compatibility.</p><div class="app-meta"><span class="chip">iOS 18+</span><span class="chip" data-i18n="app.chipSideloadable">sideloadable</span></div><div class="app-footer"><a class="primary-button" data-release-link="vamp-stream-ios" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampStream-iOS-0.1.0-build-8-altstore-unsigned.ipa" target="_blank" rel="noreferrer">Get IPA <span aria-hidden="true">↓</span></a><a class="text-button checksum-link" data-release-sha256="vamp-stream-ios" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampStream-iOS-0.1.0-build-8-altstore-unsigned.ipa.sha256" target="_blank" rel="noreferrer">SHA-256</a><span class="version" data-release-version="vamp-stream-ios">0.1.0 · build 8</span></div></article>
-        <article class="surface-card app-card" data-platform="mobile" data-group="clients"><div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-control.png?v=f87cd19" alt=""></span><span class="app-platform">iOS · iPadOS</span></div><h3>Vamp Control · iOS</h3><p data-i18n="app.controlIos">Touch-first remote control. Sideload Vamp Terminal for eight tabs and agents.</p><div class="app-meta"><span class="chip">iOS 18+</span><span class="chip" data-i18n="app.chipSideloadable">sideloadable</span></div><div class="app-footer"><a class="primary-button" data-release-link="vamp-control-ios" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampControl-iOS-2.3.0-build-47-altstore-unsigned.ipa" target="_blank" rel="noreferrer"><span data-i18n="app.getIpa">Get IPA</span><span aria-hidden="true">↓</span></a><a class="text-button checksum-link" data-release-sha256="vamp-control-ios" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampControl-iOS-2.3.0-build-47-altstore-unsigned.ipa.sha256" target="_blank" rel="noreferrer" data-i18n="app.checksum">SHA-256</a><span class="version" data-release-version="vamp-control-ios">2.3.0 · build 47</span></div></article>
-        <article class="surface-card app-card" data-platform="mobile" data-group="clients"><div class="app-card-top"><span class="app-icon"><img src="assets/app-icons/vamp-terminal.png?v=f87cd19" alt=""></span><span class="app-platform">iOS · iPadOS</span></div><h3>Vamp Terminal</h3><p data-i18n="app.terminalIos">Eight tabs and agent launchers on an approved Mac host. Does not attach to Linux.</p><div class="app-meta"><span class="chip" data-i18n="app.chipTabs">8 tabs</span><span class="chip">iOS 18+</span></div><div class="app-footer"><a class="primary-button" data-release-link="vamp-terminal-ios" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminal-iOS-2.3.0-build-47-altstore-unsigned.ipa" target="_blank" rel="noreferrer"><span data-i18n="app.getIpa">Get IPA</span><span aria-hidden="true">↓</span></a><a class="text-button checksum-link" data-release-sha256="vamp-terminal-ios" href="https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminal-iOS-2.3.0-build-47-altstore-unsigned.ipa.sha256" target="_blank" rel="noreferrer" data-i18n="app.checksum">SHA-256</a><span class="version" data-release-version="vamp-terminal-ios">2.3.0 · build 47</span></div></article>
-        <article class="surface-card app-card app-card--note" data-platform="browser" data-group="clients"><div class="app-card-top"><span class="app-icon app-icon--glyph" aria-hidden="true">S</span><span class="app-platform" data-i18n="app.platformSafari">browser · built in</span></div><h3>Safari</h3><p data-i18n="app.safari">Eight tabs and ten agent launchers on the Mac host dashboard. Loopback 9475, Tailscale, or Cloudflare Access. No IPA.</p><div class="app-meta"><span class="chip">9475</span><span class="chip" data-i18n="app.chipTabs">8 tabs</span><span class="chip" data-i18n="compare.tenLaunchers">10 launchers</span></div><div class="app-footer"><span class="version" data-i18n="app.noDownload">on the host</span></div></article>
-      </div>
-      <p class="release-note"><span data-i18n="download.releaseNote">Need source or sideload instructions?</span> <a href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer" data-i18n="download.github">Open GitHub ↗</a></p>
-    </section>
   </main>
 
-  <footer class="container site-footer">
-    <div class="footer-top">
-      <div class="footer-brand">
-        <a class="brand" href="#top" aria-label="Vamp home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" focusable="false"><circle cx="16" cy="16" r="14.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="16" cy="16" r="12.2" fill="none" stroke="currentColor" stroke-width=".55" opacity=".4"/><path fill="currentColor" d="M8.05 8.4h5.2L16 19.4l2.75-11h5.2L17.4 26.3h-2.8L8.05 8.4z"/></svg></span><span class="brand-word">Vamp</span></a>
-        <p data-i18n="footer.copy">Open-source remote desktop and terminal tools for Mac, iPhone, iPad, Safari, and Linux.</p>
-      </div>
-      <div class="footer-links">
-        <a href="#browser" data-i18n="nav.browser">Browser</a>
-        <a href="#compare" data-i18n="nav.compare">Compare</a>
-        <a href="mini-host/">Mini Host</a>
-        <a href="iosappstream/">iOS App Stream</a>
-        <a href="#download" data-i18n="nav.download">Download</a>
-        <a href="about/">About</a>
-        <a href="contact/">Contact</a>
-        <a href="privacy/">Privacy</a>
-        <a href="https://github.com/Mesutcydev/macpair/blob/main/docs/INSTALL.md" target="_blank" rel="noreferrer" data-i18n="footer.install">Install docs</a>
-        <a href="https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md" target="_blank" rel="noreferrer" data-i18n="footer.security">Security</a>
-      </div>
-    </div>
-    <div class="footer-bottom"><span>© <span id="year"></span> Vamp · <span data-release-footer>current release</span> · Apache 2.0</span><span data-i18n="footer.meta">local-first · peer-approved · agent-friendly</span></div>
-  </footer>
-
-  <script src="assets/site.js?v=suite-15" defer></script>
+  <footer class="container site-footer"><div class="footer-top"><div class="footer-brand"><a class="brand" href="#top" aria-label="Vamp home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="14.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path fill="currentColor" d="M8.05 8.4h5.2L16 19.4l2.75-11h5.2L17.4 26.3h-2.8L8.05 8.4z"/></svg></span><span class="brand-word">Vamp</span></a><p data-i18n="footer.familyCopy">Private AI and focused Mac streaming.</p></div><div class="footer-links"><a href="assistant/">Assistant</a><a href="stream/">Stream</a><a href="about/">About</a><a href="contact/">Contact</a><a href="privacy/">Privacy</a><a href="https://github.com/Mesutcydev/vamp-assistant" target="_blank" rel="noreferrer">Assistant GitHub ↗</a><a href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">Stream GitHub ↗</a></div></div><div class="footer-bottom"><span>© <span id="year"></span> Vamp · <span data-release-footer>current release</span> · Apache 2.0</span><span data-i18n="footer.meta">local-first · peer-approved · no hosted relay</span></div></footer>
+  <script src="assets/site.js?v=suite-18" defer></script>
 </body>
 </html>

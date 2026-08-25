@@ -75,6 +75,7 @@
       ["terminal", "agent", "codex", "--session", "codex"],
       ["terminal", "agent", "aider", "--session", "aider"],
       ["terminal", "agent", "grok", "--session", "grok"],
+      ["terminal", "agent", "gemini", "--session", "gemini"],
       ["browser", "serve"]
     ],
     "statusSnapshot": "~/Library/Application Support/Vamp Host/host.widget.snapshot.json"

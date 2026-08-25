@@ -1,62 +1,68 @@
-# Sideload Vamp Stream and Vamp Terminal
+# Sideload Vamp Assistant and Vamp Stream
 
-Vamp Stream is the focused app-streaming iPhone/iPad client. Vamp Terminal is
-the terminal-only client. Both are unsigned IPAs intended for AltStore-style
-re-signing and both connect to the signed Vamp Host stack according to their
-advertised capabilities.
+Both public iPhone/iPad apps are unsigned IPAs intended for AltStore-style
+re-signing. They are separate clients with separate Mac-side connection paths.
 
 ## Install
 
-1. Download either `VampStream-iOS-…-altstore-unsigned.ipa` or
-   `VampTerminal-iOS-…-altstore-unsigned.ipa`, together with its checksum, from
-   the project page or GitHub release.
-2. Verify the checksum, import the IPA into AltStore, and let AltStore sign it
-   with an Apple ID/team you control.
-3. On first launch, allow Local Network access so the selected app can discover
-   Vamp Host, Vamp Mini Host, or the compatible private Vamp Assistant path.
+1. Download the IPA and its `.sha256` file:
+
+   - Vamp Assistant iOS: [Assistant downloads](https://thevamp.app/assistant/#download)
+   - Vamp Stream: [Stream downloads](https://thevamp.app/stream/#download)
+
+2. Verify the download:
+
+   ```sh
+   shasum -a 256 -c Name-of-download.ipa.sha256
+   ```
+
+3. Import the IPA into AltStore, SideStore, Sideloadly, or your own signing
+   workflow. Let that tool sign with an Apple ID/team you control.
+4. Allow Local Network access when requested.
+5. Pair only with a Mac you own or are authorized to control, and compare the
+   displayed identity before approval.
 
 The project does not provide certificates, provisioning profiles, signing
-credentials, or a way to bypass Apple's code-signing requirements. Signing and
-renewal behavior depends on the account and sideloading tool you choose.
+credentials, or a way to bypass Apple’s signing requirements.
 
-## Build the IPA from source
+## Vamp Assistant compatibility
 
-Requirements: macOS and Xcode 26 or later.
+- Minimum OS: iOS/iPadOS 18
+- Mac side: Vamp Assistant with Remote Sessions enabled
+- Features: chats, Code sessions, bots, approvals/questions, terminal,
+  clipboard/files, full-display control, and app-window control
+- Transport: authenticated private Assistant Remote Sessions endpoint
 
-```bash
-scripts/package-vamp-terminal-ios.sh --clean
-# Or the focused app-streaming client:
-scripts/package-vamp-stream-ios.sh --clean
-```
-
-Release packaging requires a clean Git tree. For a local development artifact,
-add `--allow-dirty`.
-
-The script verifies the bundle ID, display name, device architecture, Bonjour
-service, absence of a provisioning profile, and absence of an existing signature
-before writing the IPA, checksum, manifest, and CycloneDX SBOM to `dist/`.
+Assistant macOS and iOS releases use separate tags. The website resolves each
+platform independently instead of assuming the latest Mac release also carries
+the latest IPA.
 
 ## Vamp Stream compatibility
 
 - Client: Vamp Stream 0.1.0 or later
 - Minimum OS: iOS/iPadOS 18
-- Hosts: Vamp Host or Vamp Mini Host for app streaming; Vamp Assistant for its
-  separate full-screen control surface
-- Discovery: `_screenharbor._tcp` compatibility contract
-- Bundle ID before re-signing: `com.mesutcydev.remotedesktop.stream`
+- Bundle ID before re-signing: `com.mesutcy.remotedesktop.stream`
+- Mac sides:
 
-Vamp Assistant keeps its existing internal wire compatibility while using the
-user-facing product name “Vamp Assistant”. Its private control surface uses port
-9575 and may run alongside one of the shared-port host runtimes. Do not run
-Vamp Host and Vamp Mini Host together on the same Mac.
+  - Vamp Host — signed WebRTC
+  - Vamp Stream Host — signed WebRTC; implementation target `VampMiniHost`
+  - Vamp Assistant — authenticated private Remote Sessions endpoint
 
-## Vamp Terminal compatibility
+Screen Recording is required on the selected Mac host for video.
+Accessibility is required for keyboard and pointer control. Vamp Host and Vamp
+Vamp Stream Host share ports, have separate identities/trust stores, and cannot run
+together.
 
-- Client: Vamp Terminal 1.0.0 or later
-- Minimum OS: iOS/iPadOS 18
-- Hosts: Vamp Host or Vamp Terminal Host
-- Discovery: `_screenharbor._tcp` compatibility contract
-- Bundle ID before re-signing: `com.mesutcy.remotedesktop.terminal`
+## Build Vamp Stream locally
 
-Only connect to Macs you own or are authorized to control. Every new client
-still requires explicit approval in the selected Vamp host.
+```sh
+scripts/package-vamp-stream-ios.sh --clean
+```
+
+For a local artifact from a dirty tree, add `--allow-dirty`. The script
+regenerates the standalone project from `vampstream-project.yml`, verifies the
+bundle and arm64 device executable, confirms the app is unsigned, then writes
+the IPA and checksum to `dist/VampStream/`.
+
+Technical sideload documentation for products outside the current promotion
+remains in its specialist files and release history.

@@ -73,7 +73,7 @@ hosted relay.
 
 1. Open Vamp Host → Settings → Terminal Mode and enable it.
 2. In Settings → Safari control, scan the displayed QR or copy the direct
-   Tailscale URL. The QR includes the current six-digit code.
+   Tailscale URL. Enter the current 12-digit code shown on the Mac.
 3. If HTTPS is preferred, copy the Tailscale Serve command and run it in
    Terminal on the Mac. Tailscale must be active on the Mac and the Safari
    device.

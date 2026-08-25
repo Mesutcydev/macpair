@@ -1,70 +1,36 @@
 # Vamp
 
-> Open-source, local-first remote desktop and terminal suite for macOS,
-> iPhone, iPad, Safari, and Linux. Connections use a trusted LAN or private
-> Tailscale network, and every new device requires visible host approval.
+> Vamp currently promotes two open-source, local-first products: Vamp
+> Assistant and Vamp Stream. Use a trusted LAN or private Tailscale network;
+> every new device requires visible approval and there is no hosted relay.
 
 Website: https://thevamp.app/
-Source: https://github.com/Mesutcydev/macpair
-Releases: https://github.com/Mesutcydev/macpair/releases
+Assistant: https://thevamp.app/assistant/
+Stream: https://thevamp.app/stream/
+Suite source: https://github.com/Mesutcydev/macpair
+Assistant source: https://github.com/Mesutcydev/vamp-assistant
 License: Apache-2.0
-Minimum macOS: 13.0
-Minimum iOS/iPadOS: 18.0
 
-## Kits
+## Public products
 
-- Remote desktop: Vamp Host + Vamp Control over signed WebRTC.
-- Mac terminal: Vamp Terminal Host + Vamp Terminal or Safari. Always-on
-  terminal. Do not also run Vamp Host on the same Mac.
-- Linux shell: Vamp Linux Host + a browser. WebSocket on loopback 9475.
-  Vamp Control and Vamp Terminal cannot attach.
+- Vamp Assistant: native macOS AI chat, local/BYOK models, Code workspaces,
+  specialist bots, browser/simulator tools, and approval-gated automation. Its
+  own iOS app and browser Remote Sessions endpoint provide private remote use.
+- Vamp Stream: focused iPhone/iPad visual client. It connects to Vamp Host or
+  the supporting Vamp Stream Host over signed WebRTC, or to Vamp Assistant
+  through its authenticated private Remote Sessions endpoint.
 
-Safari control is built into the macOS hosts. There is no Safari download.
+Vamp Stream Host is presented only as a Stream host option. Vamp Host, Control,
+Terminal, Terminal Host, Browser control as a standalone product, and Linux
+Host are not in current public promotion. Their source and specialist technical
+documentation remain intact.
 
-## When to use Vamp
-
-Use Vamp when a person wants to reach a machine they own over a trusted LAN or
-private Tailscale network without a hosted relay or product account. Choose
-Vamp Host when the job needs the Mac display, pointer, keyboard, clipboard,
-files, audio, or an optional terminal. Choose Vamp Terminal Host when the job
-needs terminal and Safari control only. Choose Vamp Linux Host for a
-dependency-free Python terminal host that is opened from a browser.
-
-Do not use Vamp to access an unknown machine, bypass host consent, expose ports
-to the public internet, or approve a peer whose fingerprint was not verified
-independently. Transport disconnects detach clients; they do not end persistent
-terminal sessions.
-
-## How an agent should call Vamp
-
-1. Run `vamp ensure`, then inspect `vamp status --json`.
-2. If pairing is pending, run `vamp pending --json` and show the user the exact
-   device name and fingerprint.
-3. Require the user to confirm the independently verified fingerprint exactly.
-4. Only then run `vamp approve-pairing --fingerprint <verified-hex>`.
-5. Use `vamp terminal list`, `vamp terminal start --session <name>`, or
-   `vamp terminal attach <name>` for persistent terminal work.
-6. Use `vamp terminal agent <name> --session <name>` only when the user asks.
-   Launchers: opencode, pi, commandcode, chatgpt, claude, kimi, qwen, codex,
-   aider, grok. Vamp Control has no agent launchers.
-
-Never approve a request merely because it exists. Never bypass Screen Recording
-or Accessibility consent. Never publish host, signaling, data, or browser ports
-to the public internet.
-
-## Products
-
-- Vamp Host: full macOS host for display, input, clipboard, files, audio, and an opt-in terminal.
-- Vamp Terminal Host: always-on terminal and Safari-control-only macOS host.
-- Vamp Control: remote-control client for macOS, iPhone, and iPad. Terminal Mode is an overlay.
-- Vamp Terminal: eight-tab terminal client for iPhone and iPad, with ten agent launchers.
-- Vamp Linux Host: dependency-free Python browser host. Not a WebRTC peer.
+Never expose host ports directly to the public internet. Never approve a peer
+whose identity was not verified independently.
 
 ## Documentation
 
 - Install: https://github.com/Mesutcydev/macpair/blob/main/docs/INSTALL.md
-- iOS sideloading: https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_SIDELOAD.md
-- Terminal Host: https://github.com/Mesutcydev/macpair/blob/main/docs/VAMP_TERMINAL_HOST.md
-- Agent integration: https://github.com/Mesutcydev/macpair/blob/main/docs/AGENT_INTEGRATION.md
+- iOS sideloading: https://github.com/Mesutcydev/macpair/blob/main/docs/IOS_SIDELOAD.md
 - Security: https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md
-- Release integrity: https://github.com/Mesutcydev/macpair/blob/main/docs/RELEASE_PROCESS.md
+- Assistant documentation: https://github.com/Mesutcydev/vamp-assistant

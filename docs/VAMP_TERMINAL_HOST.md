@@ -67,7 +67,7 @@ cloudflared tunnel run vamp-terminal
 
 Do not use an unauthenticated quick tunnel or expose port `9475` directly.
 
-The printed six-digit code pairs the browser. Each authenticated connection
+The printed 12-digit code pairs the browser. Each authenticated connection
 can open eight tabs, resize each PTY, send/receive clipboard text, and close
 terminals independently.
 
