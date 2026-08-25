@@ -66,7 +66,7 @@ struct VampStreamConnectView: View {
                         vampAssistantErrorCard(vampAssistantError)
                     }
 
-                    if hostsVM.hosts.isEmpty {
+                    if hostsVM.displayHosts.isEmpty {
                         emptyState
                     } else {
                         Text("VAMP HOSTS")
@@ -74,7 +74,7 @@ struct VampStreamConnectView: View {
                             .foregroundStyle(PR.dim)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.top, 6)
-                        ForEach(hostsVM.hosts) { host in
+                        ForEach(hostsVM.displayHosts) { host in
                             hostCard(host)
                         }
                     }

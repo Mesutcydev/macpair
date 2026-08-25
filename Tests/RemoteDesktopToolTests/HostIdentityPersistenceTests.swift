@@ -64,6 +64,36 @@ final class HostIdentityPersistenceTests: XCTestCase {
         XCTAssertEqual(loadSavedHosts().map(\.id), [newID])
     }
 
+    @MainActor
+    func testDisplayHostsCollapsesLANAndTailscaleRowsForSameMac() {
+        let fingerprint = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        let lan = DiscoveredHostRow(
+            endpoint: makeEndpoint(
+                id: UUID(),
+                hostname: "192.168.1.13",
+                displayName: "Mac M4",
+                appVersion: "2.3",
+                fingerprint: fingerprint),
+            lastSeen: Date(),
+            isAvailable: true,
+            isSaved: true)
+        let tailscale = DiscoveredHostRow(
+            endpoint: makeEndpoint(
+                id: UUID(),
+                hostname: "100.73.221.10",
+                displayName: "Mac M4",
+                appVersion: "2.3",
+                fingerprint: fingerprint),
+            lastSeen: Date().addingTimeInterval(1),
+            isAvailable: true,
+            isSaved: true)
+
+        let visible = HostsListViewModel.dedupePhysicalHosts([tailscale, lan])
+
+        XCTAssertEqual(visible.count, 1)
+        XCTAssertEqual(visible.first?.endpoint.hostname, "192.168.1.13")
+    }
+
     private func persistSavedHosts(_ hosts: [SavedHost]) {
         let data = try! JSONEncoder().encode(hosts)
         UserDefaults.standard.set(data, forKey: savedHostsKey)

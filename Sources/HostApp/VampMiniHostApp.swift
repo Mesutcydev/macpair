@@ -137,8 +137,20 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
             popover.performClose(nil)
         } else {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            makePopoverWindowTransparent()
             NSApp.activate(ignoringOtherApps: true)
         }
+    }
+
+    /// Liquid Glass needs real desktop pixels behind the SwiftUI hierarchy.
+    /// NSPopover otherwise supplies an opaque system background that turns every
+    /// material surface into a flat gray card.
+    private func makePopoverWindowTransparent() {
+        guard let view = popover?.contentViewController?.view else { return }
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.clear.cgColor
+        view.window?.isOpaque = false
+        view.window?.backgroundColor = .clear
     }
 
     private func makeContextMenu() -> NSMenu {
@@ -259,6 +271,7 @@ private struct VampMiniHostPopover: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var trustedPeers: [TrustedPeer] = []
+    @State private var revokedPeers: [TrustedPeer] = []
     @State private var isRefreshingPeers = false
     @State private var tailscaleInfo: TailscaleConnectionInfo?
     @State private var tailscaleInstalled = false
@@ -482,6 +495,35 @@ private struct VampMiniHostPopover: View {
                     }
                 }
             }
+
+            if !revokedPeers.isEmpty {
+                Divider()
+                ForEach(revokedPeers) { peer in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Label(peer.displayName, systemImage: "person.crop.circle.badge.xmark")
+                                .font(.callout.weight(.semibold))
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                            Button("Pair Again") {
+                                Task { await allowFreshPairing(for: peer) }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                        Text("Blocked. Pair Again removes this old decision; the next connection will ask you to verify and approve a new fingerprint.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(peer.fingerprint)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .lineLimit(2)
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
         }
     }
 
@@ -616,7 +658,22 @@ private struct VampMiniHostPopover: View {
     private func refreshPeers() async {
         isRefreshingPeers = true
         defer { isRefreshingPeers = false }
-        trustedPeers = (try? await environment.trustedPeerStore.trustedPeers()) ?? []
+        if let persistent = environment.trustedPeerStore as? PersistentTrustedPeerStore,
+           let all = try? await persistent.allPeers() {
+            trustedPeers = all.filter { !$0.isRevoked }
+            revokedPeers = all.filter(\.isRevoked)
+        } else {
+            trustedPeers = (try? await environment.trustedPeerStore.trustedPeers()) ?? []
+            revokedPeers = []
+        }
+    }
+
+    /// Clears only the stale denial. The client must reconnect and the user must
+    /// independently verify and approve the new pairing prompt.
+    private func allowFreshPairing(for peer: TrustedPeer) async {
+        guard let persistent = environment.trustedPeerStore as? PersistentTrustedPeerStore else { return }
+        try? await persistent.removePeer(id: peer.id)
+        await refreshPeers()
     }
 
     private func permissionSummary(for kind: PermissionKind) -> String {
@@ -769,16 +826,26 @@ private struct VampMiniHostMark: View {
 }
 
 private struct VampMiniHostBackdrop: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder
     var body: some View {
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-            LinearGradient(
-                colors: [Color.white.opacity(0.18), Color.clear, Color.black.opacity(0.035)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+#if compiler(>=6.2)
+        if reduceTransparency {
+            Color(nsColor: .windowBackgroundColor)
+                .ignoresSafeArea()
+        } else if #available(macOS 26.0, *) {
+            Color.clear
+                .glassEffect(.clear, in: Rectangle())
+                .ignoresSafeArea()
+        } else {
+            Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
         }
-        .ignoresSafeArea()
+#else
+        reduceTransparency
+            ? AnyView(Color(nsColor: .windowBackgroundColor).ignoresSafeArea())
+            : AnyView(Rectangle().fill(.ultraThinMaterial).ignoresSafeArea())
+#endif
     }
 }
 
@@ -786,31 +853,44 @@ private struct VampMiniHostBackdrop: View {
 /// introducing a product tint. Semantic colors remain limited to small status cues.
 private struct VampMiniGlassSurface: View {
     let cornerRadius: CGFloat
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
 
+    @ViewBuilder
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        shape
-            .fill(.ultraThinMaterial)
+#if compiler(>=6.2)
+        if reduceTransparency {
+            decorated(shape.fill(Color(nsColor: .controlBackgroundColor)), shape: shape)
+        } else if #available(macOS 26.0, *) {
+            decorated(
+                GeometryReader { proxy in
+                    Color.clear
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .glassEffect(.clear, in: shape)
+                        .allowsHitTesting(false)
+                },
+                shape: shape
+            )
+        } else {
+            decorated(shape.fill(.ultraThinMaterial), shape: shape)
+        }
+#else
+        if reduceTransparency {
+            decorated(shape.fill(Color(nsColor: .controlBackgroundColor)), shape: shape)
+        } else {
+            decorated(shape.fill(.ultraThinMaterial), shape: shape)
+        }
+#endif
+    }
+
+    private func decorated<Content: View, S: InsettableShape>(_ content: Content, shape: S) -> some View {
+        content
             .overlay {
-                // Keep the plate neutral while maintaining enough separation for
-                // primary and secondary labels over arbitrary desktop wallpaper.
-                shape.fill(Color.primary.opacity(colorScheme == .dark ? 0.035 : 0.025))
+                shape.strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.18 : 0.30), lineWidth: 0.65)
+                    .allowsHitTesting(false)
             }
-            .overlay {
-                shape.stroke(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(colorScheme == .dark ? 0.18 : 0.50),
-                            Color.primary.opacity(0.055)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 0.8
-                )
-            }
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.08 : 0.035), radius: 10, y: 4)
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.10 : 0.055), radius: 10, y: 4)
     }
 }
 

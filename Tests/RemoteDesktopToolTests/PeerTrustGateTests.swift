@@ -89,6 +89,24 @@ final class PeerTrustGateTests: XCTestCase {
         }
     }
 
+    func testRemovingRevokedPeerAllowsFreshApprovalPrompt() async throws {
+        let peer = TrustedPeer(displayName: "Previously Rejected", fingerprint: fp(4))
+        try await store.trustPeer(peer)
+        try await store.revokePeer(id: peer.id)
+        try await store.removePeer(id: peer.id)
+
+        let result = await gate.evaluate(
+            peerID: peer.id,
+            displayName: peer.displayName,
+            fingerprint: peer.fingerprint)
+        if case .requiresApproval(let peerID, _, let fingerprint) = result {
+            XCTAssertEqual(peerID, peer.id)
+            XCTAssertEqual(fingerprint, peer.fingerprint)
+        } else {
+            XCTFail("Expected a fresh approval prompt after removing the stale denial, got \(result)")
+        }
+    }
+
     func testFingerprintMismatchRequiresApproval() async throws {
         let peer = TrustedPeer(displayName: "Device", fingerprint: fp(10))
         try await store.trustPeer(peer)
