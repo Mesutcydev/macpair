@@ -26,6 +26,7 @@ struct BeetCodeRemoteView: View {
     @State private var isLoadingApplications = false
     @State private var applicationsError: String?
     @State private var showApplicationPicker = false
+    @State private var didPresentInitialApplicationPicker = false
 
     init(
         session: BeetCodeRemoteSessionViewModel.Session,
@@ -51,6 +52,12 @@ struct BeetCodeRemoteView: View {
         .task(id: "\(session.address)-\(session.status.ready)-\(selectedApplication?.windowID ?? 0)") {
             guard session.status.ready else { return }
             renderer.start(client: session.client, windowID: selectedApplication?.windowID)
+        }
+        .task(id: "assistant-picker-\(session.address)-\(session.status.ready)") {
+            guard session.status.ready, !didPresentInitialApplicationPicker else { return }
+            didPresentInitialApplicationPicker = true
+            await loadApplications()
+            showApplicationPicker = true
         }
         .sheet(isPresented: $showApplicationPicker) {
             VampAssistantAppPicker(
@@ -278,24 +285,21 @@ struct BeetCodeRemoteView: View {
 
             Spacer()
 
-            Text("Vamp Assistant")
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 13)
-                .padding(.vertical, 8)
-                .background(.ultraThinMaterial, in: Capsule())
-
-            Spacer()
-
             Button {
                 showApplicationPicker = true
                 Task { await loadApplications() }
             } label: {
-                Image(systemName: "macwindow.on.rectangle")
+                Label(
+                    selectedApplication?.name ?? "Apps",
+                    systemImage: selectedApplication == nil ? "macwindow.on.rectangle" : "macwindow.badge.plus"
+                )
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 13)
                     .padding(.vertical, 8)
                     .background(.ultraThinMaterial, in: Capsule())
+                    .lineLimit(1)
             }
+            .frame(maxWidth: 150)
             .buttonStyle(.plain)
             .accessibilityLabel("Choose Mac app to stream")
 

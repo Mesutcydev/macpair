@@ -149,8 +149,25 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
         guard let view = popover?.contentViewController?.view else { return }
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.clear.cgColor
-        view.window?.isOpaque = false
-        view.window?.backgroundColor = .clear
+        guard let window = view.window else { return }
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = true
+
+        // NSPopover owns one or more bezel/container views outside the hosting
+        // view. Clear their layer fills too; otherwise that system gray remains
+        // visible behind every SwiftUI glass surface.
+        clearOpaqueLayerBackgrounds(in: window.contentView)
+        DispatchQueue.main.async { [weak self] in
+            self?.clearOpaqueLayerBackgrounds(in: window.contentView)
+        }
+    }
+
+    private func clearOpaqueLayerBackgrounds(in view: NSView?) {
+        guard let view else { return }
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.clear.cgColor
+        view.subviews.forEach { clearOpaqueLayerBackgrounds(in: $0) }
     }
 
     private func makeContextMenu() -> NSMenu {
@@ -827,25 +844,31 @@ private struct VampMiniHostMark: View {
 
 private struct VampMiniHostBackdrop: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
 
     @ViewBuilder
     var body: some View {
-#if compiler(>=6.2)
         if reduceTransparency {
             Color(nsColor: .windowBackgroundColor)
                 .ignoresSafeArea()
-        } else if #available(macOS 26.0, *) {
-            Color.clear
-                .glassEffect(.clear, in: Rectangle())
-                .ignoresSafeArea()
         } else {
-            Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
+            ZStack {
+                // Keep the popover itself transparent. Glass belongs to the
+                // functional cards; frosting the entire window first makes all
+                // nested surfaces sample one flat gray layer.
+                Color.clear
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(colorScheme == .dark ? 0.035 : 0.075),
+                        Color.clear,
+                        Color.black.opacity(colorScheme == .dark ? 0.055 : 0.018)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+            .ignoresSafeArea()
         }
-#else
-        reduceTransparency
-            ? AnyView(Color(nsColor: .windowBackgroundColor).ignoresSafeArea())
-            : AnyView(Rectangle().fill(.ultraThinMaterial).ignoresSafeArea())
-#endif
     }
 }
 
@@ -864,11 +887,15 @@ private struct VampMiniGlassSurface: View {
             decorated(shape.fill(Color(nsColor: .controlBackgroundColor)), shape: shape)
         } else if #available(macOS 26.0, *) {
             decorated(
-                GeometryReader { proxy in
-                    Color.clear
-                        .frame(width: proxy.size.width, height: proxy.size.height)
-                        .glassEffect(.clear, in: shape)
-                        .allowsHitTesting(false)
+                ZStack {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .glassEffect(.regular, in: shape)
+                            .opacity(colorScheme == .dark ? 0.78 : 0.68)
+                            .allowsHitTesting(false)
+                    }
+                    shape.fill(Color.white.opacity(colorScheme == .dark ? 0.025 : 0.055))
                 },
                 shape: shape
             )
@@ -887,10 +914,28 @@ private struct VampMiniGlassSurface: View {
     private func decorated<Content: View, S: InsettableShape>(_ content: Content, shape: S) -> some View {
         content
             .overlay {
-                shape.strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.18 : 0.30), lineWidth: 0.65)
+                shape.strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.34 : 0.72),
+                            Color.white.opacity(colorScheme == .dark ? 0.10 : 0.22),
+                            Color.black.opacity(colorScheme == .dark ? 0.20 : 0.075)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.9
+                )
                     .allowsHitTesting(false)
             }
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.10 : 0.055), radius: 10, y: 4)
+            .overlay(alignment: .top) {
+                shape
+                    .inset(by: 1.2)
+                    .trim(from: 0.03, to: 0.47)
+                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.12 : 0.34), lineWidth: 0.7)
+                    .allowsHitTesting(false)
+            }
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.18 : 0.11), radius: 14, y: 7)
     }
 }
 
