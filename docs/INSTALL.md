@@ -11,7 +11,7 @@ installable surfaces plus Safari control built into the macOS hosts:
 | macOS | `VampControl-macOS-2.3.0-build-47-adhoc.zip` | Remote screen client with reliable reconnect, corrected SDR colors, and explicit remote Command-Tab control |
 | macOS | `VampHost-macOS-2.3.0-build-47-adhoc.zip` | Full Vamp Host: remote clients, low-latency Apple Silicon streaming, automatic watchdog, and optional Terminal Mode |
 | macOS | `VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip` | Always-on terminal host with Safari control. Do not run beside Vamp Host |
-| macOS | `VampMiniHost-macOS-2.3.0-build-47-adhoc.zip` | Separate menu-bar pairing host with its own identity and trusted-device store |
+| macOS | `VampMiniHost-macOS-2.3.0-build-49-adhoc.zip` | Separate menu-bar pairing host with its own identity and trusted-device store |
 | Linux | `VampTerminalHost-Linux-2.3.6.zip` | Browser-only host. Vamp Control and Vamp Terminal cannot attach |
 | Safari | none — use the Mac host dashboard | Eight tabs on loopback `9475`, Tailscale Serve, or Cloudflare Access |
 

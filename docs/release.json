@@ -1,45 +1,57 @@
 {
   "repository": "Mesutcydev/macpair",
-  "tag": "vamp-suite-2.3.0-build-47",
-  "name": "Vamp Suite 2.3.0 build 47",
-  "url": "https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.3.0-build-47",
-  "published_at": "2026-08-22T19:40:45Z",
+  "tag": "vamp-suite-2.3.0-build-49",
+  "name": "Vamp Suite 2.3.0 build 49",
+  "url": "https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.3.0-build-49",
+  "published_at": "2026-08-25T16:50:34Z",
   "assets": {
     "vamp-host": {
       "name": "VampHost-macOS-2.3.0-build-47-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-47/VampHost-macOS-2.3.0-build-47-adhoc.zip",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampHost-macOS-2.3.0-build-47-adhoc.zip",
       "label": "2.3.0 \u00b7 build 47",
-      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-47/VampHost-macOS-2.3.0-build-47-adhoc.zip.sha256"
+      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampHost-macOS-2.3.0-build-47-adhoc.zip.sha256"
     },
     "vamp-terminal-host": {
       "name": "VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-47/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip",
       "label": "2.3.0 \u00b7 build 47",
-      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-47/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip.sha256"
+      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip.sha256"
+    },
+    "vamp-mini-host-dmg": {
+      "name": "VampMiniHost-macOS-2.3.0-build-49-adhoc.dmg",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampMiniHost-macOS-2.3.0-build-49-adhoc.dmg",
+      "label": "2.3.0 \u00b7 build 49",
+      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampMiniHost-macOS-2.3.0-build-49-adhoc.dmg.sha256"
+    },
+    "vamp-stream-ios": {
+      "name": "VampStream-iOS-0.1.0-build-8-altstore-unsigned.ipa",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampStream-iOS-0.1.0-build-8-altstore-unsigned.ipa",
+      "label": "0.1.0 \u00b7 build 8",
+      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampStream-iOS-0.1.0-build-8-altstore-unsigned.ipa.sha256"
     },
     "vamp-terminal-ios": {
       "name": "VampTerminal-iOS-2.3.0-build-47-altstore-unsigned.ipa",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-47/VampTerminal-iOS-2.3.0-build-47-altstore-unsigned.ipa",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminal-iOS-2.3.0-build-47-altstore-unsigned.ipa",
       "label": "2.3.0 \u00b7 build 47",
-      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-47/VampTerminal-iOS-2.3.0-build-47-altstore-unsigned.ipa.sha256"
+      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminal-iOS-2.3.0-build-47-altstore-unsigned.ipa.sha256"
     },
     "vamp-control-ios": {
       "name": "VampControl-iOS-2.3.0-build-47-altstore-unsigned.ipa",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-47/VampControl-iOS-2.3.0-build-47-altstore-unsigned.ipa",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampControl-iOS-2.3.0-build-47-altstore-unsigned.ipa",
       "label": "2.3.0 \u00b7 build 47",
-      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-47/VampControl-iOS-2.3.0-build-47-altstore-unsigned.ipa.sha256"
+      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampControl-iOS-2.3.0-build-47-altstore-unsigned.ipa.sha256"
     },
     "vamp-control-macos": {
       "name": "VampControl-macOS-2.3.0-build-47-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-47/VampControl-macOS-2.3.0-build-47-adhoc.zip",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampControl-macOS-2.3.0-build-47-adhoc.zip",
       "label": "2.3.0 \u00b7 build 47",
-      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-47/VampControl-macOS-2.3.0-build-47-adhoc.zip.sha256"
+      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampControl-macOS-2.3.0-build-47-adhoc.zip.sha256"
     },
     "vamp-linux-host": {
       "name": "VampTerminalHost-Linux-2.3.6.zip",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-47/VampTerminalHost-Linux-2.3.6.zip",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminalHost-Linux-2.3.6.zip",
       "label": "2.3.6",
-      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-47/VampTerminalHost-Linux-2.3.6.zip.sha256"
+      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminalHost-Linux-2.3.6.zip.sha256"
     }
   }
 }
