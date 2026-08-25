@@ -69,7 +69,7 @@ if [[ "$OUTPUT_DIR" != /* ]]; then
   OUTPUT_DIR="$ROOT/$OUTPUT_DIR"
 fi
 
-for tool in xcodebuild codesign ditto plutil file otool shasum python3; do
+for tool in xcodebuild codesign ditto hdiutil plutil file otool shasum python3; do
   command -v "$tool" >/dev/null 2>&1 || fail "Required tool not found: $tool"
 done
 
@@ -223,6 +223,74 @@ PY
 
   log "Created $(basename "$artifact")"
   log "SHA-256 $sha256"
+
+  if [[ "$scheme" == "VampMiniHost" ]]; then
+    # Publish a real DMG as well as the ZIP. The website advertises the DMG as
+    # the menu-bar install artifact, while the ZIP remains useful for source
+    # and automation workflows.
+    local dmg_stage="$host_work/dmg"
+    local dmg_artifact="$OUTPUT_DIR/${stem}-macOS-${version}-build-${build}-adhoc.dmg"
+    local dmg_sha_file="$dmg_artifact.sha256"
+    local dmg_manifest="$dmg_artifact.manifest.json"
+    local dmg_sbom="$dmg_artifact.sbom.cdx.json"
+    rm -rf "$dmg_stage"
+    mkdir -p "$dmg_stage"
+    ditto --norsrc --noextattr "$app" "$dmg_stage/$app_name.app"
+    rm -f "$dmg_artifact" "$dmg_sha_file" "$dmg_manifest" "$dmg_sbom"
+    hdiutil create \
+      -volname "$app_name" \
+      -srcfolder "$dmg_stage" \
+      -ov \
+      -format UDZO \
+      "$dmg_artifact" >/dev/null
+
+    local dmg_sha256 dmg_size
+    dmg_sha256="$(shasum -a 256 "$dmg_artifact" | awk '{print $1}')"
+    dmg_size="$(stat -f '%z' "$dmg_artifact")"
+    printf '%s  %s\n' "$dmg_sha256" "$(basename "$dmg_artifact")" > "$dmg_sha_file"
+    (cd "$OUTPUT_DIR" && shasum -a 256 -c "$(basename "$dmg_sha_file")" >/dev/null) \
+      || fail "SHA-256 round-trip verification failed for $(basename "$dmg_artifact")"
+
+    ARTIFACT="$(basename "$dmg_artifact")" APP_NAME="$app_name" BUNDLE_ID="$bundle_id" \
+      VERSION="$version" BUILD="$build" ARCHS="$ARCHS" SHA256="$dmg_sha256" SIZE="$dmg_size" \
+      COMMIT="$COMMIT" TREE_STATE="$tree_state" MANIFEST="$dmg_manifest" \
+      python3 - <<'PY'
+import datetime
+import json
+import os
+
+payload = {
+    "schemaVersion": 1,
+    "artifact": os.environ["ARTIFACT"],
+    "application": os.environ["APP_NAME"],
+    "platform": "macOS",
+    "minimumOSVersion": "13.0",
+    "version": os.environ["VERSION"],
+    "build": os.environ["BUILD"],
+    "bundleIdentifier": os.environ["BUNDLE_ID"],
+    "architecture": os.environ["ARCHS"].split(),
+    "signature": "ad-hoc",
+    "appleNotarized": False,
+    "sourceRepository": "https://github.com/Mesutcydev/macpair",
+    "sourceCommit": os.environ["COMMIT"],
+    "sourceTreeState": os.environ["TREE_STATE"],
+    "sha256": os.environ["SHA256"],
+    "sizeBytes": int(os.environ["SIZE"]),
+    "createdAt": datetime.datetime.now(datetime.timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z"),
+}
+with open(os.environ["MANIFEST"], "w", encoding="utf-8") as handle:
+    json.dump(payload, handle, indent=2)
+    handle.write("\n")
+PY
+
+    "$ROOT/scripts/generate-vamp-sbom.sh" \
+      "$dmg_artifact" "$package_kind" "$version" "$build" "$COMMIT" "$dmg_sbom"
+    log "Created $(basename "$dmg_artifact")"
+    log "SHA-256 $dmg_sha256"
+  fi
 }
 
 package_host "MacHost" "Vamp Host" "com.mesutcy.remotedesktop.host" "VampHost"
