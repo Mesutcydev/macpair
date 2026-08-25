@@ -93,34 +93,40 @@ private struct VampMiniHostPopover: View {
     @State private var copiedFingerprint = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                header
-                statusCard
+        VStack(alignment: .leading, spacing: 12) {
+            header
+            statusCard
 
-                if let prompt = environment.pendingTrustPrompt {
-                    VampMiniTrustPromptCard(
-                        prompt: prompt,
-                        onReject: { environment.resolveTrustPrompt(approved: false) },
-                        onApprove: { environment.resolveTrustPrompt(approved: true) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    if let prompt = environment.pendingTrustPrompt {
+                        VampMiniTrustPromptCard(
+                            prompt: prompt,
+                            onReject: { environment.resolveTrustPrompt(approved: false) },
+                            onApprove: { environment.resolveTrustPrompt(approved: true) }
+                        )
+                        .transition(reduceMotion ? .identity : .move(edge: .top).combined(with: .opacity))
+                    }
+
+                    pairingCard
+                    trustedDevicesCard
+                    permissionsCard
+                    HostTailscaleStatusView(
+                        info: $tailscaleInfo,
+                        installed: $tailscaleInstalled,
+                        compact: true
                     )
-                    .transition(reduceMotion ? .identity : .move(edge: .top).combined(with: .opacity))
                 }
-
-                pairingCard
-                trustedDevicesCard
-                permissionsCard
-                HostTailscaleStatusView(
-                    info: $tailscaleInfo,
-                    installed: $tailscaleInstalled,
-                    compact: true
-                )
-                controls
-                footer
+                .padding(.vertical, 2)
             }
-            .padding(14)
+            .scrollIndicators(.visible)
+
+            Divider()
+            controls
+            footer
         }
-        .frame(width: 370, height: 650)
+        .padding(14)
+        .frame(width: 370, height: 610)
         .background(VampMiniHostBackdrop())
         .task {
             await refreshPeers()

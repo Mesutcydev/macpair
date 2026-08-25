@@ -17,6 +17,7 @@ Build/
 .packaging-vamp-control-macos/
 .packaging-vamp-stream-ios/
 .packaging-vamp-mini-host/
+.packaging-vamp-hosts/
 .screenharbor-packaging/
 .dmg-staging/
 .pkg-verify/

@@ -64,7 +64,7 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
                 displayName: displayName,
                 status: status)
         } catch {
-            lastError = error.localizedDescription
+            lastError = Self.userFacingConnectionError(error)
         }
     }
 
@@ -91,7 +91,7 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
                 status: status)
         } catch {
             session = nil
-            lastError = "Reconnect failed: \(error.localizedDescription)"
+            lastError = "Reconnect failed: \(Self.userFacingConnectionError(error))"
         }
     }
 
@@ -127,5 +127,25 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
     private func save(address: String) {
         defaults.set(address, forKey: savedAddressKey)
         savedAddress = address
+    }
+
+    private static func userFacingConnectionError(_ error: Error) -> String {
+        let nsError = error as NSError
+        guard nsError.domain == NSURLErrorDomain else {
+            return error.localizedDescription
+        }
+
+        switch URLError.Code(rawValue: nsError.code) {
+        case .appTransportSecurityRequiresSecureConnection:
+            return "This Vamp Stream install is outdated and cannot open Vamp Assistant's private HTTP connection. Install Vamp Stream build 2 or newer."
+        case .cannotConnectToHost, .cannotFindHost:
+            return "Vamp Assistant could not be reached. Keep it open on the Mac and confirm the private address and port 9575."
+        case .timedOut:
+            return "Vamp Assistant did not respond in time. Check that both devices are on the same LAN or private Tailscale network."
+        case .notConnectedToInternet, .networkConnectionLost:
+            return "The private network connection was lost. Reconnect Wi-Fi or Tailscale, then try again."
+        default:
+            return error.localizedDescription
+        }
     }
 }
