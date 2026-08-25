@@ -38,7 +38,11 @@ struct VampMiniHostApp: App {
         MenuBarExtra {
             VampMiniHostPopover(environment: hostEnvironment)
         } label: {
-            VampMiniHostTrayLabel(environment: hostEnvironment)
+            Image(systemName: environment.sessionCoordinator.phase == .error
+                ? "exclamationmark.triangle.fill"
+                : "rectangle.on.rectangle")
+                .symbolRenderingMode(.hierarchical)
+                .accessibilityLabel("Vamp Mini Host")
                 .contextMenu {
                     Button("Quit Vamp Mini Host") {
                         NSApp.terminate(nil)
@@ -74,15 +78,6 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.startRuntimeWhenReady(attempt: attempt + 1)
         }
-    }
-}
-
-private struct VampMiniHostTrayLabel: View {
-    @ObservedObject var environment: HostAppEnvironment
-
-    var body: some View {
-        VampMiniHostAppIcon(size: 18)
-            .accessibilityLabel("Vamp Mini Host")
     }
 }
 
@@ -146,7 +141,7 @@ private struct VampMiniHostPopover: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            VampMiniHostAppIcon(size: 34)
+            VampMiniHostMark(size: 34)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Vamp Mini Host")
                     .font(.headline)
@@ -550,14 +545,21 @@ private struct VampMiniStatusBadge: View {
     }
 }
 
-private struct VampMiniHostAppIcon: View {
+private struct VampMiniHostMark: View {
     let size: CGFloat
 
     var body: some View {
-        Image(nsImage: NSApp.applicationIconImage)
-            .resizable()
-            .interpolation(.high)
-            .scaledToFit()
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                .fill(Color.primary.opacity(0.10))
+                .overlay {
+                    RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                        .stroke(Color.primary.opacity(0.16), lineWidth: 1)
+                }
+            Image(systemName: "rectangle.on.rectangle")
+                .font(.system(size: size * 0.48, weight: .semibold))
+                .foregroundStyle(.primary)
+        }
         .frame(width: size, height: size)
         .accessibilityLabel("Vamp Mini Host")
     }
