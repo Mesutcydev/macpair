@@ -619,7 +619,8 @@ private struct VampMiniHostPopover: View {
                 explanation: "Enables keyboard and pointer control when requested.",
                 authorizationState: authorizationState(for: .accessibility),
                 systemImage: "accessibility",
-                isRequired: true
+                isRequired: environment.runtimePolicy.requiresAccessibilityPermission,
+                isSystemManaged: !environment.runtimePolicy.canRequestAccessibilityPermission
             ) {
                 Task { await permissionsViewModel.openSettings(for: .accessibility) }
             }
