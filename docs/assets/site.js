@@ -319,6 +319,11 @@
       replacements.forEach(([from, to]) => { value = value.split(from).join(to); });
       node.nodeValue = value;
     });
+    // Rewrite static fallback downloads as well as the live release manifest.
+    // This keeps the page correct when release.json is temporarily unavailable.
+    document.querySelectorAll('a[href*="VampMiniHost-"]').forEach((link) => {
+      link.href = link.href.replaceAll('VampMiniHost-', 'VampSync-');
+    });
     document.title = document.title.replace(/Vamp Stream Host|Vamp Mini Host/g, 'Vamp Sync');
     document.querySelectorAll('meta[content]').forEach((meta) => {
       meta.content = meta.content.replace(/Vamp Stream Host|Vamp Mini Host/g, 'Vamp Sync');
