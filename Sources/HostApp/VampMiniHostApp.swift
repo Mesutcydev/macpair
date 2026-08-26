@@ -99,7 +99,11 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
         popover.behavior = .transient
         popover.animates = true
         popover.delegate = self
-        popover.contentSize = NSSize(width: 404, height: 690)
+        // Give the compact dashboard enough horizontal room for a readable
+        // status column and permission actions. The menu-bar surface is still
+        // intentionally compact, but no longer squeezes labels into a demo-like
+        // card or truncates their state.
+        popover.contentSize = NSSize(width: 460, height: 740)
         popover.contentViewController = NSHostingController(
             rootView: VampMiniHostPopover(
                 environment: environment,
@@ -357,7 +361,7 @@ private struct VampMiniHostPopover: View {
             footer
         }
         .padding(16)
-        .frame(width: 404, height: 690)
+        .frame(width: 460, height: 740)
         .background(VampMiniHostBackdrop())
         .foregroundStyle(.primary)
         .task {
@@ -372,6 +376,12 @@ private struct VampMiniHostPopover: View {
                 hostname: snapshot.info?.dnsName,
                 ip: snapshot.info?.ipAddress
             )
+        }
+        // Returning from System Settings does not recreate the popover. Re-read
+        // TCC state when this app becomes active so the visible badge changes
+        // immediately from “Needs access” to “Granted”.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { await permissionsViewModel.refresh(requestOSPromptIfNeeded: false) }
         }
         .onChange(of: environment.pendingTrustPrompt?.id) { _ in
             Task { await refreshPeers() }
@@ -569,29 +579,57 @@ private struct VampMiniHostPopover: View {
 
     private var permissionsCard: some View {
         VampMiniHostSection(title: "Permissions", systemImage: "lock.shield.fill") {
-            Text("Screen Recording is required to stream Mac apps. Accessibility is required for keyboard and pointer control.")
+            HStack(spacing: 8) {
+                Image(systemName: permissionsViewModel.allRequiredGranted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .foregroundStyle(permissionsViewModel.allRequiredGranted ? .green : .orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(permissionsViewModel.allRequiredGranted ? "Ready for app streaming" : "Action needed before streaming")
+                        .font(.caption.weight(.semibold))
+                    Text(permissionOverviewText)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                Button {
+                    Task { await permissionsViewModel.refresh(requestOSPromptIfNeeded: false) }
+                } label: {
+                    Image(systemName: permissionsViewModel.isRefreshing ? "arrow.triangle.2.circlepath" : "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .help("Refresh permission status")
+                .accessibilityLabel("Refresh permission status")
+            }
+
+            Text("These states are read from macOS. Vamp Sync never assumes access or opens a prompt during a background refresh.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             VampMiniPermissionRow(
                 title: "Screen Recording",
-                summary: permissionSummary(for: .screenRecording),
-                systemImage: "rectangle.inset.filled.and.person.filled"
+                explanation: "Captures the Mac display for App Stream.",
+                authorizationState: authorizationState(for: .screenRecording),
+                systemImage: "rectangle.inset.filled.and.person.filled",
+                isRequired: true
             ) {
                 Task { await permissionsViewModel.openSettings(for: .screenRecording) }
             }
             VampMiniPermissionRow(
                 title: "Accessibility",
-                summary: permissionSummary(for: .accessibility),
-                systemImage: "accessibility"
+                explanation: "Enables keyboard and pointer control when requested.",
+                authorizationState: authorizationState(for: .accessibility),
+                systemImage: "accessibility",
+                isRequired: true
             ) {
                 Task { await permissionsViewModel.openSettings(for: .accessibility) }
             }
             VampMiniPermissionRow(
                 title: "Local Network",
-                summary: "Used for private discovery",
-                systemImage: "network"
+                explanation: "Used for private LAN discovery and pairing.",
+                authorizationState: nil,
+                systemImage: "network",
+                isRequired: false,
+                isSystemManaged: true
             ) {
                 openPrivacySettings("Privacy_LocalNetwork")
             }
@@ -716,17 +754,17 @@ private struct VampMiniHostPopover: View {
         await refreshPeers()
     }
 
-    private func permissionSummary(for kind: PermissionKind) -> String {
-        guard let status = permissionsViewModel.statuses.first(where: { $0.kind == kind }) else {
-            return permissionsViewModel.isRefreshing ? "Checking…" : "Needs checking"
+    private func authorizationState(for kind: PermissionKind) -> PermissionAuthorizationState? {
+        permissionsViewModel.statuses.first(where: { $0.kind == kind })?.authorizationState
+    }
+
+    private var permissionOverviewText: String {
+        if permissionsViewModel.statuses.isEmpty {
+            return permissionsViewModel.isRefreshing ? "Checking macOS privacy settings…" : "Permission state unavailable"
         }
-        switch status.authorizationState {
-        case .granted: return "Ready"
-        case .denied: return "Required · open Settings"
-        case .notDetermined: return "Required · not requested"
-        case .restricted: return "Restricted"
-        case .unknown: return "Checking…"
-        }
+        let granted = permissionsViewModel.statuses.filter(\.isGranted).count
+        let total = permissionsViewModel.statuses.count
+        return "\(granted) of \(total) required permission\(total == 1 ? "" : "s") granted"
     }
 
     private func openPrivacySettings(_ pane: String) {
@@ -802,26 +840,87 @@ private struct VampMiniHostSection<Content: View>: View {
 
 private struct VampMiniPermissionRow: View {
     let title: String
-    let summary: String
+    let explanation: String
+    let authorizationState: PermissionAuthorizationState?
     let systemImage: String
+    let isRequired: Bool
+    var isSystemManaged = false
     let action: () -> Void
 
     var body: some View {
-        HStack(spacing: 9) {
+        HStack(alignment: .top, spacing: 10) {
             Image(systemName: systemImage)
-                .frame(width: 22)
-                .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                Text(summary)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(stateColor)
+                .frame(width: 30, height: 30)
+                .background(stateColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(title)
+                        .font(.caption.weight(.semibold))
+                    if isRequired {
+                        Text("REQUIRED")
+                            .font(.system(size: 8, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Text(explanation)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer(minLength: 6)
-            Button("Settings", action: action)
-                .buttonStyle(.borderless)
-                .font(.caption)
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 5) {
+                HStack(spacing: 4) {
+                    Image(systemName: stateIcon)
+                    Text(stateLabel)
+                }
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(stateColor)
+                Button("Settings", action: action)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .font(.caption2.weight(.semibold))
+            }
+        }
+        .padding(.vertical, 3)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(stateLabel)
+    }
+
+    private var stateLabel: String {
+        if isSystemManaged { return "System-managed" }
+        guard let authorizationState else { return "Checking…" }
+        switch authorizationState {
+        case .granted: return "Granted"
+        case .denied: return "Needs access"
+        case .notDetermined: return "Not set up"
+        case .restricted: return "Unavailable"
+        case .unknown: return "Checking…"
+        }
+    }
+
+    private var stateIcon: String {
+        if isSystemManaged { return "info.circle.fill" }
+        guard let authorizationState else { return "hourglass" }
+        switch authorizationState {
+        case .granted: return "checkmark.circle.fill"
+        case .denied: return "exclamationmark.triangle.fill"
+        case .notDetermined: return "circle.dashed"
+        case .restricted: return "nosign"
+        case .unknown: return "hourglass"
+        }
+    }
+
+    private var stateColor: Color {
+        if isSystemManaged { return .secondary }
+        guard let authorizationState else { return .secondary }
+        switch authorizationState {
+        case .granted: return .green
+        case .denied: return .orange
+        case .notDetermined, .unknown: return .secondary
+        case .restricted: return .red
         }
     }
 }

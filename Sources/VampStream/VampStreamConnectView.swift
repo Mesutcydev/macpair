@@ -195,6 +195,7 @@ private struct VampAppStreamSection: View {
     let onForget: (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void
     let onScan: () -> Void
     let onConnect: (DiscoveredHostRow) -> Void
+    @State private var showOtherHosts = false
 
     var body: some View {
         ScrollView {
@@ -226,7 +227,7 @@ private struct VampAppStreamSection: View {
                     }
                 }
 
-                if !legacyHosts.isEmpty {
+                if !legacyHosts.isEmpty, (pairedAssistants.isEmpty || showOtherHosts) {
                     HStack(alignment: .firstTextBaseline) {
                         Text("OTHER APP-STREAM HOSTS")
                             .font(.caption.weight(.semibold))
@@ -247,11 +248,24 @@ private struct VampAppStreamSection: View {
                         .foregroundStyle(PR.dim)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if !pairedAssistants.isEmpty {
-                    Text("Vamp Host entries for paired Macs are hidden automatically. Your Assistant connection is the single app-stream path for those Macs.")
+                    Text("Other hosts are hidden by default so one Mac never appears twice in this flow.")
                         .font(.caption)
                         .foregroundStyle(PR.dim)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 4)
+                    if !legacyHosts.isEmpty {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showOtherHosts = true
+                            }
+                        } label: {
+                            Label("Show other Vamp Host Macs (\(legacyHosts.count))", systemImage: "rectangle.3.group")
+                                .font(.caption.weight(.semibold))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(PR.fg)
+                    }
                 } else {
                     VampHostEmptyState(hostsVM: hostsVM, onScan: onScan)
                 }
