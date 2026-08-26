@@ -99,11 +99,10 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
         popover.behavior = .transient
         popover.animates = true
         popover.delegate = self
-        // Give the compact dashboard enough horizontal room for a readable
-        // status column and permission actions. The menu-bar surface is still
-        // intentionally compact, but no longer squeezes labels into a demo-like
-        // card or truncates their state.
-        popover.contentSize = NSSize(width: 460, height: 740)
+        // The redesigned dashboard uses a narrow navigation rail and a
+        // readable detail column. Keep it compact enough for a menu-bar popover
+        // while giving state labels and actions room to breathe.
+        popover.contentSize = NSSize(width: 500, height: 760)
         popover.contentViewController = NSHostingController(
             rootView: VampMiniHostPopover(
                 environment: environment,
@@ -320,6 +319,7 @@ private struct VampMiniHostPopover: View {
     @State private var tailscaleInfo: TailscaleConnectionInfo?
     @State private var tailscaleInstalled = false
     @State private var copiedFingerprint = false
+    @State private var selectedSection: VampSyncPopoverSection = .overview
 
     init(environment: HostAppEnvironment, onClose: @escaping () -> Void = {}) {
         self.environment = environment
@@ -328,14 +328,33 @@ private struct VampMiniHostPopover: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            header
-            statusCard
+        VStack(spacing: 0) {
+            VampSyncTopBar(
+                statusTitle: statusTitle,
+                statusColor: statusColor,
+                onClose: onClose
+            )
+
+            VampSyncStatusHero(
+                title: statusMessage,
+                statusTitle: statusTitle,
+                statusColor: statusColor,
+                endpoint: pairingAddress
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+
+            VampSyncSectionPicker(
+                selection: $selectedSection,
+                hasPendingPairing: environment.pendingTrustPrompt != nil
+            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 12) {
                     if let prompt = environment.pendingTrustPrompt {
-                        VampMiniTrustPromptCard(
+                        VampSyncPendingTrustBanner(
                             prompt: prompt,
                             onReject: { environment.resolveTrustPrompt(approved: false) },
                             onApprove: { environment.resolveTrustPrompt(approved: true) }
@@ -343,26 +362,74 @@ private struct VampMiniHostPopover: View {
                         .transition(reduceMotion ? .identity : .move(edge: .top).combined(with: .opacity))
                     }
 
-                    pairingCard
-                    trustedDevicesCard
-                    permissionsCard
-                    HostTailscaleStatusView(
-                        info: $tailscaleInfo,
-                        installed: $tailscaleInstalled,
-                        compact: true
-                    )
+                    switch selectedSection {
+                    case .overview:
+                        VampSyncOverview(
+                            trustedDeviceCount: trustedPeers.count,
+                            permissionSummary: permissionOverviewText,
+                            pairingAddress: pairingAddress,
+                            tailscaleInfo: tailscaleInfo,
+                            tailscaleInstalled: tailscaleInstalled,
+                            onOpenTailscale: openTailscaleApplication
+                        )
+                    case .permissions:
+                        VampSyncPermissions(
+                            statuses: permissionsViewModel.statuses,
+                            accessibilityRequired: environment.runtimePolicy.requiresAccessibilityPermission,
+                            accessibilitySystemManaged: !environment.runtimePolicy.canRequestAccessibilityPermission,
+                            isRefreshing: permissionsViewModel.isRefreshing,
+                            permissionSummary: permissionOverviewText,
+                            onRefresh: {
+                                Task { await permissionsViewModel.refresh(requestOSPromptIfNeeded: false) }
+                            },
+                            onOpenSettings: { kind in
+                                Task { await permissionsViewModel.openSettings(for: kind) }
+                            }
+                        )
+                    case .pairing:
+                        VampSyncPairing(
+                            pairingLink: pairingLink,
+                            pairingAddress: pairingAddress,
+                            fingerprint: environment.hostIdentity.publicKeyFingerprint,
+                            copiedFingerprint: copiedFingerprint,
+                            trustedPeers: trustedPeers,
+                            revokedPeers: revokedPeers,
+                            isRefreshingPeers: isRefreshingPeers,
+                            onCopyFingerprint: copyFingerprint,
+                            onRevoke: revokePeer,
+                            onPairAgain: { peer in
+                                Task { await allowFreshPairing(for: peer) }
+                            }
+                        )
+                    }
                 }
-                .padding(.vertical, 2)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
             }
             .scrollIndicators(.visible)
 
-            Divider()
-            controls
-            footer
+            VampSyncActionBar(
+                isRuntimeActive: isRuntimeActive,
+                onToggleRuntime: {
+                    Task {
+                        if isRuntimeActive {
+                            await environment.stopRuntime()
+                        } else {
+                            await environment.startRuntimeIfNeeded()
+                        }
+                    }
+                },
+                onRestart: {
+                    Task {
+                        await environment.stopRuntime()
+                        await environment.startRuntimeIfNeeded()
+                    }
+                },
+                onQuit: { NSApp.terminate(nil) }
+            )
         }
-        .padding(16)
-        .frame(width: 460, height: 740)
-        .background(VampMiniHostBackdrop())
+        .frame(width: 500, height: 760)
+        .background(VampSyncPopoverBackground())
         .foregroundStyle(.primary)
         .task {
             await permissionsViewModel.refresh(requestOSPromptIfNeeded: false)
@@ -387,6 +454,26 @@ private struct VampMiniHostPopover: View {
             Task { await refreshPeers() }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: environment.pendingTrustPrompt?.id)
+    }
+
+    private var isRuntimeActive: Bool {
+        environment.sessionCoordinator.phase != .idle && environment.sessionCoordinator.phase != .error
+    }
+
+    private func copyFingerprint() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(environment.hostIdentity.publicKeyFingerprint, forType: .string)
+        copiedFingerprint = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            copiedFingerprint = false
+        }
+    }
+
+    private func revokePeer(_ peer: TrustedPeer) {
+        Task {
+            try? await environment.trustedPeerStore.revokePeer(id: peer.id)
+            await refreshPeers()
+        }
     }
 
     private var header: some View {
@@ -771,6 +858,688 @@ private struct VampMiniHostPopover: View {
     private func openPrivacySettings(_ pane: String) {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?\(pane)") else { return }
         NSWorkspace.shared.open(url)
+    }
+}
+
+private enum VampSyncPopoverSection: String, CaseIterable, Identifiable {
+    case overview = "Overview"
+    case permissions = "Permissions"
+    case pairing = "Pairing"
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .overview: return "rectangle.3.group"
+        case .permissions: return "checkmark.shield"
+        case .pairing: return "person.badge.key"
+        }
+    }
+}
+
+private struct VampSyncPopoverBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            (colorScheme == .dark ? Color.black : Color.white)
+                .opacity(colorScheme == .dark ? 0.90 : 0.78)
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(colorScheme == .dark ? 0.055 : 0.52),
+                    Color.clear,
+                    Color.black.opacity(colorScheme == .dark ? 0.20 : 0.06)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct VampSyncSurface<Content: View>: View {
+    let cornerRadius: CGFloat
+    @ViewBuilder let content: Content
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(cornerRadius: CGFloat = 16, @ViewBuilder content: () -> Content) {
+        self.cornerRadius = cornerRadius
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .padding(14)
+            .background(
+                (colorScheme == .dark
+                    ? Color.white.opacity(0.055)
+                    : Color.white.opacity(0.62)),
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        Color.white.opacity(colorScheme == .dark ? 0.16 : 0.74),
+                        lineWidth: 0.75
+                    )
+                    .allowsHitTesting(false)
+            }
+    }
+}
+
+private struct VampSyncTopBar: View {
+    let statusTitle: String
+    let statusColor: Color
+    let onClose: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.primary.opacity(0.10))
+                    .frame(width: 38, height: 38)
+                Image(systemName: "rectangle.on.rectangle")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Vamp Sync")
+                    .font(.headline.weight(.semibold))
+                Text("Private app-streaming host")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 7, height: 7)
+                Text(statusTitle)
+                    .font(.caption2.weight(.bold))
+                    .tracking(0.5)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(Color.primary.opacity(0.08), in: Capsule())
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.borderless)
+            .help("Close Vamp Sync")
+            .accessibilityLabel("Close Vamp Sync")
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 15)
+        .padding(.bottom, 10)
+    }
+}
+
+private struct VampSyncStatusHero: View {
+    let title: String
+    let statusTitle: String
+    let statusColor: Color
+    let endpoint: String?
+
+    var body: some View {
+        VampSyncSurface(cornerRadius: 20) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(statusColor.opacity(0.14))
+                        .frame(width: 48, height: 48)
+                    Circle()
+                        .stroke(statusColor.opacity(0.42), lineWidth: 1)
+                        .frame(width: 40, height: 40)
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 11, height: 11)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.callout.weight(.semibold))
+                    Text(statusTitle == "LIVE" ? "A trusted device is connected" : "Signed discovery is listening")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text("PORTS")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .tracking(0.7)
+                    Text("9471 · 9472")
+                        .font(.caption2.monospaced().weight(.semibold))
+                    if let endpoint {
+                        Text(endpoint)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct VampSyncSectionPicker: View {
+    @Binding var selection: VampSyncPopoverSection
+    let hasPendingPairing: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(VampSyncPopoverSection.allCases) { section in
+                Button {
+                    selection = section
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: section.systemImage)
+                            .font(.caption.weight(.semibold))
+                        Text(section.rawValue)
+                            .font(.caption.weight(.semibold))
+                        if section == .pairing, hasPendingPairing {
+                            Circle()
+                                .fill(.orange)
+                                .frame(width: 6, height: 6)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 34)
+                    .foregroundStyle(selection == section ? .primary : .secondary)
+                    .background(
+                        selection == section ? Color.primary.opacity(0.12) : Color.clear,
+                        in: Capsule()
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selection == section ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .background(Color.primary.opacity(0.07), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.75))
+    }
+}
+
+private struct VampSyncOverview: View {
+    let trustedDeviceCount: Int
+    let permissionSummary: String
+    let pairingAddress: String?
+    let tailscaleInfo: TailscaleConnectionInfo?
+    let tailscaleInstalled: Bool
+    let onOpenTailscale: () -> Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VampSyncSurface {
+                VStack(alignment: .leading, spacing: 13) {
+                    VampSyncSectionHeading(title: "At a glance", subtitle: "The host is ready when these signals are healthy.")
+                    HStack(spacing: 8) {
+                        VampSyncStatTile(title: "Trusted devices", value: "\(trustedDeviceCount)", systemImage: "checkmark.shield")
+                        VampSyncStatTile(title: "Required access", value: permissionSummary.replacingOccurrences(of: " required", with: ""), systemImage: "lock.shield")
+                    }
+                    Divider().opacity(0.45)
+                    VampSyncOverviewRow(
+                        title: "Private transport",
+                        detail: pairingAddress ?? "Start the host to publish a pairing address.",
+                        systemImage: "network"
+                    )
+                    VampSyncOverviewRow(
+                        title: "Pairing",
+                        detail: pairingAddress == nil ? "Waiting for the host to start" : "Scan from Vamp Stream, then approve once",
+                        systemImage: "qrcode"
+                    )
+                }
+            }
+
+            VampSyncSurface {
+                HStack(spacing: 11) {
+                    Circle()
+                        .fill(tailscaleInfo == nil ? Color.secondary : Color.green)
+                        .frame(width: 9, height: 9)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Tailscale")
+                            .font(.callout.weight(.semibold))
+                        Text(tailscaleInfo?.dnsName ?? tailscaleInfo?.ipAddress ?? (tailscaleInstalled ? "Installed · waiting for connection" : "Not detected"))
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    Spacer(minLength: 8)
+                    Button {
+                        _ = onOpenTailscale()
+                    } label: {
+                        Label(tailscaleInfo == nil ? "Open" : "Manage", systemImage: "arrow.up.forward.app")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+
+            Text("Vamp Sync only accepts authenticated connections on your private LAN or tailnet.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 3)
+        }
+    }
+}
+
+private struct VampSyncSectionHeading: View {
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.callout.weight(.semibold))
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct VampSyncStatTile: View {
+    let title: String
+    let value: String
+    let systemImage: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.title3.weight(.semibold).monospacedDigit())
+                Text(title)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+    }
+}
+
+private struct VampSyncOverviewRow: View {
+    let title: String
+    let detail: String
+    let systemImage: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+private struct VampSyncPermissions: View {
+    let statuses: [FriendlyPermissionStatus]
+    let accessibilityRequired: Bool
+    let accessibilitySystemManaged: Bool
+    let isRefreshing: Bool
+    let permissionSummary: String
+    let onRefresh: () -> Void
+    let onOpenSettings: (PermissionKind) -> Void
+
+    var body: some View {
+        VampSyncSurface {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
+                    VampSyncSectionHeading(title: "Required access", subtitle: "Live TCC state from macOS. Nothing is assumed.")
+                    Spacer(minLength: 8)
+                    Button(action: onRefresh) {
+                        Image(systemName: isRefreshing ? "arrow.triangle.2.circlepath" : "arrow.clockwise")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Refresh permission status")
+                    .accessibilityLabel("Refresh permission status")
+                }
+                Text(permissionSummary)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Divider().opacity(0.45)
+
+                VampSyncPermissionRow(
+                    title: "Screen Recording",
+                    explanation: "Captures the Mac display for App Stream.",
+                    authorizationState: statuses.first(where: { $0.kind == .screenRecording })?.authorizationState,
+                    required: true,
+                    systemManaged: false,
+                    onSettings: { onOpenSettings(.screenRecording) }
+                )
+                VampSyncPermissionRow(
+                    title: "Accessibility",
+                    explanation: "Enables keyboard and pointer control when requested.",
+                    authorizationState: statuses.first(where: { $0.kind == .accessibility })?.authorizationState,
+                    required: accessibilityRequired,
+                    systemManaged: accessibilitySystemManaged,
+                    onSettings: { onOpenSettings(.accessibility) }
+                )
+                VampSyncPermissionRow(
+                    title: "Local Network",
+                    explanation: "Used for private LAN discovery and pairing.",
+                    authorizationState: nil,
+                    required: false,
+                    systemManaged: true,
+                    onSettings: { onOpenSettings(.localNetwork) }
+                )
+            }
+        }
+    }
+}
+
+private struct VampSyncPermissionRow: View {
+    let title: String
+    let explanation: String
+    let authorizationState: PermissionAuthorizationState?
+    let required: Bool
+    let systemManaged: Bool
+    let onSettings: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: stateIcon)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(stateColor)
+                .frame(width: 28, height: 28)
+                .background(stateColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Text(title)
+                        .font(.caption.weight(.semibold))
+                    if required {
+                        Text("REQUIRED")
+                            .font(.system(size: 8, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Text(explanation)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 7)
+            VStack(alignment: .trailing, spacing: 5) {
+                Label(stateLabel, systemImage: stateIcon)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(stateColor)
+                Button("Settings", action: onSettings)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(stateLabel)
+    }
+
+    private var stateLabel: String {
+        if systemManaged { return "System-managed" }
+        guard let authorizationState else { return "Checking…" }
+        switch authorizationState {
+        case .granted: return "Granted"
+        case .denied: return "Needs access"
+        case .notDetermined: return "Not set up"
+        case .restricted: return "Unavailable"
+        case .unknown: return "Checking…"
+        }
+    }
+
+    private var stateIcon: String {
+        if systemManaged { return "info.circle.fill" }
+        guard let authorizationState else { return "hourglass" }
+        switch authorizationState {
+        case .granted: return "checkmark.circle.fill"
+        case .denied: return "exclamationmark.triangle.fill"
+        case .notDetermined: return "circle.dashed"
+        case .restricted: return "nosign"
+        case .unknown: return "hourglass"
+        }
+    }
+
+    private var stateColor: Color {
+        if systemManaged { return .secondary }
+        guard let authorizationState else { return .secondary }
+        switch authorizationState {
+        case .granted: return .green
+        case .denied: return .orange
+        case .notDetermined, .unknown: return .secondary
+        case .restricted: return .red
+        }
+    }
+}
+
+private struct VampSyncPairing: View {
+    let pairingLink: String?
+    let pairingAddress: String?
+    let fingerprint: String
+    let copiedFingerprint: Bool
+    let trustedPeers: [TrustedPeer]
+    let revokedPeers: [TrustedPeer]
+    let isRefreshingPeers: Bool
+    let onCopyFingerprint: () -> Void
+    let onRevoke: (TrustedPeer) -> Void
+    let onPairAgain: (TrustedPeer) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VampSyncSurface {
+                VStack(alignment: .leading, spacing: 12) {
+                    VampSyncSectionHeading(title: "Pair a device", subtitle: "Scan this one-time code in Vamp Stream, then verify the fingerprint.")
+                    if let pairingLink, let pairingAddress {
+                        HStack(alignment: .top, spacing: 13) {
+                            HostBrowserPairingQRCode(
+                                pairingURL: pairingLink,
+                                accessibilityLabel: "QR code for Vamp Stream pairing",
+                                size: 126
+                            )
+                            VStack(alignment: .leading, spacing: 7) {
+                                Text("Vamp Stream")
+                                    .font(.callout.weight(.semibold))
+                                Text("Private LAN or tailnet")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(pairingAddress)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                    .lineLimit(2)
+                                    .truncationMode(.middle)
+                            }
+                        }
+                    } else {
+                        Label("Start the host to publish a pairing code.", systemImage: "qrcode")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Divider().opacity(0.45)
+                    HStack(alignment: .top, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Host fingerprint")
+                                .font(.caption.weight(.semibold))
+                            Text(fingerprint)
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                                .lineLimit(3)
+                        }
+                        Spacer(minLength: 0)
+                        Button(action: onCopyFingerprint) {
+                            Image(systemName: copiedFingerprint ? "checkmark" : "doc.on.doc")
+                        }
+                        .buttonStyle(.borderless)
+                        .help(copiedFingerprint ? "Fingerprint copied" : "Copy host fingerprint")
+                        .accessibilityLabel(copiedFingerprint ? "Fingerprint copied" : "Copy host fingerprint")
+                    }
+                }
+            }
+
+            VampSyncSurface {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        VampSyncSectionHeading(title: "Trusted devices", subtitle: "Only approved clients can connect.")
+                        Spacer(minLength: 8)
+                        if isRefreshingPeers {
+                            ProgressView().controlSize(.small)
+                        }
+                    }
+                    if trustedPeers.isEmpty {
+                        Text("No devices have been approved yet.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(trustedPeers) { peer in
+                            VampSyncTrustedPeerRow(peer: peer, actionTitle: "Revoke", isDestructive: true) {
+                                onRevoke(peer)
+                            }
+                        }
+                    }
+                    if !revokedPeers.isEmpty {
+                        Divider().opacity(0.45)
+                        ForEach(revokedPeers) { peer in
+                            VampSyncTrustedPeerRow(peer: peer, actionTitle: "Pair again", isDestructive: false) {
+                                onPairAgain(peer)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct VampSyncTrustedPeerRow: View {
+    let peer: TrustedPeer
+    let actionTitle: String
+    let isDestructive: Bool
+    let action: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: isDestructive ? "checkmark.shield.fill" : "person.crop.circle.badge.xmark")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 24, height: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(peer.displayName)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                Text(peer.fingerprint)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
+            Spacer(minLength: 6)
+            Button(actionTitle, role: isDestructive ? .destructive : nil, action: action)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+        }
+    }
+}
+
+private struct VampSyncPendingTrustBanner: View {
+    let prompt: HostAppEnvironment.TrustPrompt
+    let onReject: () -> Void
+    let onApprove: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "person.badge.key.fill")
+                    .foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Approval needed")
+                        .font(.callout.weight(.semibold))
+                    Text("Verify this device before it can connect.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            Text(prompt.displayName)
+                .font(.headline)
+            Text(prompt.fingerprint)
+                .font(.caption2.monospaced())
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .lineLimit(2)
+                .truncationMode(.middle)
+            HStack {
+                Button("Reject", role: .destructive, action: onReject)
+                    .buttonStyle(.bordered)
+                Spacer(minLength: 0)
+                Button("Approve", action: onApprove)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.primary)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(14)
+        .background(Color.orange.opacity(0.09), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.orange.opacity(0.38), lineWidth: 0.8)
+        }
+    }
+}
+
+private struct VampSyncActionBar: View {
+    let isRuntimeActive: Bool
+    let onToggleRuntime: () -> Void
+    let onRestart: () -> Void
+    let onQuit: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button(action: onToggleRuntime) {
+                Label(isRuntimeActive ? "Stop" : "Start", systemImage: isRuntimeActive ? "stop.fill" : "play.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.primary)
+            Button(action: onRestart) {
+                Image(systemName: "arrow.clockwise")
+                    .frame(width: 34)
+            }
+            .buttonStyle(.bordered)
+            .help("Restart host")
+            Spacer(minLength: 4)
+            Button("Quit", action: onQuit)
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.primary.opacity(0.12))
+                .frame(height: 0.75)
+        }
     }
 }
 
