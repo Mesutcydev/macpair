@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Build the direct-distribution macOS hosts used by Vamp Terminal and Vamp Mini Host.
+# Build the direct-distribution macOS hosts used by Vamp Terminal and Vamp Sync.
 # The apps are ad-hoc signed with Apple's local '-' identity, never notarized,
 # and are intended for user-controlled open-source testing and distribution.
 
@@ -28,7 +28,7 @@ Options:
   --help               Show this help
 
 The resulting ZIPs contain Vamp Host (full remote desktop + Terminal Mode),
-Vamp Terminal Host (terminal-only), and Vamp Mini Host (pairing-first menu bar).
+Vamp Terminal Host (terminal-only), and Vamp Sync (pairing-first menu bar).
 They are ad-hoc signed, not notarized, and may require the user to approve them
 in macOS Privacy & Security.
 EOF
@@ -97,7 +97,7 @@ if [[ "$CLEAN" -eq 1 ]]; then
   rm -rf "$WORK"
   # Remove only generated Vamp host files so stale downloads cannot be
   # mistaken for the build just produced.
-  find "$OUTPUT_DIR" -maxdepth 1 -type f \( -name 'VampHost-macOS-*' -o -name 'VampTerminalHost-macOS-*' -o -name 'VampMiniHost-macOS-*' \) -delete 2>/dev/null || true
+  find "$OUTPUT_DIR" -maxdepth 1 -type f \( -name 'VampHost-macOS-*' -o -name 'VampTerminalHost-macOS-*' -o -name 'VampMiniHost-macOS-*' -o -name 'VampSync-macOS-*' \) -delete 2>/dev/null || true
 fi
 
 mkdir -p "$WORK" "$OUTPUT_DIR"
@@ -184,7 +184,9 @@ package_host() {
   tree_state="clean"
   [[ -z "$(git -C "$ROOT" status --porcelain --untracked-files=normal)" ]] || tree_state="dirty"
 
-  ARTIFACT="$(basename "$artifact")" APP_NAME="$app_name" BUNDLE_ID="$bundle_id" \
+  local manifest_app_name="$app_name"
+  [[ "$scheme" == "VampMiniHost" ]] && manifest_app_name="Vamp Sync"
+  ARTIFACT="$(basename "$artifact")" APP_NAME="$manifest_app_name" BUNDLE_ID="$bundle_id" \
     VERSION="$version" BUILD="$build" ARCHS="$ARCHS" SHA256="$sha256" SIZE="$size" \
     COMMIT="$COMMIT" TREE_STATE="$tree_state" MANIFEST="$manifest" \
     python3 - <<'PY'
@@ -246,7 +248,7 @@ PY
     ditto --norsrc --noextattr "$app" "$dmg_stage/$app_name.app"
     rm -f "$dmg_artifact" "$dmg_sha_file" "$dmg_manifest" "$dmg_sbom"
     hdiutil create \
-      -volname "$app_name" \
+      -volname "Vamp Sync" \
       -srcfolder "$dmg_stage" \
       -ov \
       -format UDZO \
@@ -259,7 +261,7 @@ PY
     (cd "$OUTPUT_DIR" && shasum -a 256 -c "$(basename "$dmg_sha_file")" >/dev/null) \
       || fail "SHA-256 round-trip verification failed for $(basename "$dmg_artifact")"
 
-    ARTIFACT="$(basename "$dmg_artifact")" APP_NAME="$app_name" BUNDLE_ID="$bundle_id" \
+    ARTIFACT="$(basename "$dmg_artifact")" APP_NAME="Vamp Sync" BUNDLE_ID="$bundle_id" \
       VERSION="$version" BUILD="$build" ARCHS="$ARCHS" SHA256="$dmg_sha256" SIZE="$dmg_size" \
       COMMIT="$COMMIT" TREE_STATE="$tree_state" MANIFEST="$dmg_manifest" \
       python3 - <<'PY'
@@ -308,7 +310,9 @@ if [[ -z "$ONLY_SCHEME" || "$ONLY_SCHEME" == "VampTerminalHost" ]]; then
   package_host "VampTerminalHost" "Vamp Terminal Host" "com.mesutcy.remotedesktop.terminalhost" "VampTerminalHost"
 fi
 if [[ -z "$ONLY_SCHEME" || "$ONLY_SCHEME" == "VampMiniHost" ]]; then
-  package_host "VampMiniHost" "Vamp Mini Host" "com.mesutcy.remotedesktop.minhost" "VampMiniHost"
+  # Keep the scheme, bundle ID, executable, and storage identity stable. The
+  # public product/artifact name is Vamp Sync.
+  package_host "VampMiniHost" "Vamp Mini Host" "com.mesutcy.remotedesktop.minhost" "VampSync"
 fi
 
 log "Host artifacts are ready in $OUTPUT_DIR"

@@ -91,7 +91,7 @@ final class HostApplicationRegistryTests: XCTestCase {
     }
 
     func testMiniHostSupportsStreamingAndUsesItsOwnProductSurface() {
-        XCTAssertEqual(HostProductMode.mini.productTitle, "Vamp Mini Host")
+        XCTAssertEqual(HostProductMode.mini.productTitle, "Vamp Sync")
         XCTAssertFalse(HostProductMode.mini.isTerminalOnly)
         XCTAssertEqual(HostProductMode.mini.supportedCodecs, ["hevc", "h264"])
         XCTAssertFalse(HostProductMode.mini.advertisedCapabilities.isTerminalOnlyHost)

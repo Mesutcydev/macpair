@@ -7,9 +7,9 @@
 | [Vamp Assistant](https://thevamp.app/assistant/) | Native AI chat, local/BYOK models, Code workspaces, specialist bots, approval-gated tools, and private remote sessions | macOS, iPhone, iPad, browser |
 | [Vamp Stream](https://thevamp.app/stream/) | Focused visual client for a Mac display or app window | iPhone, iPad |
 
-Vamp Stream can use Vamp Host, the lightweight **Vamp Stream Host** (the
+Vamp Stream can use Vamp Host, the lightweight **Vamp Sync** companion (the
 `VampMiniHost` implementation), or Vamp Assistant as its Mac side. Host and
-Vamp Stream Host use the signed WebRTC stack; Assistant uses its authenticated
+Vamp Sync uses the signed WebRTC stack; Assistant uses its authenticated
 private Remote Sessions endpoint. Terminal, Terminal Host, Control, standalone
 browser control, and Linux Host source and technical documentation remain in
 the repository, but they are not part of the current public promotion.
@@ -35,7 +35,7 @@ The macOS hosts are local utilities, not App Store products. On first launch:
 1. Drag the app to `/Applications`.
 2. Control-click the app and choose **Open**, if that option is available.
 3. Otherwise open **System Settings → Privacy & Security** and choose **Open Anyway**.
-4. For Vamp Stream Host, grant **Screen Recording** for video and
+4. For Vamp Sync, grant **Screen Recording** for video and
    **Accessibility** for keyboard/pointer control in System Settings → Privacy
    & Security.
 

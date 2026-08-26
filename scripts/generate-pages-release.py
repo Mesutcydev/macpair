@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSET_PATTERNS = {
     "vamp-host": re.compile(r"^VampHost-macOS-.+-build-\d+-adhoc\.zip$"),
     "vamp-terminal-host": re.compile(r"^VampTerminalHost-macOS-.+-build-\d+-adhoc\.zip$"),
-    "vamp-mini-host-dmg": re.compile(r"^VampMiniHost-macOS-.+-build-\d+-adhoc\.dmg$"),
+    "vamp-mini-host-dmg": re.compile(r"^(?:VampSync|VampMiniHost)-macOS-.+-build-\d+-adhoc\.dmg$"),
     "vamp-stream-ios": re.compile(
         r"^VampStream-iOS-.+-build-\d+-altstore-unsigned\.ipa$"
     ),
@@ -93,6 +93,14 @@ def choose_asset(assets: list[dict], pattern: re.Pattern[str], key: str) -> dict
                 if asset["name"] == exact:
                     return asset
         return max(matches, key=lambda asset: linux_semver(asset["name"]))
+    if key == "vamp-mini-host-dmg":
+        # Prefer the new public name when a release contains both the legacy
+        # Mini Host asset and a Vamp Sync rebuild with the same build number.
+        return max(matches, key=lambda asset: (
+            build_number(asset),
+            asset["name"].startswith("VampSync-"),
+            asset.get("updated_at", ""),
+        ))
     return max(matches, key=lambda asset: (build_number(asset), asset.get("updated_at", "")))
 
 
@@ -135,7 +143,7 @@ def main() -> int:
         key: choose_asset(raw_assets, pattern, key)
         for key, pattern in ASSET_PATTERNS.items()
     }
-    # Mini Host is new and may not exist in the first release that deploys the
+    # Vamp Sync DMG is new and may not exist in the first release that deploys the
     # updated site. Keep Pages deploys working until the next host release,
     # while automatically wiring the asset as soon as it appears.
     missing = [

@@ -17,10 +17,10 @@ License: Apache-2.0
   specialist bots, browser/simulator tools, and approval-gated automation. Its
   own iOS app and browser Remote Sessions endpoint provide private remote use.
 - Vamp Stream: focused iPhone/iPad visual client. It connects to Vamp Host or
-  the supporting Vamp Stream Host over signed WebRTC, or to Vamp Assistant
+  the supporting Vamp Sync companion over signed WebRTC, or to Vamp Assistant
   through its authenticated private Remote Sessions endpoint.
 
-Vamp Stream Host is presented only as a Stream host option. Vamp Host, Control,
+Vamp Sync is presented only as a Stream host option. Vamp Host, Control,
 Terminal, Terminal Host, Browser control as a standalone product, and Linux
 Host are not in current public promotion. Their source and specialist technical
 documentation remain intact.

@@ -28,7 +28,7 @@ Apple credentials, certificates, or provisioning profiles.
    Local Network access when iOS asks.
 3. Choose one Mac side:
 
-   - **Vamp Stream Host** — the focused menu-bar host designed for Stream.
+   - **Vamp Sync** — the focused menu-bar companion designed for Stream.
    - **Vamp Host** — the full signed-WebRTC host.
    - **Vamp Assistant** — its authenticated private Remote Sessions endpoint.
 
@@ -36,8 +36,8 @@ Apple credentials, certificates, or provisioning profiles.
    **Accessibility** only when keyboard or pointer control is required.
 5. Compare the displayed pairing identity before approving the iPhone or iPad.
 
-Vamp Host and Vamp Stream Host share host ports and cannot run together.
-Vamp Stream Host uses its own identity and trust store, so an approval in Vamp Host
+Vamp Host and Vamp Sync share host ports and cannot run together.
+Vamp Sync uses its own identity and trust store, so an approval in Vamp Host
 does not carry over. Keep every host on a trusted LAN or private Tailscale
 network and never expose its ports publicly.
 
@@ -55,9 +55,9 @@ Release packaging requires a clean Git tree. For a local development artifact,
 add `--allow-dirty`. The scripts write checksummed artifacts under
 `dist/VampStream/` and `dist/VampStreamHost/`.
 
-The implementation target and artifact retain the technical name
-`VampMiniHost` / `VampMiniHost-…dmg` for compatibility; the public product name
-is **Vamp Stream Host**.
+The implementation target and bundle identity retain the technical names
+`VampMiniHost` and `com.mesutcy.remotedesktop.minhost` for compatibility; the
+public product and artifact name is **Vamp Sync**.
 
 ## Optional supporting-host watchdog
 

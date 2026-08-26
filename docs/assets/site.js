@@ -134,7 +134,7 @@
       'families.lead': 'Her aile tek bir işe odaklanır ve yalnızca açıkça desteklediği Mac tarafıyla eşleşir.',
       'families.assistant': 'Mac’te sohbet, yerel veya kendi anahtarınla modeller, Kod çalışma alanları, uzman botlar ve onaylı otomasyon. Kendi iOS ve tarayıcı uzaktan erişimi dahildir.',
       'families.assistantCta': 'Assistant ailesini aç →',
-      'families.stream': 'iPhone ve iPad için odaklı görsel istemci. Vamp Host, Vamp Stream Host veya Assistant üzerinden tam ekranı ya da bir uygulama penceresini aç.',
+      'families.stream': 'iPhone ve iPad için odaklı görsel istemci. Vamp Host, Vamp Sync veya Assistant üzerinden tam ekranı ya da bir uygulama penceresini aç.',
       'families.streamCta': 'Stream ailesini aç →',
       'families.control': 'Vamp Control, Vamp Host için tam uzak masaüstü istemcisidir. Ulaşmak istediğin Mac’e Host’u kur; ardından başka bir Mac, iPhone veya iPad’den ekranı, klavyeyi, işaretçiyi, panoyu ve dosyaları kontrol et.',
       'families.controlCta': 'Control akışını gör →',
@@ -153,7 +153,7 @@
       'download.familyLead': 'Önce Mac tarafını seç, sonra ona ait iOS istemcisini yükle. Yüklemeden önce SHA-256 değerlerini doğrula.',
       'download.assistant': 'AI çalışma alanı, kendi iOS uygulaması ve tarayıcı Remote Sessions erişimi.',
       'download.assistantCta': 'Assistant indirmeleri →',
-      'download.stream': 'iPhone ve iPad görsel istemcisi; Vamp Host, Vamp Stream Host veya Assistant ile çalışır.',
+      'download.stream': 'iPhone ve iPad görsel istemcisi; Vamp Host, Vamp Sync veya Assistant ile çalışır.',
       'download.streamCta': 'Stream IPA’yı al →',
       'download.control': 'Vamp Host için tam uzak masaüstü istemcileri.', 'download.hostCta': 'Host ve Control’u al →',
       'footer.familyCopy': 'Mac, iPhone, iPad ve tarayıcı için özel Assistant ve Stream ürünleri.',
@@ -201,7 +201,7 @@
       'stream.navHosts': 'Uyumlu host’lar', 'stream.navSetup': 'Kurulum', 'stream.navCompatibility': 'Uyumluluk',
       'stream.get': 'Stream’i al', 'stream.eyebrow': 'Odaklı görsel kontrol · iPhone + iPad',
       'stream.title1': 'Mac’in.', 'stream.title2': 'Yalnızca gereken.',
-      'stream.heroCopy': 'Vamp Stream tam Mac ekranı veya tek bir uygulama penceresi için özel görsel istemcidir. Güvenilir LAN ya da özel tailnet üzerinde Vamp Host, Vamp Stream Host veya Assistant ile eşleştir.',
+      'stream.heroCopy': 'Vamp Stream tam Mac ekranı veya tek bir uygulama penceresi için özel görsel istemcidir. Güvenilir LAN ya da özel tailnet üzerinde Vamp Host, Vamp Sync veya Assistant ile eşleştir.',
       'stream.downloadIpa': 'Stream IPA’yı indir', 'stream.chooseHost': 'Bir host seç',
       'stream.note': 'İmzasız IPA · aygıtın için yeniden imzala · barındırılan aktarıcı yok.',
       'stream.statHosts': 'uyumlu Mac host’u', 'stream.statVideo': 'donanım videosu', 'stream.statNetwork': 'LAN veya Tailscale', 'stream.statNative': 'iPhone + iPad',
@@ -209,19 +209,19 @@
       'stream.hostLead': 'İşe uyan host’u seç. Stream desteklenen yüzeyi keşfeder ve kullanılamayan kontrolleri göstermez.',
       'stream.fullHostCopy': 'Tam uzak masaüstü host’u. Stream ekran, klavye ve işaretçi için Vamp’ın imzalı eşleme ve kimlik doğrulamalı WebRTC yolunu kullanır.',
       'stream.miniHostCopy': 'Stream için üretilmiş hafif menü çubuğu host’u. Daha geniş Vamp Host yüzeyi olmadan görsel akış ve giriş sağlar.',
-      'stream.miniLink': 'Vamp Stream Host’u keşfet →',
+      'stream.miniLink': 'Vamp Sync’i keşfet →',
       'stream.assistantHostCopy': 'Tam ekran veya uygulama penceresi H.264 akışı ve kontrol için Assistant’ın kimlik doğrulamalı özel Remote Sessions uç noktasına bağlan.',
       'stream.assistantLink': 'Assistant’ı keşfet →',
       'stream.setupKicker': 'Kurulum', 'stream.setupTitle': 'Yükle. Eşle. İzle.',
       'stream.setupLead': 'İlk bağlantı güven kurar; sonraki bağlantılar sen kaldırana kadar kayıtlı kimliği kullanır.',
-      'stream.step1Title': 'İki tarafı da yükle', 'stream.step1Copy': 'Vamp Stream’i iPhone veya iPad için yeniden imzala; ardından Mac’e Host, Vamp Stream Host veya Assistant yükle.',
+      'stream.step1Title': 'İki tarafı da yükle', 'stream.step1Copy': 'Vamp Stream’i iPhone veya iPad için yeniden imzala; ardından Mac’e Host, Vamp Sync veya Assistant yükle.',
       'stream.step2Title': 'Yalnız gereken izinleri ver', 'stream.step2Copy': 'Ekran Kaydı videoyu açar. Erişilebilirlik yalnız klavye veya işaretçi kontrolü için gerekir.',
       'stream.step3Title': 'Eşlemeyi doğrula', 'stream.step3Copy': 'Onaydan önce gösterilen cihaz kimliğini veya eşleme kodunu iki tarafta karşılaştır.',
       'stream.step4Title': 'Bir yüzey seç', 'stream.step4Copy': 'Tam ekranı veya Assistant ile tek bir uygulama penceresini aç.',
       'stream.compatKicker': 'Uyumluluk', 'stream.compatTitle': 'Bağlantı yolunu bil.',
       'stream.compatLead': 'İki yol da kimlik doğrulamalı ve özeldir; ancak ayrı protokoller ve ayrı güven depoları kullanır.',
       'stream.tableHost': 'Mac host’u', 'stream.tableTransport': 'Aktarım', 'stream.tableSurface': 'Görsel yüzey', 'stream.tableTrust': 'Güven',
-      'stream.fullDisplay': 'Tam ekran', 'stream.hostTrust': 'Vamp host kimliği', 'stream.miniTrust': 'Ayrı Vamp Stream Host kimliği',
+      'stream.fullDisplay': 'Tam ekran', 'stream.hostTrust': 'Vamp host kimliği', 'stream.miniTrust': 'Ayrı Vamp Sync kimliği',
       'stream.assistantSurface': 'Tam ekran veya uygulama penceresi', 'stream.assistantTrust': 'Assistant eşleme + token',
       'stream.securityTitle': 'Ağ ve kimlikle özel.', 'stream.securityLead': 'Her host’u güvenilir LAN veya özel Tailscale ağında tut. Portlarını asla genel internete yönlendirme.',
       'stream.guard1Title': 'Açık onay', 'stream.guard1Copy': 'Bekleyen bağlantı Mac’te doğrulanana kadar güvenilir değildir.',
@@ -231,12 +231,12 @@
       'stream.downloadTitle': 'Stream ve tek bir host ile başla.', 'stream.downloadLead': 'iOS derlemesi AltStore tipi yeniden imzalama için imzasızdır. Yüklemeden önce sağlama toplamlarını doğrula.',
       'stream.streamCardTitle': 'Görsel istemci.', 'stream.streamCardCopy': 'iPhone veya iPad’e yükle, kendi profilinle yeniden imzala ve yalnızca kontrol ettiğin bir Mac ile eşle.',
       'stream.miniCardTitle': 'Hafif host.', 'stream.miniCardCopy': 'Mac tarafında yalnız görsel akış gerektiğinde küçük menü çubuğu host’unu kullan.',
-      'stream.downloadMini': 'Vamp Stream Host DMG’yi indir', 'stream.footer': 'iPhone ve iPad için odaklı görsel kontrol.',
+      'stream.downloadMini': 'Vamp Sync DMG’yi indir', 'stream.footer': 'iPhone ve iPad için odaklı görsel kontrol.',
 
-      'mini.navSurface': 'Yüzey', 'mini.navPermissions': 'İzinler', 'mini.get': 'Vamp Stream Host’u al',
-      'mini.eyebrow': 'Hafif macOS host’u · Stream için', 'mini.title1': 'Host’u', 'mini.title2': 'küçük tut.',
-      'mini.heroCopy': 'Vamp Stream Host, Vamp Stream için odaklı menü çubuğu host’udur. Ekranını yakalar, onaylı klavye ve işaretçi girişini kabul eder; geniş Vamp Host özelliklerini dışarıda bırakır.',
-      'mini.downloadDmg': 'Vamp Stream Host DMG’yi indir', 'mini.getStream': 'Vamp Stream’i al',
+      'mini.navSurface': 'Yüzey', 'mini.navPermissions': 'İzinler', 'mini.get': 'Vamp Sync’i al',
+      'mini.eyebrow': 'Hafif macOS eşlikçisi · Stream için', 'mini.title1': 'Host’u', 'mini.title2': 'senkron tut.',
+      'mini.heroCopy': 'Vamp Sync, Vamp Stream için odaklı menü çubuğu eşlikçisidir. Ekranını yakalar, onaylı klavye ve işaretçi girişini kabul eder; geniş Vamp Host yüzeyini dışarıda bırakır.',
+      'mini.downloadDmg': 'Vamp Sync DMG’yi indir', 'mini.getStream': 'Vamp Stream’i al',
       'mini.note': 'macOS · menü çubuğu uygulaması · yalnız özel LAN veya Tailscale.',
       'mini.statMenu': 'menü çubuğu yüzeyi', 'mini.statTransport': 'imzalı aktarım', 'mini.statPermissions': 'macOS izni', 'mini.statHost': 'aynı anda host',
       'mini.surfaceKicker': 'Odaklı yüzey', 'mini.surfaceTitle': 'Stream’in gerektirdiği her şey. Fazlası yok.',
@@ -245,17 +245,17 @@
       'mini.videoTitle': 'Ekranı aktar', 'mini.videoCopy': 'Mac ekranını yakala ve kimliği doğrulanmış Stream istemcisine Vamp’ın imzalı WebRTC yoluyla kodla.',
       'mini.inputTitle': 'İzin verildiğinde kontrol et', 'mini.inputCopy': 'Klavye ve işaretçi komutlarını yalnız güven kurulduktan ve macOS Erişilebilirlik izni verildikten sonra ilet.',
       'mini.permissionsKicker': 'macOS izinleri', 'mini.permissionsTitle': 'İki izin, iki net iş.',
-      'mini.permissionsLead': 'Sistem Ayarları’nda izinleri Vamp Stream Host’a ver. Host hazır oluşu bildirir, onayı asla atlamaz.',
-      'mini.screenTitle': 'Video için gerekli.', 'mini.screenCopy': 'Ekran Kaydı olmadan Stream Mac ekranını alamaz. macOS isterse izin değişikliğinden sonra Vamp Stream Host’u yeniden başlat.',
-      'mini.accessTitle': 'Kontrol için gerekli.', 'mini.accessCopy': 'Giriş olmadan görüntüleme sürebilir. Klavye ve işaretçi kontrolü Vamp Stream Host için açık Erişilebilirlik izni gerektirir.',
-      'mini.securityTitle': 'Küçük uygulama, eksiksiz güven sınırı.', 'mini.securityLead': 'Vamp Stream Host kendi kimliğini ve güvenilen eş deposunu tutar. Vamp Host onayını devralmaz.',
+      'mini.permissionsLead': 'Sistem Ayarları’nda izinleri Vamp Sync’e ver. Eşlikçi hazır oluşu bildirir, onayı asla atlamaz.',
+      'mini.screenTitle': 'Video için gerekli.', 'mini.screenCopy': 'Ekran Kaydı olmadan Stream Mac ekranını alamaz. macOS isterse izin değişikliğinden sonra Vamp Sync’i yeniden başlat.',
+      'mini.accessTitle': 'Kontrol için gerekli.', 'mini.accessCopy': 'Giriş olmadan görüntüleme sürebilir. Klavye ve işaretçi kontrolü Vamp Sync için açık Erişilebilirlik izni gerektirir.',
+      'mini.securityTitle': 'Küçük uygulama, eksiksiz güven sınırı.', 'mini.securityLead': 'Vamp Sync kendi kimliğini ve güvenilen eş deposunu tutar. Vamp Host onayını devralmaz.',
       'mini.limitEyebrow': 'Önemli çalışma sınırı', 'mini.limitTitle': 'Aynı anda tek Mac host çalıştır.',
-      'mini.limitCopy': 'Vamp Stream Host ve Vamp Host sinyal ve veri portlarını paylaşır. Birini başlatmadan diğerini durdur; portları genel internete asla açma.',
-      'mini.guard1Title': 'Ayrı kimlik', 'mini.guard1Copy': 'Stream Vamp Host’a güvense bile Vamp Stream Host ile doğrudan eşleştir.',
+      'mini.limitCopy': 'Vamp Sync ve Vamp Host sinyal ve veri portlarını paylaşır. Birini başlatmadan diğerini durdur; portları genel internete asla açma.',
+      'mini.guard1Title': 'Ayrı kimlik', 'mini.guard1Copy': 'Stream Vamp Host’a güvense bile Vamp Sync ile doğrudan eşleştir.',
       'mini.guard2Title': 'İmzalı eşleme', 'mini.guard2Copy': 'Keşif, sinyalleşme ve veri yolu onaylı eşin kimliğini doğrular.',
       'mini.guard3Title': 'Özel ağ', 'mini.guard3Copy': 'Genel yönlendirme olmadan güvenilir LAN veya Tailscale kullan.',
-      'mini.guard4Title': 'İptal edilebilir güven', 'mini.guard4Copy': 'Onaylı Stream cihazlarını Vamp Stream Host açılır penceresinden kaldır.',
-      'mini.downloadTitle': 'Hafif host’u Stream ile eşleştir.', 'mini.downloadLead': 'DMG sağlama toplamını doğrula, Vamp Stream Host’u kur, gereken izinleri ver ve kimliğini kontrol ettikten sonra Stream’i onayla.',
+      'mini.guard4Title': 'İptal edilebilir güven', 'mini.guard4Copy': 'Onaylı Stream cihazlarını Vamp Sync açılır penceresinden kaldır.',
+      'mini.downloadTitle': 'Vamp Sync’i Stream ile eşleştir.', 'mini.downloadLead': 'DMG sağlama toplamını doğrula, Vamp Sync’i kur, gereken izinleri ver ve kimliğini kontrol ettikten sonra Stream’i onayla.',
       'mini.macCardTitle': 'Odaklı Mac host’u.', 'mini.macCardCopy': 'Kendi paketi, kimliği, izinleri ve güven deposu olan özel menü çubuğu uygulaması.',
       'mini.buildTitle': 'Özel şemayı derle.', 'mini.sourceLink': 'Kaynağı aç ↗',
       'mini.footer': 'Vamp Stream için tasarlanmış hafif Mac host’u.'
@@ -297,8 +297,33 @@
       const asset = release.assets[element.dataset.releaseVersion];
       if (asset?.label) element.textContent = asset.label;
     });
+    document.querySelectorAll('a[href*="VampMiniHost-"]').forEach((link) => {
+      link.href = link.href.replaceAll('VampMiniHost-', 'VampSync-');
+    });
     const footerRelease = document.querySelector('[data-release-footer]');
     if (footerRelease && release.tag) footerRelease.textContent = release.tag.replace(/^vamp-terminal-/, '');
   };
+
+  // Keep legacy release filenames and implementation identifiers intact while
+  // presenting the current public name everywhere on the site.
+  const replaceLegacyHostBranding = () => {
+    const replacements = [
+      ['Vamp Stream Host', 'Vamp Sync'],
+      ['Vamp Mini Host', 'Vamp Sync']
+    ];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach((node) => {
+      let value = node.nodeValue || '';
+      replacements.forEach(([from, to]) => { value = value.split(from).join(to); });
+      node.nodeValue = value;
+    });
+    document.title = document.title.replace(/Vamp Stream Host|Vamp Mini Host/g, 'Vamp Sync');
+    document.querySelectorAll('meta[content]').forEach((meta) => {
+      meta.content = meta.content.replace(/Vamp Stream Host|Vamp Mini Host/g, 'Vamp Sync');
+    });
+  };
+  replaceLegacyHostBranding();
   fetch('/release.json', {cache:'no-store'}).then((response) => response.ok ? response.json() : null).then(applyRelease).catch(() => {});
 })();

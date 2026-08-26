@@ -114,7 +114,7 @@ struct VampStreamRootView: View {
         )) {
             Button("OK", role: .cancel) { hostScannerError = nil }
         } message: {
-            Text(hostScannerError ?? "Scan the QR shown by Vamp Mini Host.")
+            Text(hostScannerError ?? "Scan the QR shown by Vamp Sync or Vamp Host.")
         }
     }
 
@@ -203,7 +203,7 @@ struct VampStreamRootView: View {
     private func handleVampHostPayload(_ payload: String) {
         guard let pairing = VampHostPairingLink.parse(payload),
               let host = environment.sharedHostsViewModel.addManualHost(address: pairing.address) else {
-            hostScannerError = "Scan the QR shown by Vamp Mini Host, then try again."
+            hostScannerError = "Scan the QR shown by Vamp Sync or Vamp Host, then try again."
             showVampHostScanner = false
             return
         }

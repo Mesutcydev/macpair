@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>CFBundleDevelopmentRegion</key><string>$(DEVELOPMENT_LANGUAGE)</string>
-  <key>CFBundleDisplayName</key><string>Vamp Mini Host</string>
+  <key>CFBundleDisplayName</key><string>Vamp Sync</string>
   <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
   <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
@@ -14,6 +14,6 @@
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>LSUIElement</key><true/>
   <key>NSBonjourServices</key><array><string>_screenharbor._tcp</string><string>_screenharbor._tcp.</string></array>
-  <key>NSLocalNetworkUsageDescription</key><string>Vamp Mini Host advertises privately so Vamp Stream can discover and connect to this Mac.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>Vamp Sync advertises privately so Vamp Stream can discover and connect to this Mac.</string>
   <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Vamp contributors.</string>
 </dict></plist>

@@ -48,7 +48,7 @@ app_names = {
     "vamp-terminal": "Vamp Terminal",
     "vamp-host": "Vamp Host",
     "vamp-terminal-host": "Vamp Terminal Host",
-    "vamp-mini-host": "Vamp Mini Host",
+    "vamp-mini-host": "Vamp Sync",
     "vamp-stream-ios": "Vamp Stream",
     "vamp-control-ios": "Vamp Control iOS",
     "vamp-control-macos": "Vamp Control macOS",

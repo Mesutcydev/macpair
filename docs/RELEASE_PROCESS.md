@@ -3,7 +3,7 @@
 Vamp releases are built from a clean, committed source tree. The iOS IPAs are
 unsigned and must be re-signed by the installer's sideloading tool. The macOS
 hosts are local utilities: Vamp Host is the complete host, Vamp Terminal Host
-is the terminal-only variant, and Vamp Mini Host is the pairing-first menu-bar
+is the terminal-only variant, and Vamp Sync is the pairing-first menu-bar
 variant. Vamp Assistant remains a separate compatible control surface on port
 9575.
 
@@ -31,7 +31,7 @@ scripts/package-vamp-mini-host.sh --clean
 The packaging scripts:
 
 - build arm64 device IPAs for Vamp Terminal and Vamp Stream;
-- build and ad-hoc sign the Vamp Mini Host DMG;
+- build and ad-hoc sign the Vamp Sync DMG;
 - creates SHA-256 checksum files;
 - records the source commit and tree state in JSON manifests; and
 - generates a CycloneDX SBOM.

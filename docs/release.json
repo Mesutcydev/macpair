@@ -22,10 +22,10 @@
       "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip.sha256"
     },
     "vamp-mini-host-dmg": {
-      "name": "VampMiniHost-macOS-2.3.0-build-49-adhoc.dmg",
-      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampMiniHost-macOS-2.3.0-build-49-adhoc.dmg",
+      "name": "VampSync-macOS-2.3.0-build-49-adhoc.dmg",
+      "url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampSync-macOS-2.3.0-build-49-adhoc.dmg",
       "label": "2.3.0 \u00b7 build 49",
-      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampMiniHost-macOS-2.3.0-build-49-adhoc.dmg.sha256"
+      "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampSync-macOS-2.3.0-build-49-adhoc.dmg.sha256"
     },
     "vamp-stream-ios": {
       "name": "VampStream-iOS-0.1.0-build-11-altstore-unsigned.ipa",

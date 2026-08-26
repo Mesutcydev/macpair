@@ -7,7 +7,8 @@ import SharedModels
 import SharedUtilities
 import Permissions
 
-/// Storage used by the standalone Vamp Mini Host product.
+/// Storage used by the standalone Vamp Sync product. The legacy directory is
+/// intentionally retained so existing trust data remains upgrade-compatible.
 ///
 /// The mini host deliberately does not share the full host's identity or peer
 /// list. Installing it should create a separate trust boundary, even though
@@ -51,6 +52,7 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var phaseObserver: AnyCancellable?
+    private var trustPromptObserver: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -86,7 +88,7 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
         if let button = item.button {
             button.image = statusImage(for: environment.sessionCoordinator.phase)
             button.image?.isTemplate = true
-            button.toolTip = "Vamp Mini Host"
+            button.toolTip = "Vamp Sync"
             button.target = self
             button.action = #selector(statusItemPressed(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -112,13 +114,26 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
                 self?.statusItem?.button?.image = self?.statusImage(for: phase)
                 self?.statusItem?.button?.image?.isTemplate = true
             }
+
+        // Mini Host is menu-bar-only, so it has no dashboard window for the
+        // shared trust gate to bring forward. Present the popover as soon as
+        // a new client reaches the approval gate; otherwise pairing silently
+        // expires while the approval card is hidden.
+        trustPromptObserver = environment.$pendingTrustPrompt
+            .receive(on: RunLoop.main)
+            .sink { [weak self] prompt in
+                guard prompt != nil else { return }
+                DispatchQueue.main.async { [weak self] in
+                    self?.showTrustPromptPopover()
+                }
+            }
     }
 
     private func statusImage(for phase: HostSessionCoordinator.SessionPhase) -> NSImage? {
         let symbol = phase == .error ? "exclamationmark.triangle.fill" : "rectangle.on.rectangle"
         return NSImage(
             systemSymbolName: symbol,
-            accessibilityDescription: phase == .error ? "Vamp Mini Host needs attention" : "Vamp Mini Host"
+            accessibilityDescription: phase == .error ? "Vamp Sync needs attention" : "Vamp Sync"
         )
     }
 
@@ -171,8 +186,8 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
     }
 
     private func makeContextMenu() -> NSMenu {
-        let menu = NSMenu(title: "Vamp Mini Host")
-        addMenuItem("Open Mini Host", action: #selector(openPopover), to: menu)
+        let menu = NSMenu(title: "Vamp Sync")
+        addMenuItem("Open Vamp Sync", action: #selector(openPopover), to: menu)
 
         let status = NSMenuItem(title: "Status: \(statusMenuTitle)", action: nil, keyEquivalent: "")
         status.isEnabled = false
@@ -191,7 +206,7 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
         addMenuItem("Accessibility Settings…", action: #selector(openAccessibilitySettings), to: menu)
         menu.addItem(.separator())
 
-        addMenuItem("Quit Vamp Mini Host", action: #selector(quitApp), keyEquivalent: "q", to: menu)
+        addMenuItem("Quit Vamp Sync", action: #selector(quitApp), keyEquivalent: "q", to: menu)
         return menu
     }
 
@@ -226,6 +241,14 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
     @objc private func openPopover() {
         guard let button = statusItem?.button else { return }
         if popover?.isShown != true { togglePopover(relativeTo: button) }
+    }
+
+    private func showTrustPromptPopover() {
+        guard let button = statusItem?.button else { return }
+        if popover?.isShown != true {
+            togglePopover(relativeTo: button)
+        }
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     @objc private func toggleRuntime() {
@@ -360,7 +383,7 @@ private struct VampMiniHostPopover: View {
         HStack(spacing: 10) {
             VampMiniHostMark(size: 34)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Vamp Mini Host")
+                Text("Vamp Sync")
                     .font(.headline)
                 Text("Compact app-streaming host")
                     .font(.caption)
@@ -376,8 +399,8 @@ private struct VampMiniHostPopover: View {
                     .frame(width: 24, height: 24)
             }
             .buttonStyle(.borderless)
-            .help("Close Vamp Mini Host")
-            .accessibilityLabel("Close Vamp Mini Host")
+            .help("Close Vamp Sync")
+            .accessibilityLabel("Close Vamp Sync")
         }
         .accessibilityElement(children: .combine)
     }
@@ -838,7 +861,7 @@ private struct VampMiniHostMark: View {
                 .foregroundStyle(.primary)
         }
         .frame(width: size, height: size)
-        .accessibilityLabel("Vamp Mini Host")
+        .accessibilityLabel("Vamp Sync")
     }
 }
 

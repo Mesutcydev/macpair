@@ -45,12 +45,12 @@ the latest IPA.
 - Mac sides:
 
   - Vamp Host — signed WebRTC
-  - Vamp Stream Host — signed WebRTC; implementation target `VampMiniHost`
+  - Vamp Sync — signed WebRTC; implementation target `VampMiniHost`
   - Vamp Assistant — authenticated private Remote Sessions endpoint
 
 Screen Recording is required on the selected Mac host for video.
 Accessibility is required for keyboard and pointer control. Vamp Host and Vamp
-Vamp Stream Host share ports, have separate identities/trust stores, and cannot run
+Vamp Sync and Vamp Host share ports, have separate identities/trust stores, and cannot run
 together.
 
 ## Build Vamp Stream locally
