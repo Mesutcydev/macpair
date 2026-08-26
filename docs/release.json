@@ -58,20 +58,20 @@
       "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-49/VampTerminalHost-Linux-2.3.6.zip.sha256"
     },
     "vamp-assistant-macos": {
-      "name": "Vamp-Assistant-0.10.23.dmg",
-      "url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/v0.10.23/Vamp-Assistant-0.10.23.dmg",
-      "label": "0.10.23",
-      "releaseUrl": "https://github.com/Mesutcydev/vamp-assistant/releases/tag/v0.10.23",
-      "tag": "v0.10.23",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/v0.10.23/Vamp-Assistant-0.10.23.dmg.sha256"
+      "name": "Vamp-Assistant-0.10.24.dmg",
+      "url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/v0.10.24/Vamp-Assistant-0.10.24.dmg",
+      "label": "0.10.24",
+      "releaseUrl": "https://github.com/Mesutcydev/vamp-assistant/releases/tag/v0.10.24",
+      "tag": "v0.10.24",
+      "sha256Url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/v0.10.24/Vamp-Assistant-0.10.24.dmg.sha256"
     },
     "vamp-assistant-ios": {
-      "name": "Vamp-Assistant-iOS-0.1.33-build-48-unsigned.ipa",
-      "url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/ios-v0.1.33/Vamp-Assistant-iOS-0.1.33-build-48-unsigned.ipa",
-      "label": "0.1.33 \u00b7 build 48",
+      "name": "Vamp-Assistant-iOS-0.1.33-build-49-unsigned.ipa",
+      "url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/ios-v0.1.33/Vamp-Assistant-iOS-0.1.33-build-49-unsigned.ipa",
+      "label": "0.1.33 \u00b7 build 49",
       "releaseUrl": "https://github.com/Mesutcydev/vamp-assistant/releases/tag/ios-v0.1.33",
       "tag": "ios-v0.1.33",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/ios-v0.1.33/Vamp-Assistant-iOS-0.1.33-build-48-unsigned.ipa.sha256"
+      "sha256Url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/ios-v0.1.33/Vamp-Assistant-iOS-0.1.33-build-49-unsigned.ipa.sha256"
     }
   }
 }
