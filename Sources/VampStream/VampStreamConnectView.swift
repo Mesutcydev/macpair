@@ -36,7 +36,12 @@ struct VampStreamConnectView: View {
     let onAppStream: (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void
     let onForgetVampAssistant: (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void
     @ObservedObject private var hostsVM: HostsListViewModel
-    @State private var destination: ConnectionDestination = .remoteControl
+
+    // Remote Control remains implemented behind the transport adapter, but this
+    // build intentionally exposes only App Stream while that surface is being
+    // finalized. Flip this gate when the classic control screen is ready to
+    // return to the destination picker.
+    private static let showsRemoteControlDestination = false
 
     private var legacyHostsForAppStream: [DiscoveredHostRow] {
         let assistantHosts = Set(
@@ -76,34 +81,22 @@ struct VampStreamConnectView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VampStreamConnectHeader()
-            VampStreamConnectionDestinationPicker(selection: $destination)
-                .padding(.horizontal, 18)
-                .padding(.bottom, 14)
-
-            Group {
-                switch destination {
-                case .remoteControl:
-                    VampAssistantRemoteControlSection(
-                        pairedAssistants: pairedVampAssistants,
-                        availability: vampAssistantAvailability,
-                        errorMessage: vampAssistantError,
-                        onPair: onPairVampAssistant,
-                        onRemoteControl: onRemoteControl,
-                        onForget: onForgetVampAssistant)
-                case .appStream:
-                    VampAppStreamSection(
-                        pairedAssistants: pairedVampAssistants,
-                        availability: vampAssistantAvailability,
-                        errorMessage: vampAssistantError,
-                        legacyHosts: legacyHostsForAppStream,
-                        hostsVM: hostsVM,
-                        onPair: onPairVampAssistant,
-                        onAppStream: onAppStream,
-                        onForget: onForgetVampAssistant,
-                        onScan: onScanVampHost,
-                        onConnect: onConnect)
-                }
+            if Self.showsRemoteControlDestination {
+                VampStreamConnectionDestinationPicker(selection: .constant(.remoteControl))
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 14)
             }
+            VampAppStreamSection(
+                pairedAssistants: pairedVampAssistants,
+                availability: vampAssistantAvailability,
+                errorMessage: vampAssistantError,
+                legacyHosts: legacyHostsForAppStream,
+                hostsVM: hostsVM,
+                onPair: onPairVampAssistant,
+                onAppStream: onAppStream,
+                onForget: onForgetVampAssistant,
+                onScan: onScanVampHost,
+                onConnect: onConnect)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task { await hostsVM.start() }
@@ -113,10 +106,10 @@ struct VampStreamConnectView: View {
 private struct VampStreamConnectHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text("Connect to a Mac")
+            Text("Stream an app from your Mac")
                 .font(.largeTitle.weight(.bold))
                 .foregroundStyle(PR.fg)
-            Text("Choose a trusted connection. You can switch between Macs at any time.")
+            Text("Choose a trusted Mac, then open and control one app at a time.")
                 .font(.subheadline)
                 .foregroundStyle(PR.fg2)
                 .fixedSize(horizontal: false, vertical: true)
