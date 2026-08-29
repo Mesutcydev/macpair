@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve Vamp Terminal.
+Thanks for helping improve Vamp.
 
 ## Development setup
 

@@ -1,10 +1,17 @@
 # Changelog
 
-All notable changes to MacPair and Vamp Terminal are documented here. The format follows
+All notable changes to Vamp are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Changed
+
+- Public naming is now consistently Vamp. Vamp Sync is the only public name for
+  the Stream companion (not Stream Host or Mini Host). Historical implementation
+  identifiers, bundle IDs, Bonjour, ports, URL schemes, and GitHub clone URLs
+  are unchanged.
 
 ### Security
 

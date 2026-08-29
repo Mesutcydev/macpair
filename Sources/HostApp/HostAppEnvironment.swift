@@ -262,6 +262,8 @@ final class HostAppEnvironment: ObservableObject {
         case .terminalOnly:
             registryProductName = "Terminal Host"
         case .mini:
+            // Public product name is Vamp Sync. The folder name is retained so
+            // existing session and journal files keep loading.
             registryProductName = "Vamp Mini Host"
         }
         let sessionRegistry = HostSessionRegistry(

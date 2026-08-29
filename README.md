@@ -8,8 +8,8 @@
 | [Vamp Stream](https://thevamp.app/stream/) | Focused visual client for a Mac display or app window | iPhone, iPad |
 
 Vamp Stream can use Vamp Host, the lightweight **Vamp Sync** companion (the
-`VampMiniHost` implementation), or Vamp Assistant as its Mac side. Host and
-Vamp Sync uses the signed WebRTC stack; Assistant uses its authenticated
+`VampMiniHost` implementation), or Vamp Assistant as its Mac side. Vamp Host and
+Vamp Sync use the signed WebRTC stack; Assistant uses its authenticated
 private Remote Sessions endpoint. Terminal, Terminal Host, Control, standalone
 browser control, and Linux Host source and technical documentation remain in
 the repository, but they are not part of the current public promotion.
@@ -109,7 +109,7 @@ Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.m
 
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-Vamp Terminal is licensed under the [Apache License 2.0](LICENSE). Third-party
+Vamp is licensed under the [Apache License 2.0](LICENSE). Third-party
 components retain their own licenses; see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Project governance, support,
 release integrity, and name-use policies are documented in
@@ -119,5 +119,5 @@ release integrity, and name-use policies are documented in
 [open-source program readiness checklist](docs/PROGRAM_READINESS.md) records the
 evidence to maintain as the project grows.
 
-Vamp Terminal is an independent project. It is not affiliated with, endorsed by, or
+Vamp is an independent project. It is not affiliated with, endorsed by, or
 sponsored by Apple Inc.

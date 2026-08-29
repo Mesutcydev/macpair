@@ -1,6 +1,6 @@
 # Third-party notices
 
-Vamp Terminal includes or links the following open-source components. Their licenses remain in effect in source and binary distributions.
+Vamp includes or links the following open-source components. Their licenses remain in effect in source and binary distributions.
 
 ## SwiftTerm
 
@@ -22,7 +22,7 @@ shipped inside each app under `ThirdPartyLicenses/Opus-COPYING`.
 
 ## Apple platform frameworks
 
-Vamp Terminal uses Apple system frameworks including SwiftUI, AppKit, UIKit,
+Vamp uses Apple system frameworks including SwiftUI, AppKit, UIKit,
 ScreenCaptureKit, Network, VideoToolbox, AudioToolbox, CryptoKit, and Bonjour/DNS-SD.
 These are supplied by macOS, iOS/iPadOS, and Xcode and are not redistributed under
 this repository's Apache-2.0 license.

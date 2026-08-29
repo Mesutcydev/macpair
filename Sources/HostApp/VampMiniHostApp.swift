@@ -7,10 +7,11 @@ import SharedModels
 import SharedUtilities
 import Permissions
 
-/// Storage used by the standalone Vamp Sync product. The legacy directory is
-/// intentionally retained so existing trust data remains upgrade-compatible.
+/// Storage used by the standalone Vamp Sync product. The Application Support
+/// directory name is intentionally retained so existing trust data remains
+/// upgrade-compatible.
 ///
-/// The mini host deliberately does not share the full host's identity or peer
+/// Vamp Sync deliberately does not share the full host's identity or peer
 /// list. Installing it should create a separate trust boundary, even though
 /// both products use the same signed signaling and authenticated transport.
 private enum VampMiniHostStorage {
@@ -118,7 +119,7 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
                 self?.statusItem?.button?.image?.isTemplate = true
             }
 
-        // Mini Host is menu-bar-only, so it has no dashboard window for the
+        // Vamp Sync is menu-bar-only, so it has no dashboard window for the
         // shared trust gate to bring forward. Present the popover as soon as
         // a new client reaches the approval gate; otherwise pairing silently
         // expires while the approval card is hidden.

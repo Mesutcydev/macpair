@@ -1,6 +1,6 @@
 # Source and asset provenance
 
-Vamp Terminal is published from this repository under Apache-2.0. Release artifacts
+Vamp is published from this repository under Apache-2.0. Release artifacts
 must identify the exact source commit, dependency lock, checksum, code-signing mode,
 and notarization state.
 
