@@ -31,6 +31,8 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 
 - Linux Host README now documents the 30-minute paired-token lifetime that the
   host actually enforces, not a 30-day window.
+- Workspace discovery tests initialize a real git repo so CI no longer times
+  out waiting on `git` metadata for an empty `.git` folder.
 
 ### Added
 

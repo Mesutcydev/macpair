@@ -31,7 +31,11 @@ final class HostWorkspaceServiceTests: XCTestCase {
         let root = fileManager.temporaryDirectory
             .appendingPathComponent("VampWorkspaceTests-\(UUID().uuidString)", isDirectory: true)
         let project = root.appendingPathComponent("Projects/Vamp", isDirectory: true)
-        try fileManager.createDirectory(at: project.appendingPathComponent(".git", isDirectory: true), withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: project, withIntermediateDirectories: true)
+        // Discovery runs `git` for metadata. An empty `.git` directory is not a
+        // repo, and those processes can stall past a short XCTest timeout on a
+        // loaded CI runner. Initialize a real repository instead.
+        try gitInit(at: project)
         try Data("// test workspace\n".utf8).write(to: project.appendingPathComponent("Package.swift"))
         defer { try? fileManager.removeItem(at: root) }
 
@@ -46,7 +50,11 @@ final class HostWorkspaceServiceTests: XCTestCase {
             rootsBox.set(browseRoots)
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 2)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [expectation], timeout: 10),
+            .completed,
+            "workspace discovery should finish on a tiny git project"
+        )
 
         let workspaces = workspacesBox.value
         let roots = rootsBox.value
@@ -75,7 +83,7 @@ final class HostWorkspaceServiceTests: XCTestCase {
             entriesBox.set(listed)
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 2)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 10), .completed)
 
         let entries = entriesBox.value
         XCTAssertEqual(entries.map(\.name), ["One"])
@@ -107,7 +115,24 @@ final class HostWorkspaceServiceTests: XCTestCase {
         }
 
         wait(for: [browseReturned], timeout: 0.5)
-        wait(for: [discoveryStarted], timeout: 2)
+        XCTAssertEqual(XCTWaiter.wait(for: [discoveryStarted], timeout: 10), .completed)
+    }
+
+    private func gitInit(at directory: URL) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = ["-C", directory.path, "init", "--quiet"]
+        process.environment = [
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_TERMINAL_PROMPT": "0",
+            "GIT_OPTIONAL_LOCKS": "0",
+            "PATH": ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"
+        ]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0, "git init should succeed for workspace discovery fixtures")
     }
 }
 #endif
