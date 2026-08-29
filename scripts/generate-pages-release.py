@@ -94,8 +94,8 @@ def choose_asset(assets: list[dict], pattern: re.Pattern[str], key: str) -> dict
                     return asset
         return max(matches, key=lambda asset: linux_semver(asset["name"]))
     if key == "vamp-mini-host-dmg":
-        # Prefer the new public name when a release contains both the legacy
-        # Mini Host asset and a Vamp Sync rebuild with the same build number.
+        # Prefer the current public name when a release contains both the
+        # legacy VampMiniHost asset and a Vamp Sync rebuild with the same build number.
         return max(matches, key=lambda asset: (
             build_number(asset),
             asset["name"].startswith("VampSync-"),

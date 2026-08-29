@@ -1,6 +1,6 @@
 # Governance
 
-Vamp Terminal is a maintainer-led open-source project.
+Vamp is a maintainer-led open-source project.
 
 ## Roles
 

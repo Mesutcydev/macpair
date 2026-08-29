@@ -135,7 +135,7 @@ struct MacHostsScreen: View {
         } else if isInitialScan {
             centeredState {
                 DiscoveryHero(isScanning: true)
-                Text("Searching for Vamp Host and Vamp Mini Host…")
+                Text("Searching for Vamp Host and Vamp Sync…")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
@@ -165,7 +165,7 @@ struct MacHostsScreen: View {
                 .padding(.bottom, 4)
             Text("No Macs found yet")
                 .font(.title2.weight(.semibold))
-            Text("Open Vamp Host, Vamp Mini Host, or pair Vamp Assistant. Keep both Macs on the same LAN or reachable over Tailscale.")
+            Text("Open Vamp Host, Vamp Sync, or pair Vamp Assistant. Keep both Macs on the same LAN or reachable over Tailscale.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 440)
@@ -410,7 +410,7 @@ struct MacHostsScreen: View {
                 ProgressView().controlSize(.large)
                 Text(connectingStatusText)
                     .font(.title3.weight(.semibold))
-                Text("If this is the first connection, approve this Mac in the Vamp Host or Vamp Mini Host window on the other computer.")
+                Text("If this is the first connection, approve this Mac in the Vamp Host or Vamp Sync window on the other computer.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

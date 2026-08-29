@@ -11,8 +11,8 @@ import SharedModels
 enum HostProductMode: String, CaseIterable, Sendable {
     case full
     case terminalOnly
-    /// A pairing-first menu-bar host with the full authenticated streaming stack,
-    /// its own product identity, and a compact settings surface.
+    /// Vamp Sync: pairing-first menu-bar host with the full authenticated
+    /// streaming stack, its own product identity, and a compact settings surface.
     case mini
 
     var isTerminalOnly: Bool {

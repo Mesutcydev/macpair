@@ -49,7 +49,7 @@ the latest IPA.
   - Vamp Assistant — authenticated private Remote Sessions endpoint
 
 Screen Recording is required on the selected Mac host for video.
-Accessibility is required for keyboard and pointer control. Vamp Host and Vamp
+Accessibility is required for keyboard and pointer control.
 Vamp Sync and Vamp Host share ports, have separate identities/trust stores, and cannot run
 together.
 

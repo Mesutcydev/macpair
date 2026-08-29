@@ -4,12 +4,12 @@ Vamp currently promotes two products:
 
 - Vamp Assistant: native macOS AI companion with its own iOS app and browser
   Remote Sessions access: https://thevamp.app/assistant/
-- Vamp Stream: focused iPhone/iPad visual client for Vamp Host, the supporting
-  Vamp Stream Host, and Vamp Assistant: https://thevamp.app/stream/
+- Vamp Stream: focused iPhone/iPad visual client for Vamp Host, Vamp Sync,
+  and Vamp Assistant: https://thevamp.app/stream/
 
-Vamp Stream Host is the public name for the compatible `VampMiniHost`
-implementation and release artifact. Other suite products remain in source and
-specialist technical documentation but are not currently promoted.
+Vamp Sync is the public name for the compatible `VampMiniHost` implementation
+and release artifact. Other suite products remain in source and specialist
+technical documentation but are not currently promoted.
 
 Use only a trusted LAN or private Tailscale network. Verify every new device
 before approval and never expose host ports publicly.

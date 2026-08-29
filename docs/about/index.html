@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f0f0eb">
-  <meta name="description" content="About Vamp, the open-source private remote desktop and terminal workspace.">
+  <meta name="description" content="About Vamp, the open-source local-first Mac suite for private AI and focused streaming.">
   <link rel="canonical" href="https://thevamp.app/about/">
   <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
   <title>About · Vamp</title>
@@ -27,12 +27,12 @@
     <article class="surface-card trust-card">
       <div class="trust-meta">About the project</div>
       <h1>Your machines. Your network.</h1>
-      <p>Vamp is an open-source remote desktop and terminal workspace for people who want to reach their own computers without handing the connection to a hosted control plane. Three kits share a trust plane: Vamp Host plus Vamp Control for the Mac screen; Vamp Terminal Host plus Vamp Terminal or Safari for eight PTYs; and Vamp Linux Host plus a browser for a Linux shell. Vamp Control and Vamp Terminal cannot attach to the Linux host.</p>
-      <p>The project is local-first by design. Mac connections travel over a trusted LAN or a private Tailscale network using signed WebRTC. Linux Host and Safari use a loopback WebSocket on port 9475, exposed privately with Tailscale Serve or Cloudflare Access. New peers use signed identities and must be visibly approved on the host. Terminal access is opt-in on Vamp Host and always on for Vamp Terminal Host, Vamp Linux Host, and Safari. Vamp does not require a product account, a project-owned relay, public port forwarding, or an App Store account.</p>
+      <p>Vamp is an open-source, local-first suite for people who want to reach their own Mac without handing the connection to a hosted control plane. The current public products are Vamp Assistant and Vamp Stream. Stream can attach to Vamp Host, Vamp Sync, or Assistant. Vamp Control, Vamp Terminal, Vamp Terminal Host, and Vamp Linux Host remain in this repository as specialist surfaces. Vamp Control and Vamp Terminal cannot attach to the Linux host.</p>
+      <p>The project is local-first by design. Mac connections travel over a trusted LAN or a private Tailscale network using signed WebRTC. Linux Host and Safari use a loopback WebSocket on port 9475, exposed privately with Tailscale Serve or Cloudflare Access. Assistant Remote Sessions use a separate authenticated private endpoint. New peers use signed identities and must be visibly approved on the host. Vamp does not require a product account, a project-owned relay, public port forwarding, or an App Store account.</p>
       <h2>Why Vamp exists</h2>
       <p>Remote access should feel direct and understandable. Vamp keeps the machine authoritative, makes the pairing boundary visible, and gives both people and automation a stable way to inspect status and manage persistent terminal sessions. Transport loss detaches a client without destroying its terminal work, so long-running shells and agent tasks can survive a reconnect.</p>
       <h2>Open development</h2>
-      <p>Vamp is released under the Apache 2.0 license. Its source, security policy, release process, protocol tests, host applications, iOS client, Linux companion, and agent integration documentation are developed in public. The project is maintained by Mesutcydev and welcomes responsible reports and contributions through GitHub.</p>
+      <p>Vamp is released under the Apache 2.0 license. Its source, security policy, release process, protocol tests, host applications, iOS clients, Linux companion, and agent integration documentation are developed in public. The project is maintained by Mesutcydev and welcomes responsible reports and contributions through GitHub. Assistant source lives in a separate repository.</p>
       <div class="trust-actions"><a class="primary-button" href="../#download">Download Vamp</a><a class="secondary-button" href="https://github.com/Mesutcydev/macpair" target="_blank" rel="noreferrer">View source ↗</a></div>
     </article>
   </main>

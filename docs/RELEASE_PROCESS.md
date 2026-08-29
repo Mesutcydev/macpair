@@ -40,7 +40,7 @@ The Vamp Terminal and Vamp Stream scripts create unsigned, arm64 IPAs for a
 sideload tool to re-sign. Their app bundles contain no provisioning profile,
 code signature, or project-owned entitlements; Local Network access is declared
 through `Info.plist` because the Bonjour discovery contract does not require a
-team-managed entitlement. The Mini Host script creates an ad-hoc signed DMG for
+team-managed entitlement. The Vamp Sync packaging script creates an ad-hoc signed DMG for
 local macOS distribution. All scripts create checksums, source manifests, and
 CycloneDX SBOMs, and refuse a dirty tree unless `--allow-dirty` is explicitly
 used for development.
