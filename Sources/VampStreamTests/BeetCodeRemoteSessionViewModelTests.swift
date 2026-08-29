@@ -75,4 +75,29 @@ final class BeetCodeRemoteSessionViewModelTests: XCTestCase {
             [second]
         )
     }
+
+    func testGenericAssistantNamesAreDistinguishedByConnectionKind() {
+        let local = BeetCodeRemoteSessionViewModel.SavedAssistant(
+            address: "http://192.168.1.7:9575",
+            displayName: "Vamp Assistant"
+        )
+        let tailscale = BeetCodeRemoteSessionViewModel.SavedAssistant(
+            address: "http://100.73.221.10:9575",
+            displayName: "Vamp Assistant"
+        )
+
+        XCTAssertTrue(local.hasGenericDisplayName)
+        XCTAssertEqual(local.connectionKind, .localNetwork)
+        XCTAssertEqual(tailscale.connectionKind, .tailscale)
+    }
+
+    func testCustomAssistantNameIsPreserved() {
+        let saved = BeetCodeRemoteSessionViewModel.SavedAssistant(
+            address: "http://studio-mac.local:9575",
+            displayName: "Studio Mac"
+        )
+
+        XCTAssertFalse(saved.hasGenericDisplayName)
+        XCTAssertEqual(saved.connectionKind, .localNetwork)
+    }
 }

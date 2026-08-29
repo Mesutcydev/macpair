@@ -43,6 +43,32 @@ final class BeetCodeRemoteClientTests: XCTestCase {
         XCTAssertEqual(commands[7].wireBody()["modifiers"] as? [String], ["command"])
     }
 
+    func testAssistantTapUsesOrderedMoveDownUpPrimitives() {
+        let commands = BeetCodeInputCommand.clickSequence(
+            x: 120,
+            y: 240,
+            button: "left",
+            count: 1
+        )
+        XCTAssertEqual(commands.map { $0.wireBody()["action"] as? String }, [
+            "move", "down", "up"
+        ])
+        XCTAssertEqual((commands[0].wireBody()["x"] as? NSNumber)?.doubleValue, 120)
+        XCTAssertEqual((commands[0].wireBody()["y"] as? NSNumber)?.doubleValue, 240)
+    }
+
+    func testAssistantDoubleTapSendsTwoCompleteButtonPairs() {
+        let commands = BeetCodeInputCommand.clickSequence(
+            x: nil,
+            y: nil,
+            button: "left",
+            count: 2
+        )
+        XCTAssertEqual(commands.map { $0.wireBody()["action"] as? String }, [
+            "down", "up", "down", "up"
+        ])
+    }
+
     func testRemoteApplicationListPayloadDecodesStableWindowIdentity() throws {
         let data = Data(#"{"windowID":42,"bundleIdentifier":"com.apple.Safari","name":"Safari","windowTitle":"Start Page","width":1280,"height":800}"#.utf8)
         let application = try JSONDecoder().decode(BeetCodeRemoteApplication.self, from: data)

@@ -31,8 +31,6 @@ struct AppStreamGestureView: UIViewRepresentable {
         view.backgroundColor = .clear
         view.isUserInteractionEnabled = true
         view.isMultipleTouchEnabled = true
-        view.isAccessibilityElement = false
-        view.accessibilityElementsHidden = true
         context.coordinator.install(on: view)
         return view
     }
@@ -103,7 +101,6 @@ struct AppStreamGestureView: UIViewRepresentable {
 
             [singleTap, doubleTap, twoFingerTap, threeFingerTap, pointerPan, twoFingerPan, pinch, longPress, hover]
                 .forEach {
-                    $0.cancelsTouchesInView = false
                     $0.delegate = self
                     view.addGestureRecognizer($0)
                 }
@@ -289,18 +286,10 @@ struct AppStreamGestureView: UIViewRepresentable {
             let otherIsPinch = other is UIPinchGestureRecognizer
             let isTwoFingerPan = (gestureRecognizer as? UIPanGestureRecognizer)?.minimumNumberOfTouches == 2
             let otherIsTwoFingerPan = (other as? UIPanGestureRecognizer)?.minimumNumberOfTouches == 2
-            if (isPinch && otherIsTwoFingerPan) || (otherIsPinch && isTwoFingerPan) {
-                return true
-            }
-            // Long-press must be allowed alongside the one-finger pan so it can toggle
-            // the explicit drag-lock instead of being cancelled when the pan activates.
-            if gestureRecognizer is UILongPressGestureRecognizer || other is UILongPressGestureRecognizer {
-                return true
-            }
-            if gestureRecognizer is UIPanGestureRecognizer && other is UIPanGestureRecognizer {
-                return false
-            }
-            return false
+            // Keep the recognition policy identical to Vamp Control iOS. In particular, a
+            // one-finger tap must win cleanly over pan/long-press instead of remaining in a
+            // simultaneous-recognition set where UIKit can promote it to pointer movement.
+            return (isPinch && otherIsTwoFingerPan) || (otherIsPinch && isTwoFingerPan)
         }
     }
 }

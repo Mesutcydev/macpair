@@ -88,6 +88,23 @@ public final class HostApplicationRegistry {
                 ))
             }
         }
+        // Finder is user-facing but lives outside the standard Applications folders. Include
+        // this fixed location without recursively exposing every CoreServices helper.
+        let finderURL = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
+        if let bundle = Bundle(url: finderURL), let bundleID = bundle.bundleIdentifier {
+            results.append(RemoteApplication(
+                bundleIdentifier: bundleID,
+                name: (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+                    ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
+                    ?? "Finder",
+                isRunning: false,
+                isActive: false,
+                iconPNGBase64: includeIcons ? iconBase64(bundleID: bundleID) {
+                    NSWorkspace.shared.icon(forFile: finderURL.path)
+                } : nil,
+                windowIDs: []
+            ))
+        }
         return results
     }
 
@@ -108,6 +125,27 @@ public final class HostApplicationRegistry {
     /// (e.g. still launching, or only a menu-bar presence).
     public func streamableWindow(forPID pid: pid_t) -> WindowInfo? {
         Self.chooseWindow(from: onScreenWindows().filter { $0.ownerPID == pid && $0.area > 0 })
+    }
+
+    /// Prefer a window created by the current launch action. This matters for apps that already
+    /// own a hidden/background document and then present a welcome panel or compose window.
+    public func streamableWindow(forPID pid: pid_t, excluding previousWindowIDs: Set<CGWindowID>) -> WindowInfo? {
+        let windows = onScreenWindows().filter { $0.ownerPID == pid && $0.area > 0 }
+        let newlyCreated = windows.filter { !previousWindowIDs.contains($0.windowID) }
+        return Self.chooseWindow(from: newlyCreated) ?? Self.chooseWindow(from: windows)
+    }
+
+    public func newlyCreatedStreamableWindow(
+        forPID pid: pid_t,
+        excluding previousWindowIDs: Set<CGWindowID>
+    ) -> WindowInfo? {
+        Self.chooseWindow(from: onScreenWindows().filter {
+            $0.ownerPID == pid && $0.area > 0 && !previousWindowIDs.contains($0.windowID)
+        })
+    }
+
+    public func streamableWindowIDs(forPID pid: pid_t) -> Set<CGWindowID> {
+        Set(onScreenWindows().lazy.filter { $0.ownerPID == pid }.map(\.windowID))
     }
 
     /// Look up a specific window's current bounds (for a `.window` target and for keeping the
@@ -235,6 +273,19 @@ public final class HostApplicationRegistry {
             // Areas tie: treat the higher ID as "less" so `max` returns the lower ID.
             return lhs.windowID > rhs.windowID
         }
+    }
+
+    /// Computes an aspect-matched size without growing the window beyond either current
+    /// dimension. Keeping this pure makes the phone-fit policy deterministic and testable.
+    static func aspectMatchedSize(current: CGSize, requestedAspect: Double) -> CGSize? {
+        guard current.width > 0, current.height > 0, requestedAspect.isFinite,
+              requestedAspect > 0 else { return nil }
+        let aspect = min(max(CGFloat(requestedAspect), 0.4), 4)
+        let currentAspect = current.width / current.height
+        if aspect < currentAspect {
+            return CGSize(width: (current.height * aspect).rounded(), height: current.height)
+        }
+        return CGSize(width: current.width, height: (current.width / aspect).rounded())
     }
 }
 #endif

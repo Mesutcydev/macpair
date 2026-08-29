@@ -241,7 +241,19 @@ public final class CGEventInputBridge: PlatformInputBridge, @unchecked Sendable 
             event.post(tap: .cghidEventTap)
 
         case .click:
-            try postSingleClick(button: button, cgButton: cgButton, at: cgPoint, clickCount: 1)
+            // Capture and encoding can keep the host busy enough that two freshly-created
+            // CGEvents receive the same default timestamp. Some controls then observe cursor
+            // movement but discard the zero-duration down/up pair. Make every click explicitly
+            // ordered, just as the double-click path already does.
+            let base = mach_absolute_time()
+            try postSingleClick(
+                button: button,
+                cgButton: cgButton,
+                at: cgPoint,
+                clickCount: 1,
+                downTimestamp: base,
+                upTimestamp: base + 1
+            )
 
         case .doubleClick:
             // The two click pairs are posted back-to-back, so their CGEvents can carry
@@ -286,8 +298,7 @@ public final class CGEventInputBridge: PlatformInputBridge, @unchecked Sendable 
 
         downEvent.setIntegerValueField(.mouseEventClickState, value: clickCount)
         upEvent.setIntegerValueField(.mouseEventClickState, value: clickCount)
-        // Apply explicit timestamps when provided (double-click ordering); a plain single
-        // click leaves the default timestamp untouched.
+        // Apply explicit timestamps so the window server always sees down before up.
         if let downTimestamp { downEvent.timestamp = downTimestamp }
         if let upTimestamp { upEvent.timestamp = upTimestamp }
         downEvent.post(tap: .cghidEventTap)

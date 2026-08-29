@@ -171,6 +171,17 @@ final class AppStreamInputController: ObservableObject {
         send(interpreter?.keyPress(keyCode: keyCode, action: .up, modifiers: modifiers))
     }
 
+    /// Terminal windows often ignore typing until their content view becomes first responder.
+    /// Click safely inside the fitted stream immediately before presenting the command deck.
+    func focusTerminal() {
+        guard let interpreter else { return }
+        let rect = interpreter.mapper.fittedContentRect
+        let point = DesktopPoint(
+            x: rect.origin.x + rect.size.width * 0.5,
+            y: rect.origin.y + rect.size.height * 0.82)
+        send(interpreter.tap(at: point))
+    }
+
     // MARK: - Ordered send path
 
     private func send(_ command: InputCommand?) {

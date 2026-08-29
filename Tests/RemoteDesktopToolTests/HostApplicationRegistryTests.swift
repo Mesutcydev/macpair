@@ -81,6 +81,22 @@ final class HostApplicationRegistryTests: XCTestCase {
         XCTAssertNil(HostApplicationRegistry.chooseWindow(from: []))
     }
 
+    func testAspectMatchedSizeUsesFullPortraitViewportAspect() throws {
+        let size = try XCTUnwrap(HostApplicationRegistry.aspectMatchedSize(
+            current: CGSize(width: 1200, height: 800),
+            requestedAspect: 0.5
+        ))
+        XCTAssertEqual(size, CGSize(width: 400, height: 800))
+    }
+
+    func testAspectMatchedSizeShrinksHeightForWiderViewport() throws {
+        let size = try XCTUnwrap(HostApplicationRegistry.aspectMatchedSize(
+            current: CGSize(width: 400, height: 800),
+            requestedAspect: 1
+        ))
+        XCTAssertEqual(size, CGSize(width: 400, height: 400))
+    }
+
     // MARK: - Capability advertisement (Step 13)
 
     func testFullHostAdvertisesAppStreamingOnModernMacOS() {

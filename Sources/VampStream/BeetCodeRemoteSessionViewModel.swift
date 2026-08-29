@@ -12,10 +12,41 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
     }
 
     struct SavedAssistant: Codable, Equatable, Hashable, Identifiable {
+        enum ConnectionKind: Equatable {
+            case localNetwork
+            case tailscale
+            case privateNetwork
+        }
+
         let address: String
         var displayName: String
 
         var id: String { address }
+
+        var hasGenericDisplayName: Bool {
+            let normalized = displayName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            return normalized == "vamp assistant" || normalized == "vamp assistant mac"
+        }
+
+        var connectionKind: ConnectionKind {
+            guard let host = URLComponents(string: address)?.host?.lowercased() else {
+                return .privateNetwork
+            }
+            if host.hasSuffix(".ts.net") { return .tailscale }
+
+            let octets = host.split(separator: ".").compactMap { Int($0) }
+            if octets.count == 4, octets.allSatisfy({ (0...255).contains($0) }) {
+                if octets[0] == 100, (64...127).contains(octets[1]) { return .tailscale }
+                if octets[0] == 10
+                    || (octets[0] == 172 && (16...31).contains(octets[1]))
+                    || (octets[0] == 192 && octets[1] == 168)
+                    || octets[0] == 127 {
+                    return .localNetwork
+                }
+            }
+            if host == "localhost" || host.hasSuffix(".local") { return .localNetwork }
+            return .privateNetwork
+        }
     }
 
     struct Session {

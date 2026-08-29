@@ -35,13 +35,17 @@ struct AppStreamBrowserView: View {
     var body: some View {
         GeometryReader { proxy in
             Group {
-                switch vm.status {
-                case .streaming(_, let name):
-                    streamSurface(name: name)
-                case .launching(let name):
-                    launching(name: name)
-                default:
-                    browser
+                if hostIsLocked {
+                    lockedState
+                } else {
+                    switch vm.status {
+                    case .streaming(_, let name):
+                        streamSurface(name: name)
+                    case .launching(let name):
+                        launching(name: name)
+                    default:
+                        browser
+                    }
                 }
             }
             .onAppear { vm.updateClientViewport(size: proxy.size) }
@@ -52,9 +56,14 @@ struct AppStreamBrowserView: View {
                 sc?.requestKeyframeRefresh(reason: "app stream decode")
             }
             vm.start()
-            vm.requestApplicationList()
+            if hostIsLocked {
+                vm.pauseForHostLock()
+            } else {
+                vm.requestApplicationList()
+            }
         }
         .onChangeCompat(of: vm.status) { status in
+            guard !hostIsLocked else { return }
             switch status {
             case .streaming:
                 resetViewportZoom()
@@ -66,6 +75,16 @@ struct AppStreamBrowserView: View {
                 rendererVM.stopReceiving()
             }
         }
+        .onChangeCompat(of: environment.sessionCoordinator.hostLockState) { state in
+            if state == .lockedOrLoginWindow {
+                rendererVM.stopReceiving()
+                input.stop()
+                vm.pauseForHostLock()
+            } else {
+                vm.resumeAfterHostUnlock()
+                if case .streaming = vm.status { rendererVM.startReceiving() }
+            }
+        }
         .onDisappear {
             rendererVM.stopReceiving()
             input.stop()
@@ -74,8 +93,34 @@ struct AppStreamBrowserView: View {
     }
 
     private var macName: String { environment.sessionCoordinator.connectedHostName ?? "My Mac" }
+    private var hostIsLocked: Bool {
+        environment.sessionCoordinator.hostLockState == .lockedOrLoginWindow
+    }
     private var running: [RemoteApplication] { vm.applications.filter { $0.isRunning } }
     private var installed: [RemoteApplication] { vm.applications.filter { !$0.isRunning } }
+
+    private var lockedState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 42, weight: .light))
+                .foregroundStyle(PR.accent)
+            Text("Mac is locked")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(PR.fg)
+            Text("The connection is still available, but macOS blocks app listing and launching while locked. Unlock the Mac locally; Vamp Stream will retry automatically.")
+                .font(.subheadline)
+                .foregroundStyle(PR.fg2)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 30)
+            Button("Check connection") {
+                environment.sessionCoordinator.sendConnectionProbe()
+            }
+            .buttonStyle(.bordered)
+            Button("Disconnect", action: onClose)
+                .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 
     // MARK: - Browser
 
@@ -241,6 +286,10 @@ struct AppStreamBrowserView: View {
 
     private func streamSurface(name: String) -> some View {
         GeometryReader { proxy in
+            let streamSize = AppStreamApplicationProfile.visibleStreamSize(
+                container: proxy.size,
+                keyboardHeight: keyboardOverlayBottomPad,
+                isTerminal: isStreamingTerminal && keyboardActive)
             ZStack(alignment: .top) {
                 Color.black
 
@@ -255,7 +304,8 @@ struct AppStreamBrowserView: View {
                     )
                     .scaleEffect(viewportZoom, anchor: .center)
                     .offset(viewportOffset)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(width: streamSize.width, height: streamSize.height)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
                     // Direct-touch control: uses the same gesture semantics and ordered input
                     // pipeline as Vamp Control. Coordinates map through the streamed window's
@@ -263,7 +313,7 @@ struct AppStreamBrowserView: View {
                     AppStreamGestureView(
                         viewportZoom: viewportZoom,
                         viewportOffset: viewportOffset,
-                        viewSize: proxy.size,
+                        viewSize: streamSize,
                         onTap: { input.tap(at: DesktopPoint(x: $0.x, y: $0.y)) },
                         onDoubleTap: { input.doubleTap(at: DesktopPoint(x: $0.x, y: $0.y)) },
                         onRightClick: { input.rightClick(at: DesktopPoint(x: $0.x, y: $0.y)) },
@@ -276,11 +326,11 @@ struct AppStreamBrowserView: View {
                                 CGSize(width: viewportOffset.width + delta.width,
                                        height: viewportOffset.height + delta.height),
                                 zoom: viewportZoom,
-                                in: proxy.size
+                                in: streamSize
                             )
                         },
                         onPinchChanged: { scale, focalPoint in
-                            updateViewportZoom(scale: scale, focalPoint: focalPoint, in: proxy.size)
+                            updateViewportZoom(scale: scale, focalPoint: focalPoint, in: streamSize)
                         },
                         onPinchEnded: {
                             if viewportZoom < 1.15 {
@@ -292,6 +342,8 @@ struct AppStreamBrowserView: View {
                         onLongPress: { input.toggleDragLock(at: DesktopPoint(x: $0.x, y: $0.y)) },
                         onHoverDelta: { dx, dy in input.relativePointerMove(deltaX: dx, deltaY: dy) }
                     )
+                    .frame(width: streamSize.width, height: streamSize.height)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .allowsHitTesting(!keyboardActive)
                 } else {
                     VStack(spacing: 12) {
@@ -311,6 +363,7 @@ struct AppStreamBrowserView: View {
             .overlay(alignment: .bottom) {
                 if keyboardActive {
                     AppStreamKeyboardOverlayView(
+                        mode: isStreamingTerminal ? .terminal : .standard,
                         onText: { input.sendText($0) },
                         onKey: { keyCode, modifiers in input.pressKey(keyCode, modifiers: modifiers) },
                         onDismiss: { keyboardActive = false }
@@ -319,13 +372,26 @@ struct AppStreamBrowserView: View {
                     .padding(.bottom, keyboardOverlayBottomPad)
                 }
             }
-            .onAppear { configureInteraction(viewSize: proxy.size) }
+            .onAppear {
+                configureInteraction(viewSize: streamSize)
+                vm.updateClientViewport(size: streamSize)
+            }
             .onChangeCompat(of: proxy.size) { newSize in
-                configureInteraction(viewSize: newSize)
+                let size = AppStreamApplicationProfile.visibleStreamSize(
+                    container: newSize,
+                    keyboardHeight: keyboardOverlayBottomPad,
+                    isTerminal: isStreamingTerminal && keyboardActive)
+                configureInteraction(viewSize: size)
+                vm.updateClientViewport(size: size)
                 resetViewportZoom()
             }
             .onChangeCompat(of: vm.streamedWindow) { _ in
-                configureInteraction(viewSize: proxy.size)
+                configureInteraction(viewSize: streamSize)
+                resetViewportZoom()
+            }
+            .onChangeCompat(of: keyboardOverlayBottomPad) { _ in
+                configureInteraction(viewSize: streamSize)
+                vm.updateClientViewport(size: streamSize)
                 resetViewportZoom()
             }
 #if canImport(UIKit) && !os(macOS)
@@ -380,6 +446,7 @@ struct AppStreamBrowserView: View {
                 .accessibilityValue("Currently zoomed to \(Int(viewportZoom * 100)) percent")
             }
             Button {
+                if !keyboardActive, isStreamingTerminal { input.focusTerminal() }
                 keyboardActive.toggle()
             } label: {
                 Image(systemName: keyboardActive ? "keyboard.chevron.compact.down" : "keyboard")
@@ -393,6 +460,13 @@ struct AppStreamBrowserView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
+    }
+
+    private var isStreamingTerminal: Bool {
+        guard let application = vm.streamedApplication else { return false }
+        return AppStreamApplicationProfile.isTerminal(
+            bundleIdentifier: application.bundleIdentifier,
+            name: application.name)
     }
 
     private func configureInteraction(viewSize: CGSize) {

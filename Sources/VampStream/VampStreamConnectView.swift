@@ -233,6 +233,19 @@ private struct VampAppStreamSection: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(PR.dim)
                         Spacer(minLength: 8)
+                        if !pairedAssistants.isEmpty {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showOtherHosts = false
+                                }
+                            } label: {
+                                Label("Hide", systemImage: "chevron.up")
+                                    .font(.caption.weight(.semibold))
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(PR.fg)
+                            .accessibilityHint("Hide other Vamp Host Macs")
+                        }
                         Button(action: onScan) {
                             Label("Scan QR", systemImage: "qrcode.viewfinder")
                                 .font(.caption.weight(.semibold))
@@ -336,10 +349,29 @@ private struct VampAssistantMacCard: View {
                     .prGlassSurface(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(assistant.displayName)
-                        .font(.headline)
-                        .foregroundStyle(PR.fg)
-                        .lineLimit(1)
+                    HStack(spacing: 7) {
+                        if assistant.hasGenericDisplayName {
+                            switch assistant.connectionKind {
+                            case .localNetwork:
+                                Text("Local Mac")
+                            case .tailscale:
+                                Text("Tailscale Mac")
+                            case .privateNetwork:
+                                Text("Private Mac")
+                            }
+                        } else {
+                            Text(assistant.displayName)
+                        }
+                        Text("Vamp Assistant")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(PR.dim)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(PR.fg.opacity(0.08), in: Capsule())
+                    }
+                    .font(.headline)
+                    .foregroundStyle(PR.fg)
+                    .lineLimit(1)
                     Text(assistant.address)
                         .font(.caption.monospaced())
                         .foregroundStyle(PR.dim)

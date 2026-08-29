@@ -138,4 +138,40 @@ final class AppStreamingMessageTests: XCTestCase {
         XCTAssertEqual(move.location.x, 110, "x = windowOriginX(100) + localX(10)")
         XCTAssertEqual(move.location.y, 70, "y = windowOriginY(50) + localY(20)")
     }
+
+    func testWindowLocalClickMapsToWindowOriginPlusLocal() {
+        let windowID = "4242"
+        let descriptor = DisplayDescriptor(
+            id: windowID,
+            name: "Xcode",
+            frame: DesktopRect(
+                origin: DesktopPoint(x: 100, y: 50),
+                size: DesktopSize(width: 1440, height: 900)
+            ),
+            pixelSize: DesktopSize(width: 2880, height: 1800),
+            scaleFactor: 2,
+            isPrimary: false
+        )
+        let layout = DisplayLayout(
+            displays: [descriptor],
+            primaryDisplayID: windowID,
+            virtualBounds: descriptor.frame
+        )
+        let command = InputCommand.pointerButton(PointerButtonCommand(
+            button: .left,
+            action: .click,
+            location: DesktopPoint(x: 10, y: 20),
+            displayID: windowID
+        ))
+
+        guard case .success(.pointerButton(let click)) = InputCoordinateTranslator.translateToGlobal(
+            command,
+            layout: layout
+        ) else {
+            return XCTFail("window-local click translation failed")
+        }
+        XCTAssertEqual(click.location?.x, 110)
+        XCTAssertEqual(click.location?.y, 70)
+        XCTAssertEqual(click.action, .click)
+    }
 }

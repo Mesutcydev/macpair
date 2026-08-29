@@ -6,6 +6,30 @@ import SharedProtocol
 @MainActor
 final class AppStreamClientTests: XCTestCase {
 
+    func testTerminalApplicationProfileRecognizesKnownAndNamedTerminals() {
+        XCTAssertTrue(AppStreamApplicationProfile.isTerminal(
+            bundleIdentifier: "com.apple.Terminal", name: "Terminal"))
+        XCTAssertTrue(AppStreamApplicationProfile.isTerminal(
+            bundleIdentifier: nil, name: "Ghostty Nightly"))
+        XCTAssertFalse(AppStreamApplicationProfile.isTerminal(
+            bundleIdentifier: "com.apple.Safari", name: "Safari"))
+    }
+
+    func testTerminalVisibleStreamSizeExcludesKeyboardAndCommandDeck() {
+        let size = AppStreamApplicationProfile.visibleStreamSize(
+            container: CGSize(width: 390, height: 844),
+            keyboardHeight: 330,
+            isTerminal: true)
+        XCTAssertEqual(size.width, 390)
+        XCTAssertEqual(size.height, 372)
+        XCTAssertEqual(
+            AppStreamApplicationProfile.visibleStreamSize(
+                container: CGSize(width: 390, height: 844),
+                keyboardHeight: 330,
+                isTerminal: false),
+            CGSize(width: 390, height: 844))
+    }
+
     private func result(_ status: DisplaySwitchStatus, target: StreamTarget = .application("com.apple.Terminal"), reason: String? = nil) -> StreamTargetSwitchResultMessage {
         StreamTargetSwitchResultMessage(
             sessionID: UUID(),

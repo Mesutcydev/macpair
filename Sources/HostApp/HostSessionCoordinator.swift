@@ -2138,6 +2138,9 @@ extension HostSessionCoordinator {
 
     private func switchToApplication(bundleID: String, launchIfNeeded: Bool, request: StreamTargetSwitchRequestMessage, startTime: Date) async {
         let existing = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first
+        let previousWindowIDs = existing.map {
+            applicationRegistry.streamableWindowIDs(forPID: $0.processIdentifier)
+        } ?? []
         if existing == nil && !launchIfNeeded {
             sendTargetResult(request: request, resolved: request.target, status: .failed,
                              reason: "\(bundleID) is not running.", descriptor: nil, startTime: startTime)
@@ -2165,11 +2168,28 @@ extension HostSessionCoordinator {
             return
         }
 
-        // A freshly launched app does not have its window immediately — wait, bounded.
-        guard let window = await resolveWindowWithRetry(pid: runningApp.processIdentifier,
-                                                        deadline: Date().addingTimeInterval(4.0)) else {
+        // Some apps activate without presenting a window. Finder may expose only the desktop,
+        // Messages may have every window closed, and document apps can launch empty. Allow normal
+        // launch first, then restore an AX window or invoke the standard New command and retry.
+        // A running app with an existing content window should open immediately. Only spend the
+        // launch grace period polling when this action actually started a new process.
+        var window = applicationRegistry.streamableWindow(forPID: runningApp.processIdentifier)
+        if window == nil, existing == nil {
+            window = await resolveWindowWithRetry(
+                pid: runningApp.processIdentifier,
+                excluding: previousWindowIDs,
+                deadline: Date().addingTimeInterval(2.5))
+        }
+        if window == nil {
+            Self.restoreOrCreateWindow(for: runningApp, bundleID: bundleID)
+            window = await resolveWindowWithRetry(
+                pid: runningApp.processIdentifier,
+                excluding: previousWindowIDs,
+                deadline: Date().addingTimeInterval(3.0))
+        }
+        guard let window else {
             sendTargetResult(request: request, resolved: request.target, status: .failed,
-                             reason: "\(runningApp.localizedName ?? bundleID) has no streamable window yet.",
+                             reason: "\(runningApp.localizedName ?? bundleID) did not create a streamable window. Open a window on the Mac and try again.",
                              descriptor: nil, startTime: startTime)
             return
         }
@@ -2183,12 +2203,53 @@ extension HostSessionCoordinator {
     }
 
     /// Bounded poll for an app's streamable window after launch/activate. Never infinite.
-    private func resolveWindowWithRetry(pid: pid_t, deadline: Date) async -> WindowInfo? {
+    private func resolveWindowWithRetry(
+        pid: pid_t,
+        excluding previousWindowIDs: Set<CGWindowID>,
+        deadline: Date
+    ) async -> WindowInfo? {
         while Date() < deadline {
-            if let window = applicationRegistry.streamableWindow(forPID: pid) { return window }
+            if let window = applicationRegistry.newlyCreatedStreamableWindow(
+                forPID: pid,
+                excluding: previousWindowIDs
+            ) { return window }
             try? await Task.sleep(nanoseconds: 150_000_000)
         }
-        return applicationRegistry.streamableWindow(forPID: pid)
+        return applicationRegistry.streamableWindow(forPID: pid, excluding: previousWindowIDs)
+    }
+
+    /// Restore a minimized focused window when possible; otherwise request the app's standard
+    /// New Window/New Document action. Key events are posted only to the selected process.
+    private static func restoreOrCreateWindow(
+        for application: NSRunningApplication,
+        bundleID: String
+    ) {
+        application.activate(options: [.activateAllWindows])
+
+        // Finder is always running and its desktop is not a streamable normal window. Opening
+        // the user's home folder is the supported way to make Finder present a real window;
+        // relying on activation alone leaves the app stream waiting forever.
+        if bundleID == "com.apple.finder" {
+            NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser)
+            return
+        }
+
+        let axApp = AXUIElementCreateApplication(application.processIdentifier)
+        var windowsRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &windowsRef) == .success,
+           let windows = windowsRef as? [AXUIElement], let window = windows.first {
+            AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+            AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+            return
+        }
+
+        guard let source = CGEventSource(stateID: .hidSystemState),
+              let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 45, keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 45, keyDown: false) else { return }
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
+        keyDown.post(tap: .cghidEventTap)
+        keyUp.post(tap: .cghidEventTap)
     }
 
     // MARK: Capture
@@ -2414,8 +2475,10 @@ extension HostSessionCoordinator {
         ))
     }
 
-    /// Resize the app's focused window to the given aspect (keep width, height = width / aspect),
-    /// via the Accessibility API (already-granted). Best effort — no-op if AX can't reach the window.
+    /// Resize the app's focused window to the given aspect without growing it beyond its current
+    /// bounds. Tall phone viewports must narrow a Mac window instead of asking macOS for a window
+    /// taller than the display; macOS clamps that height and the resulting wide stream leaves large
+    /// letterbox bands on the phone. Best effort — no-op if AX can't reach the window.
     private static func resizeWindow(pid: pid_t, toAspect aspect: Double) {
         let axApp = AXUIElementCreateApplication(pid)
         var focusedRef: CFTypeRef?
@@ -2429,8 +2492,14 @@ extension HostSessionCoordinator {
            let sizeRef, CFGetTypeID(sizeRef) == AXValueGetTypeID() {
             AXValueGetValue(sizeRef as! AXValue, .cgSize, &currentSize)
         }
-        let width = max(currentSize.width, 320)
-        var newSize = CGSize(width: width, height: (width / CGFloat(aspect)).rounded())
+        // Match the client instead of moving only halfway toward it. The halfway interpolation
+        // left wide apps using roughly the top half of a portrait phone (most visibly Bell Link).
+        // Shrinking one dimension avoids asking macOS for an off-screen size; apps with minimum
+        // window constraints remain best-effort and their actual post-resize bounds are reported.
+        guard var newSize = HostApplicationRegistry.aspectMatchedSize(
+            current: currentSize,
+            requestedAspect: aspect
+        ) else { return }
         if let value = AXValueCreate(.cgSize, &newSize) {
             AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, value)
         }

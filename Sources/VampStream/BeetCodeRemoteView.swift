@@ -12,6 +12,7 @@ import UIKit
 /// The separate Assistant App Stream destination supplies a window ID and an app-picker action;
 /// the picker itself is never embedded into the original remote-control screen.
 struct BeetCodeRemoteView: View {
+    @Environment(\.scenePhase) private var scenePhase
     private enum StreamResolution: String, CaseIterable, Identifiable {
         case p480 = "480p"
         case p720 = "720p"
@@ -25,10 +26,12 @@ struct BeetCodeRemoteView: View {
     let session: BeetCodeRemoteSessionViewModel.Session
     let windowID: UInt32?
     let streamTitle: String?
+    let isTerminalApplication: Bool
     let streamGeometryRevision: String
     let onClose: () -> Void
     let onRefresh: () async -> String?
     let onChooseApplication: (() -> Void)?
+    let onViewportAspectChange: ((Double) -> Void)?
 
     @StateObject private var renderer: BeetCodeVideoRendererViewModel
     @StateObject private var input: BeetCodeRemoteInputController
@@ -36,33 +39,35 @@ struct BeetCodeRemoteView: View {
     @State private var keyboardOverlayBottomPad: CGFloat = 0
     @State private var viewportZoom: CGFloat = 1
     @State private var viewportOffset: CGSize = .zero
+    @State private var viewportSize: CGSize = .zero
     @State private var isRefreshing = false
     @State private var refreshError: String?
     @State private var selectedDisplayID: UInt32?
     @State private var controlsHidden = false
     @StateObject private var annotationStore = AnnotationOverlayStore()
     @AppStorage("vampstream.assistant.resolution") private var resolution = StreamResolution.p1080.rawValue
-    // Fit is a session property, not a global preference. Persisting Fill made
-    // every later portrait connection reopen with the landscape Mac cropped
-    // to its center, which looked like half the display had disappeared.
     @State private var fillScreen = false
 
     init(
         session: BeetCodeRemoteSessionViewModel.Session,
         windowID: UInt32? = nil,
         streamTitle: String? = nil,
+        isTerminalApplication: Bool = false,
         streamGeometryRevision: String = "",
         onClose: @escaping () -> Void,
         onRefresh: @escaping () async -> String?,
-        onChooseApplication: (() -> Void)? = nil
+        onChooseApplication: (() -> Void)? = nil,
+        onViewportAspectChange: ((Double) -> Void)? = nil
     ) {
         self.session = session
         self.windowID = windowID
         self.streamTitle = streamTitle
+        self.isTerminalApplication = isTerminalApplication
         self.streamGeometryRevision = streamGeometryRevision
         self.onClose = onClose
         self.onRefresh = onRefresh
         self.onChooseApplication = onChooseApplication
+        self.onViewportAspectChange = onViewportAspectChange
         _renderer = StateObject(wrappedValue: BeetCodeVideoRendererViewModel())
         _input = StateObject(wrappedValue: BeetCodeRemoteInputController(client: session.client))
     }
@@ -77,12 +82,24 @@ struct BeetCodeRemoteView: View {
         }
         .background(Color.black.ignoresSafeArea())
         .task(id: streamTaskID) {
-            guard session.status.ready else { return }
+            guard session.status.ready, scenePhase == .active else { return }
             renderer.start(
                 client: session.client,
                 resolution: resolution,
                 displayID: windowID == nil ? selectedDisplayID : nil,
                 windowID: windowID)
+        }
+        .onChangeCompat(of: scenePhase) { phase in
+            if phase == .active, session.status.ready {
+                renderer.start(
+                    client: session.client,
+                    resolution: resolution,
+                    displayID: windowID == nil ? selectedDisplayID : nil,
+                    windowID: windowID)
+            } else {
+                renderer.stop()
+                input.stop()
+            }
         }
         .onDisappear {
             renderer.stop()
@@ -154,6 +171,10 @@ struct BeetCodeRemoteView: View {
 
     private var streamSurface: some View {
         GeometryReader { proxy in
+            let streamSize = AppStreamApplicationProfile.visibleStreamSize(
+                container: proxy.size,
+                keyboardHeight: keyboardOverlayBottomPad,
+                isTerminal: isTerminalApplication && keyboardActive)
             ZStack(alignment: .top) {
                 Color.black
 
@@ -163,12 +184,13 @@ struct BeetCodeRemoteView: View {
                         displayMode: fillScreen ? .fillScreen : .fitDisplay)
                         .scaleEffect(viewportZoom, anchor: .center)
                         .offset(viewportOffset)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(width: streamSize.width, height: streamSize.height)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
                     AppStreamGestureView(
                         viewportZoom: viewportZoom,
                         viewportOffset: viewportOffset,
-                        viewSize: proxy.size,
+                        viewSize: streamSize,
                         onTap: { input.tap(at: $0) },
                         onDoubleTap: { input.doubleTap(at: $0) },
                         onRightClick: { input.rightClick(at: $0) },
@@ -181,14 +203,14 @@ struct BeetCodeRemoteView: View {
                                 CGSize(width: viewportOffset.width + delta.width,
                                        height: viewportOffset.height + delta.height),
                                 zoom: viewportZoom,
-                                in: proxy.size
+                                in: streamSize
                             )
                         },
                         onPinchChanged: { scale, focalPoint in
-                            updateViewportZoom(scale: scale, focalPoint: focalPoint, in: proxy.size)
+                            updateViewportZoom(scale: scale, focalPoint: focalPoint, in: streamSize)
                         },
                         onPinchEnded: {
-                            if viewportZoom < 1.15 {
+                            if viewportZoom < defaultViewportZoom * 1.15 {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
                                     resetViewportZoom()
                                 }
@@ -197,6 +219,8 @@ struct BeetCodeRemoteView: View {
                         onLongPress: { input.toggleDragLock(at: $0) },
                         onHoverDelta: { input.relativePointerMove(deltaX: $0, deltaY: $1) }
                     )
+                    .frame(width: streamSize.width, height: streamSize.height)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .allowsHitTesting(!keyboardActive && !annotationStore.isVisible)
 
                     if annotationStore.isVisible {
@@ -260,6 +284,7 @@ struct BeetCodeRemoteView: View {
             .overlay(alignment: .bottom) {
                 if keyboardActive {
                     AppStreamKeyboardOverlayView(
+                        mode: isTerminalApplication ? .terminal : .standard,
                         onText: { input.sendText($0) },
                         onKey: { keyCode, modifiers in
                             input.sendKey(keyName(for: keyCode), modifiers: modifierNames(for: modifiers))
@@ -270,13 +295,21 @@ struct BeetCodeRemoteView: View {
                     .padding(.bottom, keyboardOverlayBottomPad)
                 }
             }
-            .onAppear { configureInput(viewSize: proxy.size) }
+            .onAppear { updateStreamViewport(streamSize) }
             .onChangeCompat(of: proxy.size) {
-                configureInput(viewSize: $0)
+                let size = AppStreamApplicationProfile.visibleStreamSize(
+                    container: $0,
+                    keyboardHeight: keyboardOverlayBottomPad,
+                    isTerminal: isTerminalApplication && keyboardActive)
+                updateStreamViewport(size)
                 resetViewportZoom()
             }
             .onChangeCompat(of: renderer.geometry) { _ in
-                configureInput(viewSize: proxy.size)
+                configureInput(viewSize: streamSize)
+                resetViewportZoom()
+            }
+            .onChangeCompat(of: keyboardOverlayBottomPad) { _ in
+                updateStreamViewport(streamSize)
                 resetViewportZoom()
             }
 #if canImport(UIKit) && !os(macOS)
@@ -320,7 +353,10 @@ struct BeetCodeRemoteView: View {
 
             Spacer()
 
-            Button { keyboardActive.toggle() } label: {
+            Button {
+                if !keyboardActive, isTerminalApplication { input.focusTerminal() }
+                keyboardActive.toggle()
+            } label: {
                 Image(systemName: keyboardActive ? "keyboard.chevron.compact.down" : "keyboard")
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 13)
@@ -331,13 +367,13 @@ struct BeetCodeRemoteView: View {
             .accessibilityLabel(keyboardActive ? "Hide keyboard" : "Show keyboard")
             .accessibilityHint("Type into the Mac through the on-screen keyboard")
 
-            if viewportZoom > 1.05 {
+            if viewportZoom > defaultViewportZoom + 0.05 || viewportOffset != .zero {
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
                         resetViewportZoom()
                     }
                 } label: {
-                    Text("1×")
+                    Image(systemName: "arrow.counterclockwise")
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 13)
                         .padding(.vertical, 8)
@@ -434,19 +470,29 @@ struct BeetCodeRemoteView: View {
                 label: "Picture in Picture is not available in this Assistant control session")
 
             Menu {
-                Button {
-                    fillScreen = false
-                    input.setFillScreen(false)
-                    resetViewportZoom()
-                } label: {
-                    Label("Fit Display", systemImage: fillScreen ? "rectangle.arrowtriangle.2.inward" : "checkmark")
-                }
-                Button {
-                    fillScreen = true
-                    input.setFillScreen(true)
-                    resetViewportZoom()
-                } label: {
-                    Label("Fill Screen", systemImage: fillScreen ? "checkmark" : "rectangle.arrowtriangle.2.outward")
+                if windowID != nil {
+                    Button {
+                        fillScreen = false
+                        input.setFillScreen(false)
+                        resetViewportZoom()
+                    } label: {
+                        Label("Adaptive Fit", systemImage: "checkmark")
+                    }
+                } else {
+                    Button {
+                        fillScreen = false
+                        input.setFillScreen(false)
+                        resetViewportZoom()
+                    } label: {
+                        Label("Fit Display", systemImage: fillScreen ? "rectangle.arrowtriangle.2.inward" : "checkmark")
+                    }
+                    Button {
+                        fillScreen = true
+                        input.setFillScreen(true)
+                        resetViewportZoom()
+                    } label: {
+                        Label("Fill Screen", systemImage: fillScreen ? "checkmark" : "rectangle.arrowtriangle.2.outward")
+                    }
                 }
             } label: {
                 classicIconLabel(
@@ -457,7 +503,7 @@ struct BeetCodeRemoteView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Remote display sizing")
-            .accessibilityValue(fillScreen ? "Fill Screen" : "Fit Display")
+            .accessibilityValue(windowID != nil ? "Adaptive Fit" : (fillScreen ? "Fill Screen" : "Fit Display"))
 
             classicUnavailableButton(
                 systemName: "chart.bar",
@@ -531,9 +577,16 @@ struct BeetCodeRemoteView: View {
     }
 
     private func configureInput(viewSize: CGSize) {
+        viewportSize = viewSize
         input.setGeometry(renderer.geometry)
         input.setViewSize(viewSize)
         input.setFillScreen(fillScreen)
+    }
+
+    private func updateStreamViewport(_ size: CGSize) {
+        configureInput(viewSize: size)
+        guard size.width > 0, size.height > 0 else { return }
+        onViewportAspectChange?(Double(size.width / size.height))
     }
 
     private func keyName(for keyCode: UInt16) -> String {
@@ -546,6 +599,10 @@ struct BeetCodeRemoteView: View {
         case 124: return "ArrowRight"
         case 125: return "ArrowDown"
         case 126: return "ArrowUp"
+        case 115: return "Home"
+        case 119: return "End"
+        case 116: return "PageUp"
+        case 121: return "PageDown"
         case 122: return "F1"
         case 120: return "F2"
         case 99: return "F3"
@@ -566,7 +623,7 @@ struct BeetCodeRemoteView: View {
 
     private func updateViewportZoom(scale: CGFloat, focalPoint: CGPoint, in viewSize: CGSize) {
         let oldZoom = viewportZoom
-        let newZoom = min(max(viewportZoom * scale, 1), 5)
+        let newZoom = min(max(viewportZoom * scale, defaultViewportZoom), 5)
         viewportZoom = newZoom
         guard newZoom > 1 else {
             viewportOffset = .zero
@@ -583,8 +640,14 @@ struct BeetCodeRemoteView: View {
     }
 
     private func resetViewportZoom() {
-        viewportZoom = 1
+        viewportZoom = defaultViewportZoom
         viewportOffset = .zero
+    }
+
+    private var defaultViewportZoom: CGFloat {
+        // App windows are reshaped on the Mac to an adaptive aspect. Keep presentation at
+        // aspect-fit so every control remains visible and pointer mapping stays exact.
+        1
     }
 
     private func clampedViewportOffset(_ proposed: CGSize, zoom: CGFloat, in viewSize: CGSize) -> CGSize {
@@ -656,15 +719,15 @@ final class BeetCodeRemoteInputController: ObservableObject {
     func setFillScreen(_ enabled: Bool) { fillScreen = enabled }
 
     func clickCurrentPointer() {
-        route(.click(x: nil, y: nil, button: "left", count: 1))
+        routeClick(x: nil, y: nil, button: "left", count: 1)
     }
 
     func doubleClickCurrentPointer() {
-        route(.click(x: nil, y: nil, button: "left", count: 2))
+        routeClick(x: nil, y: nil, button: "left", count: 2)
     }
 
     func rightClickCurrentPointer() {
-        route(.click(x: nil, y: nil, button: "right", count: 1))
+        routeClick(x: nil, y: nil, button: "right", count: 1)
     }
 
     func toggleDragLockCurrentPointer() {
@@ -681,22 +744,22 @@ final class BeetCodeRemoteInputController: ObservableObject {
 
     func tap(at point: CGPoint) {
         guard let mapped = map(point, clamp: false) else { return }
-        route(.click(x: mapped.x, y: mapped.y, button: "left", count: 1))
+        routeClick(x: mapped.x, y: mapped.y, button: "left", count: 1)
     }
 
     func doubleTap(at point: CGPoint) {
         guard let mapped = map(point, clamp: false) else { return }
-        route(.click(x: mapped.x, y: mapped.y, button: "left", count: 2))
+        routeClick(x: mapped.x, y: mapped.y, button: "left", count: 2)
     }
 
     func rightClick(at point: CGPoint) {
         guard let mapped = map(point, clamp: false) else { return }
-        route(.click(x: mapped.x, y: mapped.y, button: "right", count: 1))
+        routeClick(x: mapped.x, y: mapped.y, button: "right", count: 1)
     }
 
     func middleClick(at point: CGPoint) {
         guard let mapped = map(point, clamp: false) else { return }
-        route(.click(x: mapped.x, y: mapped.y, button: "middle", count: 1))
+        routeClick(x: mapped.x, y: mapped.y, button: "middle", count: 1)
     }
 
     func pointerMoved(at point: CGPoint) {
@@ -739,6 +802,13 @@ final class BeetCodeRemoteInputController: ObservableObject {
 
     func sendKey(_ key: String, modifiers: [String] = []) {
         route(.key(key, modifiers: modifiers))
+    }
+
+    func focusTerminal() {
+        guard let geometry, let rect = contentRect(for: geometry) else { return }
+        let point = CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.82)
+        guard let mapped = map(point, clamp: false) else { return }
+        routeClick(x: mapped.x, y: mapped.y, button: "left", count: 1)
     }
 
     func stop() {
@@ -811,6 +881,21 @@ final class BeetCodeRemoteInputController: ObservableObject {
         }
     }
 
+    private func routeClick(
+        x: Double?,
+        y: Double?,
+        button: String,
+        count: Int
+    ) {
+        flush()
+        enqueue(BeetCodeInputCommand.clickSequence(
+            x: x,
+            y: y,
+            button: button,
+            count: count
+        ))
+    }
+
     private func flush() {
         flushMove()
         enqueueScrollIfNeeded()
@@ -845,12 +930,17 @@ final class BeetCodeRemoteInputController: ObservableObject {
     }
 
     private func enqueue(_ command: BeetCodeInputCommand) {
+        enqueue([command])
+    }
+
+    private func enqueue(_ commands: [BeetCodeInputCommand]) {
+        guard !commands.isEmpty else { return }
         let previous = sendTail
         sendTail = Task { [client, weak self] in
             _ = await previous?.value
             guard !Task.isCancelled else { return }
             do {
-                _ = try await client.sendControlBatch([command])
+                _ = try await client.sendControlBatch(commands)
                 self?.lastError = nil
             } catch {
                 guard !Task.isCancelled else { return }

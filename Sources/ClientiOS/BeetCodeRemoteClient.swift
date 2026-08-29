@@ -224,6 +224,24 @@ enum BeetCodeInputCommand: Equatable, Sendable {
         }
     }
 
+    /// Use the primitive button actions for taps. They are also used by drag-lock and are
+    /// supported by older Assistant hosts whose synthetic `click` action could acknowledge a
+    /// request without producing a usable mouse-down/up pair.
+    static func clickSequence(
+        x: Double?,
+        y: Double?,
+        button: String,
+        count: Int
+    ) -> [Self] {
+        var commands: [Self] = []
+        if let x, let y { commands.append(.move(x: x, y: y)) }
+        for _ in 0..<max(count, 1) {
+            commands.append(.down(button: button))
+            commands.append(.up(button: button))
+        }
+        return commands
+    }
+
     func wireBody() -> [String: Any] {
         switch self {
         case let .click(x, y, button, count):
@@ -776,40 +794,57 @@ final class BeetCodeVideoRendererViewModel: ObservableObject {
         stop()
         lastError = nil
         acceptingFrames = true
-        let stream = client.screenStream(
-            resolution: resolution,
-            displayID: displayID,
-            windowID: windowID)
         streamTask = Task { [weak self] in
             guard let self else { return }
-            do {
-                for try await frame in stream {
-                    guard !Task.isCancelled else { return }
-                    self.geometry = frame.geometry
-                    self.isReceiving = true
-                    switch frame.payload {
-                    case let .h264(data, keyframe, parameterSets):
-                        self.sequence &+= 1
-                        self.decoder.decodeAsync(VideoFrameData(
-                            codec: .h264,
-                            data: data,
-                            isKeyframe: keyframe,
-                            presentationTimestamp: ProcessInfo.processInfo.systemUptime,
-                            width: frame.geometry.imageWidth,
-                            height: frame.geometry.imageHeight,
-                            sequenceNumber: self.sequence,
-                            parameterSets: parameterSets))
-                    case let .jpeg(data):
-                        if let pixelBuffer = Self.pixelBuffer(from: data) {
-                            self.latestPixelBuffer = pixelBuffer
+            var retry = 0
+            while !Task.isCancelled {
+                var receivedFrame = false
+                do {
+                    let stream = client.screenStream(
+                        resolution: resolution,
+                        displayID: displayID,
+                        windowID: windowID)
+                    for try await frame in stream {
+                        guard !Task.isCancelled else { return }
+                        receivedFrame = true
+                        retry = 0
+                        self.lastError = nil
+                        self.geometry = frame.geometry
+                        self.isReceiving = true
+                        switch frame.payload {
+                        case let .h264(data, keyframe, parameterSets):
+                            self.sequence &+= 1
+                            self.decoder.decodeAsync(VideoFrameData(
+                                codec: .h264,
+                                data: data,
+                                isKeyframe: keyframe,
+                                presentationTimestamp: ProcessInfo.processInfo.systemUptime,
+                                width: frame.geometry.imageWidth,
+                                height: frame.geometry.imageHeight,
+                                sequenceNumber: self.sequence,
+                                parameterSets: parameterSets))
+                        case let .jpeg(data):
+                            if let pixelBuffer = Self.pixelBuffer(from: data) {
+                                self.latestPixelBuffer = pixelBuffer
+                            }
                         }
                     }
+                    guard !Task.isCancelled else { return }
+                    throw BeetCodeRemoteError.controlUnavailable("Vamp Assistant ended the stream.")
+                } catch is CancellationError {
+                    return
+                } catch let error as URLError where error.code == .cancelled {
+                    return
+                } catch {
+                    self.isReceiving = false
+                    self.lastError = receivedFrame
+                        ? "Connection interrupted. Reconnecting…"
+                        : "Waiting for Vamp Assistant… \(error.localizedDescription)"
+                    self.decoder.stopDecoding()
+                    retry = min(retry + 1, 5)
+                    let delay = UInt64(min(pow(2.0, Double(retry - 1)), 8) * 1_000_000_000)
+                    try? await Task.sleep(nanoseconds: delay)
                 }
-            } catch is CancellationError {
-                return
-            } catch {
-                self.lastError = error.localizedDescription
-                self.isReceiving = false
             }
         }
     }

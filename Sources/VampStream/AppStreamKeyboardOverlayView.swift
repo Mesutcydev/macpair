@@ -10,6 +10,12 @@ import UIKit
 /// keyboard while the explicit rows cover Mac keys and one-shot modifiers that
 /// cannot be represented reliably by a hidden UITextField.
 struct AppStreamKeyboardOverlayView: View {
+    enum Mode {
+        case standard
+        case terminal
+    }
+
+    var mode: Mode = .standard
     let onText: (String) -> Void
     let onKey: (UInt16, KeyboardModifierFlags) -> Void
     let onDismiss: () -> Void
@@ -18,7 +24,18 @@ struct AppStreamKeyboardOverlayView: View {
     @State private var activeModifiers: KeyboardModifierFlags = []
     @FocusState private var isTextFieldFocused: Bool
 
-    var body: some View {
+    @ViewBuilder var body: some View {
+        if mode == .terminal {
+            TerminalAppStreamKeyboardDeck(
+                onText: onText,
+                onKey: onKey,
+                onDismiss: onDismiss)
+        } else {
+            standardDeck
+        }
+    }
+
+    private var standardDeck: some View {
         VStack(spacing: 10) {
             header
             composer
@@ -291,5 +308,141 @@ struct AppStreamKeyboardOverlayView: View {
         }
 #endif
         refocusTextField()
+    }
+}
+
+/// A compact command deck for streamed terminal apps. Text submission is deliberately a
+/// two-step wire operation (type, then Return), while auxiliary keys remain discrete Mac key
+/// presses so shells, TUIs, editors, and multiplexers receive their native control sequences.
+private struct TerminalAppStreamKeyboardDeck: View {
+    let onText: (String) -> Void
+    let onKey: (UInt16, KeyboardModifierFlags) -> Void
+    let onDismiss: () -> Void
+
+    @State private var command = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Text("terminal")
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(PR.fg)
+                Text("type a command or use aux keys")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(PR.dim)
+                Spacer()
+                Button {
+                    isFocused = false
+                    onDismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .frame(width: 28, height: 28)
+                        .background(PR.bg2, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close terminal controls")
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    auxKey("esc", 53)
+                    auxKey("tab", 48)
+                    auxKey("⌃C", 8, [.control], hint: "Interrupt")
+                    auxKey("⌃L", 37, [.control], hint: "Clear terminal")
+                    auxKey("←", 123)
+                    auxKey("↑", 126)
+                    auxKey("↓", 125)
+                    auxKey("→", 124)
+                    auxKey("home", 115)
+                    auxKey("end", 119)
+                    auxKey("pg↑", 116)
+                    auxKey("pg↓", 121)
+                }
+            }
+
+            HStack(spacing: 7) {
+                Button(action: pasteIntoCommand) {
+                    Image(systemName: "doc.on.clipboard")
+                        .frame(width: 34, height: 38)
+                        .background(PR.bg2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Paste into command")
+
+                TextField("command", text: $command)
+                    .font(.system(size: 15, design: .monospaced))
+                    .focused($isFocused)
+                    .submitLabel(.send)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .onSubmit(submit)
+                    .padding(.horizontal, 11)
+                    .frame(height: 38)
+                    .background(PR.cardHi, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(PR.border))
+
+                Button(action: submit) {
+                    Image(systemName: "return")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(command.isEmpty ? PR.dim : PR.bg)
+                        .frame(width: 42, height: 38)
+                        .background(command.isEmpty ? PR.bg2 : PR.accent,
+                                    in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(command.isEmpty)
+                .accessibilityLabel("Run command")
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(PR.card.opacity(0.97), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(PR.borderHi))
+        .padding(.horizontal, 8)
+        .padding(.bottom, 6)
+        .onAppear { refocus() }
+    }
+
+    private func auxKey(
+        _ title: String,
+        _ keyCode: UInt16,
+        _ modifiers: KeyboardModifierFlags = [],
+        hint: String? = nil
+    ) -> some View {
+        Button {
+            onKey(keyCode, modifiers)
+            refocus()
+        } label: {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(PR.fg)
+                .frame(minWidth: 38)
+                .padding(.vertical, 8)
+                .background(PR.bg2, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(PR.border))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(hint ?? title)
+    }
+
+    private func submit() {
+        guard !command.isEmpty else { return }
+        onText(command)
+        onKey(36, [])
+        command = ""
+        refocus()
+    }
+
+    private func refocus() {
+        DispatchQueue.main.async { isFocused = true }
+    }
+
+    private func pasteIntoCommand() {
+#if canImport(UIKit) && !os(macOS)
+        if let text = UIPasteboard.general.string { command += text }
+#endif
+        refocus()
     }
 }
