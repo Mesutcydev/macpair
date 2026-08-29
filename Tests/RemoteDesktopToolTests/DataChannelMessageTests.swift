@@ -244,17 +244,7 @@ final class DataChannelMessageTests: XCTestCase {
     // MARK: - Message Kind
 
     func testAllMessageKindsHaveRawValues() {
-        let allKinds: [DataChannelMessageKind] = [
-            .controlAuth, .inputCommand, .ping, .pong, .hostStatus, .displayLayout,
-            .displayConfigurationChanged, .displaySwitch, .cursorState, .chatMessage,
-            .fileTransfer, .error, .qualityAdjust, .setActiveDisplays, .requestKeyframe,
-            .unlockPassword, .audioFrame, .clipboardSync, .clipboardRequest,
-            .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
-            .terminalResize, .terminalClose, .workspaceListRequest, .workspaceListResponse,
-            .workspaceDirectoryRequest, .workspaceDirectoryResponse, .taskPlanEvent,
-            .agentPrompt, .providerSemanticEvent
-        ]
-        for kind in allKinds {
+        for kind in DataChannelMessageKind.allCases {
             XCTAssertFalse(kind.rawValue.isEmpty, "\(kind) should have non-empty raw value")
         }
     }
@@ -266,37 +256,29 @@ final class DataChannelMessageTests: XCTestCase {
             .unlockPassword, .clipboardSync, .clipboardRequest,
             .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
             .terminalResize, .terminalClose, .workspaceListRequest, .workspaceListResponse,
-            .workspaceDirectoryRequest, .workspaceDirectoryResponse, .taskPlanEvent,
-            .agentPrompt, .providerSemanticEvent
+            .workspaceDirectoryRequest, .workspaceDirectoryResponse,
+            .workspaceAccessRequest, .workspaceAccessResponse,
+            .taskPlanEvent, .agentPrompt, .providerSemanticEvent,
+            .sessionSyncRequest, .sessionSnapshot, .sessionSyncEvent,
+            .applicationList, .streamTargetSwitch, .ping, .pong
         ]
-        let allKinds: [DataChannelMessageKind] = [
-            .controlAuth, .inputCommand, .ping, .pong, .hostStatus, .displayLayout,
-            .displayConfigurationChanged, .displaySwitch, .cursorState, .chatMessage,
-            .fileTransfer, .error, .qualityAdjust, .setActiveDisplays, .requestKeyframe,
-            .unlockPassword, .audioFrame, .clipboardSync, .clipboardRequest,
-            .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
-            .terminalResize, .terminalClose, .workspaceListRequest, .workspaceListResponse,
-            .workspaceDirectoryRequest, .workspaceDirectoryResponse, .taskPlanEvent,
-            .agentPrompt, .providerSemanticEvent
-        ]
-        for kind in allKinds {
-            XCTAssertEqual(kind.requiresControlChannelAuthentication, authenticated.contains(kind), "Unexpected auth contract for \(kind)")
+        for kind in DataChannelMessageKind.allCases {
+            XCTAssertEqual(
+                kind.requiresControlChannelAuthentication,
+                authenticated.contains(kind),
+                "Unexpected auth contract for \(kind)"
+            )
         }
+        XCTAssertFalse(DataChannelMessageKind.controlAuth.requiresControlChannelAuthentication)
+        XCTAssertFalse(DataChannelMessageKind.hostStatus.requiresControlChannelAuthentication)
+        XCTAssertFalse(DataChannelMessageKind.audioFrame.requiresControlChannelAuthentication)
+        XCTAssertFalse(DataChannelMessageKind.error.requiresControlChannelAuthentication)
     }
 
     func testMessageKindCodable() throws {
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
-        for kind in [
-            DataChannelMessageKind.controlAuth, .inputCommand, .ping, .pong, .hostStatus,
-            .displayLayout, .displayConfigurationChanged, .displaySwitch, .cursorState,
-            .chatMessage, .error, .qualityAdjust, .setActiveDisplays, .requestKeyframe,
-            .unlockPassword, .audioFrame, .clipboardSync, .clipboardRequest,
-            .terminalOpen, .terminalReady, .terminalInput, .terminalOutput,
-            .terminalResize, .terminalClose, .workspaceListRequest, .workspaceListResponse,
-            .workspaceDirectoryRequest, .workspaceDirectoryResponse, .taskPlanEvent,
-            .agentPrompt, .providerSemanticEvent
-        ] {
+        for kind in DataChannelMessageKind.allCases {
             let data = try encoder.encode(kind)
             let decoded = try decoder.decode(DataChannelMessageKind.self, from: data)
             XCTAssertEqual(decoded, kind)

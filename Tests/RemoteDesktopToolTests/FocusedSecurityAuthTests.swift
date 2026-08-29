@@ -318,6 +318,70 @@ final class ControlChannelAuthEnforcementTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(router.commandsRejected, 1)
         router.stopListening()
     }
+
+    func testAuthenticatedPingRepliesWithPong() async throws {
+        let sessionManager = ControlAuthTestSessionManager()
+        let inputService = RecordingInputInjectionService()
+        let eventLogStore = RecordingEventLogStore()
+        let modeProvider = HostSessionModeController(mode: .fullControl)
+        let router = HostInputCommandRouter(
+            inputService: inputService,
+            webRTCSessionManager: sessionManager,
+            eventLogStore: eventLogStore,
+            modeProvider: modeProvider
+        )
+
+        let sessionID = UUID()
+        let token = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
+        router.startListening(sessionID: sessionID, expectedSessionTokenHex: token)
+        try sessionManager.emit(try DataChannelEnvelope.controlAuth(
+            ControlChannelAuthMessage(sessionID: sessionID, sessionToken: token)
+        ))
+
+        let ping = PingMessage()
+        let envelope = try XCTUnwrap(
+            try DataChannelEnvelope.ping(ping).authenticated(using: token, counter: 1)
+        )
+        try sessionManager.emit(envelope)
+        try await Task.sleep(nanoseconds: 120_000_000)
+
+        let sent = sessionManager.snapshotSentMessages
+        XCTAssertEqual(sent.count, 1, "Authenticated ping must receive a pong")
+        XCTAssertEqual(sent.first?.kind, .pong)
+        let pong = try XCTUnwrap(sent.first)
+        XCTAssertEqual(try pong.decodePong().id, ping.id)
+        XCTAssertEqual(router.commandsRejected, 0)
+        router.stopListening()
+    }
+
+    func testUnauthenticatedPingDoesNotReply() async throws {
+        let sessionManager = ControlAuthTestSessionManager()
+        let inputService = RecordingInputInjectionService()
+        let eventLogStore = RecordingEventLogStore()
+        let modeProvider = HostSessionModeController(mode: .fullControl)
+        let router = HostInputCommandRouter(
+            inputService: inputService,
+            webRTCSessionManager: sessionManager,
+            eventLogStore: eventLogStore,
+            modeProvider: modeProvider
+        )
+
+        let sessionID = UUID()
+        let token = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
+        router.startListening(sessionID: sessionID, expectedSessionTokenHex: token)
+        try sessionManager.emit(try DataChannelEnvelope.controlAuth(
+            ControlChannelAuthMessage(sessionID: sessionID, sessionToken: token)
+        ))
+
+        try sessionManager.emit(try DataChannelEnvelope.ping(PingMessage()))
+        try await Task.sleep(nanoseconds: 120_000_000)
+
+        XCTAssertTrue(
+            sessionManager.snapshotSentMessages.isEmpty,
+            "Ping without HMAC must not elicit a pong after the control-auth handshake"
+        )
+        router.stopListening()
+    }
 }
 
 private final class ControlAuthTestSessionManager: WebRTCSessionManaging, @unchecked Sendable {
@@ -331,6 +395,7 @@ private final class ControlAuthTestSessionManager: WebRTCSessionManaging, @unche
     private let lock = NSLock()
     private var dataContinuation: AsyncStream<DataChannelEnvelope>.Continuation?
     private var pendingEnvelopes: [DataChannelEnvelope] = []
+    private var sentEnvelopes: [DataChannelEnvelope] = []
 
     func prepareSession(id: UUID, role: WebRTCSessionRole) async throws {}
     func createOffer(sessionID: UUID, qualityPreset: StreamQualityPreset, displayID: String?) async throws -> SessionOfferMessage {
@@ -343,7 +408,17 @@ private final class ControlAuthTestSessionManager: WebRTCSessionManaging, @unche
     func addRemoteCandidate(_ message: ICECandidateMessage) async throws {}
     func closeSession() async {}
     func sendInputCommand(_ message: InputCommandMessage) async throws {}
-    func sendDataMessage(_ message: DataChannelEnvelope) throws {}
+    var snapshotSentMessages: [DataChannelEnvelope] {
+        lock.lock()
+        defer { lock.unlock() }
+        return sentEnvelopes
+    }
+
+    func sendDataMessage(_ message: DataChannelEnvelope) throws {
+        lock.lock()
+        sentEnvelopes.append(message)
+        lock.unlock()
+    }
     func configureControlChannelAuth(sessionTokenHex: String?) {}
     func receiveDataMessages() -> AsyncStream<DataChannelEnvelope> {
         AsyncStream { continuation in
