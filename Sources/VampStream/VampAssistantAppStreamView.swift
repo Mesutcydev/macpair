@@ -36,8 +36,7 @@ struct VampAssistantAppStreamView: View {
                         streamGeometryRevision: "\(selectedApplication.windowID ?? 0)-\(selectedApplication.width)-\(selectedApplication.height)",
                         onClose: onClose,
                         onRefresh: onRefreshStatus,
-                        onChooseApplication: { self.selectedApplication = nil },
-                        onViewportAspectChange: updateViewportAspect)
+                        onChooseApplication: { self.selectedApplication = nil })
                 } else {
                     VampAssistantApplicationBrowser(
                         macName: session.displayName,
@@ -85,12 +84,6 @@ struct VampAssistantAppStreamView: View {
         viewportAspect = aspect
     }
 
-    private func updateViewportAspect(_ aspect: Double) {
-        guard aspect.isFinite, (0.25...4).contains(aspect),
-              abs(aspect - viewportAspect) > 0.025 else { return }
-        viewportAspect = aspect
-    }
-
     private func loadApplications() async {
         guard !isLoading else { return }
         isLoading = true
@@ -127,48 +120,11 @@ struct VampAssistantAppStreamView: View {
             let launched = try await session.client.launchApplication(
                 bundleIdentifier: bundleIdentifier,
                 clientViewportAspect: viewportAspect)
-            selectedApplication = try await resolvedApplication(
-                launched,
-                bundleIdentifier: bundleIdentifier)
+            selectedApplication = launched
             apply(try await session.client.applications())
         } catch {
-            // Some apps return from their launch endpoint while a welcome panel, document
-            // chooser, or first window is still being created. The apps endpoint sees that
-            // window shortly afterwards, so recover here instead of making the user tap again.
-            if let recovered = await waitForWindow(bundleIdentifier: bundleIdentifier) {
-                selectedApplication = recovered
-                await loadApplications()
-            } else {
-                errorMessage = error.localizedDescription
-            }
+            errorMessage = error.localizedDescription
         }
-    }
-
-    private func resolvedApplication(
-        _ application: BeetCodeRemoteApplication,
-        bundleIdentifier: String
-    ) async throws -> BeetCodeRemoteApplication {
-        if application.windowID != nil { return application }
-        if let recovered = await waitForWindow(bundleIdentifier: bundleIdentifier) {
-            return recovered
-        }
-        return application
-    }
-
-    private func waitForWindow(bundleIdentifier: String) async -> BeetCodeRemoteApplication? {
-        for _ in 0..<16 {
-            guard !Task.isCancelled else { return nil }
-            if let applications = try? await session.client.applications(),
-               let application = applications.first(where: {
-                   $0.bundleIdentifier == bundleIdentifier && $0.windowID != nil
-               }) {
-                return (try? await session.client.resizeApplication(
-                    windowID: application.windowID!,
-                    clientViewportAspect: viewportAspect)) ?? application
-            }
-            try? await Task.sleep(for: .milliseconds(250))
-        }
-        return nil
     }
 
     private func apply(_ applications: [BeetCodeRemoteApplication]) {

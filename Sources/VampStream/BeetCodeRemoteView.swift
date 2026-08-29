@@ -31,7 +31,6 @@ struct BeetCodeRemoteView: View {
     let onClose: () -> Void
     let onRefresh: () async -> String?
     let onChooseApplication: (() -> Void)?
-    let onViewportAspectChange: ((Double) -> Void)?
 
     @StateObject private var renderer: BeetCodeVideoRendererViewModel
     @StateObject private var input: BeetCodeRemoteInputController
@@ -56,8 +55,7 @@ struct BeetCodeRemoteView: View {
         streamGeometryRevision: String = "",
         onClose: @escaping () -> Void,
         onRefresh: @escaping () async -> String?,
-        onChooseApplication: (() -> Void)? = nil,
-        onViewportAspectChange: ((Double) -> Void)? = nil
+        onChooseApplication: (() -> Void)? = nil
     ) {
         self.session = session
         self.windowID = windowID
@@ -67,7 +65,6 @@ struct BeetCodeRemoteView: View {
         self.onClose = onClose
         self.onRefresh = onRefresh
         self.onChooseApplication = onChooseApplication
-        self.onViewportAspectChange = onViewportAspectChange
         _renderer = StateObject(wrappedValue: BeetCodeVideoRendererViewModel())
         _input = StateObject(wrappedValue: BeetCodeRemoteInputController(client: session.client))
     }
@@ -171,10 +168,6 @@ struct BeetCodeRemoteView: View {
 
     private var streamSurface: some View {
         GeometryReader { proxy in
-            let streamSize = AppStreamApplicationProfile.visibleStreamSize(
-                container: proxy.size,
-                keyboardHeight: keyboardOverlayBottomPad,
-                isTerminal: isTerminalApplication && keyboardActive)
             ZStack(alignment: .top) {
                 Color.black
 
@@ -184,13 +177,12 @@ struct BeetCodeRemoteView: View {
                         displayMode: fillScreen ? .fillScreen : .fitDisplay)
                         .scaleEffect(viewportZoom, anchor: .center)
                         .offset(viewportOffset)
-                        .frame(width: streamSize.width, height: streamSize.height)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     AppStreamGestureView(
                         viewportZoom: viewportZoom,
                         viewportOffset: viewportOffset,
-                        viewSize: streamSize,
+                        viewSize: proxy.size,
                         onTap: { input.tap(at: $0) },
                         onDoubleTap: { input.doubleTap(at: $0) },
                         onRightClick: { input.rightClick(at: $0) },
@@ -203,11 +195,11 @@ struct BeetCodeRemoteView: View {
                                 CGSize(width: viewportOffset.width + delta.width,
                                        height: viewportOffset.height + delta.height),
                                 zoom: viewportZoom,
-                                in: streamSize
+                                in: proxy.size
                             )
                         },
                         onPinchChanged: { scale, focalPoint in
-                            updateViewportZoom(scale: scale, focalPoint: focalPoint, in: streamSize)
+                            updateViewportZoom(scale: scale, focalPoint: focalPoint, in: proxy.size)
                         },
                         onPinchEnded: {
                             if viewportZoom < defaultViewportZoom * 1.15 {
@@ -219,8 +211,6 @@ struct BeetCodeRemoteView: View {
                         onLongPress: { input.toggleDragLock(at: $0) },
                         onHoverDelta: { input.relativePointerMove(deltaX: $0, deltaY: $1) }
                     )
-                    .frame(width: streamSize.width, height: streamSize.height)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .allowsHitTesting(!keyboardActive && !annotationStore.isVisible)
 
                     if annotationStore.isVisible {
@@ -273,7 +263,7 @@ struct BeetCodeRemoteView: View {
                 }
             }
             .overlay(alignment: .top) {
-                if onChooseApplication != nil {
+                if onChooseApplication != nil, !controlsHidden {
                     appStreamTopBar
                         .background(.black.opacity(0.28))
                 }
@@ -295,21 +285,13 @@ struct BeetCodeRemoteView: View {
                     .padding(.bottom, keyboardOverlayBottomPad)
                 }
             }
-            .onAppear { updateStreamViewport(streamSize) }
+            .onAppear { configureInput(viewSize: proxy.size) }
             .onChangeCompat(of: proxy.size) {
-                let size = AppStreamApplicationProfile.visibleStreamSize(
-                    container: $0,
-                    keyboardHeight: keyboardOverlayBottomPad,
-                    isTerminal: isTerminalApplication && keyboardActive)
-                updateStreamViewport(size)
+                configureInput(viewSize: $0)
                 resetViewportZoom()
             }
             .onChangeCompat(of: renderer.geometry) { _ in
-                configureInput(viewSize: streamSize)
-                resetViewportZoom()
-            }
-            .onChangeCompat(of: keyboardOverlayBottomPad) { _ in
-                updateStreamViewport(streamSize)
+                configureInput(viewSize: proxy.size)
                 resetViewportZoom()
             }
 #if canImport(UIKit) && !os(macOS)
@@ -516,6 +498,7 @@ struct BeetCodeRemoteView: View {
 
             classicIconButton(systemName: "eye.slash", isDimmed: true) {
                 withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                    keyboardActive = false
                     controlsHidden = true
                 }
             }
@@ -581,12 +564,6 @@ struct BeetCodeRemoteView: View {
         input.setGeometry(renderer.geometry)
         input.setViewSize(viewSize)
         input.setFillScreen(fillScreen)
-    }
-
-    private func updateStreamViewport(_ size: CGSize) {
-        configureInput(viewSize: size)
-        guard size.width > 0, size.height > 0 else { return }
-        onViewportAspectChange?(Double(size.width / size.height))
     }
 
     private func keyName(for keyCode: UInt16) -> String {

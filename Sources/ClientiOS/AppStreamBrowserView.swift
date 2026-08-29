@@ -286,10 +286,6 @@ struct AppStreamBrowserView: View {
 
     private func streamSurface(name: String) -> some View {
         GeometryReader { proxy in
-            let streamSize = AppStreamApplicationProfile.visibleStreamSize(
-                container: proxy.size,
-                keyboardHeight: keyboardOverlayBottomPad,
-                isTerminal: isStreamingTerminal && keyboardActive)
             ZStack(alignment: .top) {
                 Color.black
 
@@ -304,8 +300,7 @@ struct AppStreamBrowserView: View {
                     )
                     .scaleEffect(viewportZoom, anchor: .center)
                     .offset(viewportOffset)
-                    .frame(width: streamSize.width, height: streamSize.height)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     // Direct-touch control: uses the same gesture semantics and ordered input
                     // pipeline as Vamp Control. Coordinates map through the streamed window's
@@ -313,7 +308,7 @@ struct AppStreamBrowserView: View {
                     AppStreamGestureView(
                         viewportZoom: viewportZoom,
                         viewportOffset: viewportOffset,
-                        viewSize: streamSize,
+                        viewSize: proxy.size,
                         onTap: { input.tap(at: DesktopPoint(x: $0.x, y: $0.y)) },
                         onDoubleTap: { input.doubleTap(at: DesktopPoint(x: $0.x, y: $0.y)) },
                         onRightClick: { input.rightClick(at: DesktopPoint(x: $0.x, y: $0.y)) },
@@ -326,11 +321,11 @@ struct AppStreamBrowserView: View {
                                 CGSize(width: viewportOffset.width + delta.width,
                                        height: viewportOffset.height + delta.height),
                                 zoom: viewportZoom,
-                                in: streamSize
+                                in: proxy.size
                             )
                         },
                         onPinchChanged: { scale, focalPoint in
-                            updateViewportZoom(scale: scale, focalPoint: focalPoint, in: streamSize)
+                            updateViewportZoom(scale: scale, focalPoint: focalPoint, in: proxy.size)
                         },
                         onPinchEnded: {
                             if viewportZoom < 1.15 {
@@ -342,8 +337,6 @@ struct AppStreamBrowserView: View {
                         onLongPress: { input.toggleDragLock(at: DesktopPoint(x: $0.x, y: $0.y)) },
                         onHoverDelta: { dx, dy in input.relativePointerMove(deltaX: dx, deltaY: dy) }
                     )
-                    .frame(width: streamSize.width, height: streamSize.height)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .allowsHitTesting(!keyboardActive)
                 } else {
                     VStack(spacing: 12) {
@@ -373,25 +366,16 @@ struct AppStreamBrowserView: View {
                 }
             }
             .onAppear {
-                configureInteraction(viewSize: streamSize)
-                vm.updateClientViewport(size: streamSize)
+                configureInteraction(viewSize: proxy.size)
+                vm.updateClientViewport(size: proxy.size)
             }
             .onChangeCompat(of: proxy.size) { newSize in
-                let size = AppStreamApplicationProfile.visibleStreamSize(
-                    container: newSize,
-                    keyboardHeight: keyboardOverlayBottomPad,
-                    isTerminal: isStreamingTerminal && keyboardActive)
-                configureInteraction(viewSize: size)
-                vm.updateClientViewport(size: size)
+                configureInteraction(viewSize: newSize)
+                vm.updateClientViewport(size: newSize)
                 resetViewportZoom()
             }
             .onChangeCompat(of: vm.streamedWindow) { _ in
-                configureInteraction(viewSize: streamSize)
-                resetViewportZoom()
-            }
-            .onChangeCompat(of: keyboardOverlayBottomPad) { _ in
-                configureInteraction(viewSize: streamSize)
-                vm.updateClientViewport(size: streamSize)
+                configureInteraction(viewSize: proxy.size)
                 resetViewportZoom()
             }
 #if canImport(UIKit) && !os(macOS)

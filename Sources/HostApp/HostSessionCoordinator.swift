@@ -72,6 +72,9 @@ final class HostSessionCoordinator: ObservableObject {
     @Published private(set) var activeSessionID: UUID?
     @Published private(set) var connectedClientName: String?
     @Published private(set) var errorMessage: String?
+    /// Non-nil only while an app window is actively captured. Vamp Sync uses
+    /// this to distinguish an attached client from a real video stream.
+    @Published private(set) var activeApplicationName: String?
     /// Stable device identity that owns `activeSessionID`. A reconnect from the same device may
     /// replace its stale transport, but a different device must not evict a healthy session.
     private var activeClientID: UUID?
@@ -692,7 +695,7 @@ final class HostSessionCoordinator: ObservableObject {
             streamingCoordinator.startCoordinating()
             observeConnectionState()
             observeDataChannelState()
-            if !isTerminalSession {
+            if !isTerminalSession && !productMode.isAppStreamingOnly {
                 observeDisplayLayoutChanges()
             }
             lastClientActivityAt = nil
@@ -826,7 +829,8 @@ final class HostSessionCoordinator: ObservableObject {
         }
 
         // Observe lock state transitions and push a hostStatus update so the
-        // iOS client can show the "Mac is locked" overlay immediately.
+        // iOS client can show the locked overlay immediately. Vamp Sync needs
+        // this even before an app window starts streaming.
         lockStateObserver = lockStatePublisher?
             .removeDuplicates()
             .sink { [weak self] newState in
@@ -834,6 +838,21 @@ final class HostSessionCoordinator: ObservableObject {
                 Task { await self.publishHostStatusUpdate() }
                 self.logger.info("Host lock state changed: \(newState.statusLabel, privacy: .public)")
             }
+
+        if productMode.isAppStreamingOnly {
+            // Match Vamp Assistant: establish trust, transport, input routing,
+            // and the application browser without capturing the full display.
+            // The first capture begins only after a streamTargetSwitch request
+            // resolves a concrete application window.
+            await captureEngine.stopCapture()
+            await encoderPipeline.stopEncoding()
+            performanceStateController.setActivePreset(minQualityPreset(
+                performanceStateController.profile.effectivePreset,
+                offer.qualityPreset
+            ))
+            await publishInitialSessionState(sessionID: sessionID)
+            return
+        }
 
         do {
             // Fast reconnects can overlap teardown/startup for a short window.
@@ -1135,6 +1154,24 @@ final class HostSessionCoordinator: ObservableObject {
         }
 
         do {
+            #if os(macOS)
+            if productMode.isAppStreamingOnly {
+                guard let target = activeWindowTarget else {
+                    throw CaptureEngineError.streamFailed("No application window available for capture recovery")
+                }
+                try await restartStreamingPipelineForWindow(
+                    descriptor: target.descriptor,
+                    windowID: target.windowID,
+                    qualityPreset: currentQualityPreset
+                )
+                captureFailureRestartAttempted = false
+                connectionDebugger.mark("application window pipeline restarted after capture failure")
+                logger.info("Application window pipeline restarted after capture failure")
+                await publishHostStatusUpdate()
+                return
+            }
+            #endif
+
             let layout = try await displayLayoutProvider.currentDisplayLayout()
             let displayID = captureEngine.diagnostics.currentDisplayID
             guard let display = displayID.flatMap({ layout.display(withID: $0) }) ?? layout.displays.first else {
@@ -1173,7 +1210,10 @@ final class HostSessionCoordinator: ObservableObject {
 
                 do {
                     let layout = try await self.displayLayoutProvider.currentDisplayLayout()
-                    if self.sendInitialDataChannelState(layout: layout, sessionID: sessionID) {
+                    let didSend = self.productMode.isAppStreamingOnly
+                        ? self.sendAppStreamingInitialState(layout: layout, sessionID: sessionID)
+                        : self.sendInitialDataChannelState(layout: layout, sessionID: sessionID)
+                    if didSend {
                         self.logger.info("Initial data channel messages sent on data-channel open")
                     }
                 } catch {
@@ -1616,6 +1656,9 @@ final class HostSessionCoordinator: ObservableObject {
         if productMode.isTerminalOnly || activeSessionIsTerminalOnly {
             return HostProductMode.terminalOnly.advertisedCapabilities
         }
+        if productMode.isAppStreamingOnly {
+            return productMode.advertisedCapabilities
+        }
         return Self.fullHostCapabilityFlags
     }
 
@@ -1683,6 +1726,28 @@ final class HostSessionCoordinator: ObservableObject {
                 return
             }
 
+            if productMode.isAppStreamingOnly {
+                try await sendSignalingEvent(
+                    .sessionReady(
+                        SessionReadyMessage(
+                            sessionID: sessionID,
+                            selectedDisplayID: nil,
+                            negotiatedCapabilities: negotiatedCapabilities
+                        )
+                    ),
+                    sessionID: sessionID,
+                    recipient: nil
+                )
+
+                let layout = try await displayLayoutProvider.currentDisplayLayout()
+                let sentImmediately = sendAppStreamingInitialState(layout: layout, sessionID: sessionID)
+                if !sentImmediately {
+                    scheduleAppStreamingInitialStateRetry(layout: layout, sessionID: sessionID)
+                }
+                phase = .streaming
+                return
+            }
+
             let layout = try await displayLayoutProvider.currentDisplayLayout()
             let selectedDisplayID = captureEngine.diagnostics.currentDisplayID ?? layout.primaryDisplayID
 
@@ -1717,6 +1782,53 @@ final class HostSessionCoordinator: ObservableObject {
 
     private func sendInitialDataChannelState(layout: DisplayLayout, sessionID: UUID) -> Bool {
         sendDisplayStateMessages(layout: layout, sessionID: sessionID, reason: "initial")
+    }
+
+    /// Publish only connection/layout state for Vamp Sync. Sending a display
+    /// configuration here would tell the client that the primary display is the
+    /// active stream even though no capture exists yet.
+    private func sendAppStreamingInitialState(layout: DisplayLayout, sessionID: UUID) -> Bool {
+        guard activeSessionID == sessionID else { return false }
+        do {
+            try webRTCSessionManager.sendDataMessage(
+                try DataChannelEnvelope.displayLayout(DisplayLayoutMessage(layout: layout))
+            )
+            try webRTCSessionManager.sendDataMessage(
+                try DataChannelEnvelope.hostStatus(
+                    HostStatusMessage(
+                        hostID: hostIdentity.id,
+                        connectionState: .connected,
+                        activeSessionID: sessionID,
+                        displayLayout: layout,
+                        selectedDisplayID: nil,
+                        sessionMode: sessionModeController.currentMode,
+                        quality: nil,
+                        thermalState: performanceStateController.thermalState,
+                        lowPowerModeEnabled: performanceStateController.lowPowerModeEnabled,
+                        lockState: lockStateProvider()
+                    )
+                )
+            )
+            hasSentInitialDataChannelState = true
+            initialDataChannelRetryTask?.cancel()
+            initialDataChannelRetryTask = nil
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func scheduleAppStreamingInitialStateRetry(layout: DisplayLayout, sessionID: UUID) {
+        initialDataChannelRetryTask?.cancel()
+        initialDataChannelRetryTask = Task { [weak self] in
+            guard let self else { return }
+            for _ in 0..<initialDataChannelRetryAttempts {
+                try? await Task.sleep(nanoseconds: initialDataChannelRetryDelayMs * 1_000_000)
+                guard !Task.isCancelled, self.activeSessionID == sessionID else { return }
+                if self.hasSentInitialDataChannelState { return }
+                if self.sendAppStreamingInitialState(layout: layout, sessionID: sessionID) { return }
+            }
+        }
     }
 
     private func scheduleInitialDataChannelStateRetry(layout: DisplayLayout, sessionID: UUID) {
@@ -1771,14 +1883,30 @@ final class HostSessionCoordinator: ObservableObject {
     func publishHostStatusUpdate() async {
         guard let sessionID = activeSessionID else { return }
         do {
-            let layout = try await displayLayoutProvider.currentDisplayLayout()
+            let displayLayout = try await displayLayoutProvider.currentDisplayLayout()
+            #if os(macOS)
+            let activeWindow = productMode.isAppStreamingOnly ? activeWindowTarget : nil
+            let layout = activeWindow.map {
+                DisplayLayout(
+                    displays: [$0.descriptor],
+                    primaryDisplayID: $0.descriptor.id,
+                    virtualBounds: $0.descriptor.frame
+                )
+            } ?? displayLayout
+            let selectedDisplayID = productMode.isAppStreamingOnly
+                ? activeWindow?.descriptor.id
+                : (captureEngine.diagnostics.currentDisplayID ?? layout.primaryDisplayID)
+            #else
+            let layout = displayLayout
+            let selectedDisplayID = captureEngine.diagnostics.currentDisplayID ?? layout.primaryDisplayID
+            #endif
             let statusEnvelope = try DataChannelEnvelope.hostStatus(
                 HostStatusMessage(
                     hostID: hostIdentity.id,
                     connectionState: webRTCSessionManager.connectionState,
                     activeSessionID: sessionID,
                     displayLayout: layout,
-                    selectedDisplayID: captureEngine.diagnostics.currentDisplayID ?? layout.primaryDisplayID,
+                    selectedDisplayID: selectedDisplayID,
                     sessionMode: sessionModeController.currentMode,
                     quality: nil,
                     thermalState: performanceStateController.thermalState,
@@ -2095,6 +2223,17 @@ extension HostSessionCoordinator {
         let startTime = Date()
         switch message.target.kind {
         case .display:
+            if productMode.isAppStreamingOnly {
+                sendTargetResult(
+                    request: message,
+                    resolved: message.target,
+                    status: .rejected,
+                    reason: "Vamp Sync streams application windows only.",
+                    descriptor: nil,
+                    startTime: startTime
+                )
+                return
+            }
             // Back to a whole display: drop window input geometry, then delegate unchanged.
             clearWindowStreaming()
             await handleDisplaySwitchRequest(DisplaySwitchRequestMessage(
@@ -2138,9 +2277,6 @@ extension HostSessionCoordinator {
 
     private func switchToApplication(bundleID: String, launchIfNeeded: Bool, request: StreamTargetSwitchRequestMessage, startTime: Date) async {
         let existing = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first
-        let previousWindowIDs = existing.map {
-            applicationRegistry.streamableWindowIDs(forPID: $0.processIdentifier)
-        } ?? []
         if existing == nil && !launchIfNeeded {
             sendTargetResult(request: request, resolved: request.target, status: .failed,
                              reason: "\(bundleID) is not running.", descriptor: nil, startTime: startTime)
@@ -2168,24 +2304,22 @@ extension HostSessionCoordinator {
             return
         }
 
-        // Some apps activate without presenting a window. Finder may expose only the desktop,
-        // Messages may have every window closed, and document apps can launch empty. Allow normal
-        // launch first, then restore an AX window or invoke the standard New command and retry.
-        // A running app with an existing content window should open immediately. Only spend the
-        // launch grace period polling when this action actually started a new process.
-        var window = applicationRegistry.streamableWindow(forPID: runningApp.processIdentifier)
-        if window == nil, existing == nil {
-            window = await resolveWindowWithRetry(
-                pid: runningApp.processIdentifier,
-                excluding: previousWindowIDs,
-                deadline: Date().addingTimeInterval(2.5))
-        }
-        if window == nil {
-            Self.restoreOrCreateWindow(for: runningApp, bundleID: bundleID)
-            window = await resolveWindowWithRetry(
-                pid: runningApp.processIdentifier,
-                excluding: previousWindowIDs,
-                deadline: Date().addingTimeInterval(3.0))
+        // Mirror Vamp Assistant's proven launch loop: accept an existing
+        // shareable window, ask a windowless app to create one early, and keep
+        // polling ScreenCaptureKit for a bounded ten seconds.
+        var window: WindowInfo?
+        var requestedNewWindow = false
+        for attempt in 0..<40 {
+            if let candidate = applicationRegistry.streamableWindow(forPID: runningApp.processIdentifier),
+               await applicationRegistry.isShareableWindow(candidate.windowID) {
+                window = candidate
+                break
+            }
+            if attempt == 4, !requestedNewWindow {
+                requestedNewWindow = true
+                Self.restoreOrCreateWindow(for: runningApp, bundleID: bundleID)
+            }
+            try? await Task.sleep(for: .milliseconds(250))
         }
         guard let window else {
             sendTargetResult(request: request, resolved: request.target, status: .failed,
@@ -2202,35 +2336,35 @@ extension HostSessionCoordinator {
         )
     }
 
-    /// Bounded poll for an app's streamable window after launch/activate. Never infinite.
-    private func resolveWindowWithRetry(
-        pid: pid_t,
-        excluding previousWindowIDs: Set<CGWindowID>,
-        deadline: Date
-    ) async -> WindowInfo? {
-        while Date() < deadline {
-            if let window = applicationRegistry.newlyCreatedStreamableWindow(
-                forPID: pid,
-                excluding: previousWindowIDs
-            ) { return window }
-            try? await Task.sleep(nanoseconds: 150_000_000)
-        }
-        return applicationRegistry.streamableWindow(forPID: pid, excluding: previousWindowIDs)
-    }
-
     /// Restore a minimized focused window when possible; otherwise request the app's standard
     /// New Window/New Document action. Key events are posted only to the selected process.
     private static func restoreOrCreateWindow(
         for application: NSRunningApplication,
         bundleID: String
     ) {
-        application.activate(options: [.activateAllWindows])
+        application.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
 
         // Finder is always running and its desktop is not a streamable normal window. Opening
         // the user's home folder is the supported way to make Finder present a real window;
         // relying on activation alone leaves the app stream waiting forever.
         if bundleID == "com.apple.finder" {
             NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser)
+            return
+        }
+
+        // Safari can materialize a real window through an open-document event,
+        // exactly as Vamp Assistant does, without relying on a global key event.
+        if bundleID == "com.apple.Safari",
+           let applicationURL = application.bundleURL,
+           let blankURL = URL(string: "about:blank") {
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = true
+            NSWorkspace.shared.open(
+                [blankURL],
+                withApplicationAt: applicationURL,
+                configuration: configuration,
+                completionHandler: nil
+            )
             return
         }
 
@@ -2287,6 +2421,7 @@ extension HostSessionCoordinator {
                 bundleIdentifier: bundleID,
                 descriptor: descriptor
             )
+            activeApplicationName = name
             startWindowTracking(sessionID: request.sessionID, senderDeviceID: request.senderDeviceID)
             await publishHostStatusUpdate()
             sendTargetResult(request: request, resolved: .window(String(window.windowID)), status: .completed,
@@ -2377,6 +2512,7 @@ extension HostSessionCoordinator {
 
     func clearWindowStreaming() {
         activeWindowTarget = nil
+        activeApplicationName = nil
         windowTrackingTask?.cancel()
         windowTrackingTask = nil
         streamWindowGeometry.set(nil)
@@ -2492,16 +2628,25 @@ extension HostSessionCoordinator {
            let sizeRef, CFGetTypeID(sizeRef) == AXValueGetTypeID() {
             AXValueGetValue(sizeRef as! AXValue, .cgSize, &currentSize)
         }
-        // Match the client instead of moving only halfway toward it. The halfway interpolation
-        // left wide apps using roughly the top half of a portrait phone (most visibly Bell Link).
-        // Shrinking one dimension avoids asking macOS for an off-screen size; apps with minimum
-        // window constraints remain best-effort and their actual post-resize bounds are reported.
-        guard var newSize = HostApplicationRegistry.aspectMatchedSize(
-            current: currentSize,
+        var currentPosition = CGPoint.zero
+        var positionRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(axWindow, kAXPositionAttribute as CFString, &positionRef) == .success,
+           let positionRef, CFGetTypeID(positionRef) == AXValueGetTypeID() {
+            AXValueGetValue(positionRef as! AXValue, .cgPoint, &currentPosition)
+        }
+        let currentBounds = CGRect(origin: currentPosition, size: currentSize)
+        let target = HostApplicationRegistry.targetWindowFrame(
+            current: currentBounds,
+            display: HostApplicationRegistry.displayBounds(containing: currentBounds),
             requestedAspect: aspect
-        ) else { return }
-        if let value = AXValueCreate(.cgSize, &newSize) {
-            AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, value)
+        )
+        var requestedSize = target.size
+        if let value = AXValueCreate(.cgSize, &requestedSize) {
+            _ = AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, value)
+        }
+        var requestedPosition = target.origin
+        if let value = AXValueCreate(.cgPoint, &requestedPosition) {
+            _ = AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, value)
         }
     }
 

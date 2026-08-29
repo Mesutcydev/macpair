@@ -81,20 +81,27 @@ final class HostApplicationRegistryTests: XCTestCase {
         XCTAssertNil(HostApplicationRegistry.chooseWindow(from: []))
     }
 
-    func testAspectMatchedSizeUsesFullPortraitViewportAspect() throws {
-        let size = try XCTUnwrap(HostApplicationRegistry.aspectMatchedSize(
-            current: CGSize(width: 1200, height: 800),
-            requestedAspect: 0.5
-        ))
-        XCTAssertEqual(size, CGSize(width: 400, height: 800))
+    func testAssistantCompatibleWindowFitStaysOnDisplay() {
+        let frame = HostApplicationRegistry.targetWindowFrame(
+            current: CGRect(x: 1_500, y: 800, width: 1_200, height: 800),
+            display: CGRect(x: 0, y: 0, width: 1_920, height: 1_080),
+            requestedAspect: 390.0 / 844.0
+        )
+
+        XCTAssertEqual(frame.width / frame.height, 390.0 / 844.0, accuracy: 0.002)
+        XCTAssertGreaterThanOrEqual(frame.minX, 24)
+        XCTAssertGreaterThanOrEqual(frame.minY, 52)
+        XCTAssertLessThanOrEqual(frame.maxX, 1_896)
+        XCTAssertLessThanOrEqual(frame.maxY, 1_056)
     }
 
-    func testAspectMatchedSizeShrinksHeightForWiderViewport() throws {
-        let size = try XCTUnwrap(HostApplicationRegistry.aspectMatchedSize(
-            current: CGSize(width: 400, height: 800),
+    func testAssistantCompatibleWindowFitShrinksHeightForWideViewport() {
+        let frame = HostApplicationRegistry.targetWindowFrame(
+            current: CGRect(x: 100, y: 100, width: 400, height: 800),
+            display: CGRect(x: 0, y: 0, width: 1_920, height: 1_080),
             requestedAspect: 1
-        ))
-        XCTAssertEqual(size, CGSize(width: 400, height: 400))
+        )
+        XCTAssertEqual(frame.size, CGSize(width: 400, height: 400))
     }
 
     // MARK: - Capability advertisement (Step 13)
@@ -109,9 +116,11 @@ final class HostApplicationRegistryTests: XCTestCase {
     func testMiniHostSupportsStreamingAndUsesItsOwnProductSurface() {
         XCTAssertEqual(HostProductMode.mini.productTitle, "Vamp Sync")
         XCTAssertFalse(HostProductMode.mini.isTerminalOnly)
-        XCTAssertEqual(HostProductMode.mini.supportedCodecs, ["hevc", "h264"])
+        XCTAssertTrue(HostProductMode.mini.isAppStreamingOnly)
+        XCTAssertEqual(HostProductMode.mini.supportedCodecs, ["h264"])
         XCTAssertFalse(HostProductMode.mini.advertisedCapabilities.isTerminalOnlyHost)
-        XCTAssertTrue(HostProductMode.mini.advertisedCapabilities.contains(.supportsMultiDisplay))
+        XCTAssertFalse(HostProductMode.mini.advertisedCapabilities.contains(.supportsMultiDisplay))
+        XCTAssertFalse(HostProductMode.mini.advertisedCapabilities.contains(.supportsTerminal))
         if #available(macOS 14, *) {
             XCTAssertTrue(HostProductMode.mini.advertisedCapabilities.contains(.supportsAppStreaming))
         }

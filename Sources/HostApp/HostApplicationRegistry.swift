@@ -4,6 +4,7 @@ import CoreGraphics
 import Foundation
 import SharedModels
 import SharedProtocol
+@preconcurrency import ScreenCaptureKit
 
 /// One on-screen window, with bounds in the same coordinate space the input translator
 /// uses (`DisplayDescriptor.frame`): points, global, top-left origin — exactly what
@@ -148,6 +149,17 @@ public final class HostApplicationRegistry {
         Set(onScreenWindows().lazy.filter { $0.ownerPID == pid }.map(\.windowID))
     }
 
+    /// ScreenCaptureKit is authoritative for whether a CoreGraphics window
+    /// can actually be captured. Vamp Assistant performs the same check before
+    /// returning a launch result.
+    public func isShareableWindow(_ windowID: CGWindowID) async -> Bool {
+        guard let content = try? await SCShareableContent.excludingDesktopWindows(
+            false,
+            onScreenWindowsOnly: true
+        ) else { return false }
+        return content.windows.contains { $0.windowID == windowID && $0.isOnScreen }
+    }
+
     /// Look up a specific window's current bounds (for a `.window` target and for keeping the
     /// input mapping aligned as the window moves).
     public func windowInfo(windowID: CGWindowID) -> WindowInfo? {
@@ -275,17 +287,60 @@ public final class HostApplicationRegistry {
         }
     }
 
-    /// Computes an aspect-matched size without growing the window beyond either current
-    /// dimension. Keeping this pure makes the phone-fit policy deterministic and testable.
-    static func aspectMatchedSize(current: CGSize, requestedAspect: Double) -> CGSize? {
-        guard current.width > 0, current.height > 0, requestedAspect.isFinite,
-              requestedAspect > 0 else { return nil }
-        let aspect = min(max(CGFloat(requestedAspect), 0.4), 4)
-        let currentAspect = current.width / current.height
-        if aspect < currentAspect {
-            return CGSize(width: (current.height * aspect).rounded(), height: current.height)
-        }
-        return CGSize(width: current.width, height: (current.width / aspect).rounded())
+    /// Assistant-compatible window fitting: match the phone aspect, never grow
+    /// beyond the current/display bounds, and keep the complete window visible.
+    static func targetWindowFrame(
+        current: CGRect,
+        display: CGRect,
+        requestedAspect: Double
+    ) -> CGRect {
+        guard requestedAspect.isFinite, requestedAspect > 0 else { return current }
+        let aspect = min(max(CGFloat(requestedAspect), 0.25), 4)
+        let available = CGRect(
+            x: display.minX + 24,
+            y: display.minY + 52,
+            width: max(display.width - 48, 1),
+            height: max(display.height - 76, 1)
+        )
+        let currentSize = CGSize(
+            width: min(max(current.width, 1), available.width),
+            height: min(max(current.height, 1), available.height)
+        )
+        let currentAspect = currentSize.width / currentSize.height
+        var size = aspect < currentAspect
+            ? CGSize(width: currentSize.height * aspect, height: currentSize.height)
+            : CGSize(width: currentSize.width, height: currentSize.width / aspect)
+        let fitScale = min(1, min(available.width / size.width, available.height / size.height))
+        size.width = max(1, floor(size.width * fitScale))
+        size.height = max(1, floor(size.height * fitScale))
+        let maxX = max(available.minX, available.maxX - size.width)
+        let maxY = max(available.minY, available.maxY - size.height)
+        return CGRect(
+            x: min(max(current.minX, available.minX), maxX),
+            y: min(max(current.minY, available.minY), maxY),
+            width: size.width,
+            height: size.height
+        )
     }
+
+    static func displayBounds(containing window: CGRect) -> CGRect {
+        var count: UInt32 = 0
+        guard CGGetOnlineDisplayList(0, nil, &count) == .success, count > 0 else {
+            return CGDisplayBounds(CGMainDisplayID())
+        }
+        var displays = Array(repeating: CGDirectDisplayID(), count: Int(count))
+        guard CGGetOnlineDisplayList(count, &displays, &count) == .success else {
+            return CGDisplayBounds(CGMainDisplayID())
+        }
+        return displays.prefix(Int(count))
+            .map(CGDisplayBounds)
+            .max { lhs, rhs in
+                lhs.intersection(window).area < rhs.intersection(window).area
+            } ?? CGDisplayBounds(CGMainDisplayID())
+    }
+}
+
+private extension CGRect {
+    var area: CGFloat { isNull || isEmpty ? 0 : width * height }
 }
 #endif

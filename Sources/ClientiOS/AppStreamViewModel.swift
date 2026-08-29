@@ -7,8 +7,6 @@ import TransportWebRTC
 private let appStreamLog = Logger(subsystem: "com.mesutcy.remotedesktop.stream", category: "AppStream")
 
 enum AppStreamApplicationProfile {
-    static let terminalDeckHeight: CGFloat = 142
-
     private static let terminalBundleIDs: Set<String> = [
         "com.apple.terminal",
         "com.googlecode.iterm2",
@@ -32,16 +30,6 @@ enum AppStreamApplicationProfile {
             .contains { normalized.contains($0) }
     }
 
-    static func visibleStreamSize(
-        container: CGSize,
-        keyboardHeight: CGFloat,
-        isTerminal: Bool
-    ) -> CGSize {
-        guard isTerminal, keyboardHeight > 0 else { return container }
-        return CGSize(
-            width: container.width,
-            height: max(220, container.height - keyboardHeight - terminalDeckHeight))
-    }
 }
 
 /// Client-side driver for App Streaming. Self-contained: it consumes the broadcast
@@ -85,9 +73,6 @@ final class AppStreamViewModel: ObservableObject {
     private var launchTimeoutTask: Task<Void, Never>?
     private var pendingTargetName: String?
     private var clientViewportAspect: Double?
-    private var lastRequestedViewportAspect: Double?
-    private var viewportResizeTask: Task<Void, Never>?
-    private var isViewportResizePending = false
 
     init(environment: ClientAppEnvironment) {
         self.environment = environment
@@ -129,10 +114,6 @@ final class AppStreamViewModel: ObservableObject {
         streamedWindow = nil
         streamedApplication = nil
         pendingTargetName = nil
-        lastRequestedViewportAspect = nil
-        viewportResizeTask?.cancel()
-        viewportResizeTask = nil
-        isViewportResizePending = false
         status = .idle
     }
 
@@ -143,15 +124,6 @@ final class AppStreamViewModel: ObservableObject {
         let aspect = Double(size.width / size.height)
         guard aspect.isFinite, (0.25...4).contains(aspect) else { return }
         clientViewportAspect = aspect
-        guard streamedApplication != nil,
-              case .streaming = status,
-              abs(aspect - (lastRequestedViewportAspect ?? aspect)) > 0.025 else { return }
-        viewportResizeTask?.cancel()
-        viewportResizeTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(280))
-            guard let self, !Task.isCancelled, let application = self.streamedApplication else { return }
-            self.sendTargetRequest(application, showsLaunchingState: false)
-        }
     }
 
     func requestApplicationList() {
@@ -212,25 +184,21 @@ final class AppStreamViewModel: ObservableObject {
             return
         }
         streamedApplication = application
-        sendTargetRequest(application, showsLaunchingState: true)
+        sendTargetRequest(application)
     }
 
-    private func sendTargetRequest(
-        _ application: RemoteApplication,
-        showsLaunchingState: Bool
-    ) {
+    private func sendTargetRequest(_ application: RemoteApplication) {
         guard let sessionID = environment.sessionCoordinator.activeSessionID else {
             status = .failed(reason: "Not connected to a Mac.")
             return
         }
         pendingTargetName = application.name
-        isViewportResizePending = !showsLaunchingState
-        if showsLaunchingState { status = .launching(name: application.name) }
+        status = .launching(name: application.name)
         launchTimeoutTask?.cancel()
         launchTimeoutTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 12_000_000_000)
             guard let self, !Task.isCancelled else { return }
-            guard showsLaunchingState, case .launching = self.status else { return }
+            guard case .launching = self.status else { return }
             self.pendingTargetName = nil
             self.status = .failed(reason: "The Mac did not open \(application.name) in time. Tap Retry.")
         }
@@ -240,17 +208,11 @@ final class AppStreamViewModel: ObservableObject {
             senderDeviceID: environment.clientIdentity.id,
             clientViewportAspect: clientViewportAspect
         )
-        lastRequestedViewportAspect = clientViewportAspect
         do {
             try environment.webRTCSessionManager.sendDataMessage(
                 try DataChannelEnvelope.streamTargetSwitch(request))
         } catch {
-            isViewportResizePending = false
-            if showsLaunchingState {
-                status = .failed(reason: "Could not start \(application.name).")
-            } else {
-                appStreamLog.error("viewport resize send failed: \(error.localizedDescription, privacy: .public)")
-            }
+            status = .failed(reason: "Could not start \(application.name).")
         }
     }
 
@@ -260,9 +222,6 @@ final class AppStreamViewModel: ObservableObject {
         pendingTargetName = nil
         streamedWindow = nil
         streamedApplication = nil
-        viewportResizeTask?.cancel()
-        viewportResizeTask = nil
-        isViewportResizePending = false
         status = .browsing
         requestApplicationList()
     }
@@ -314,28 +273,12 @@ final class AppStreamViewModel: ObservableObject {
     func apply(_ result: StreamTargetSwitchResultMessage) {
         launchTimeoutTask?.cancel()
         launchTimeoutTask = nil
-        let wasViewportResize = isViewportResizePending
-        if isViewportResizePending {
-            switch result.status {
-            case .accepted:
-                return
-            case .rejected, .failed:
-                isViewportResizePending = false
-                pendingTargetName = nil
-                appStreamLog.error("viewport resize refused: \(result.reason ?? "unknown", privacy: .public)")
-                return
-            case .completed:
-                isViewportResizePending = false
-            }
-        }
         if result.status == .completed, let width = result.width, let height = result.height {
             guard width > 0, height > 0,
                   let scale = result.scaleFactor,
                   scale.isFinite, scale > 0 else {
-                if !wasViewportResize {
-                    streamedWindow = nil
-                    status = .failed(reason: "The Mac returned an invalid window size.")
-                }
+                streamedWindow = nil
+                status = .failed(reason: "The Mac returned an invalid window size.")
                 return
             }
             streamedWindow = StreamedWindow(

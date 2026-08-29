@@ -39,6 +39,17 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
   resumable session IDs where each CLI exposes them. Linux runners keep provider
   approval and sandbox modes safe; use Terminal for interactive approvals.
 
+### Fixed
+
+- Vamp Sync now follows the app-only Vamp Assistant streaming lifecycle: it
+  establishes the authenticated control channel before capture, starts video
+  only after an application window is selected, and refuses full-display
+  targets.
+- Vamp Sync uses one unified status, pairing, permission, and trusted-device
+  surface instead of overlapping tab and stream-state dashboards.
+- Application launch, shareable-window validation, window fitting, and capture
+  recovery keep the selected app visible without falling back to a display.
+
 ## [2.3.0] - 2026-08-22 — build 47
 
 ### Fixed

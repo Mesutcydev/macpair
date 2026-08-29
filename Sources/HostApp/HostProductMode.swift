@@ -19,6 +19,13 @@ enum HostProductMode: String, CaseIterable, Sendable {
         self == .terminalOnly
     }
 
+    /// Vamp Sync is an app-window host. Unlike Vamp Host it establishes the
+    /// authenticated data channel first and does not capture the full display
+    /// while the client is still choosing an application.
+    var isAppStreamingOnly: Bool {
+        self == .mini
+    }
+
     var productTitle: String {
         switch self {
         case .full:
@@ -47,7 +54,7 @@ enum HostProductMode: String, CaseIterable, Sendable {
     /// screen, audio, input, or multi-display capabilities.
     var advertisedCapabilities: HostCapabilityFlags {
         switch self {
-        case .full, .mini:
+        case .full:
             var flags: HostCapabilityFlags = [
                 .supportsHEVC,
                 .supportsH264,
@@ -64,6 +71,13 @@ enum HostProductMode: String, CaseIterable, Sendable {
             // Older hosts simply never advertise it, so clients keep plain Remote Control.
             if #available(macOS 14, *) { flags.insert(.supportsAppStreaming) }
             return flags
+        case .mini:
+            var flags: HostCapabilityFlags = [
+                .supportsH264,
+                .supportsVideoFragmentation
+            ]
+            if #available(macOS 14, *) { flags.insert(.supportsAppStreaming) }
+            return flags
         case .terminalOnly:
             return [
                 .supportsH264, .supportsTerminal, .supportsMultipleTerminals,
@@ -73,6 +87,6 @@ enum HostProductMode: String, CaseIterable, Sendable {
     }
 
     var supportedCodecs: [String] {
-        isTerminalOnly ? ["h264"] : ["hevc", "h264"]
+        self == .full ? ["hevc", "h264"] : ["h264"]
     }
 }
