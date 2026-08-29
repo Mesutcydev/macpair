@@ -3,6 +3,7 @@ import XCTest
 @testable import HostApp
 import SharedModels
 import SharedProtocol
+import TransportWebRTC
 
 final class HostApplicationRegistryTests: XCTestCase {
 
@@ -24,6 +25,49 @@ final class HostApplicationRegistryTests: XCTestCase {
             isActive: active,
             windowIDs: windows
         )
+    }
+
+    /// A Mac with a full /Applications encodes to several hundred KB with icons attached,
+    /// which the control channel silently drops. The snapshot must still arrive.
+    func testApplicationListEnvelopeStaysUnderTheControlChannelBudget() throws {
+        let icon = String(repeating: "A", count: 3_000) // ~ one 32x32 PNG, base64
+        let applications = (0..<200).map { index in
+            RemoteApplication(
+                bundleIdentifier: "com.example.app\(index)",
+                name: "Application \(index)",
+                isRunning: index < 10,
+                isActive: false,
+                iconPNGBase64: icon,
+                windowIDs: []
+            )
+        }
+        let envelope = try XCTUnwrap(HostSessionCoordinator.applicationListEnvelope(
+            applications: applications,
+            sessionID: UUID(),
+            senderDeviceID: UUID()
+        ))
+        let wire = try envelope.wireEncode()
+        XCTAssertLessThanOrEqual(wire.count, HostSessionCoordinator.applicationListByteBudget)
+        // Shedding icons must never shed applications.
+        let decoded = try DataChannelEnvelope.wireDecode(wire).decodeApplicationListSnapshot()
+        XCTAssertEqual(decoded.applications.count, 200)
+        XCTAssertTrue(decoded.applications.contains { $0.iconPNGBase64 != nil })
+    }
+
+    func testApplicationListEnvelopeKeepsEveryIconWhenItAlreadyFits() throws {
+        let applications = [
+            RemoteApplication(bundleIdentifier: "com.example.a", name: "A", isRunning: true,
+                              isActive: true, iconPNGBase64: String(repeating: "A", count: 3_000)),
+            RemoteApplication(bundleIdentifier: "com.example.b", name: "B", isRunning: false,
+                              isActive: false, iconPNGBase64: String(repeating: "B", count: 3_000)),
+        ]
+        let envelope = try XCTUnwrap(HostSessionCoordinator.applicationListEnvelope(
+            applications: applications,
+            sessionID: UUID(),
+            senderDeviceID: UUID()
+        ))
+        let decoded = try envelope.decodeApplicationListSnapshot()
+        XCTAssertTrue(decoded.applications.allSatisfy { $0.iconPNGBase64 != nil })
     }
 
     func testDedupPrefersActiveInstance() {

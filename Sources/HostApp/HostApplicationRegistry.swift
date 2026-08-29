@@ -71,7 +71,8 @@ public final class HostApplicationRegistry {
             ) else { continue }
             for url in entries where url.pathExtension.lowercased() == "app" {
                 guard let bundle = Bundle(url: url),
-                      let bundleID = bundle.bundleIdentifier else { continue }
+                      let bundleID = bundle.bundleIdentifier,
+                      Self.hasUserFacingWindows(bundle) else { continue }
                 let name = (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
                     ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
                     ?? FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
@@ -107,6 +108,20 @@ public final class HostApplicationRegistry {
             ))
         }
         return results
+    }
+
+    /// Agents and background-only bundles never open a normal window, so listing them only
+    /// fills the browser with rows whose launch is guaranteed to time out.
+    private static func hasUserFacingWindows(_ bundle: Bundle) -> Bool {
+        let info = bundle.infoDictionary ?? [:]
+        return !isEnabled(info["LSUIElement"]) && !isEnabled(info["LSBackgroundOnly"])
+    }
+
+    /// These Info.plist keys are written both as booleans and as the strings "1"/"YES".
+    private static func isEnabled(_ value: Any?) -> Bool {
+        if let number = value as? NSNumber { return number.boolValue }
+        if let string = value as? String { return ["1", "true", "yes"].contains(string.lowercased()) }
+        return false
     }
 
     /// Standard app locations. `/System/Applications/Utilities` is one level deeper but is a

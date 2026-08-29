@@ -165,21 +165,36 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
         }
     }
 
+    /// Probe every saved Mac at once. Run one after another, three unreachable Macs meant three
+    /// full request timeouts back to back before the list stopped saying "checking".
     func refreshAvailability() async {
-        for saved in savedAssistants {
-            availabilityByAddress[saved.address] = .checking
-            do {
-                let endpoint = try BeetCodeRemoteEndpoint.parse(address: saved.address)
-                guard let token = BeetCodeTokenStore.load(for: endpoint.url), !token.isEmpty else {
-                    availabilityByAddress[saved.address] = .unavailable
-                    continue
-                }
-                let client = BeetCodeRemoteClient(baseURL: endpoint.url, token: token)
-                let status = try await client.controlStatus()
-                availabilityByAddress[saved.address] = status.ready ? .ready : .unavailable
-            } catch {
-                availabilityByAddress[saved.address] = .unavailable
+        let targets = savedAssistants.map(\.address)
+        for address in targets { availabilityByAddress[address] = .checking }
+        let results = await withTaskGroup(of: (String, Availability).self) { group in
+            for address in targets {
+                group.addTask { (address, await Self.probe(address: address)) }
             }
+            var collected: [String: Availability] = [:]
+            for await (address, availability) in group { collected[address] = availability }
+            return collected
+        }
+        // Skip anything the user forgot while the probes were in flight.
+        for (address, availability) in results where availabilityByAddress[address] != nil {
+            availabilityByAddress[address] = availability
+        }
+    }
+
+    private nonisolated static func probe(address: String) async -> Availability {
+        do {
+            let endpoint = try BeetCodeRemoteEndpoint.parse(address: address)
+            guard let token = BeetCodeTokenStore.load(for: endpoint.url), !token.isEmpty else {
+                return .unavailable
+            }
+            let status = try await BeetCodeRemoteClient(baseURL: endpoint.url, token: token)
+                .controlStatus(timeout: 6)
+            return status.ready ? .ready : .unavailable
+        } catch {
+            return .unavailable
         }
     }
 

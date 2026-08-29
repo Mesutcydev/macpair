@@ -58,9 +58,9 @@ struct VampAssistantAppStreamView: View {
                 try? await Task.sleep(for: .milliseconds(250))
                 guard !Task.isCancelled else { return }
                 do {
-                    selectedApplication = try await session.client.resizeApplication(
+                    present(try await session.client.resizeApplication(
                         windowID: windowID,
-                        clientViewportAspect: viewportAspect)
+                        clientViewportAspect: viewportAspect))
                 } catch {
                     errorMessage = "The Mac kept the closest window size: \(error.localizedDescription)"
                 }
@@ -100,11 +100,11 @@ struct VampAssistantAppStreamView: View {
         guard launchingName == nil else { return }
         if application.isRunning, let windowID = application.windowID {
             do {
-                selectedApplication = try await session.client.resizeApplication(
+                present(try await session.client.resizeApplication(
                     windowID: windowID,
-                    clientViewportAspect: viewportAspect)
+                    clientViewportAspect: viewportAspect))
             } catch {
-                selectedApplication = application
+                present(application)
                 errorMessage = "The Mac kept the closest window size: \(error.localizedDescription)"
             }
             return
@@ -120,11 +120,22 @@ struct VampAssistantAppStreamView: View {
             let launched = try await session.client.launchApplication(
                 bundleIdentifier: bundleIdentifier,
                 clientViewportAspect: viewportAspect)
-            selectedApplication = launched
+            present(launched)
             apply(try await session.client.applications())
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// `BeetCodeRemoteView` streams the whole Mac display when it is handed no window id, so an
+    /// app the Mac could not resolve a window for would silently open the entire desktop instead
+    /// of the one app the browser asked for. Stay in the browser and say what happened.
+    private func present(_ application: BeetCodeRemoteApplication) {
+        guard application.windowID != nil else {
+            errorMessage = "\(application.name) has no open window on the Mac yet. Open one there, then tap it again."
+            return
+        }
+        selectedApplication = application
     }
 
     private func apply(_ applications: [BeetCodeRemoteApplication]) {

@@ -317,8 +317,8 @@ struct BeetCodeRemoteClient: Sendable {
         return try await decode(BeetCodePairResponse.self, request: request)
     }
 
-    func controlStatus() async throws -> BeetCodeControlStatus {
-        try await request("api/control")
+    func controlStatus(timeout: TimeInterval = 15) async throws -> BeetCodeControlStatus {
+        try await request("api/control", timeout: timeout)
     }
 
     func applications() async throws -> [BeetCodeRemoteApplication] {
@@ -335,7 +335,8 @@ struct BeetCodeRemoteClient: Sendable {
         let response: BeetCodeRemoteApplicationResponse = try await request(
             "api/control/apps/launch",
             method: "POST",
-            body: body)
+            body: body,
+            timeout: Self.windowResolvingTimeout)
         return response.application
     }
 
@@ -349,7 +350,8 @@ struct BeetCodeRemoteClient: Sendable {
             body: [
                 "windowID": windowID,
                 "clientViewportAspect": clientViewportAspect,
-            ])
+            ],
+            timeout: Self.windowResolvingTimeout)
         return response.application
     }
 
@@ -409,13 +411,19 @@ struct BeetCodeRemoteClient: Sendable {
         }
     }
 
+    /// Launching and resizing block on the Mac while it opens the app and then polls
+    /// ScreenCaptureKit for a shareable window. A cold start of a heavy app blows straight
+    /// past the ordinary request timeout, which is why so many apps used to fail to open.
+    private static let windowResolvingTimeout: TimeInterval = 60
+
     private func request<Response: Decodable>(
         _ path: String,
         method: String = "GET",
-        body: [String: Any]? = nil
+        body: [String: Any]? = nil,
+        timeout: TimeInterval = 15
     ) async throws -> Response {
         var request = try authorizedRequest(url: baseURL.appending(path: path), method: method)
-        request.timeoutInterval = 15
+        request.timeoutInterval = timeout
         if let body {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

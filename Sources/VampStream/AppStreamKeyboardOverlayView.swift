@@ -290,6 +290,13 @@ struct AppStreamKeyboardOverlayView: View {
         "n": 45, "m": 46, ".": 47
     ]
 
+    /// Reverse of `characterKeyCodes`. Vamp Assistant's input protocol names keys rather than
+    /// numbering them, so a shortcut like ⌃C has to travel as "c"; a raw keycode means nothing
+    /// to it and the shortcut is dropped.
+    static func character(forKeyCode keyCode: UInt16) -> String? {
+        characterKeyCodes.first { $0.value == keyCode }.map { String($0.key) }
+    }
+
     private func refocusTextField() {
         DispatchQueue.main.async { isTextFieldFocused = true }
     }

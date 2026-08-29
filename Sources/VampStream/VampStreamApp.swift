@@ -175,7 +175,10 @@ struct VampStreamRootView: View {
                     }
                 },
                 onPairVampAssistant: {
-                    assistantExperience = .remoteControl
+                    // Pairing must land on the same destination the picker offers. Remote
+                    // Control is gated off in this build, and sending a freshly paired Mac
+                    // there opened the whole desktop instead of the app browser.
+                    assistantExperience = .appStream
                     showVampAssistantPairing = true
                 },
                 onScanVampHost: { showVampHostScanner = true },

@@ -101,6 +101,7 @@ struct BeetCodeRemoteView: View {
         .onDisappear {
             renderer.stop()
             input.stop()
+            StreamOrientation.set(aspect: nil)
         }
     }
 
@@ -290,9 +291,15 @@ struct BeetCodeRemoteView: View {
                 configureInput(viewSize: $0)
                 resetViewportZoom()
             }
-            .onChangeCompat(of: renderer.geometry) { _ in
+            .onChangeCompat(of: renderer.geometry) { geometry in
                 configureInput(viewSize: proxy.size)
                 resetViewportZoom()
+                // Match the phone to the shape the Mac actually sent. The app delegate keeps
+                // Vamp Stream portrait until told otherwise, so without this a landscape window
+                // — or the whole desktop — renders as a thin strip across a portrait screen.
+                StreamOrientation.set(aspect: geometry.map {
+                    Double($0.imageWidth) / Double(max($0.imageHeight, 1))
+                })
             }
 #if canImport(UIKit) && !os(macOS)
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillChangeFrameNotification)) { notification in
@@ -584,7 +591,11 @@ struct BeetCodeRemoteView: View {
         case 120: return "F2"
         case 99: return "F3"
         case 118: return "F4"
-        default: return "key\(keyCode)"
+        case 49: return "Space"
+        default:
+            // Every shortcut on the keyboard decks (⌘C, ⌃C, ⌘V, ⌘Z, ⌘⇧3 …) is a letter or digit
+            // keycode. Without this they went out as "key8" and the Mac silently ignored them.
+            return AppStreamKeyboardOverlayView.character(forKeyCode: keyCode) ?? "key\(keyCode)"
         }
     }
 

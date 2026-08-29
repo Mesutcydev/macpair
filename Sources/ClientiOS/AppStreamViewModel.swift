@@ -194,14 +194,7 @@ final class AppStreamViewModel: ObservableObject {
         }
         pendingTargetName = application.name
         status = .launching(name: application.name)
-        launchTimeoutTask?.cancel()
-        launchTimeoutTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 12_000_000_000)
-            guard let self, !Task.isCancelled else { return }
-            guard case .launching = self.status else { return }
-            self.pendingTargetName = nil
-            self.status = .failed(reason: "The Mac did not open \(application.name) in time. Tap Retry.")
-        }
+        armLaunchTimeout(name: application.name)
         let request = StreamTargetSwitchRequestMessage(
             sessionID: sessionID,
             target: .application(application.bundleIdentifier),
@@ -213,6 +206,20 @@ final class AppStreamViewModel: ObservableObject {
                 try DataChannelEnvelope.streamTargetSwitch(request))
         } catch {
             status = .failed(reason: "Could not start \(application.name).")
+        }
+    }
+
+    /// Safety net for a host that dies mid-launch. It must outlast the host's own bounded
+    /// launch loop (up to ~20s of window polling on a cold start) or a slow app reports a
+    /// failure here while the Mac is still opening it.
+    private func armLaunchTimeout(name: String) {
+        launchTimeoutTask?.cancel()
+        launchTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 45_000_000_000)
+            guard let self, !Task.isCancelled else { return }
+            guard case .launching = self.status else { return }
+            self.pendingTargetName = nil
+            self.status = .failed(reason: "The Mac did not open \(name) in time. Tap Retry.")
         }
     }
 
@@ -271,8 +278,6 @@ final class AppStreamViewModel: ObservableObject {
     }
 
     func apply(_ result: StreamTargetSwitchResultMessage) {
-        launchTimeoutTask?.cancel()
-        launchTimeoutTask = nil
         if result.status == .completed, let width = result.width, let height = result.height {
             guard width > 0, height > 0,
                   let scale = result.scaleFactor,
@@ -291,6 +296,14 @@ final class AppStreamViewModel: ObservableObject {
             streamedWindow = nil
         }
         status = Self.reduce(status: status, result: result, pendingName: pendingTargetName ?? "Application")
+        // `.accepted` only means the host took the request; it still has to launch the app and
+        // resolve a window. Re-arm rather than leaving the browser stuck on "Opening…" forever.
+        if case .launching(let name) = status {
+            armLaunchTimeout(name: name)
+        } else {
+            launchTimeoutTask?.cancel()
+            launchTimeoutTask = nil
+        }
     }
 
     /// Pure state transition (no environment) — unit-tested.

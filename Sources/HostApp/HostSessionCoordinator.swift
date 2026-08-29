@@ -2206,15 +2206,48 @@ extension HostSessionCoordinator {
         if activeWindowTarget != nil {
             await stopActiveWindowStream()
         }
-        let snapshot = ApplicationListSnapshotMessage(
+        if let envelope = Self.applicationListEnvelope(
+            applications: applicationRegistry.snapshot(),
             sessionID: message.sessionID,
-            senderDeviceID: message.senderDeviceID,
-            applications: applicationRegistry.snapshot()
-        )
-        if let envelope = try? DataChannelEnvelope.applicationListSnapshot(snapshot) {
+            senderDeviceID: message.senderDeviceID
+        ) {
             try? webRTCSessionManager.sendDataMessage(envelope)
         }
     }
+
+    /// The control channel drops any inbound message larger than 128 KB, and a Mac with a
+    /// full /Applications encodes to several hundred KB once every icon is attached — the
+    /// browser then waits forever for a snapshot that was thrown away in transit. Shed icons
+    /// until the envelope fits; running apps keep theirs longest because that is the section
+    /// people actually look at.
+    nonisolated static func applicationListEnvelope(
+        applications: [RemoteApplication],
+        sessionID: UUID,
+        senderDeviceID: UUID
+    ) -> DataChannelEnvelope? {
+        let candidates = [
+            applications,
+            applications.map { $0.isRunning ? $0 : $0.withoutIcon },
+            applications.map(\.withoutIcon)
+        ]
+        var fallback: DataChannelEnvelope?
+        for candidate in candidates {
+            let snapshot = ApplicationListSnapshotMessage(
+                sessionID: sessionID,
+                senderDeviceID: senderDeviceID,
+                applications: candidate
+            )
+            guard let envelope = try? DataChannelEnvelope.applicationListSnapshot(snapshot),
+                  let size = try? envelope.wireEncode().count else { return fallback }
+            fallback = envelope
+            if size <= applicationListByteBudget { return envelope }
+        }
+        return fallback
+    }
+
+    /// Under `WebRTCSessionManager.maxInboundControlMessageBytes` (128 KB) with room for the
+    /// authentication nonce/tag that `sendDataMessage` adds after this measurement.
+    nonisolated static let applicationListByteBudget = 112 * 1024
 
     /// Client → host: retarget the live stream. Reuses the proven display-switch path for a
     /// `.display` target; resolves + captures a window for `.window` / `.application`.
@@ -2309,13 +2342,17 @@ extension HostSessionCoordinator {
         // polling ScreenCaptureKit for a bounded ten seconds.
         var window: WindowInfo?
         var requestedNewWindow = false
+        // A cold launch presents its own window; asking for another one a second in races the
+        // app's own startup and can leave a stray extra window behind. Only an app that was
+        // already running — hidden, minimised, or with every window closed — needs the nudge early.
+        let nudgeAttempt = existing == nil ? 16 : 4
         for attempt in 0..<40 {
             if let candidate = applicationRegistry.streamableWindow(forPID: runningApp.processIdentifier),
                await applicationRegistry.isShareableWindow(candidate.windowID) {
                 window = candidate
                 break
             }
-            if attempt == 4, !requestedNewWindow {
+            if attempt == nudgeAttempt, !requestedNewWindow {
                 requestedNewWindow = true
                 Self.restoreOrCreateWindow(for: runningApp, bundleID: bundleID)
             }
@@ -2382,8 +2419,10 @@ extension HostSessionCoordinator {
               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 45, keyDown: false) else { return }
         keyDown.flags = .maskCommand
         keyUp.flags = .maskCommand
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
+        // Deliver to the selected process only. The HID tap is global: if activation has not
+        // landed yet, a Cmd+N there opens a window in whatever app happens to be frontmost.
+        keyDown.postToPid(application.processIdentifier)
+        keyUp.postToPid(application.processIdentifier)
     }
 
     // MARK: Capture
@@ -2396,7 +2435,7 @@ extension HostSessionCoordinator {
         // it's exact for any iPhone) so the stream fills the screen with no letterbox bars. Best
         // effort — an app with a minimum size may not shrink fully.
         if let aspect = request.clientViewportAspect, aspect > 0 {
-            Self.resizeWindow(pid: window.ownerPID, toAspect: aspect)
+            Self.resizeWindow(pid: window.ownerPID, matching: window.bounds, toAspect: aspect)
             try? await Task.sleep(nanoseconds: 350_000_000)
             if let resized = applicationRegistry.windowInfo(windowID: window.windowID) {
                 window = resized
@@ -2615,26 +2654,11 @@ extension HostSessionCoordinator {
     /// bounds. Tall phone viewports must narrow a Mac window instead of asking macOS for a window
     /// taller than the display; macOS clamps that height and the resulting wide stream leaves large
     /// letterbox bands on the phone. Best effort — no-op if AX can't reach the window.
-    private static func resizeWindow(pid: pid_t, toAspect aspect: Double) {
+    private static func resizeWindow(pid: pid_t, matching bounds: DesktopRect, toAspect aspect: Double) {
         let axApp = AXUIElementCreateApplication(pid)
-        var focusedRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &focusedRef) == .success,
-              let focused = focusedRef, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return }
-        let axWindow = focused as! AXUIElement
-
-        var currentSize = CGSize(width: 1280, height: 800)
-        var sizeRef: CFTypeRef?
-        if AXUIElementCopyAttributeValue(axWindow, kAXSizeAttribute as CFString, &sizeRef) == .success,
-           let sizeRef, CFGetTypeID(sizeRef) == AXValueGetTypeID() {
-            AXValueGetValue(sizeRef as! AXValue, .cgSize, &currentSize)
-        }
-        var currentPosition = CGPoint.zero
-        var positionRef: CFTypeRef?
-        if AXUIElementCopyAttributeValue(axWindow, kAXPositionAttribute as CFString, &positionRef) == .success,
-           let positionRef, CFGetTypeID(positionRef) == AXValueGetTypeID() {
-            AXValueGetValue(positionRef as! AXValue, .cgPoint, &currentPosition)
-        }
-        let currentBounds = CGRect(origin: currentPosition, size: currentSize)
+        guard let axWindow = axWindow(in: axApp, matching: bounds) else { return }
+        let currentBounds = axFrame(of: axWindow)
+            ?? CGRect(x: bounds.origin.x, y: bounds.origin.y, width: bounds.size.width, height: bounds.size.height)
         let target = HostApplicationRegistry.targetWindowFrame(
             current: currentBounds,
             display: HostApplicationRegistry.displayBounds(containing: currentBounds),
@@ -2648,6 +2672,43 @@ extension HostSessionCoordinator {
         if let value = AXValueCreate(.cgPoint, &requestedPosition) {
             _ = AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, value)
         }
+    }
+
+    /// The AX element for the window we are actually streaming. AX exposes no window id, so
+    /// match on frame: the focused window is only a fallback, because resizing it when it is
+    /// not the streamed one both misses the fit and reshapes a window the user is working in.
+    private static func axWindow(in axApp: AXUIElement, matching bounds: DesktopRect) -> AXUIElement? {
+        var windowsRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &windowsRef) == .success,
+           let windows = windowsRef as? [AXUIElement],
+           let match = windows.first(where: { window in
+               guard let frame = axFrame(of: window) else { return false }
+               return abs(frame.origin.x - bounds.origin.x) < 2
+                   && abs(frame.origin.y - bounds.origin.y) < 2
+                   && abs(frame.width - bounds.size.width) < 2
+                   && abs(frame.height - bounds.size.height) < 2
+           }) {
+            return match
+        }
+        var focusedRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &focusedRef) == .success,
+              let focused = focusedRef, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
+        return (focused as! AXUIElement)
+    }
+
+    /// AX position/size, in the same global top-left point space as `kCGWindowBounds`.
+    private static func axFrame(of axWindow: AXUIElement) -> CGRect? {
+        var position = CGPoint.zero
+        var size = CGSize.zero
+        var positionRef: CFTypeRef?
+        var sizeRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axWindow, kAXPositionAttribute as CFString, &positionRef) == .success,
+              let positionRef, CFGetTypeID(positionRef) == AXValueGetTypeID(),
+              AXValueGetValue(positionRef as! AXValue, .cgPoint, &position),
+              AXUIElementCopyAttributeValue(axWindow, kAXSizeAttribute as CFString, &sizeRef) == .success,
+              let sizeRef, CFGetTypeID(sizeRef) == AXValueGetTypeID(),
+              AXValueGetValue(sizeRef as! AXValue, .cgSize, &size) else { return nil }
+        return CGRect(origin: position, size: size)
     }
 
     private static func windowDescriptor(windowID: CGWindowID, name: String, bounds: DesktopRect, scale: Double) -> DisplayDescriptor {

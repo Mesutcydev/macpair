@@ -72,6 +72,14 @@ public struct RemoteApplication: Codable, Hashable, Sendable, Identifiable {
         self.iconPNGBase64 = iconPNGBase64
         self.windowIDs = windowIDs
     }
+
+    /// The same entry with its icon dropped, so a large inventory can be shed down to fit
+    /// the control channel's per-message budget instead of being silently discarded.
+    public var withoutIcon: RemoteApplication {
+        var copy = self
+        copy.iconPNGBase64 = nil
+        return copy
+    }
 }
 
 /// Client → host: give me your current application registry.

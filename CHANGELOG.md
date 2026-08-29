@@ -49,6 +49,28 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
   surface instead of overlapping tab and stream-state dashboards.
 - Application launch, shareable-window validation, window fitting, and capture
   recovery keep the selected app visible without falling back to a display.
+- Vamp Stream's app list now reaches the phone on Macs with a large
+  `/Applications`. The icon-rich snapshot exceeded the control channel's 128 KB
+  message limit and was dropped in transit; icons are now shed until it fits.
+- Vamp Stream no longer streams the whole Mac desktop when the host resolves no
+  window for a selected app — it stays in the browser and says so.
+- Launching an app through Vamp Assistant waits 60s instead of 15s, so a cold
+  start of a heavy app no longer reports a timeout while the Mac is still
+  opening it.
+- Agents and background-only bundles are excluded from the app browser; they can
+  never open a streamable window.
+- Fit-to-phone resizes the window that is actually being streamed instead of the
+  app's focused window, and the "open a window" Cmd+N goes to the target process
+  rather than the global event tap.
+- Pairing a new Vamp Assistant Mac opens the app browser. It previously dropped
+  into the whole-desktop Remote Control surface, which this build does not offer.
+- The Assistant stream sets the phone orientation from the window the Mac
+  actually sent, so a landscape window is no longer letterboxed into a thin strip
+  on a portrait-locked screen.
+- Keyboard shortcuts (⌘C, ⌘V, ⌘Z, ⌃C, ⌃L, ⌘⇧3 …) reach the Mac over Vamp
+  Assistant. They were sent as unnamed key codes and silently discarded.
+- Saved Assistant Macs are probed in parallel with a short timeout, so one
+  offline Mac no longer stalls the whole list on "Checking".
 
 ## [2.3.0] - 2026-08-22 — build 47
 
