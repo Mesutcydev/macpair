@@ -98,6 +98,78 @@ jobs:
           CODE_SIGNING_REQUIRED=NO
           build
 
+  ios-clients:
+    # Vamp Control (iOSRemote) and Vamp Stream ship as unsigned IPAs but were
+    # not compiled on pull requests. Build them in parallel with the host job
+    # so a Control/Stream compile error cannot sit on main until tag time.
+    name: iOS Control and Stream
+    runs-on: macos-26-intel
+    timeout-minutes: 45
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Resolve app dependencies
+        run: >-
+          xcodebuild
+          -resolvePackageDependencies
+          -project RemoteDesktopToolApps.xcodeproj
+
+      - name: Build iOS Control client
+        run: >-
+          xcodebuild
+          -project RemoteDesktopToolApps.xcodeproj
+          -scheme iOSRemote
+          -configuration Debug
+          -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+      - name: Build iOS Control client (device slice)
+        run: >-
+          xcodebuild
+          -project RemoteDesktopToolApps.xcodeproj
+          -scheme iOSRemote
+          -configuration Debug
+          -destination 'generic/platform=iOS'
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+          build
+
+      - name: Install XcodeGen
+        run: |
+          brew untap aws/tap 2>/dev/null || true
+          brew install xcodegen
+
+      - name: Generate Vamp Stream project
+        run: xcodegen generate --spec vampstream-project.yml
+
+      - name: Build Vamp Stream
+        run: >-
+          xcodebuild
+          -project VampStream.xcodeproj
+          -scheme VampStream
+          -configuration Debug
+          -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+      - name: Build Vamp Stream (device slice)
+        run: >-
+          xcodebuild
+          -project VampStream.xcodeproj
+          -scheme VampStream
+          -configuration Debug
+          -destination 'generic/platform=iOS'
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+          build
+
   test-arm64:
     # Release hosts and IPAs ship arm64, but the main build job runs on an
     # Intel runner. Re-run the core suite on Apple silicon so arm64-only codegen

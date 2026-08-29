@@ -17,6 +17,7 @@ from vamp_terminal_host import (  # noqa: E402
     GeminiSemanticParser,
     KimiSemanticParser,
     OpenCodeSemanticParser,
+    PAIRED_TOKEN_TTL_SECONDS,
     PiSemanticParser,
     QwenSemanticParser,
     PairingState,
@@ -44,6 +45,10 @@ class LinuxHostTests(unittest.TestCase):
         self.assertGreater(token_expires_at, pairing.expires_at)
         self.assertNotEqual(pairing.code, code)
         self.assertIsNone(pairing.pair(code), "pairing approval codes must be single-use")
+        remaining = token_expires_at - time.time()
+        self.assertGreater(remaining, PAIRED_TOKEN_TTL_SECONDS - 5)
+        self.assertLessEqual(remaining, PAIRED_TOKEN_TTL_SECONDS)
+        self.assertEqual(PAIRED_TOKEN_TTL_SECONDS, 30 * 60)
 
     def test_status_never_exposes_pairing_code_or_token(self):
         host = VampTerminalHost(8)

@@ -5,10 +5,10 @@ import SharedModels
 /// Concrete file-backed trusted peer store using JSON persistence.
 /// Stores trusted peers in a JSON file inside the app's Application Support directory.
 ///
-/// Architecture note: The `fingerprint` field on `TrustedPeer` is designed to hold
-/// a SHA-256 hash of the peer's public key (or certificate). Currently populated with
-/// a placeholder identity string; when certificate pinning is added, replace it with
-/// the actual key fingerprint and verify on every connection.
+/// Architecture note: The `fingerprint` field on `TrustedPeer` is a SHA-256 hex
+/// digest of the peer's public key. `trustPeer` rejects values that fail
+/// `PublicKeyFingerprint.isValid`, and `PeerTrustGate` compares the live
+/// fingerprint to this stored digest on every connection.
 public actor PersistentTrustedPeerStore: TrustedPeerStoreProtocol {
     private let logger = Logger(subsystem: "com.remotedesktop.permissions", category: "TrustedPeerStore")
 
