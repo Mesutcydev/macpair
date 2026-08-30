@@ -302,8 +302,8 @@ public final class HostApplicationRegistry {
         }
     }
 
-    /// Assistant-compatible window fitting: match the phone aspect, never grow
-    /// beyond the current/display bounds, and keep the complete window visible.
+    /// Assistant-compatible window fitting: match the phone aspect, fill as much of the display
+    /// as that aspect allows, and keep the complete window visible.
     static func targetWindowFrame(
         current: CGRect,
         display: CGRect,
@@ -325,7 +325,18 @@ public final class HostApplicationRegistry {
         var size = aspect < currentAspect
             ? CGSize(width: currentSize.height * aspect, height: currentSize.height)
             : CGSize(width: currentSize.width, height: currentSize.width / aspect)
-        let fitScale = min(1, min(available.width / size.width, available.height / size.height))
+        // Scale the aspect-matched shape *into* the display instead of only shrinking toward it.
+        // Shrink-only turned a small source window — Terminal's default is about 528x374 — into
+        // roughly 172x374, which the phone then upscaled nearly 3x: giant text and ~31 columns.
+        //
+        // The cap keeps the capture within what a phone can use and decode. A phone screen is at
+        // most ~1290x2796 px, so 1400 points already covers it on a 2x Mac; without it a 5K/6K
+        // display would produce a capture taller than the client's H.264 decoder accepts.
+        let maxEdgePoints: CGFloat = 1400
+        let fitScale = min(
+            min(available.width / size.width, available.height / size.height),
+            maxEdgePoints / max(size.width, size.height)
+        )
         size.width = max(1, floor(size.width * fitScale))
         size.height = max(1, floor(size.height * fitScale))
         let maxX = max(available.minX, available.maxX - size.width)

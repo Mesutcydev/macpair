@@ -36,7 +36,8 @@ struct VampAssistantAppStreamView: View {
                         streamGeometryRevision: "\(selectedApplication.windowID ?? 0)-\(selectedApplication.width)-\(selectedApplication.height)",
                         onClose: onClose,
                         onRefresh: onRefreshStatus,
-                        onChooseApplication: { self.selectedApplication = nil })
+                        onChooseApplication: { self.selectedApplication = nil },
+                        onViewportSize: { updateViewport($0) })
                 } else {
                     VampAssistantApplicationBrowser(
                         macName: session.displayName,
@@ -51,6 +52,8 @@ struct VampAssistantAppStreamView: View {
                 }
             }
             .tint(PR.accent)
+            // Seeds the aspect for the launch request, before any video exists to measure.
+            // Once the stream is up, `onViewportSize` refines it to the real video area.
             .onAppear { updateViewport(proxy.size) }
             .onChangeCompat(of: proxy.size) { updateViewport($0) }
             .task(id: resizeTaskID) {
@@ -135,6 +138,9 @@ struct VampAssistantAppStreamView: View {
             errorMessage = "\(application.name) has no open window on the Mac yet. Open one there, then tap it again."
             return
         }
+        // Do not carry a previous failure into a selection that just succeeded — the browser
+        // shows this banner again as soon as the user comes back from the stream.
+        errorMessage = nil
         selectedApplication = application
     }
 

@@ -71,6 +71,15 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
   Assistant. They were sent as unnamed key codes and silently discarded.
 - Saved Assistant Macs are probed in parallel with a short timeout, so one
   offline Mac no longer stalls the whole list on "Checking".
+- Window fitting grows a small window into the display instead of only
+  shrinking it. Terminal's default window was narrowed to roughly 172x374
+  points — about 31 columns — which the phone then upscaled nearly 3x into
+  unreadably large text. Capped so the capture stays within what a phone can
+  decode.
+- The streamed window is fitted to the area the video actually occupies rather
+  than the enclosing safe-area frame, removing a permanent letterbox band.
+- Resizing a streamed window on the Mac restarts capture once the drag settles
+  instead of on every 200 ms poll.
 
 ## [2.3.0] - 2026-08-22 — build 47
 

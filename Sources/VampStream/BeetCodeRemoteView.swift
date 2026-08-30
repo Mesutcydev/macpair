@@ -31,6 +31,10 @@ struct BeetCodeRemoteView: View {
     let onClose: () -> Void
     let onRefresh: () async -> String?
     let onChooseApplication: (() -> Void)?
+    /// The size of the area the video is actually laid out in. It is larger than the enclosing
+    /// safe-area frame (this surface ignores the bottom and horizontal insets), and it is the
+    /// geometry the input mapper uses — so it is the only aspect the Mac should be fitted to.
+    let onViewportSize: ((CGSize) -> Void)?
 
     @StateObject private var renderer: BeetCodeVideoRendererViewModel
     @StateObject private var input: BeetCodeRemoteInputController
@@ -55,7 +59,8 @@ struct BeetCodeRemoteView: View {
         streamGeometryRevision: String = "",
         onClose: @escaping () -> Void,
         onRefresh: @escaping () async -> String?,
-        onChooseApplication: (() -> Void)? = nil
+        onChooseApplication: (() -> Void)? = nil,
+        onViewportSize: ((CGSize) -> Void)? = nil
     ) {
         self.session = session
         self.windowID = windowID
@@ -65,6 +70,7 @@ struct BeetCodeRemoteView: View {
         self.onClose = onClose
         self.onRefresh = onRefresh
         self.onChooseApplication = onChooseApplication
+        self.onViewportSize = onViewportSize
         _renderer = StateObject(wrappedValue: BeetCodeVideoRendererViewModel())
         _input = StateObject(wrappedValue: BeetCodeRemoteInputController(client: session.client))
     }
@@ -286,10 +292,14 @@ struct BeetCodeRemoteView: View {
                     .padding(.bottom, keyboardOverlayBottomPad)
                 }
             }
-            .onAppear { configureInput(viewSize: proxy.size) }
+            .onAppear {
+                configureInput(viewSize: proxy.size)
+                onViewportSize?(proxy.size)
+            }
             .onChangeCompat(of: proxy.size) {
                 configureInput(viewSize: $0)
                 resetViewportZoom()
+                onViewportSize?($0)
             }
             .onChangeCompat(of: renderer.geometry) { geometry in
                 configureInput(viewSize: proxy.size)

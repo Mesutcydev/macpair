@@ -2506,6 +2506,7 @@ extension HostSessionCoordinator {
         // Inherits @MainActor from the enclosing coordinator, so member access is main-isolated.
         windowTrackingTask = Task { [weak self] in
             var misses = 0
+            var settling: WindowGeometrySample?
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 200_000_000)
                 guard let self else { return }
@@ -2519,6 +2520,15 @@ extension HostSessionCoordinator {
                     // differently-scaled screen requires a fresh encoder/capture configuration
                     // so the video aspect and the input mapper stay in lockstep.
                     if sizeChanged || scaleChanged {
+                        // Dragging a window edge changes the frame on every poll, and each
+                        // reconfigure tears capture and encode down and builds them back up.
+                        // Wait for the geometry to hold still for one tick, so a drag costs
+                        // one restart at the end instead of one every 200 ms throughout.
+                        let sample = WindowGeometrySample(size: info.bounds.size, scale: scale)
+                        let settled = Self.hasSettled(previous: settling, current: sample)
+                        settling = sample
+                        guard settled else { continue }
+                        settling = nil
                         await self.reconfigureWindowStream(
                             target: target,
                             bounds: info.bounds,
@@ -2526,11 +2536,14 @@ extension HostSessionCoordinator {
                             sessionID: sessionID,
                             senderDeviceID: senderDeviceID
                         )
-                    } else if info.bounds.origin != target.descriptor.frame.origin {
-                        var updated = target
-                        updated.descriptor.frame = DesktopRect(origin: info.bounds.origin, size: updated.descriptor.frame.size)
-                        self.activeWindowTarget = updated
-                        self.updateWindowInputGeometry(descriptor: updated.descriptor)
+                    } else {
+                        settling = nil
+                        if info.bounds.origin != target.descriptor.frame.origin {
+                            var updated = target
+                            updated.descriptor.frame = DesktopRect(origin: info.bounds.origin, size: updated.descriptor.frame.size)
+                            self.activeWindowTarget = updated
+                            self.updateWindowInputGeometry(descriptor: updated.descriptor)
+                        }
                     }
                 } else {
                     // Require two consecutive misses (~400 ms) before declaring loss so a
@@ -2547,6 +2560,19 @@ extension HostSessionCoordinator {
                 }
             }
         }
+    }
+
+    /// One poll of a streamed window's shape. Scale is compared with a tolerance because it is
+    /// a floating-point backing factor, not an exact value.
+    struct WindowGeometrySample: Equatable, Sendable {
+        let size: DesktopSize
+        let scale: Double
+    }
+
+    /// True when two consecutive polls saw the same shape, meaning a resize has finished.
+    nonisolated static func hasSettled(previous: WindowGeometrySample?, current: WindowGeometrySample) -> Bool {
+        guard let previous else { return false }
+        return previous.size == current.size && abs(previous.scale - current.scale) <= 0.01
     }
 
     func clearWindowStreaming() {

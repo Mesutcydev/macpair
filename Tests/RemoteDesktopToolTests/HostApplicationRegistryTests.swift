@@ -70,6 +70,29 @@ final class HostApplicationRegistryTests: XCTestCase {
         XCTAssertTrue(decoded.applications.allSatisfy { $0.iconPNGBase64 != nil })
     }
 
+    /// A drag-resize on the Mac changes the frame on every 200ms poll; each reconfigure
+    /// rebuilds capture and encode, so only a shape that held still may trigger one.
+    func testWindowResizeOnlyRestartsCaptureOnceTheShapeHoldsStill() {
+        let a = HostSessionCoordinator.WindowGeometrySample(
+            size: DesktopSize(width: 800, height: 600), scale: 2)
+        let b = HostSessionCoordinator.WindowGeometrySample(
+            size: DesktopSize(width: 700, height: 600), scale: 2)
+
+        XCTAssertFalse(HostSessionCoordinator.hasSettled(previous: nil, current: a),
+                       "the first poll of a resize must never restart capture")
+        XCTAssertFalse(HostSessionCoordinator.hasSettled(previous: a, current: b),
+                       "a size still changing must not restart capture")
+        XCTAssertTrue(HostSessionCoordinator.hasSettled(previous: b, current: b))
+        // A Retina backing factor is floating point; ignore noise below the tolerance.
+        XCTAssertTrue(HostSessionCoordinator.hasSettled(
+            previous: b,
+            current: HostSessionCoordinator.WindowGeometrySample(size: b.size, scale: 2.005)))
+        XCTAssertFalse(HostSessionCoordinator.hasSettled(
+            previous: b,
+            current: HostSessionCoordinator.WindowGeometrySample(size: b.size, scale: 1)),
+            "moving to a differently-scaled screen is a real change")
+    }
+
     func testDedupPrefersActiveInstance() {
         let deduped = HostApplicationRegistry.dedupedByBundleID([
             app("com.apple.Terminal", name: "Terminal", active: false, windows: ["1"]),
@@ -139,13 +162,40 @@ final class HostApplicationRegistryTests: XCTestCase {
         XCTAssertLessThanOrEqual(frame.maxY, 1_056)
     }
 
-    func testAssistantCompatibleWindowFitShrinksHeightForWideViewport() {
+    func testAssistantCompatibleWindowFitFillsTheDisplayForWideViewport() {
         let frame = HostApplicationRegistry.targetWindowFrame(
             current: CGRect(x: 100, y: 100, width: 400, height: 800),
             display: CGRect(x: 0, y: 0, width: 1_920, height: 1_080),
             requestedAspect: 1
         )
-        XCTAssertEqual(frame.size, CGSize(width: 400, height: 400))
+        // Square viewport, so the fit is bounded by the usable display height (1080 - 76).
+        XCTAssertEqual(frame.width, 1_004, accuracy: 1)
+        XCTAssertEqual(frame.height, 1_004, accuracy: 1)
+    }
+
+    /// A small source window used to be narrowed to the phone aspect and left small: Terminal's
+    /// ~528x374 default became ~172x374, about 31 columns, which the phone upscaled ~3x.
+    func testSmallSourceWindowGrowsInsteadOfBecomingAPostageStamp() {
+        let frame = HostApplicationRegistry.targetWindowFrame(
+            current: CGRect(x: 200, y: 200, width: 528, height: 374),
+            display: CGRect(x: 0, y: 0, width: 1_440, height: 900),
+            requestedAspect: 390.0 / 844.0
+        )
+        XCTAssertEqual(frame.width / frame.height, 390.0 / 844.0, accuracy: 0.005)
+        XCTAssertEqual(frame.height, 824, accuracy: 1, "should fill the usable display height")
+        XCTAssertGreaterThan(frame.width, 370, "roughly 55 columns of Terminal, not 31")
+        XCTAssertLessThanOrEqual(frame.maxY, 876, "must stay inside the usable display area")
+    }
+
+    /// Growing must not hand the phone a capture its H.264 decoder will reject.
+    func testWindowFitIsCappedOnVeryLargeDisplays() {
+        let frame = HostApplicationRegistry.targetWindowFrame(
+            current: CGRect(x: 0, y: 0, width: 528, height: 374),
+            display: CGRect(x: 0, y: 0, width: 5_120, height: 2_880),
+            requestedAspect: 390.0 / 844.0
+        )
+        XCTAssertLessThanOrEqual(max(frame.width, frame.height), 1_400)
+        XCTAssertEqual(frame.width / frame.height, 390.0 / 844.0, accuracy: 0.005)
     }
 
     // MARK: - Capability advertisement (Step 13)
