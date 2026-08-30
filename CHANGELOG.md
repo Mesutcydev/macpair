@@ -6,6 +6,8 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-08-30 — build 50
+
 ### Security
 
 - Pairing codes for Safari/Linux browser control are 12 digits. The QR carries
