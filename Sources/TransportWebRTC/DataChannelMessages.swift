@@ -5,7 +5,7 @@ import SharedProtocol
 
 // MARK: - Data Channel Message Kind
 
-public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
+public enum DataChannelMessageKind: String, Codable, Hashable, Sendable, CaseIterable {
     case controlAuth
     case inputCommand
     case ping
@@ -82,7 +82,10 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
 
     /// One source of truth for the control-channel authentication contract.
     /// Any kind that can inject input, change host state, read/write host data,
-    /// or operate a PTY must be MACed after the session handshake.
+    /// operate a PTY, or keep the session alive (ping/pong) must be MACed after
+    /// the session handshake. Send (`WebRTCSessionManager.sendDataMessage`) and
+    /// receive (`HostInputCommandRouter.validateControlEnvelopeAuth`) both
+    /// consult this flag so a liveness probe cannot bypass HMAC.
     public var requiresControlChannelAuthentication: Bool {
         switch self {
         case .inputCommand, .chatMessage, .qualityAdjust, .fileTransfer,
@@ -94,7 +97,8 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
              .workspaceDirectoryResponse, .workspaceAccessRequest,
              .workspaceAccessResponse, .taskPlanEvent, .agentPrompt,
              .providerSemanticEvent, .sessionSyncRequest, .sessionSnapshot,
-             .sessionSyncEvent, .applicationList, .streamTargetSwitch:
+             .sessionSyncEvent, .applicationList, .streamTargetSwitch,
+             .ping, .pong:
             return true
         default:
             return false

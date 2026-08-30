@@ -38,6 +38,7 @@ final class MockPeerConnection: PeerConnectionProtocol, @unchecked Sendable {
 
     weak var delegate: (any PeerConnectionDelegate)?
     var createdDataChannels: [String] = []
+    var createdChannelObjects: [String: MockDataChannel] = [:]
     var addedCandidates: [ICECandidate] = []
     var isClosed = false
 
@@ -69,7 +70,9 @@ final class MockPeerConnection: PeerConnectionProtocol, @unchecked Sendable {
 
     func createDataChannel(_ config: DataChannelConfiguration) -> (any DataChannelProtocol)? {
         createdDataChannels.append(config.label)
-        return MockDataChannel(label: config.label)
+        let channel = MockDataChannel(label: config.label)
+        createdChannelObjects[config.label] = channel
+        return channel
     }
 
     func addVideoTrack(_ track: any VideoTrackProtocol) {}
@@ -279,6 +282,41 @@ final class WebRTCSessionManagerTests: XCTestCase {
         if let mockDC = provider.lastCreatedConnection?.createdDataChannels.first {
             XCTAssertEqual(mockDC, "control")
         }
+        let sent = try XCTUnwrap(provider.lastCreatedConnection?.createdChannelObjects["control"]?.sentData.last)
+        let decoded = try DataChannelEnvelope.wireDecode(sent)
+        XCTAssertEqual(decoded.kind, .ping)
+        XCTAssertNil(decoded.authTag, "Ping is unsigned until a control-channel token is configured")
+    }
+
+    func testSendPingIsAuthenticatedWhenControlTokenConfigured() async throws {
+        try await manager.prepareSession(id: UUID(), role: .host)
+        let token = String(repeating: "ab", count: 32)
+        manager.configureControlChannelAuth(sessionTokenHex: token)
+
+        let ping = PingMessage()
+        try manager.sendDataMessage(try DataChannelEnvelope.ping(ping))
+
+        let sent = try XCTUnwrap(provider.lastCreatedConnection?.createdChannelObjects["control"]?.sentData.last)
+        let decoded = try DataChannelEnvelope.wireDecode(sent)
+        XCTAssertEqual(decoded.kind, .ping)
+        XCTAssertNotNil(decoded.authCounter)
+        XCTAssertNotNil(decoded.authNonce)
+        XCTAssertNotNil(decoded.authTag)
+        XCTAssertTrue(decoded.hasValidAuthentication(sessionTokenHex: token))
+    }
+
+    func testSendPongIsAuthenticatedWhenControlTokenConfigured() async throws {
+        try await manager.prepareSession(id: UUID(), role: .host)
+        let token = String(repeating: "ab", count: 32)
+        manager.configureControlChannelAuth(sessionTokenHex: token)
+
+        let ping = PingMessage()
+        try manager.sendDataMessage(try DataChannelEnvelope.pong(PongMessage(id: ping.id, sentAt: ping.sentAt)))
+
+        let sent = try XCTUnwrap(provider.lastCreatedConnection?.createdChannelObjects["control"]?.sentData.last)
+        let decoded = try DataChannelEnvelope.wireDecode(sent)
+        XCTAssertEqual(decoded.kind, .pong)
+        XCTAssertTrue(decoded.hasValidAuthentication(sessionTokenHex: token))
     }
 
     // MARK: - Connection State Updates via Delegate

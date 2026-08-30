@@ -2,7 +2,7 @@
 
 This is the small Linux companion for terminal sessions. It provides a
 loopback-only browser workspace with task-chat and terminal presentations,
-multiple PTYs, one-time pairing approval, long-lived per-browser tokens,
+multiple PTYs, one-time pairing approval, 30-minute per-browser tokens,
 resize, clipboard messages, safe workspace roots, and a maximum of eight
 terminals per browser connection.
 
@@ -45,8 +45,9 @@ python3 linux-host/vamp_terminal_host.py
 
 Open the printed local URL, enter the 12-digit code shown in the host
 terminal, then use the tab bar. The browser keeps the resulting paired token
-for its 30-day lifetime, so refreshing the page reconnects without another
-code. For private tailnet access, keep the process bound to loopback and run:
+for 30 minutes (`PAIRED_TOKEN_TTL_SECONDS`), so refreshing the page reconnects
+without another code until that window expires. For private tailnet access,
+keep the process bound to loopback and run:
 
 ```sh
 tailscale serve --bg http://127.0.0.1:9475

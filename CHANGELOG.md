@@ -24,11 +24,22 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
   complete pairing by themselves.
 - A known peer that presents a new identity key is rejected as a possible MITM
   instead of a casual Allow prompt. Forget the old device to re-pair.
-- Control-channel pings require the same HMAC as other envelopes.
+- Control-channel pings require the same HMAC as other envelopes. Send now
+  stamps `.ping` and `.pong` the same way receive already verified them, so a
+  liveness probe cannot skip the MAC.
 - Linux refuses wildcard binds (`0.0.0.0` / `::`) even with `--allow-non-loopback`.
+
+### Fixed
+
+- Linux Host README now documents the 30-minute paired-token lifetime that the
+  host actually enforces, not a 30-day window.
+- Workspace discovery tests initialize a real git repo so CI no longer times
+  out waiting on `git` metadata for an empty `.git` folder.
 
 ### Added
 
+- CI compiles Vamp Control iOS (`iOSRemote`) and Vamp Stream on a parallel job
+  so those clients cannot regress unnoticed on `main`.
 - Vamp Mini Host, a separate macOS menu-bar app with its own host identity and
   trusted-peer store. It provides pairing review, exact fingerprint confirmation,
   permission guidance, Tailscale status, and Start / Stop / Restart controls.
