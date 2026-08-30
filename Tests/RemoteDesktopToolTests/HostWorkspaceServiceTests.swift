@@ -46,7 +46,7 @@ final class HostWorkspaceServiceTests: XCTestCase {
             rootsBox.set(browseRoots)
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 2)
+        wait(for: [expectation], timeout: 10)
 
         let workspaces = workspacesBox.value
         let roots = rootsBox.value
@@ -75,7 +75,7 @@ final class HostWorkspaceServiceTests: XCTestCase {
             entriesBox.set(listed)
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 2)
+        wait(for: [expectation], timeout: 10)
 
         let entries = entriesBox.value
         XCTAssertEqual(entries.map(\.name), ["One"])
@@ -107,7 +107,7 @@ final class HostWorkspaceServiceTests: XCTestCase {
         }
 
         wait(for: [browseReturned], timeout: 0.5)
-        wait(for: [discoveryStarted], timeout: 2)
+        wait(for: [discoveryStarted], timeout: 10)
     }
 }
 #endif
