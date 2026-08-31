@@ -846,10 +846,12 @@ final class HostSessionCoordinator: ObservableObject {
             // resolves a concrete application window.
             await captureEngine.stopCapture()
             await encoderPipeline.stopEncoding()
-            performanceStateController.setActivePreset(minQualityPreset(
-                performanceStateController.profile.effectivePreset,
-                offer.qualityPreset
-            ))
+            // The idle host profile starts at Balanced. Using it as an input to
+            // `minQualityPreset` silently capped every Vamp Stream request at 1080p
+            // on H.264 and prevented native-resolution Ultra capture on HEVC. Apply
+            // the client's request first; the controller still downgrades it for
+            // low-power or thermal pressure.
+            performanceStateController.setActivePreset(offer.qualityPreset)
             await publishInitialSessionState(sessionID: sessionID)
             return
         }
@@ -863,10 +865,7 @@ final class HostSessionCoordinator: ObservableObject {
             // Get display layout
             let layout = try await displayLayoutProvider.currentDisplayLayout()
             let displayID = offer.requestedDisplayID ?? layout.primaryDisplayID ?? layout.displays.first?.id
-            let qualityPreset = minQualityPreset(
-                performanceStateController.profile.effectivePreset,
-                offer.qualityPreset
-            )
+            let qualityPreset = performanceStateController.setActivePreset(offer.qualityPreset)
 
             guard let displayID else {
                 throw CaptureEngineError.displayNotFound("No display available")
@@ -2443,7 +2442,11 @@ extension HostSessionCoordinator {
         }
         let scale = applicationRegistry.windowScaleFactor(bounds: window.bounds)
         let descriptor = Self.windowDescriptor(windowID: window.windowID, name: name, bounds: window.bounds, scale: scale)
-        let preset = minQualityPreset(performanceStateController.profile.effectivePreset, .balanced)
+        // Preserve the quality negotiated for this session. The adaptive controller
+        // can lower bitrate/FPS under congestion, and the performance controller can
+        // downgrade for power or thermals; a fixed Balanced cap here only discarded
+        // resolution before either adaptive system had a chance to operate.
+        let preset = performanceStateController.profile.effectivePreset
 
         // Cancel tracking for the previous window before replacing its capture pipeline.
         // The old task must not report a loss while this switch is in progress.

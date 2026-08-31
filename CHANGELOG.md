@@ -7,6 +7,18 @@ their original product names. The format follows
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-08-31 — build 52
+
+### Fixed
+
+- Vamp Sync now honors the Quality or Ultra resolution requested by Vamp Stream
+  instead of treating its idle Balanced profile as a permanent 1080p ceiling.
+  Low Power Mode, thermal pressure, and adaptive network quality can still reduce
+  the stream safely when needed.
+- Vamp Stream 0.1.3 defaults Vamp Sync sessions to the sharpest preset supported
+  by the iPhone or iPad and upgrades the historical Vamp Assistant 1080p default
+  to its native-resolution stream profile.
+
 ## [2.3.0] - 2026-08-31 — build 51
 
 ### Fixed

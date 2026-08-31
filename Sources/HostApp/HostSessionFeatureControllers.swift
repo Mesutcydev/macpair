@@ -66,9 +66,14 @@ final class HostPerformanceStateController: ObservableObject {
     }
 
     /// Call after the pipeline applies a new quality preset so the dashboard tiles reflect it live.
-    func setActivePreset(_ preset: StreamQualityPreset) {
+    /// Applies the client-requested preset through the host's live power and thermal policy.
+    /// Returning the effective value keeps session setup from accidentally treating the
+    /// controller's idle `.balanced` profile as a permanent quality ceiling.
+    @discardableResult
+    func setActivePreset(_ preset: StreamQualityPreset) -> StreamQualityPreset {
         activePreset = preset
         recomputeProfile()
+        return profile.effectivePreset
     }
 
     func resetActivePreset() {

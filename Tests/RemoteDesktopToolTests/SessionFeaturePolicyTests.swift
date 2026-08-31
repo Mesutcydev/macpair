@@ -218,6 +218,22 @@ final class SessionFeaturePolicyTests: XCTestCase {
         XCTAssertEqual(controller.currentMode, .viewOnly)
     }
 
+    @MainActor
+    func testHostPerformanceControllerHonorsRequestedResolutionPreset() {
+        let controller = HostPerformanceStateController()
+
+        XCTAssertEqual(controller.setActivePreset(.ultra), .ultra)
+        XCTAssertEqual(controller.profile.effectivePreset, .ultra)
+    }
+
+    @MainActor
+    func testHostPerformanceControllerStillDowngradesRequestedPresetInLowPowerMode() {
+        let controller = HostPerformanceStateController(lowPowerModeEnabled: true)
+
+        XCTAssertEqual(controller.setActivePreset(.ultra), .balanced)
+        XCTAssertEqual(controller.profile.throttleReason, .lowPower)
+    }
+
     func testEventLogExportRedactsSensitiveMetadata() throws {
         let exporter = EventLogExportService()
         let item = EventLogItem(

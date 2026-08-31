@@ -48,7 +48,7 @@ struct BeetCodeRemoteView: View {
     @State private var selectedDisplayID: UInt32?
     @State private var controlsHidden = false
     @StateObject private var annotationStore = AnnotationOverlayStore()
-    @AppStorage("vampstream.assistant.resolution") private var resolution = StreamResolution.p1080.rawValue
+    @AppStorage("vampstream.assistant.resolution") private var resolution = StreamResolution.native.rawValue
     @State private var fillScreen = false
 
     init(

@@ -13,7 +13,12 @@ struct VampStreamApp: App {
     @StateObject private var vampAssistant: BeetCodeRemoteSessionViewModel
 
     init() {
+        VampStreamStreamingQualityPolicy.migrateAssistantResolution()
         let env = ClientAppEnvironment.makeDefault(clientName: "Vamp Stream")
+        env.preferredQualityPreset = VampStreamStreamingQualityPolicy.preferredPreset(
+            current: env.preferredQualityPreset,
+            supportsUltra: env.isUltraQualityEntitled
+        )
         _environment = StateObject(wrappedValue: env)
         _appStream = StateObject(wrappedValue: AppStreamViewModel(environment: env))
         _vampAssistant = StateObject(wrappedValue: BeetCodeRemoteSessionViewModel())
