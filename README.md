@@ -1,62 +1,100 @@
+<div align="center">
+
+![Vamp Suite — Command your Mac, quietly secured](docs/assets/og-image.png)
+
 # Vamp Suite
 
-**Vamp Suite is an open-source, local-first family of macOS and iOS tools for AI assistance, private streaming, remote control, and terminal access.** Connections use a trusted LAN or private Tailscale network. Every new device needs visible approval. There is no product account and no hosted relay.
+### Private AI, Mac streaming, remote control, and terminal access.
 
-| Product | Purpose | Platforms |
+Local-first software for macOS, iPhone, and iPad. Connect over a trusted LAN or
+private Tailscale network—with visible approval for every new device and no
+hosted relay.
+
+[![CI](https://github.com/Mesutcydev/vamp-suite/actions/workflows/ci.yml/badge.svg)](https://github.com/Mesutcydev/vamp-suite/actions/workflows/ci.yml)
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fthevamp.app&label=thevamp.app)](https://thevamp.app/)
+[![Latest release](https://img.shields.io/github/v/release/Mesutcydev/vamp-suite?display_name=tag)](https://github.com/Mesutcydev/vamp-suite/releases/latest)
+[![License](https://img.shields.io/github/license/Mesutcydev/vamp-suite)](LICENSE)
+
+[Explore the suite](https://thevamp.app/) · [Download](https://thevamp.app/#download) · [Install guide](docs/INSTALL.md) · [Security](SECURITY.md)
+
+</div>
+
+## Choose your Vamp setup
+
+| I want to… | Install on the Mac | Install on the client | Best fit |
+| --- | --- | --- | --- |
+| Use AI tools and reach them privately | **Vamp Assistant** | Assistant for iOS or a browser | [Vamp Assistant](https://thevamp.app/assistant/) |
+| View a display or individual app window | **Vamp Sync**, Host, or Assistant | **Vamp Stream** for iPhone/iPad | [Vamp Stream](https://thevamp.app/stream/) |
+| Fully control a Mac | **Vamp Host** | **Vamp Control** for macOS/iOS | [Downloads](https://thevamp.app/#download) |
+| Open a remote shell | **Vamp Terminal Host** or Host | **Vamp Terminal** | [Terminal guide](docs/VAMP_TERMINAL_SIDELOAD.md) |
+
+### The apps
+
+| App | Platform | Role |
 | --- | --- | --- |
-| [Vamp Assistant](https://thevamp.app/assistant/) | Native AI chat, local/BYOK models, Code workspaces, specialist bots, approval-gated tools, and private remote sessions | macOS, iPhone, iPad, browser |
-| [Vamp Stream](https://thevamp.app/stream/) | Focused visual client for a Mac display or app window | iPhone, iPad |
+| **Vamp Assistant** | macOS · iOS · browser | AI chat, local/BYOK models, Code workspaces, specialist bots, approval-gated tools, and private remote sessions |
+| **Vamp Stream** | iPhone · iPad | Focused visual client for a full display or one app window |
+| **Vamp Sync** | macOS | Lightweight menu-bar companion designed for Stream |
+| **Vamp Control** | macOS · iPhone · iPad | Full screen, keyboard, pointer, clipboard, and file control |
+| **Vamp Host** | macOS | Full WebRTC host shared by Control, Stream, and Terminal |
+| **Vamp Terminal** | iPhone · iPad · macOS/Linux host | Remote terminal workspace for approved devices |
 
-Vamp Stream can use Vamp Host, the lightweight **Vamp Sync** companion (the
-`VampMiniHost` implementation), or Vamp Assistant as its Mac side. Host and
-Vamp Sync uses the signed WebRTC stack; Assistant uses its authenticated
-private Remote Sessions endpoint. Terminal, Terminal Host, Control, standalone
-browser control, and Linux Host source and technical documentation remain in
-the repository, but they are not part of the current public promotion.
+Vamp Assistant is maintained in the separate
+[vamp-assistant repository](https://github.com/Mesutcydev/vamp-assistant). This
+repository contains Stream, Sync, Control, Host, Terminal, and their shared
+protocol and transport layers.
 
-## Repository map
+## How it connects
 
-| Area | Contents |
-| --- | --- |
-| `Sources/` | Shared protocol, transport, host, Stream, Control, and Terminal source |
-| `MacClient/` | Active Vamp Control macOS app |
-| `RemoteDesktopToolApps.xcodeproj/` | Active host, Sync, Control iOS, and Terminal schemes |
-| `docs/` | TheVamp.app source plus technical and installation documentation |
-| `scripts/` | Current reproducible packaging and release helpers |
+```text
+ iPhone / iPad / Mac
+ ┌─────────────────────────────────────────────┐
+ │ Assistant Remote · Stream · Control · Terminal │
+ └──────────────────────┬──────────────────────┘
+                        │ trusted LAN or private tailnet
+                        │ explicit device approval
+ ┌──────────────────────▼──────────────────────┐
+ │ Your Mac                                    │
+ │ Assistant · Vamp Sync · Host · Terminal Host│
+ └─────────────────────────────────────────────┘
+```
 
-Historical MacPair packaging is available through Git history and old release
-tags, but is intentionally excluded from the current tree and release jobs.
-
-## Current public apps
-
-| App | Purpose | Bundle ID |
-| --- | --- | --- |
-| Vamp Stream | Focused iPhone/iPad visual streaming client | `com.mesutcy.remotedesktop.stream` |
-| Vamp Assistant | Native macOS AI product with its own iOS and browser remotes | See [Assistant source](https://github.com/Mesutcydev/vamp-assistant) |
-
-The iOS apps are unsigned IPAs for AltStore-style re-signing. Supporting Mac
-hosts are installed and run by the owner of the machine.
+- No Vamp account is required.
+- No public relay carries the session.
+- A new peer must be approved on the Mac after its identity is checked.
+- Existing discovery and installation identifiers remain stable for backward compatibility.
 
 ## Download and install
 
-Current builds are on [thevamp.app](https://thevamp.app/#download). Read the
-[install reference](docs/INSTALL.md) and the [iOS sideload guide](docs/IOS_SIDELOAD.md)
-before sideloading an iOS build.
+Use the current downloads at **[thevamp.app](https://thevamp.app/#download)**.
 
-The macOS hosts are local utilities, not App Store products. On first launch:
+> [!IMPORTANT]
+> iOS releases are unsigned IPAs intended for AltStore-style re-signing with
+> your own Apple ID/team. macOS direct-download apps may require **Open Anyway**
+> on first launch. Never disable Gatekeeper globally.
 
-1. Drag the app to `/Applications`.
-2. Control-click the app and choose **Open**, if that option is available.
-3. Otherwise open **System Settings → Privacy & Security** and choose **Open Anyway**.
-4. For Vamp Sync, grant **Screen Recording** for video and
-   **Accessibility** for keyboard/pointer control in System Settings → Privacy
-   & Security.
+For macOS hosts:
 
-Do not disable Gatekeeper globally.
+1. Move the app to `/Applications`.
+2. Control-click it and choose **Open**, or use **System Settings → Privacy & Security → Open Anyway**.
+3. Grant **Screen Recording** for video.
+4. Grant **Accessibility** only when keyboard and pointer control are needed.
+5. Approve a client only after its displayed identity or fingerprint matches.
+
+See the [complete installation reference](docs/INSTALL.md) and
+[iOS sideload guide](docs/IOS_SIDELOAD.md) for app-specific instructions.
 
 ## Build from source
 
 Requirements: macOS 13 or later and Xcode 26 or later.
+
+List the maintained schemes:
+
+```bash
+xcodebuild -list -project RemoteDesktopToolApps.xcodeproj
+```
+
+Build Vamp Host without a signing identity:
 
 ```bash
 xcodebuild \
@@ -67,70 +105,87 @@ xcodebuild \
   build
 ```
 
-Build the Stream client and its lightweight supporting host with:
+Create the unsigned Stream IPA and Vamp Sync package:
 
 ```bash
 scripts/package-vamp-stream-ios.sh --clean
 scripts/package-vamp-mini-host.sh --clean
 ```
 
-No Apple account, certificate, provisioning profile, or notarization credential is
-required to build the unsigned IPA. AltStore or another sideloading tool must
-re-sign it with the installing user's Apple ID/team.
+Artifacts are written below `dist/`. Building an unsigned IPA does not require
+an Apple account or provisioning profile; installing it on a device does
+require re-signing by AltStore or another compatible tool.
 
-The generated files are written under `dist/VampStream/` and
-`dist/VampStreamHost/`. See [docs/INSTALL.md](docs/INSTALL.md) for the supported
-Assistant and Stream install paths.
+## Repository layout
 
-## Agent and automation interface
+| Path | What belongs there |
+| --- | --- |
+| `Sources/` | Shared models, protocol, security, discovery, transport, UI, and active app source |
+| `MacClient/` | Vamp Control for macOS |
+| `RemoteDesktopToolApps.xcodeproj/` | Maintained Host, Sync, Control iOS, and Terminal schemes |
+| `Configuration/` | Current application plists and entitlements |
+| `Tests/` | Shared unit and integration tests |
+| `scripts/` | Reproducible packaging, release, watchdog, and CLI tools |
+| `docs/` | Technical guides and the source for [thevamp.app](https://thevamp.app/) |
 
-The repository includes the `vamp` CLI wrapper for the full Vamp Host:
+Historical MacPair packaging remains available in Git history and old release
+tags, but is intentionally excluded from the current source tree and workflows.
+
+## Automation and agent access
+
+The `vamp` CLI exposes a small machine-readable control surface for Vamp Host:
 
 ```bash
-sudo ln -sf \
-  "$PWD/scripts/vamp" \
-  /usr/local/bin/vamp
-```
+sudo ln -sf "$PWD/scripts/vamp" /usr/local/bin/vamp
 
-Useful commands:
-
-```bash
 vamp ensure
 vamp status --json
 vamp pending --json
 vamp approve-pairing --fingerprint <verified-hex>
 ```
 
-Agents must never approve an unknown pairing request. Present the device name and fingerprint to the user and require an exact fingerprint match. See [docs/AGENT_INTEGRATION.md](docs/AGENT_INTEGRATION.md) and [llms.txt](llms.txt).
+> [!CAUTION]
+> An agent must never approve an unknown pairing request. Show the device name
+> and fingerprint to the user and require an exact match before approval.
 
-## Network contract
+See [Agent integration](docs/AGENT_INTEGRATION.md) and [llms.txt](llms.txt).
 
-- Bonjour: `_screenharbor._tcp` (the existing discovery contract retained for paired-client compatibility)
-- Signaling: TCP `9471`
-- Data: UDP/TCP `9472`
-- TLS signaling: TCP `9473`
-- URL actions: `vamphost://action/{start,stop,restart}`
-- Agent status: `~/Library/Application Support/Vamp Host/host.widget.snapshot.json`
+<details>
+<summary><strong>Network and compatibility contract</strong></summary>
+
+| Service | Contract |
+| --- | --- |
+| Bonjour discovery | `_screenharbor._tcp` — retained for paired-client compatibility |
+| Signaling | TCP `9471` |
+| Session data | UDP/TCP `9472` |
+| TLS signaling | TCP `9473` |
+| URL actions | `vamphost://action/{start,stop,restart}` |
+| Agent status | `~/Library/Application Support/Vamp Host/host.widget.snapshot.json` |
+
+</details>
 
 ## Security
 
-Only use Vamp on devices you own or are authorized to control. New peer identities require host approval, terminal access is opt-in on Vamp Host and always-on for Vamp Terminal Host, and the host can be stopped at any time.
+Use Vamp only with devices you own or are authorized to control. New peer
+identities require host approval. Terminal access is opt-in on Vamp Host and
+always-on only in the explicitly installed Vamp Terminal Host. The Mac-side
+host can be stopped at any time.
 
-Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+Report vulnerabilities privately using [the security policy](SECURITY.md).
+Do not disclose an unpatched vulnerability in a public issue.
 
-## Contributing and license
+## Contributing
 
-Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), the
+[Code of Conduct](CODE_OF_CONDUCT.md), and the
+[release process](docs/RELEASE_PROCESS.md).
 
-Vamp Suite is licensed under the [Apache License 2.0](LICENSE). Third-party
+Vamp Suite is available under the [Apache License 2.0](LICENSE). Third-party
 components retain their own licenses; see
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Project governance, support,
-release integrity, and name-use policies are documented in
-[GOVERNANCE.md](GOVERNANCE.md), [SUPPORT.md](SUPPORT.md),
-[docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md), and
-[TRADEMARKS.md](TRADEMARKS.md). The
-[open-source program readiness checklist](docs/PROGRAM_READINESS.md) records the
-evidence to maintain as the project grows.
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Governance, support, and
+name-use policies are documented in [GOVERNANCE.md](GOVERNANCE.md),
+[SUPPORT.md](SUPPORT.md), and [TRADEMARKS.md](TRADEMARKS.md).
 
-Vamp Suite is an independent project. It is not affiliated with, endorsed by, or
-sponsored by Apple Inc.
+Vamp Suite is independent and is not affiliated with, endorsed by, or sponsored
+by Apple Inc. Tailscale is an optional private-network transport and is not a
+hosted Vamp service.
