@@ -95,6 +95,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.3",
+          "buildVersion": "16",
+          "marketingVersion": "0.1.3 (16)",
+          "date": "2026-08-31",
+          "localizedDescription": "Improves stream sharpness: Vamp Sync now honors Quality and Ultra requests, and Vamp Assistant streams default to the native-resolution profile.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-52/VampStream-iOS-0.1.3-build-16-altstore-unsigned.ipa",
+          "size": 14442524,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.2",
           "buildVersion": "15",
           "marketingVersion": "0.1.2 (15)",
@@ -128,6 +138,16 @@
     }
   ],
   "news": [
+    {
+      "title": "Vamp Stream 0.1.3",
+      "identifier": "vamp-stream-ios-0.1.3",
+      "caption": "Sharper Vamp Sync and Vamp Assistant streams with native-resolution defaults and adaptive safety limits.",
+      "date": "2026-08-31",
+      "tintColor": "#6E6E73",
+      "notify": true,
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-52",
+      "appID": "com.mesutcy.remotedesktop.stream"
+    },
     {
       "title": "Boo Player 2.4",
       "identifier": "boo-player-ios-2.4-build-15",
