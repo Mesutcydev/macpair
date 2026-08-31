@@ -1,0 +1,59 @@
+name: Vamp Stream release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing Vamp Suite release tag to update'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vamp-stream-release-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package AltStore IPA
+    runs-on: macos-26-intel
+    timeout-minutes: 60
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: gh release view "$RELEASE_TAG"
+
+      - name: Install XcodeGen
+        run: |
+          brew untap aws/tap 2>/dev/null || true
+          brew install xcodegen
+
+      - name: Build and verify unsigned IPA
+        run: scripts/package-vamp-stream-ios.sh --clean
+
+      - name: Upload AltStore artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(dist/VampStream/*.ipa*)
+          [[ ${#files[@]} -eq 4 ]] || {
+            echo "Expected IPA, checksum, manifest, and SBOM; found ${#files[@]} files"
+            exit 1
+          }
+          gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
+          echo "Uploaded ${#files[@]} Vamp Stream AltStore artifacts to $RELEASE_TAG"

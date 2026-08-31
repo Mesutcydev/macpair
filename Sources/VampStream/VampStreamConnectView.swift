@@ -113,10 +113,29 @@ private struct VampStreamConnectHeader: View {
                 .font(.subheadline)
                 .foregroundStyle(PR.fg2)
                 .fixedSize(horizontal: false, vertical: true)
+            VampStreamVersionBadge()
+                .padding(.top, 5)
         }
         .padding(.horizontal, 22)
         .padding(.top, 18)
         .padding(.bottom, 16)
+    }
+}
+
+private struct VampStreamVersionBadge: View {
+    private let version: String
+    private let build: String
+
+    init(bundle: Bundle = .main) {
+        version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+    }
+
+    var body: some View {
+        Text(verbatim: "Version \(version) (\(build))")
+            .font(.caption2.monospaced())
+            .foregroundStyle(PR.dim)
+            .accessibilityLabel("Version \(version), build \(build)")
     }
 }
 

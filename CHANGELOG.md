@@ -6,6 +6,17 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 
 ## [Unreleased]
 
+### Fixed
+
+- Vamp Stream now presents the authenticated Mac-password unlock form whenever
+  the connected host reaches the lock or login window, allowing app streaming
+  to resume without a local unlock.
+
+### Added
+
+- Vamp Stream displays its marketing version and build number on the Mac picker
+  so installed AltStore builds can be identified directly inside the app.
+
 ## [2.3.0] - 2026-08-30 — build 50
 
 ### Security

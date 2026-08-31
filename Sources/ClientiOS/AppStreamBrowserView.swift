@@ -11,6 +11,7 @@ import UIKit
 struct AppStreamBrowserView: View {
     let environment: ClientAppEnvironment
     @ObservedObject var vm: AppStreamViewModel
+    @ObservedObject private var sessionCoordinator: ClientSessionCoordinator
     /// Disconnect / leave this Mac.
     var onClose: () -> Void
     @StateObject private var rendererVM: VideoRendererViewModel
@@ -24,6 +25,7 @@ struct AppStreamBrowserView: View {
         self.environment = environment
         self.vm = vm
         self.onClose = onClose
+        self.sessionCoordinator = environment.sessionCoordinator
         _rendererVM = StateObject(
             wrappedValue: VideoRendererViewModel(webRTCSessionManager: environment.webRTCSessionManager)
         )
@@ -36,7 +38,10 @@ struct AppStreamBrowserView: View {
         GeometryReader { proxy in
             Group {
                 if hostIsLocked {
-                    lockedState
+                    AppStreamLockedStateView(
+                        sessionCoordinator: sessionCoordinator,
+                        onDisconnect: onClose
+                    )
                 } else {
                     switch vm.status {
                     case .streaming(_, let name):
@@ -75,7 +80,7 @@ struct AppStreamBrowserView: View {
                 rendererVM.stopReceiving()
             }
         }
-        .onChangeCompat(of: environment.sessionCoordinator.hostLockState) { state in
+        .onChangeCompat(of: sessionCoordinator.hostLockState) { state in
             if state == .lockedOrLoginWindow {
                 rendererVM.stopReceiving()
                 input.stop()
@@ -92,35 +97,12 @@ struct AppStreamBrowserView: View {
         }
     }
 
-    private var macName: String { environment.sessionCoordinator.connectedHostName ?? "My Mac" }
+    private var macName: String { sessionCoordinator.connectedHostName ?? "My Mac" }
     private var hostIsLocked: Bool {
-        environment.sessionCoordinator.hostLockState == .lockedOrLoginWindow
+        sessionCoordinator.hostLockState == .lockedOrLoginWindow
     }
     private var running: [RemoteApplication] { vm.applications.filter { $0.isRunning } }
     private var installed: [RemoteApplication] { vm.applications.filter { !$0.isRunning } }
-
-    private var lockedState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "lock.fill")
-                .font(.system(size: 42, weight: .light))
-                .foregroundStyle(PR.accent)
-            Text("Mac is locked")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(PR.fg)
-            Text("The connection is still available, but macOS blocks app listing and launching while locked. Unlock the Mac locally; Vamp Stream will retry automatically.")
-                .font(.subheadline)
-                .foregroundStyle(PR.fg2)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 30)
-            Button("Check connection") {
-                environment.sessionCoordinator.sendConnectionProbe()
-            }
-            .buttonStyle(.bordered)
-            Button("Disconnect", action: onClose)
-                .buttonStyle(.borderedProminent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 
     // MARK: - Browser
 
@@ -528,6 +510,99 @@ struct AppStreamBrowserView: View {
             width: clamp(proposed.width, min: content.minX, max: content.maxX, viewport: viewSize.width, center: center.x),
             height: clamp(proposed.height, min: content.minY, max: content.maxY, viewport: viewSize.height, center: center.y)
         )
+    }
+}
+
+/// Keeps a locked host attached and offers the same authenticated Remote Unlock path as
+/// Vamp Control. The password is cleared before it is sent and is never retained by this view.
+@available(iOS 16.1, *)
+private struct AppStreamLockedStateView: View {
+    @ObservedObject var sessionCoordinator: ClientSessionCoordinator
+    let onDisconnect: () -> Void
+
+    @State private var password = ""
+    @State private var isSubmitting = false
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 42, weight: .light))
+                    .foregroundStyle(PR.accent)
+
+                Text("Mac is locked")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(PR.fg)
+
+                Text("Enter your Mac login password to unlock remotely. Vamp Stream will load your applications when the Mac unlocks.")
+                    .font(.subheadline)
+                    .foregroundStyle(PR.fg2)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 340)
+
+                SecureField("Password", text: $password)
+                    .textContentType(.password)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.go)
+                    .privacySensitive()
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .foregroundStyle(PR.fg)
+                    .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+                    .frame(maxWidth: 340)
+                    .onSubmit(submitUnlock)
+                    .accessibilityLabel("Mac login password")
+
+                Button(action: submitUnlock) {
+                    HStack(spacing: 8) {
+                        if isSubmitting {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white)
+                        }
+                        Text(isSubmitting ? "Unlocking…" : "Unlock")
+                    }
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: 312)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(password.isEmpty || isSubmitting)
+
+                Text("Remote Unlock must be enabled in Vamp Host.")
+                    .font(.caption)
+                    .foregroundStyle(PR.dim)
+
+                HStack(spacing: 12) {
+                    Button("Check connection") {
+                        sessionCoordinator.sendConnectionProbe()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Disconnect", action: onDisconnect)
+                        .buttonStyle(.bordered)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 32)
+            .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    private func submitUnlock() {
+        guard !password.isEmpty, !isSubmitting else { return }
+        isSubmitting = true
+        let submittedPassword = password
+        password = ""
+        sessionCoordinator.sendUnlockPassword(submittedPassword)
+
+        // A failed password intentionally produces no detailed authentication response. Re-enable
+        // the form after a short delay so another attempt is possible while the Mac remains locked.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+            isSubmitting = false
+        }
     }
 }
 #endif
