@@ -5,7 +5,7 @@
   "manifestVersion": "2.0.0",
   "license": "Apache-2.0",
   "website": "https://thevamp.app/",
-  "source": "https://github.com/Mesutcydev/macpair",
+  "source": "https://github.com/Mesutcydev/vamp-suite",
   "platform": {
     "os": "iOS/iPadOS",
     "minimumVersion": "18.0"

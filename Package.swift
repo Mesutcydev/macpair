@@ -21,7 +21,7 @@ let clientLocalExcludes = packagePathExists("Sources/ClientiOS/StreamingPaywallV
     : []
 
 let package = Package(
-    name: "VampTerminalCore",
+    name: "VampSuiteCore",
     defaultLocalization: "en",
     platforms: [
         .macOS(.v13),
@@ -200,7 +200,7 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "VampTerminalCoreTests",
+            name: "VampSuiteCoreTests",
             dependencies: [
                 "SharedModels",
                 "SharedProtocol",

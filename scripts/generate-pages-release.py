@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 
-REPOSITORY = "Mesutcydev/macpair"
+REPOSITORY = "Mesutcydev/vamp-suite"
 ASSISTANT_REPOSITORY = "Mesutcydev/vamp-assistant"
 API_URL = f"https://api.github.com/repos/{REPOSITORY}/releases/latest"
 ASSISTANT_API_URL = f"https://api.github.com/repos/{ASSISTANT_REPOSITORY}/releases?per_page=100"
@@ -45,7 +45,7 @@ ASSISTANT_ASSET_PATTERNS = {
 def fetch_json(url: str):
     headers = {
         "Accept": "application/vnd.github+json",
-        "User-Agent": "macpair-pages-release-generator",
+        "User-Agent": "vamp-suite-pages-release-generator",
     }
     token = os.environ.get("GITHUB_TOKEN")
     if token:

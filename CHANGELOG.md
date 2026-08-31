@@ -1,6 +1,7 @@
 # Changelog
 
-All notable changes to MacPair and Vamp Terminal are documented here. The format follows
+All notable changes to Vamp Suite are documented here. Historical MacPair entries retain
+their original product names. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -542,15 +543,15 @@ All notable changes to MacPair and Vamp Terminal are documented here. The format
 - Reproducible dependency locks, release manifests, checksums, and CycloneDX SBOMs.
 - Community governance, security, contribution, support, and trademark policies.
 
-[Unreleased]: https://github.com/Mesutcydev/macpair/compare/vamp-suite-2.1.2-build-36...HEAD
-[2.1.2]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.2-build-36
-[2.1.1]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.1-build-34
-[2.1.0]: https://github.com/Mesutcydev/macpair/releases/tag/vamp-suite-2.1.0-build-33
-[1.0.10]: https://github.com/Mesutcydev/macpair/compare/v1.0.9...v1.0.10
-[1.0.9]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.9
-[1.0.8]: https://github.com/Mesutcydev/macpair/releases/tag/v1.0.8
-[1.0.7]: https://github.com/Mesutcydev/macpair/compare/v1.0.6...v1.0.7
-[1.0.6]: https://github.com/Mesutcydev/macpair/compare/v1.0.5...v1.0.6
+[Unreleased]: https://github.com/Mesutcydev/vamp-suite/compare/vamp-suite-2.1.2-build-36...HEAD
+[2.1.2]: https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.1.2-build-36
+[2.1.1]: https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.1.1-build-34
+[2.1.0]: https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.1.0-build-33
+[1.0.10]: https://github.com/Mesutcydev/vamp-suite/compare/v1.0.9...v1.0.10
+[1.0.9]: https://github.com/Mesutcydev/vamp-suite/releases/tag/v1.0.9
+[1.0.8]: https://github.com/Mesutcydev/vamp-suite/releases/tag/v1.0.8
+[1.0.7]: https://github.com/Mesutcydev/vamp-suite/compare/v1.0.6...v1.0.7
+[1.0.6]: https://github.com/Mesutcydev/vamp-suite/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/Mesutcydev/screenharbor/compare/v1.0.2...v1.0.3

@@ -7,7 +7,7 @@
 Website: https://thevamp.app/
 Assistant: https://thevamp.app/assistant/
 Stream: https://thevamp.app/stream/
-Suite source: https://github.com/Mesutcydev/macpair
+Suite source: https://github.com/Mesutcydev/vamp-suite
 Assistant source: https://github.com/Mesutcydev/vamp-assistant
 License: Apache-2.0
 
@@ -30,7 +30,7 @@ whose identity was not verified independently.
 
 ## Documentation
 
-- Install: https://github.com/Mesutcydev/macpair/blob/main/docs/INSTALL.md
-- iOS sideloading: https://github.com/Mesutcydev/macpair/blob/main/docs/IOS_SIDELOAD.md
-- Security: https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md
+- Install: https://github.com/Mesutcydev/vamp-suite/blob/main/docs/INSTALL.md
+- iOS sideloading: https://github.com/Mesutcydev/vamp-suite/blob/main/docs/IOS_SIDELOAD.md
+- Security: https://github.com/Mesutcydev/vamp-suite/blob/main/SECURITY.md
 - Assistant documentation: https://github.com/Mesutcydev/vamp-assistant

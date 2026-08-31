@@ -126,14 +126,8 @@ machost-appstore-project.yml
 AppStore-Metadata-MacClient.md
 /RELEASE_PROCESS.md
 
-# The public repository exposes only the account-independent release tools
+# The public repository exposes only current account-independent release tools.
 scripts/*
-!scripts/screenharbor
-!scripts/package-screenharbor.sh
-!scripts/install-screenharbor-cli.command
-!scripts/publish-screenharbor.sh
-!scripts/generate-screenharbor-sbom.sh
-!scripts/package-screenharbor-ios.sh
 !scripts/generate-vamp-sbom.sh
 !scripts/generate-pages-release.py
 !scripts/package-vamp-control-macos.sh
@@ -192,7 +186,7 @@ Sources/HostApp/Assets.xcassets/.DS_Store
 !scripts/vamp-linux-host
 !scripts/vamp-terminal-host
 
-# Legacy client signing and branded asset files are not used by ScreenHarbor.xcodeproj
+# Legacy client signing files are not used by the current Control build.
 MacClient/Resources/Assets.xcassets/
 MacClient/Resources/MacClient-Info.plist
 MacClient/Resources/MacClient.entitlements

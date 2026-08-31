@@ -14,8 +14,8 @@ specialist technical documentation but are not currently promoted.
 Use only a trusted LAN or private Tailscale network. Verify every new device
 before approval and never expose host ports publicly.
 
-Suite source: https://github.com/Mesutcydev/macpair
+Suite source: https://github.com/Mesutcydev/vamp-suite
 Assistant source: https://github.com/Mesutcydev/vamp-assistant
-Install: https://github.com/Mesutcydev/macpair/blob/main/docs/INSTALL.md
-Sideload: https://github.com/Mesutcydev/macpair/blob/main/docs/IOS_SIDELOAD.md
-Security: https://github.com/Mesutcydev/macpair/blob/main/SECURITY.md
+Install: https://github.com/Mesutcydev/vamp-suite/blob/main/docs/INSTALL.md
+Sideload: https://github.com/Mesutcydev/vamp-suite/blob/main/docs/IOS_SIDELOAD.md
+Security: https://github.com/Mesutcydev/vamp-suite/blob/main/SECURITY.md

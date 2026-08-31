@@ -1,6 +1,6 @@
-# Vamp
+# Vamp Suite
 
-**Vamp currently promotes two open-source, local-first products: Vamp Assistant and Vamp Stream.** Connections use a trusted LAN or private Tailscale network. Every new device needs visible approval. There is no product account and no hosted relay.
+**Vamp Suite is an open-source, local-first family of macOS and iOS tools for AI assistance, private streaming, remote control, and terminal access.** Connections use a trusted LAN or private Tailscale network. Every new device needs visible approval. There is no product account and no hosted relay.
 
 | Product | Purpose | Platforms |
 | --- | --- | --- |
@@ -13,6 +13,19 @@ Vamp Sync uses the signed WebRTC stack; Assistant uses its authenticated
 private Remote Sessions endpoint. Terminal, Terminal Host, Control, standalone
 browser control, and Linux Host source and technical documentation remain in
 the repository, but they are not part of the current public promotion.
+
+## Repository map
+
+| Area | Contents |
+| --- | --- |
+| `Sources/` | Shared protocol, transport, host, Stream, Control, and Terminal source |
+| `MacClient/` | Active Vamp Control macOS app |
+| `RemoteDesktopToolApps.xcodeproj/` | Active host, Sync, Control iOS, and Terminal schemes |
+| `docs/` | TheVamp.app source plus technical and installation documentation |
+| `scripts/` | Current reproducible packaging and release helpers |
+
+Historical MacPair packaging is available through Git history and old release
+tags, but is intentionally excluded from the current tree and release jobs.
 
 ## Current public apps
 
@@ -109,7 +122,7 @@ Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.m
 
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-Vamp Terminal is licensed under the [Apache License 2.0](LICENSE). Third-party
+Vamp Suite is licensed under the [Apache License 2.0](LICENSE). Third-party
 components retain their own licenses; see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Project governance, support,
 release integrity, and name-use policies are documented in
@@ -119,5 +132,5 @@ release integrity, and name-use policies are documented in
 [open-source program readiness checklist](docs/PROGRAM_READINESS.md) records the
 evidence to maintain as the project grows.
 
-Vamp Terminal is an independent project. It is not affiliated with, endorsed by, or
+Vamp Suite is an independent project. It is not affiliated with, endorsed by, or
 sponsored by Apple Inc.

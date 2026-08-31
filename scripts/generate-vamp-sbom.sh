@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Generate CycloneDX release metadata for current Vamp artifacts.
-# Legacy MacPair artifacts use the separate legacy generator.
+# Generates SBOM metadata for current Vamp Suite artifacts.
 
 set -euo pipefail
 
@@ -112,8 +112,8 @@ payload = {
             "bom-ref": application_ref,
             "hashes": [{"alg": "SHA-256", "content": sha}],
             "externalReferences": [
-                {"type": "vcs", "url": f"https://github.com/Mesutcydev/macpair/tree/{commit}"},
-                {"type": "website", "url": "https://mesutcydev.github.io/macpair/"},
+                {"type": "vcs", "url": f"https://github.com/Mesutcydev/vamp-suite/tree/{commit}"},
+                {"type": "website", "url": "https://thevamp.app/"},
             ],
         },
         "properties": [

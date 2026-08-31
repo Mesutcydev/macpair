@@ -6,10 +6,10 @@ Apple ID/team used on the installing device.
 
 ## Latest published builds
 
-- [Download latest Vamp Terminal IPA](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminal-iOS-2.3.0-build-47-altstore-unsigned.ipa)
-- [Download latest Vamp Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampHost-macOS-2.3.0-build-47-adhoc.zip)
-- [Download latest Vamp Terminal Host](https://github.com/Mesutcydev/macpair/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip)
-- [Latest checksums and manifests](https://github.com/Mesutcydev/macpair/releases/latest)
+- [Download latest Vamp Terminal IPA](https://github.com/Mesutcydev/vamp-suite/releases/latest/download/VampTerminal-iOS-2.3.0-build-47-altstore-unsigned.ipa)
+- [Download latest Vamp Host](https://github.com/Mesutcydev/vamp-suite/releases/latest/download/VampHost-macOS-2.3.0-build-47-adhoc.zip)
+- [Download latest Vamp Terminal Host](https://github.com/Mesutcydev/vamp-suite/releases/latest/download/VampTerminalHost-macOS-2.3.0-build-47-adhoc.zip)
+- [Latest checksums and manifests](https://github.com/Mesutcydev/vamp-suite/releases/latest)
 
 ## Build the current Vamp artifacts
 
@@ -20,8 +20,8 @@ scripts/package-vamp-terminal-ios.sh --clean
 scripts/package-vamp-hosts.sh --clean
 ```
 
-The scripts use the active `RemoteDesktopToolApps.xcodeproj`, never the retired
-`screenharbor-project.yml`. They build the `VampTerminalApp`, `MacHost`, and
+The scripts use the active `RemoteDesktopToolApps.xcodeproj`. They build the
+`VampTerminalApp`, `MacHost`, and
 `VampTerminalHost` schemes, verify arm64, preserve the existing
 `_screenharbor._tcp` Bonjour compatibility contract, and write:
 
