@@ -3,6 +3,9 @@
 Both public iPhone/iPad apps are unsigned IPAs intended for AltStore-style
 re-signing. They are separate clients with separate Mac-side connection paths.
 
+Add `https://thevamp.app/apps.json` as an AltStore source to keep both Vamp
+Assistant and Vamp Stream on their current public builds.
+
 ## Install
 
 1. Download the IPA and its `.sha256` file:
