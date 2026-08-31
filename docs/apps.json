@@ -1,15 +1,45 @@
 {
   "name": "Vamp",
-  "subtitle": "Private Mac companions for iPhone and iPad",
-  "description": "Official AltStore source for Vamp Assistant and Vamp Stream.",
+  "subtitle": "Independent apps for iPhone and iPad",
+  "description": "Official AltStore source for Boo Player, Vamp Assistant, and Vamp Stream.",
   "iconURL": "https://raw.githubusercontent.com/Mesutcydev/vamp-suite/main/docs/assets/og-image.png",
   "website": "https://thevamp.app/",
   "tintColor": "#6E6E73",
   "featuredApps": [
+    "mesut.buu.player",
     "com.beetcode.remote.ios",
     "com.mesutcy.remotedesktop.stream"
   ],
   "apps": [
+    {
+      "name": "Boo Player",
+      "bundleIdentifier": "mesut.buu.player",
+      "developerName": "Mesutcydev",
+      "subtitle": "Fast IPTV playback with live TV, movies, series, and EPG.",
+      "localizedDescription": "Import M3U or Xtream playlists, browse live channels, films and series, search your catalog, save favorites, and view programme guide information in English, Turkish, or Russian.",
+      "iconURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/boo-player-ios-v2.4.0-build-15/icon-1024x1024-1x.png",
+      "tintColor": "#FF8A00",
+      "category": "entertainment",
+      "versions": [
+        {
+          "version": "2.4",
+          "buildVersion": "15",
+          "marketingVersion": "2.4 (15)",
+          "date": "2026-08-31",
+          "localizedDescription": "Fixes channel-list scrolling flicker, Turkish playlist text and search, favorite-button behavior, accessibility, and localized channel browsing.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/boo-player-ios-v2.4.0-build-15/Boo-Player-2.4-15-unsigned.ipa",
+          "size": 36128637,
+          "minOSVersion": "26.1"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSLocalNetworkUsageDescription": "Boo Player uses local network access to discover and connect to IPTV servers for live TV and video streaming.",
+          "NSUserTrackingUsageDescription": "Boo Player uses the advertising identifier to show relevant ads and keep the app free."
+        }
+      }
+    },
     {
       "name": "Vamp Assistant",
       "bundleIdentifier": "com.beetcode.remote.ios",
@@ -98,6 +128,16 @@
     }
   ],
   "news": [
+    {
+      "title": "Boo Player 2.4",
+      "identifier": "boo-player-ios-2.4-build-15",
+      "caption": "Smoother channel scrolling, corrected Turkish text handling, and improved channel-list controls.",
+      "date": "2026-08-31",
+      "tintColor": "#FF8A00",
+      "notify": true,
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/boo-player-ios-v2.4.0-build-15",
+      "appID": "mesut.buu.player"
+    },
     {
       "title": "Vamp Assistant 0.1.35",
       "identifier": "vamp-assistant-ios-0.1.35",
