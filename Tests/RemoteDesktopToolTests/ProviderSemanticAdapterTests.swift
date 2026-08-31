@@ -131,11 +131,12 @@ final class ProviderSemanticAdapterTests: XCTestCase {
 
     func testGeminiAdapterConsumesMessagesAndResult() {
         let adapter = GeminiAdapter()
-        let data = Data((
-            #"{"type":"init","session_id":"gemini-1"}"# + "\n" +
-            #"{"type":"message","role":"assistant","content":"Ready"}"# + "\n" +
-            #"{"type":"result"}"# + "\n"
-        ).utf8)
+        let lines = [
+            #"{"type":"init","session_id":"gemini-1"}"#,
+            #"{"type":"message","role":"assistant","content":"Ready"}"#,
+            #"{"type":"result"}"#,
+        ]
+        let data = Data((lines.joined(separator: "\n") + "\n").utf8)
         let events = adapter.consume(data, sessionID: sessionID, terminalID: terminalID)
         XCTAssertTrue(events.contains(.sessionIdentifier("gemini-1")))
         XCTAssertTrue(events.contains(.messageDelta("Ready")))
@@ -163,11 +164,12 @@ final class ProviderSemanticAdapterTests: XCTestCase {
 
     func testCodexAdapterConsumesJSONLEvents() {
         let adapter = CodexAdapter()
-        let data = Data((
-            #"{"type":"thread.started","thread_id":"thread-1"}"# + "\n" +
-            #"{"type":"item.completed","item":{"type":"agent_message","text":"Ready"}}"# + "\n" +
-            #"{"type":"turn.completed"}"# + "\n"
-        ).utf8)
+        let lines = [
+            #"{"type":"thread.started","thread_id":"thread-1"}"#,
+            #"{"type":"item.completed","item":{"type":"agent_message","text":"Ready"}}"#,
+            #"{"type":"turn.completed"}"#,
+        ]
+        let data = Data((lines.joined(separator: "\n") + "\n").utf8)
         let events = adapter.consume(data, sessionID: sessionID, terminalID: terminalID)
         XCTAssertTrue(events.contains(.sessionIdentifier("thread-1")))
         XCTAssertTrue(events.contains(.messageDelta("Ready")))
@@ -256,13 +258,14 @@ final class ProviderSemanticAdapterTests: XCTestCase {
 
     func testPiAdapterConsumesJSONEventStream() {
         let adapter = PiAdapter()
-        let data = Data((
-            #"{"type":"session","version":3,"id":"pi-1","cwd":"/tmp"}"# + "\n" +
-            #"{"type":"agent_start"}"# + "\n" +
-            #"{"type":"message_update","assistantMessageEvent":{"type":"text_delta","contentIndex":0,"delta":"Hello"}}"# + "\n" +
-            #"{"type":"message_update","assistantMessageEvent":{"type":"thinking_delta","contentIndex":0,"delta":"Reasoning"}}"# + "\n" +
-            #"{"type":"agent_end","messages":[]}"# + "\n"
-        ).utf8)
+        let lines = [
+            #"{"type":"session","version":3,"id":"pi-1","cwd":"/tmp"}"#,
+            #"{"type":"agent_start"}"#,
+            #"{"type":"message_update","assistantMessageEvent":{"type":"text_delta","contentIndex":0,"delta":"Hello"}}"#,
+            #"{"type":"message_update","assistantMessageEvent":{"type":"thinking_delta","contentIndex":0,"delta":"Reasoning"}}"#,
+            #"{"type":"agent_end","messages":[]}"#,
+        ]
+        let data = Data((lines.joined(separator: "\n") + "\n").utf8)
         let events = adapter.consume(data, sessionID: sessionID, terminalID: terminalID)
         XCTAssertTrue(events.contains(.sessionIdentifier("pi-1")))
         XCTAssertTrue(events.contains(.messageDelta("Hello")))

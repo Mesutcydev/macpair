@@ -46,7 +46,9 @@ final class HostWorkspaceServiceTests: XCTestCase {
             rootsBox.set(browseRoots)
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 2)
+        // Hosted arm64 runners can spend several seconds warming filesystem
+        // metadata before the first recursive discovery callback arrives.
+        wait(for: [expectation], timeout: 8)
 
         let workspaces = workspacesBox.value
         let roots = rootsBox.value

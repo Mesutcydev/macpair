@@ -979,7 +979,6 @@
 			);
 			inputPaths = (
 				"$(SRCROOT)/scripts/vamp",
-				"$(SRCROOT)/scripts/screenharbor",
 				"$(SRCROOT)/Sources/VampTerminal/Assets.xcassets/ProviderOpenCode.imageset/opencode.png",
 				"$(SRCROOT)/Sources/VampTerminal/Assets.xcassets/ProviderClaude.imageset/claude.jpg",
 				"$(SRCROOT)/Sources/VampTerminal/Assets.xcassets/ProviderGrok.imageset/grok.jpg",
@@ -989,7 +988,6 @@
 			name = "Bundle Vamp CLI";
 			outputPaths = (
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/vamp",
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/screenharbor",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/BrowserProviders/opencode.png",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/BrowserProviders/claude.jpg",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/BrowserProviders/grok.jpg",
@@ -998,7 +996,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nresources=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nproviders=\"$resources/BrowserProviders\"\nmkdir -p \"$resources\" \"$providers\"\ncp \"${SRCROOT}/scripts/vamp\" \"$resources/vamp\"\ncp \"${SRCROOT}/scripts/screenharbor\" \"$resources/screenharbor\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderOpenCode.imageset/opencode.png\" \"$providers/opencode.png\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderClaude.imageset/claude.jpg\" \"$providers/claude.jpg\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderGrok.imageset/grok.jpg\" \"$providers/grok.jpg\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderOpenAI.imageset/openai.jpg\" \"$providers/openai.jpg\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderKimi.imageset/kimi.jpg\" \"$providers/kimi.jpg\"\nchmod +x \"$resources/vamp\" \"$resources/screenharbor\"\n";
+			shellScript = "set -e\nresources=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nproviders=\"$resources/BrowserProviders\"\nmkdir -p \"$resources\" \"$providers\"\ncp \"${SRCROOT}/scripts/vamp\" \"$resources/vamp\"\nchmod +x \"$resources/vamp\"\nif [ -f \"${SRCROOT}/scripts/screenharbor\" ]; then\n  cp \"${SRCROOT}/scripts/screenharbor\" \"$resources/screenharbor\"\n  chmod +x \"$resources/screenharbor\"\nfi\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderOpenCode.imageset/opencode.png\" \"$providers/opencode.png\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderClaude.imageset/claude.jpg\" \"$providers/claude.jpg\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderGrok.imageset/grok.jpg\" \"$providers/grok.jpg\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderOpenAI.imageset/openai.jpg\" \"$providers/openai.jpg\"\ncp \"${SRCROOT}/Sources/VampTerminal/Assets.xcassets/ProviderKimi.imageset/kimi.jpg\" \"$providers/kimi.jpg\"\n";
 		};
 		A1B2C3D4E5F60718293A4B95 /* Bundle Vamp Terminal Host CLI */ = {
 			isa = PBXShellScriptBuildPhase;
