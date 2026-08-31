@@ -18,7 +18,7 @@ concurrency:
 jobs:
   package:
     name: Package AltStore IPA
-    runs-on: macos-26-intel
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - name: Harden runner
