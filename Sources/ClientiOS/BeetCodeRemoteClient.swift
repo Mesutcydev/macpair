@@ -119,12 +119,22 @@ struct BeetCodeControlStatus: Decodable, Equatable, Sendable {
     let screenRecording: Bool
     let accessibility: Bool
     let ready: Bool
+    let locked: Bool?
+    let remoteUnlockEnabled: Bool?
+    let remoteUnlockAvailable: Bool?
+    let remoteUnlockMessage: String?
     let message: String?
     let displayX: Double?
     let displayY: Double?
     let displayWidth: Double?
     let displayHeight: Double?
     let displays: [BeetCodeRemoteDisplay]?
+
+    /// Vamp Assistant only accepts login passwords over its encrypted Tailscale
+    /// route. Older Assistant builds omit these fields and keep the form hidden.
+    var shouldOfferRemoteUnlock: Bool {
+        locked == true && remoteUnlockAvailable == true
+    }
 }
 
 struct BeetCodeRemoteDisplay: Decodable, Equatable, Hashable, Identifiable, Sendable {
@@ -359,6 +369,15 @@ struct BeetCodeRemoteClient: Sendable {
         guard !commands.isEmpty else { throw BeetCodeRemoteError.invalidResponse }
         let body = ["commands": commands.map { $0.wireBody() }]
         return try await request("api/control/input", method: "POST", body: body)
+    }
+
+    func unlockMac(password: String) async throws -> BeetCodeAcceptedResponse {
+        try await request(
+            "api/control/unlock",
+            method: "POST",
+            body: ["password": password],
+            timeout: 8
+        )
     }
 
     func screenStream(

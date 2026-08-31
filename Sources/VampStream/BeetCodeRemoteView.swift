@@ -79,6 +79,13 @@ struct BeetCodeRemoteView: View {
         Group {
             if session.status.ready {
                 streamSurface
+            } else if session.status.shouldOfferRemoteUnlock {
+                BeetCodeRemoteUnlockStateView(
+                    message: session.status.remoteUnlockMessage,
+                    client: session.client,
+                    onRefresh: onRefresh,
+                    onClose: onClose
+                )
             } else {
                 permissionState
             }
@@ -682,6 +689,115 @@ struct BeetCodeRemoteView: View {
             width: clamp(proposed.width, min: content.minX, max: content.maxX, viewport: viewSize.width, center: center.x),
             height: clamp(proposed.height, min: content.minY, max: content.maxY, viewport: viewSize.height, center: center.y)
         )
+    }
+}
+
+/// Locked-state surface for Vamp Assistant's authenticated HTTP compatibility path.
+/// The password is cleared before the request starts and is never retained by the view.
+private struct BeetCodeRemoteUnlockStateView: View {
+    let message: String?
+    let client: BeetCodeRemoteClient
+    let onRefresh: () async -> String?
+    let onClose: () -> Void
+
+    @State private var password = ""
+    @State private var isSubmitting = false
+    @State private var unlockError: String?
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                Image(systemName: "lock.open.fill")
+                    .font(.system(size: 42, weight: .light))
+                    .foregroundStyle(.white.opacity(0.92))
+
+                Text("Mac is locked")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+
+                Text(message ?? "Enter the Mac login password to resume Vamp Stream.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.78))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 340)
+
+                SecureField("Mac login password", text: $password)
+                    .textContentType(.password)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.go)
+                    .privacySensitive()
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .foregroundStyle(.white)
+                    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(.white.opacity(0.24), lineWidth: 1)
+                    }
+                    .frame(maxWidth: 340)
+                    .onSubmit(submitUnlock)
+
+                Button(action: submitUnlock) {
+                    HStack(spacing: 8) {
+                        if isSubmitting {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white)
+                        }
+                        Text(isSubmitting ? "Unlocking…" : "Unlock Mac")
+                    }
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: 312)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.white)
+                .foregroundStyle(.black)
+                .disabled(password.isEmpty || isSubmitting)
+
+                Text("Available only through the encrypted Tailscale connection. The password is sent once, then cleared from this field.")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.56))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 340)
+
+                if let unlockError {
+                    Text(unlockError)
+                        .font(.footnote)
+                        .foregroundStyle(.red.opacity(0.92))
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 340)
+                }
+
+                Button("Back", action: onClose)
+                    .buttonStyle(.bordered)
+                    .tint(.white)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 32)
+            .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    private func submitUnlock() {
+        guard !password.isEmpty, !isSubmitting else { return }
+        let submittedPassword = password
+        password = ""
+        unlockError = nil
+        isSubmitting = true
+
+        Task {
+            do {
+                _ = try await client.unlockMac(password: submittedPassword)
+                try? await Task.sleep(for: .milliseconds(700))
+                unlockError = await onRefresh()
+            } catch {
+                unlockError = error.localizedDescription
+            }
+            isSubmitting = false
+        }
     }
 }
 

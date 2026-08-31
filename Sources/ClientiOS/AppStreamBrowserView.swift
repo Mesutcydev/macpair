@@ -569,7 +569,7 @@ private struct AppStreamLockedStateView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(password.isEmpty || isSubmitting)
 
-                Text("Remote Unlock must be enabled in Vamp Host.")
+                Text("Remote Unlock must be enabled in Vamp Sync or Vamp Host.")
                     .font(.caption)
                     .foregroundStyle(PR.dim)
 

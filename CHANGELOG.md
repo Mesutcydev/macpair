@@ -7,11 +7,15 @@ their original product names. The format follows
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-08-31 — build 51
+
 ### Fixed
 
 - Vamp Stream now presents the authenticated Mac-password unlock form whenever
-  the connected host reaches the lock or login window, allowing app streaming
-  to resume without a local unlock.
+  Vamp Assistant reaches the lock or login window, allowing app streaming to
+  resume without a local unlock.
+- Vamp Sync now exposes its Remote Unlock permission in the companion access
+  card and uses the same host-side policy as Vamp Host.
 
 ### Added
 

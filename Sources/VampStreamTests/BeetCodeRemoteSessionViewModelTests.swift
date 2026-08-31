@@ -100,4 +100,21 @@ final class BeetCodeRemoteSessionViewModelTests: XCTestCase {
         XCTAssertFalse(saved.hasGenericDisplayName)
         XCTAssertEqual(saved.connectionKind, .localNetwork)
     }
+
+    func testAssistantUnlockStatusOffersEntryOnSecureRoute() throws {
+        let data = Data(#"{"enabled":true,"screenRecording":true,"accessibility":true,"ready":false,"locked":true,"remoteUnlockEnabled":true,"remoteUnlockAvailable":true,"remoteUnlockMessage":"Enter the Mac login password.","displays":[]}"#.utf8)
+
+        let status = try JSONDecoder().decode(BeetCodeControlStatus.self, from: data)
+
+        XCTAssertTrue(status.shouldOfferRemoteUnlock)
+        XCTAssertEqual(status.remoteUnlockMessage, "Enter the Mac login password.")
+    }
+
+    func testAssistantUnlockStatusKeepsEntryHiddenWhenUnavailable() throws {
+        let data = Data(#"{"enabled":true,"screenRecording":true,"accessibility":true,"ready":false,"locked":true,"remoteUnlockEnabled":true,"remoteUnlockAvailable":false,"remoteUnlockMessage":"Remote Unlock requires Tailscale.","displays":[]}"#.utf8)
+
+        let status = try JSONDecoder().decode(BeetCodeControlStatus.self, from: data)
+
+        XCTAssertFalse(status.shouldOfferRemoteUnlock)
+    }
 }

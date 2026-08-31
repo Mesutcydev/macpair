@@ -3,6 +3,23 @@ import XCTest
 @testable import ClientiOS
 
 final class BeetCodeRemoteClientTests: XCTestCase {
+    func testAssistantUnlockStatusDecodesAndOffersSecureEntry() throws {
+        let data = Data(#"{"enabled":true,"screenRecording":true,"accessibility":true,"ready":false,"locked":true,"remoteUnlockEnabled":true,"remoteUnlockAvailable":true,"remoteUnlockMessage":"Enter the Mac login password.","displays":[]}"#.utf8)
+
+        let status = try JSONDecoder().decode(BeetCodeControlStatus.self, from: data)
+
+        XCTAssertTrue(status.shouldOfferRemoteUnlock)
+        XCTAssertEqual(status.remoteUnlockMessage, "Enter the Mac login password.")
+    }
+
+    func testOlderAssistantStatusKeepsUnlockEntryHidden() throws {
+        let data = Data(#"{"enabled":true,"screenRecording":true,"accessibility":true,"ready":false,"message":"Not ready","displays":[]}"#.utf8)
+
+        let status = try JSONDecoder().decode(BeetCodeControlStatus.self, from: data)
+
+        XCTAssertFalse(status.shouldOfferRemoteUnlock)
+    }
+
     func testEndpointDefaultsPortAndExtractsPairingCodeFromQuery() throws {
         let endpoint = try BeetCodeRemoteEndpoint.parse(address: "http://192.168.1.20/?pair=123456")
         XCTAssertEqual(endpoint.url.absoluteString, "http://192.168.1.20:9575")

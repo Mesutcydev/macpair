@@ -19,6 +19,7 @@ Build/
 .packaging-vamp-mini-host/
 .packaging-vamp-hosts/
 .derived-*/
+.*-test-derived/
 .argent/
 .screenharbor-packaging/
 .dmg-staging/

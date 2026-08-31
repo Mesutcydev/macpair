@@ -4287,6 +4287,7 @@ private struct VampSyncCompanionPopover: View {
     @State private var lastFrameSampleCount: UInt64?
     @State private var lastFrameSampleAt: Date?
     @AppStorage("vampSyncAppearance") private var appearance = VampSyncAppearance.system
+    @AppStorage("host.remoteUnlock.enabled") private var remoteUnlockEnabled = false
 
     init(environment: HostAppEnvironment, onClose: @escaping () -> Void) {
         self.environment = environment
@@ -4333,6 +4334,7 @@ private struct VampSyncCompanionPopover: View {
 
                     VampSyncCompanionAccessCard(
                         statuses: permissionsViewModel.statuses,
+                        remoteUnlockEnabled: $remoteUnlockEnabled,
                         isRefreshing: permissionsViewModel.isRefreshing,
                         onRefresh: { Task { await refresh() } },
                         onOpenSettings: { kind in
@@ -4814,6 +4816,7 @@ private struct VampSyncCompanionPairingCard: View {
 
 private struct VampSyncCompanionAccessCard: View {
     let statuses: [FriendlyPermissionStatus]
+    @Binding var remoteUnlockEnabled: Bool
     let isRefreshing: Bool
     let onRefresh: () -> Void
     let onOpenSettings: (PermissionKind) -> Void
@@ -4841,6 +4844,17 @@ private struct VampSyncCompanionAccessCard: View {
                         state: status.authorizationState,
                         onSettings: { onOpenSettings(status.kind) }
                     )
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Toggle("Remote Unlock", isOn: $remoteUnlockEnabled)
+                        .font(.callout.weight(.medium))
+                    Text("Allows a paired Vamp Stream device to enter your Mac login password while this Mac is locked. Attempts are rate-limited and passwords are never logged.")
+                        .font(.caption)
+                        .foregroundStyle(palette.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
