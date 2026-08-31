@@ -58,12 +58,12 @@
       "sha256Url": "https://github.com/Mesutcydev/macpair/releases/download/vamp-suite-2.3.0-build-50/VampTerminalHost-Linux-2.3.6.zip.sha256"
     },
     "vamp-assistant-macos": {
-      "name": "Vamp-Assistant-0.10.24-build-72.dmg",
-      "url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/v0.10.24/Vamp-Assistant-0.10.24-build-72.dmg",
-      "label": "0.10.24 \u00b7 build 72",
+      "name": "Vamp-Assistant-0.10.24-build-77.dmg",
+      "url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/v0.10.24/Vamp-Assistant-0.10.24-build-77.dmg",
+      "label": "0.10.24 \u00b7 build 77",
       "releaseUrl": "https://github.com/Mesutcydev/vamp-assistant/releases/tag/v0.10.24",
       "tag": "v0.10.24",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/v0.10.24/Vamp-Assistant-0.10.24-build-72.dmg.sha256"
+      "sha256Url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/v0.10.24/Vamp-Assistant-0.10.24-build-77.dmg.sha256"
     },
     "vamp-assistant-ios": {
       "name": "Vamp-Assistant-iOS-0.1.34-build-56-unsigned.ipa",
