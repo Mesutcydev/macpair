@@ -46,7 +46,7 @@ let package = Package(
         .library(name: "SharedUI", targets: ["SharedUI"])
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.15.0")
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.19.0")
     ],
     targets: [
         .target(
