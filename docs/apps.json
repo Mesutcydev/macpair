@@ -95,6 +95,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.4",
+          "buildVersion": "17",
+          "marketingVersion": "0.1.4 (17)",
+          "date": "2026-09-02",
+          "localizedDescription": "Reliably opens the secure Mac-password unlock screen when connecting to an already locked Vamp Sync or Vamp Host.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-53/VampStream-iOS-0.1.4-build-17-altstore-unsigned.ipa",
+          "size": 14442571,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.3",
           "buildVersion": "16",
           "marketingVersion": "0.1.3 (16)",
@@ -138,6 +148,16 @@
     }
   ],
   "news": [
+    {
+      "title": "Vamp Stream 0.1.4",
+      "identifier": "vamp-stream-ios-0.1.4",
+      "caption": "Connect to an already locked Mac and open the secure Remote Unlock screen reliably.",
+      "date": "2026-09-02",
+      "tintColor": "#6E6E73",
+      "notify": true,
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-53",
+      "appID": "com.mesutcy.remotedesktop.stream"
+    },
     {
       "title": "Vamp Stream 0.1.3",
       "identifier": "vamp-stream-ios-0.1.3",
