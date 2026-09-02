@@ -84,7 +84,8 @@ final class SignalingMessageCodingTests: XCTestCase {
                 SessionReadyMessage(
                     sessionID: sessionID,
                     selectedDisplayID: "main",
-                    negotiatedCapabilities: capabilities
+                    negotiatedCapabilities: capabilities,
+                    lockState: .lockedOrLoginWindow
                 )
             )
         )
@@ -94,6 +95,14 @@ final class SignalingMessageCodingTests: XCTestCase {
 
         XCTAssertEqual(decoded.kind, .sessionReady)
         XCTAssertEqual(decoded, envelope)
+    }
+
+    func testLegacySessionReadyDecodesWithoutLockState() throws {
+        let data = Data(#"{"sessionID":"44444444-4444-4444-4444-444444444444","negotiatedCapabilities":{"videoCodec":"h264","supportsMultiDisplay":false,"supportsAudio":false,"supportsMacClient":false}}"#.utf8)
+
+        let decoded = try JSONDecoder().decode(SessionReadyMessage.self, from: data)
+
+        XCTAssertNil(decoded.lockState)
     }
 
     func testLegacyNegotiatedCapabilitiesDecodeWithoutTerminalFields() throws {

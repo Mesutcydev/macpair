@@ -1111,6 +1111,9 @@ final class ClientSessionCoordinator: ObservableObject {
             logger.info("Session ready: \(ready.sessionID.uuidString)")
             activeSessionID = ready.sessionID
             negotiatedCapabilities = ready.negotiatedCapabilities
+            if let lockState = ready.lockState {
+                hostLockState = lockState
+            }
             terminalOnlySession = ready.negotiatedCapabilities.supportsTerminal
                 && ready.negotiatedCapabilities.supportsMultipleTerminals
                 && !ready.negotiatedCapabilities.supportsMultiDisplay

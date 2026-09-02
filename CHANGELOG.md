@@ -7,6 +7,16 @@ their original product names. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Vamp Stream now receives the Mac's initial locked/login-window state in the
+  reliable session-ready handshake instead of depending on a best-effort early
+  data-channel update. Connecting to an already locked Vamp Sync or Vamp Host
+  now opens the password-entry unlock screen consistently.
+- Older Stream and host builds remain wire-compatible: the new handshake field
+  is optional, and live lock/unlock transitions still use authenticated host
+  status messages.
+
 ## [2.3.0] - 2026-08-31 — build 52
 
 ### Fixed

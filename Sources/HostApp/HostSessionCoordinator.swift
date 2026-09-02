@@ -1715,7 +1715,8 @@ final class HostSessionCoordinator: ObservableObject {
                         SessionReadyMessage(
                             sessionID: sessionID,
                             selectedDisplayID: nil,
-                            negotiatedCapabilities: negotiatedCapabilities
+                            negotiatedCapabilities: negotiatedCapabilities,
+                            lockState: lockStateProvider()
                         )
                     ),
                     sessionID: sessionID,
@@ -1731,7 +1732,8 @@ final class HostSessionCoordinator: ObservableObject {
                         SessionReadyMessage(
                             sessionID: sessionID,
                             selectedDisplayID: nil,
-                            negotiatedCapabilities: negotiatedCapabilities
+                            negotiatedCapabilities: negotiatedCapabilities,
+                            lockState: lockStateProvider()
                         )
                     ),
                     sessionID: sessionID,
@@ -1759,7 +1761,8 @@ final class HostSessionCoordinator: ObservableObject {
                     SessionReadyMessage(
                         sessionID: sessionID,
                         selectedDisplayID: selectedDisplayID,
-                        negotiatedCapabilities: negotiated
+                        negotiatedCapabilities: negotiated,
+                        lockState: lockStateProvider()
                     )
                 ),
                 sessionID: sessionID,

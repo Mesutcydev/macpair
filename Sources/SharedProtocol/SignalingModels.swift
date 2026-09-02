@@ -127,15 +127,20 @@ public struct SessionReadyMessage: Codable, Hashable, Sendable {
     public var sessionID: UUID
     public var selectedDisplayID: String?
     public var negotiatedCapabilities: NegotiatedCapabilities
+    /// Initial host lock state carried on the reliable signaling path.
+    /// Older hosts omit it; clients retain their unlocked-compatible default.
+    public var lockState: HostLockState?
 
     public init(
         sessionID: UUID,
         selectedDisplayID: String? = nil,
-        negotiatedCapabilities: NegotiatedCapabilities
+        negotiatedCapabilities: NegotiatedCapabilities,
+        lockState: HostLockState? = nil
     ) {
         self.sessionID = sessionID
         self.selectedDisplayID = selectedDisplayID
         self.negotiatedCapabilities = negotiatedCapabilities
+        self.lockState = lockState
     }
 }
 
