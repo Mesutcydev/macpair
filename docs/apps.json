@@ -95,6 +95,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.6",
+          "buildVersion": "19",
+          "marketingVersion": "0.1.6 (19)",
+          "date": "2026-09-02",
+          "localizedDescription": "Keeps the complete top and title area visible for tall Vamp Assistant app windows by reserving Vamp Stream's controls outside the video viewport.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampStream-iOS-0.1.6-build-19-altstore-unsigned.ipa",
+          "size": 14448370,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.5",
           "buildVersion": "18",
           "marketingVersion": "0.1.5 (18)",
@@ -158,6 +168,16 @@
     }
   ],
   "news": [
+    {
+      "title": "Vamp Stream 0.1.6",
+      "identifier": "vamp-stream-ios-0.1.6",
+      "caption": "Shows the complete top and title area of tall streamed Mac app windows.",
+      "date": "2026-09-02",
+      "tintColor": "#6E6E73",
+      "notify": true,
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-55",
+      "appID": "com.mesutcy.remotedesktop.stream"
+    },
     {
       "title": "Vamp Stream 0.1.5",
       "identifier": "vamp-stream-ios-0.1.5",
