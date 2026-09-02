@@ -7,8 +7,15 @@ import Foundation
 final class BeetCodeRemoteSessionViewModel: ObservableObject {
     enum Availability: Equatable {
         case checking
-        case ready
+        case reachable
         case unavailable
+
+        /// Receiving any authenticated control status proves the Assistant is online.
+        /// `status.ready` describes whether capture/input can start, not reachability.
+        static func authenticatedStatus(_ status: BeetCodeControlStatus) -> Self {
+            _ = status
+            return .reachable
+        }
     }
 
     struct SavedAssistant: Codable, Equatable, Hashable, Identifiable {
@@ -127,6 +134,7 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
                 address: endpoint.url.absoluteString,
                 displayName: displayName,
                 status: status)
+            availabilityByAddress[endpoint.url.absoluteString] = .authenticatedStatus(status)
         } catch {
             lastError = Self.userFacingConnectionError(error)
         }
@@ -157,7 +165,9 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
                 address: endpoint.url.absoluteString,
                 displayName: saved.displayName,
                 status: status)
-            availabilityByAddress[saved.address] = status.ready ? .ready : .unavailable
+            // A locked Mac deliberately reports `ready == false`, but a successful
+            // authenticated status response still proves Vamp Assistant is online.
+            availabilityByAddress[saved.address] = .authenticatedStatus(status)
         } catch {
             session = nil
             availabilityByAddress[saved.address] = .unavailable
@@ -192,7 +202,7 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
             }
             let status = try await BeetCodeRemoteClient(baseURL: endpoint.url, token: token)
                 .controlStatus(timeout: 6)
-            return status.ready ? .ready : .unavailable
+            return .authenticatedStatus(status)
         } catch {
             return .unavailable
         }
@@ -229,6 +239,7 @@ final class BeetCodeRemoteSessionViewModel: ObservableObject {
                 address: session.address,
                 displayName: session.displayName,
                 status: status)
+            availabilityByAddress[session.address] = .authenticatedStatus(status)
             lastError = nil
             return nil
         } catch {

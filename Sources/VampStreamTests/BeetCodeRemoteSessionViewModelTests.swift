@@ -110,6 +110,19 @@ final class BeetCodeRemoteSessionViewModelTests: XCTestCase {
         XCTAssertEqual(status.remoteUnlockMessage, "Enter the Mac login password.")
     }
 
+    func testLockedAssistantStatusIsReachableEvenThoughControlIsNotReady() throws {
+        let data = Data(#"{"enabled":true,"screenRecording":true,"accessibility":true,"ready":false,"locked":true,"remoteUnlockEnabled":true,"remoteUnlockAvailable":true,"displays":[]}"#.utf8)
+        let status = try JSONDecoder().decode(BeetCodeControlStatus.self, from: data)
+
+        XCTAssertFalse(status.ready)
+        // Availability describes network reachability. A locked Assistant is online and
+        // must remain selectable so App Stream can present its authenticated unlock form.
+        XCTAssertTrue(status.shouldOfferRemoteUnlock)
+        XCTAssertEqual(
+            BeetCodeRemoteSessionViewModel.Availability.authenticatedStatus(status),
+            .reachable)
+    }
+
     func testAssistantUnlockStatusKeepsEntryHiddenWhenUnavailable() throws {
         let data = Data(#"{"enabled":true,"screenRecording":true,"accessibility":true,"ready":false,"locked":true,"remoteUnlockEnabled":true,"remoteUnlockAvailable":false,"remoteUnlockMessage":"Remote Unlock requires Tailscale.","displays":[]}"#.utf8)
 

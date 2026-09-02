@@ -454,7 +454,7 @@ private struct VampAssistantAvailabilityBadge: View {
 
     private var color: Color {
         switch availability {
-        case .ready: return .green
+        case .reachable: return .green
         case .unavailable: return .red
         case .checking: return .gray
         }
@@ -462,7 +462,7 @@ private struct VampAssistantAvailabilityBadge: View {
 
     private var text: String {
         switch availability {
-        case .ready: return "Ready"
+        case .reachable: return "Online"
         case .unavailable: return "Offline"
         case .checking: return "Checking"
         }

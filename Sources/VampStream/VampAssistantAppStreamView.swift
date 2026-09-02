@@ -21,7 +21,16 @@ struct VampAssistantAppStreamView: View {
     var body: some View {
         GeometryReader { proxy in
             Group {
-                if let selectedApplication {
+                if !session.status.ready {
+                    // App inventory remains readable while macOS is at loginwindow, but
+                    // launching or focusing a window cannot succeed there. Route through
+                    // the same authenticated unlock/permission surface as Remote Control
+                    // before exposing tappable apps.
+                    BeetCodeRemoteView(
+                        session: session,
+                        onClose: onClose,
+                        onRefresh: onRefreshStatus)
+                } else if let selectedApplication {
                     BeetCodeRemoteView(
                         session: session,
                         windowID: selectedApplication.windowID,
@@ -68,7 +77,8 @@ struct VampAssistantAppStreamView: View {
                     errorMessage = "The Mac kept the closest window size: \(error.localizedDescription)"
                 }
             }
-            .task(id: session.address) {
+            .task(id: "\(session.address)-\(session.status.ready)") {
+                guard session.status.ready else { return }
                 if runningApplications.isEmpty, installedApplications.isEmpty {
                     await loadApplications()
                 }
@@ -88,6 +98,7 @@ struct VampAssistantAppStreamView: View {
     }
 
     private func loadApplications() async {
+        guard session.status.ready else { return }
         guard !isLoading else { return }
         isLoading = true
         errorMessage = nil
@@ -100,6 +111,10 @@ struct VampAssistantAppStreamView: View {
     }
 
     private func open(_ application: BeetCodeRemoteApplication) async {
+        guard session.status.ready else {
+            errorMessage = "Unlock the Mac before opening an application."
+            return
+        }
         guard launchingName == nil else { return }
         if application.isRunning, let windowID = application.windowID {
             do {
