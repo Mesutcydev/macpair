@@ -181,158 +181,162 @@ struct BeetCodeRemoteView: View {
     }
 
     private var streamSurface: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .top) {
-                Color.black
+        VStack(spacing: 0) {
+            if onChooseApplication != nil, !controlsHidden {
+                // This must occupy layout space. Overlaying it hides the first rows of a
+                // tall Mac window and also reports an oversized viewport back to the Mac.
+                appStreamTopBar
+                    .background(Color.black)
+            }
 
-                if renderer.latestPixelBuffer != nil {
-                    VideoFrameRendererView(
-                        pixelBuffer: renderer.latestPixelBuffer,
-                        displayMode: fillScreen ? .fillScreen : .fitDisplay)
-                        .scaleEffect(viewportZoom, anchor: .center)
-                        .offset(viewportOffset)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+            GeometryReader { proxy in
+                ZStack(alignment: .top) {
+                    Color.black
 
-                    AppStreamGestureView(
-                        viewportZoom: viewportZoom,
-                        viewportOffset: viewportOffset,
-                        viewSize: proxy.size,
-                        onTap: { input.tap(at: $0) },
-                        onDoubleTap: { input.doubleTap(at: $0) },
-                        onRightClick: { input.rightClick(at: $0) },
-                        onMiddleClick: { input.middleClick(at: $0) },
-                        onPointerMove: { input.pointerMoved(at: $0) },
-                        onPointerEnded: { input.pointerEnded() },
-                        onScroll: { input.scroll(deltaX: $0, deltaY: $1) },
-                        onViewportPan: { delta in
-                            viewportOffset = clampedViewportOffset(
-                                CGSize(width: viewportOffset.width + delta.width,
-                                       height: viewportOffset.height + delta.height),
-                                zoom: viewportZoom,
-                                in: proxy.size
-                            )
-                        },
-                        onPinchChanged: { scale, focalPoint in
-                            updateViewportZoom(scale: scale, focalPoint: focalPoint, in: proxy.size)
-                        },
-                        onPinchEnded: {
-                            if viewportZoom < defaultViewportZoom * 1.15 {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
-                                    resetViewportZoom()
+                    if renderer.latestPixelBuffer != nil {
+                        VideoFrameRendererView(
+                            pixelBuffer: renderer.latestPixelBuffer,
+                            displayMode: fillScreen ? .fillScreen : .fitDisplay)
+                            .scaleEffect(viewportZoom, anchor: .center)
+                            .offset(viewportOffset)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                        AppStreamGestureView(
+                            viewportZoom: viewportZoom,
+                            viewportOffset: viewportOffset,
+                            viewSize: proxy.size,
+                            onTap: { input.tap(at: $0) },
+                            onDoubleTap: { input.doubleTap(at: $0) },
+                            onRightClick: { input.rightClick(at: $0) },
+                            onMiddleClick: { input.middleClick(at: $0) },
+                            onPointerMove: { input.pointerMoved(at: $0) },
+                            onPointerEnded: { input.pointerEnded() },
+                            onScroll: { input.scroll(deltaX: $0, deltaY: $1) },
+                            onViewportPan: { delta in
+                                viewportOffset = clampedViewportOffset(
+                                    CGSize(width: viewportOffset.width + delta.width,
+                                           height: viewportOffset.height + delta.height),
+                                    zoom: viewportZoom,
+                                    in: proxy.size
+                                )
+                            },
+                            onPinchChanged: { scale, focalPoint in
+                                updateViewportZoom(scale: scale, focalPoint: focalPoint, in: proxy.size)
+                            },
+                            onPinchEnded: {
+                                if viewportZoom < defaultViewportZoom * 1.15 {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                                        resetViewportZoom()
+                                    }
                                 }
-                            }
-                        },
-                        onLongPress: { input.toggleDragLock(at: $0) },
-                        onHoverDelta: { input.relativePointerMove(deltaX: $0, deltaY: $1) }
-                    )
-                    .allowsHitTesting(!keyboardActive && !annotationStore.isVisible)
+                            },
+                            onLongPress: { input.toggleDragLock(at: $0) },
+                            onHoverDelta: { input.relativePointerMove(deltaX: $0, deltaY: $1) }
+                        )
+                        .allowsHitTesting(!keyboardActive && !annotationStore.isVisible)
 
-                    if annotationStore.isVisible {
-                        AnnotationCanvasOverlay(store: annotationStore)
-                    }
-                } else {
-                    VStack(spacing: 12) {
-                        if let error = renderer.lastError {
-                            Image(systemName: "wifi.exclamationmark")
-                                .font(.system(size: 34, weight: .light))
-                            Text("Vamp Assistant stream stopped")
-                                .font(.headline)
-                            Text(error)
-                                .font(.footnote)
-                                .multilineTextAlignment(.center)
-                                .foregroundStyle(.white.opacity(0.72))
-                            Button("Reconnect") {
-                                renderer.start(
-                                    client: session.client,
-                                    resolution: resolution,
-                                    displayID: windowID == nil ? selectedDisplayID : nil,
-                                    windowID: windowID)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(.white)
-                        } else {
-                            ProgressView().tint(.white)
-                            Text("Opening \(session.displayName)…")
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.84))
+                        if annotationStore.isVisible {
+                            AnnotationCanvasOverlay(store: annotationStore)
                         }
-                    }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(28)
-                }
-
-                if let inputError = input.lastError {
-                    Text(inputError)
-                        .font(.caption)
+                    } else {
+                        VStack(spacing: 12) {
+                            if let error = renderer.lastError {
+                                Image(systemName: "wifi.exclamationmark")
+                                    .font(.system(size: 34, weight: .light))
+                                Text("Vamp Assistant stream stopped")
+                                    .font(.headline)
+                                Text(error)
+                                    .font(.footnote)
+                                    .multilineTextAlignment(.center)
+                                    .foregroundStyle(.white.opacity(0.72))
+                                Button("Reconnect") {
+                                    renderer.start(
+                                        client: session.client,
+                                        resolution: resolution,
+                                        displayID: windowID == nil ? selectedDisplayID : nil,
+                                        windowID: windowID)
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(.white)
+                            } else {
+                                ProgressView().tint(.white)
+                                Text("Opening \(session.displayName)…")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.white.opacity(0.84))
+                            }
+                        }
                         .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(.red.opacity(0.82), in: Capsule())
-                        .padding(.horizontal, 18)
-                        .padding(.bottom, 86)
-                        .frame(maxHeight: .infinity, alignment: .bottom)
-                        .accessibilityLabel("Input error: \(inputError)")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(28)
+                    }
+
+                    if let inputError = input.lastError {
+                        Text(inputError)
+                            .font(.caption)
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(.red.opacity(0.82), in: Capsule())
+                            .padding(.horizontal, 18)
+                            .padding(.bottom, 86)
+                            .frame(maxHeight: .infinity, alignment: .bottom)
+                            .accessibilityLabel("Input error: \(inputError)")
+                    }
                 }
-            }
-            .overlay(alignment: .top) {
-                if onChooseApplication != nil, !controlsHidden {
-                    appStreamTopBar
-                        .background(.black.opacity(0.28))
+                .overlay(alignment: .bottom) {
+                    classicBottomChrome(bottomInset: proxy.safeAreaInsets.bottom)
                 }
-            }
-            .overlay(alignment: .bottom) {
-                classicBottomChrome(bottomInset: proxy.safeAreaInsets.bottom)
-            }
-            .overlay(alignment: .bottom) {
-                if keyboardActive {
-                    AppStreamKeyboardOverlayView(
-                        mode: isTerminalApplication ? .terminal : .standard,
-                        onText: { input.sendText($0) },
-                        onKey: { keyCode, modifiers in
-                            input.sendKey(keyName(for: keyCode), modifiers: modifierNames(for: modifiers))
-                        },
-                        onDismiss: { keyboardActive = false }
-                    )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .padding(.bottom, keyboardOverlayBottomPad)
+                .overlay(alignment: .bottom) {
+                    if keyboardActive {
+                        AppStreamKeyboardOverlayView(
+                            mode: isTerminalApplication ? .terminal : .standard,
+                            onText: { input.sendText($0) },
+                            onKey: { keyCode, modifiers in
+                                input.sendKey(keyName(for: keyCode), modifiers: modifierNames(for: modifiers))
+                            },
+                            onDismiss: { keyboardActive = false }
+                        )
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(.bottom, keyboardOverlayBottomPad)
+                    }
                 }
-            }
-            .onAppear {
-                configureInput(viewSize: proxy.size)
-                onViewportSize?(proxy.size)
-            }
-            .onChangeCompat(of: proxy.size) {
-                configureInput(viewSize: $0)
-                resetViewportZoom()
-                onViewportSize?($0)
-            }
-            .onChangeCompat(of: renderer.geometry) { geometry in
-                configureInput(viewSize: proxy.size)
-                resetViewportZoom()
-                // Match the phone to the shape the Mac actually sent. The app delegate keeps
-                // Vamp Stream portrait until told otherwise, so without this a landscape window
-                // — or the whole desktop — renders as a thin strip across a portrait screen.
-                StreamOrientation.set(aspect: geometry.map {
-                    Double($0.imageWidth) / Double(max($0.imageHeight, 1))
-                })
-            }
+                .onAppear {
+                    configureInput(viewSize: proxy.size)
+                    onViewportSize?(proxy.size)
+                }
+                .onChangeCompat(of: proxy.size) {
+                    configureInput(viewSize: $0)
+                    resetViewportZoom()
+                    onViewportSize?($0)
+                }
+                .onChangeCompat(of: renderer.geometry) { geometry in
+                    configureInput(viewSize: proxy.size)
+                    resetViewportZoom()
+                    // Match the phone to the shape the Mac actually sent. The app delegate keeps
+                    // Vamp Stream portrait until told otherwise, so without this a landscape window
+                    // — or the whole desktop — renders as a thin strip across a portrait screen.
+                    StreamOrientation.set(aspect: geometry.map {
+                        Double($0.imageWidth) / Double(max($0.imageHeight, 1))
+                    })
+                }
 #if canImport(UIKit) && !os(macOS)
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillChangeFrameNotification)) { notification in
-                guard let end = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-                let screenHeight = UIScreen.main.bounds.height
-                withAnimation(.easeOut(duration: 0.25)) {
-                    keyboardOverlayBottomPad = max(0, screenHeight - end.origin.y)
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillChangeFrameNotification)) { notification in
+                    guard let end = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+                    let screenHeight = UIScreen.main.bounds.height
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        keyboardOverlayBottomPad = max(0, screenHeight - end.origin.y)
+                    }
                 }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillHideNotification)) { _ in
-                withAnimation(.easeOut(duration: 0.22)) {
-                    keyboardOverlayBottomPad = 0
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillHideNotification)) { _ in
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        keyboardOverlayBottomPad = 0
+                    }
                 }
-            }
 #endif
+            }
         }
+        .background(Color.black)
         .ignoresSafeArea(edges: [.horizontal, .bottom])
     }
 
