@@ -95,6 +95,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.5",
+          "buildVersion": "18",
+          "marketingVersion": "0.1.5 (18)",
+          "date": "2026-09-02",
+          "localizedDescription": "Fixes Vamp Assistant app streaming on a locked Mac: reachable Macs stay online, the secure password unlock screen appears before the app picker, and app launch waits until macOS is unlocked.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-54/VampStream-iOS-0.1.5-build-18-altstore-unsigned.ipa",
+          "size": 14444140,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.4",
           "buildVersion": "17",
           "marketingVersion": "0.1.4 (17)",
@@ -148,6 +158,16 @@
     }
   ],
   "news": [
+    {
+      "title": "Vamp Stream 0.1.5",
+      "identifier": "vamp-stream-ios-0.1.5",
+      "caption": "Unlock a paired Vamp Assistant Mac before choosing and opening an app stream.",
+      "date": "2026-09-02",
+      "tintColor": "#6E6E73",
+      "notify": true,
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-54",
+      "appID": "com.mesutcy.remotedesktop.stream"
+    },
     {
       "title": "Vamp Stream 0.1.4",
       "identifier": "vamp-stream-ios-0.1.4",
