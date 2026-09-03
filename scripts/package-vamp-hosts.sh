@@ -310,9 +310,9 @@ if [[ -z "$ONLY_SCHEME" || "$ONLY_SCHEME" == "VampTerminalHost" ]]; then
   package_host "VampTerminalHost" "Vamp Terminal Host" "com.mesutcy.remotedesktop.terminalhost" "VampTerminalHost"
 fi
 if [[ -z "$ONLY_SCHEME" || "$ONLY_SCHEME" == "VampMiniHost" ]]; then
-  # Keep the scheme, bundle ID, executable, and storage identity stable. The
-  # public product/artifact name is Vamp Sync.
-  package_host "VampMiniHost" "Vamp Mini Host" "com.mesutcy.remotedesktop.minhost" "VampSync"
+  # Keep the scheme, bundle ID, and storage identity stable. The native
+  # app bundle, executable, and public artifact are all named Vamp Sync.
+  package_host "VampMiniHost" "Vamp Sync" "com.mesutcy.remotedesktop.minhost" "VampSync"
 fi
 
 log "Host artifacts are ready in $OUTPUT_DIR"
