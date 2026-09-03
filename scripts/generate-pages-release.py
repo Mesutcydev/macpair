@@ -12,14 +12,12 @@ REPOSITORY = "Mesutcydev/vamp-suite"
 ASSISTANT_REPOSITORY = "Mesutcydev/vamp-assistant"
 ROOT = Path(__file__).resolve().parents[1]
 ASSET_PATTERNS = {
+    "vamp-terminal-ios": re.compile(r"^VampTerminal-iOS-.+-build-\d+-altstore-unsigned\.ipa$"),
     # Keep the existing metadata key for cached clients and compatibility links.
     "vamp-mini-host-dmg": re.compile(r"^(?:VampSync|VampMiniHost)-macOS-.+-build-\d+-adhoc\.dmg$"),
     "vamp-control-macos": re.compile(r"^VampControl-macOS-.+-build-\d+-adhoc\.zip$"),
     "vamp-control-ios": re.compile(r"^VampControl-iOS-.+-build-\d+-altstore-unsigned(?:-r\d+)?\.ipa$"),
     "vamp-stream-ios": re.compile(r"^VampStream-iOS-.+-build-\d+-altstore-unsigned\.ipa$"),
-    "vamp-terminal-host": re.compile(r"^VampTerminalHost-macOS-.+-build-\d+-adhoc\.zip$"),
-    "vamp-terminal-ios": re.compile(r"^VampTerminal-iOS-.+-build-\d+-altstore-unsigned\.ipa$"),
-    "vamp-linux-host": re.compile(r"^VampTerminalHost-Linux-.+\.zip$"),
 }
 ASSISTANT_ASSET_PATTERNS = {
     "vamp-assistant-macos": re.compile(r"^Vamp-Assistant-.+\.dmg$"),

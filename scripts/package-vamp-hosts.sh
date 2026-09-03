@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Build the direct-distribution macOS hosts used by Vamp Terminal and Vamp Sync.
+# Build Vamp Sync, the only maintained macOS host in this repository.
 # The apps are ad-hoc signed with Apple's local '-' identity, never notarized,
 # and are intended for user-controlled open-source testing and distribution.
 
@@ -9,26 +9,26 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT="$ROOT/RemoteDesktopToolApps.xcodeproj"
 WORK="$ROOT/.packaging-vamp-hosts"
-OUTPUT_DIR="$ROOT/dist/VampTerminalHosts"
+OUTPUT_DIR="$ROOT/dist/VampStreamHost"
 ARCHS="${VAMP_HOST_ARCHS:-arm64}"
 CLEAN=0
 ALLOW_DIRTY=0
-ONLY_SCHEME=""
+ONLY_SCHEME="VampMiniHost"
 
 usage() {
   cat <<'EOF'
 Usage: scripts/package-vamp-hosts.sh [options]
 
 Options:
-  --output-dir <path>  Artifact destination (default: dist/VampTerminalHosts)
+  --output-dir <path>  Artifact destination (default: dist/VampStreamHost)
   --archs <value>      Xcode ARCHS value (default: arm64; use "arm64 x86_64" for universal)
   --clean              Remove the prior host packaging workspace first
   --allow-dirty        Permit packaging from an uncommitted development tree
-  --only <scheme>      Package only MacHost, VampTerminalHost, or VampMiniHost
+  --only <scheme>      VampMiniHost only (stable Sync scheme name)
   --help               Show this help
 
-The resulting ZIPs contain Vamp Host (full remote desktop + Terminal Mode),
-Vamp Terminal Host (terminal-only), and Vamp Sync (pairing-first menu bar).
+The resulting ZIP and DMG contain Vamp Sync.
+Vamp Host and Vamp Terminal Host are discontinued and are not packaged.
 They are ad-hoc signed, not notarized, and may require the user to approve them
 in macOS Privacy & Security.
 EOF
@@ -60,7 +60,7 @@ while [[ $# -gt 0 ]]; do
     --only)
       [[ $# -ge 2 ]] || fail "Missing value for --only"
       ONLY_SCHEME="$2"
-      case "$ONLY_SCHEME" in MacHost|VampTerminalHost|VampMiniHost) ;; *) fail "Unsupported host scheme: $ONLY_SCHEME" ;; esac
+      case "$ONLY_SCHEME" in VampMiniHost) ;; *) fail "Discontinued or unsupported host: $ONLY_SCHEME. Use Vamp Sync (VampMiniHost)." ;; esac
       shift 2
       ;;
     --help|-h)
@@ -303,16 +303,7 @@ PY
   fi
 }
 
-if [[ -z "$ONLY_SCHEME" || "$ONLY_SCHEME" == "MacHost" ]]; then
-  package_host "MacHost" "Vamp Host" "com.mesutcy.remotedesktop.host" "VampHost"
-fi
-if [[ -z "$ONLY_SCHEME" || "$ONLY_SCHEME" == "VampTerminalHost" ]]; then
-  package_host "VampTerminalHost" "Vamp Terminal Host" "com.mesutcy.remotedesktop.terminalhost" "VampTerminalHost"
-fi
-if [[ -z "$ONLY_SCHEME" || "$ONLY_SCHEME" == "VampMiniHost" ]]; then
-  # Keep the scheme, bundle ID, and storage identity stable. The native
-  # app bundle, executable, and public artifact are all named Vamp Sync.
-  package_host "VampMiniHost" "Vamp Sync" "com.mesutcy.remotedesktop.minhost" "VampSync"
-fi
+# Keep the scheme, bundle ID, and storage identity stable for existing installs.
+package_host "VampMiniHost" "Vamp Sync" "com.mesutcy.remotedesktop.minhost" "VampSync"
 
 log "Host artifacts are ready in $OUTPUT_DIR"

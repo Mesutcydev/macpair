@@ -53,10 +53,11 @@ on your Mac, then add its mobile companion if needed. It does not require Sync. 
 <details>
 <summary>Other tools and compatibility</summary>
 
-Vamp Terminal and the Terminal/Linux hosts serve specialist terminal workflows;
-see the [terminal guide](docs/VAMP_TERMINAL_SIDELOAD.md). The historical full host
-and its build targets remain in source for compatibility. New app-window setups
-use Sync. Run only one macOS host at a time.
+**Vamp Sync and Vamp Assistant are the only current hosts.** Vamp Host, Vamp
+Terminal Host, and Vamp Linux Host are discontinued. Their historical source
+and build targets remain for compatibility and shared-source verification;
+new packages are no longer produced. Vamp Terminal documentation describes
+legacy workflows. New app-window setups use Sync.
 
 No Vamp account or hosted relay is required. Existing discovery, storage, and
 installation identifiers remain stable for compatibility.

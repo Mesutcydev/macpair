@@ -9,6 +9,14 @@
   "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-55",
   "published_at": "2026-09-02T17:03:25Z",
   "assets": {
+    "vamp-terminal-ios": {
+      "name": "VampTerminal-iOS-2.3.0-build-50-altstore-unsigned.ipa",
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampTerminal-iOS-2.3.0-build-50-altstore-unsigned.ipa",
+      "label": "2.3.0 \u00b7 build 50",
+      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-55",
+      "tag": "vamp-suite-2.3.0-build-55",
+      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampTerminal-iOS-2.3.0-build-50-altstore-unsigned.ipa.sha256"
+    },
     "vamp-mini-host-dmg": {
       "name": "VampSync-macOS-2.3.0-build-54-adhoc.dmg",
       "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampSync-macOS-2.3.0-build-54-adhoc.dmg",
@@ -40,30 +48,6 @@
       "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-55",
       "tag": "vamp-suite-2.3.0-build-55",
       "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampStream-iOS-0.1.6-build-20-altstore-unsigned.ipa.sha256"
-    },
-    "vamp-terminal-host": {
-      "name": "VampTerminalHost-macOS-2.3.0-build-50-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampTerminalHost-macOS-2.3.0-build-50-adhoc.zip",
-      "label": "2.3.0 \u00b7 build 50",
-      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-55",
-      "tag": "vamp-suite-2.3.0-build-55",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampTerminalHost-macOS-2.3.0-build-50-adhoc.zip.sha256"
-    },
-    "vamp-terminal-ios": {
-      "name": "VampTerminal-iOS-2.3.0-build-50-altstore-unsigned.ipa",
-      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampTerminal-iOS-2.3.0-build-50-altstore-unsigned.ipa",
-      "label": "2.3.0 \u00b7 build 50",
-      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-55",
-      "tag": "vamp-suite-2.3.0-build-55",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampTerminal-iOS-2.3.0-build-50-altstore-unsigned.ipa.sha256"
-    },
-    "vamp-linux-host": {
-      "name": "VampTerminalHost-Linux-2.3.6.zip",
-      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampTerminalHost-Linux-2.3.6.zip",
-      "label": "2.3.6",
-      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-55",
-      "tag": "vamp-suite-2.3.0-build-55",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampTerminalHost-Linux-2.3.6.zip.sha256"
     },
     "vamp-assistant-macos": {
       "name": "Vamp-Assistant-0.10.25-build-78.dmg",

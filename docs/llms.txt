@@ -27,8 +27,9 @@ License: Apache-2.0
   specialist bots, and approval-gated automation. Includes its own iOS and
   browser remote access. Runs independently; Sync is not required.
 
-The legacy full host is no longer promoted. Shared transport source and
-specialist technical documentation remain available in the repository.
+Vamp Sync and Vamp Assistant are the only current hosts. Vamp Host, Vamp
+Terminal Host, and Vamp Linux Host are discontinued. Shared transport source
+and historical technical documentation remain available in the repository.
 
 Never expose host ports directly to the public internet. Verify a new peer’s
 complete fingerprint independently before approving it. macOS permissions
