@@ -335,7 +335,7 @@
 		D17F53E0DA55162CDAB386DF /* AppLockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockService.swift; sourceTree = "<group>"; };
 		D558188560181B46BFD46260 /* MacHostApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacHostApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1AA00000000000000000004 /* VampTerminalHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VampTerminalHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E1AA00000000000000000005 /* VampMiniHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VampMiniHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E1AA00000000000000000005 /* Vamp Sync.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Vamp Sync.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D92BD154FC9AC9151035F4FC /* AppLockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockView.swift; sourceTree = "<group>"; };
 		DAF7B95E22912BBDF556A2B5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		DC7EE3B36E9BA387CB123F19 /* Host.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Host.swift; sourceTree = "<group>"; };
@@ -558,7 +558,7 @@
 				A1B2C3D4E5F60718293A4B68 /* VampTerminalApp.app */,
 				D558188560181B46BFD46260 /* MacHostApp.app */,
 				E1AA00000000000000000004 /* VampTerminalHost.app */,
-				E1AA00000000000000000005 /* VampMiniHost.app */,
+				E1AA00000000000000000005 /* Vamp Sync.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -871,8 +871,8 @@
 				A1B2C3D4E5F60718293A4B7D /* HostWidgetShared */,
 				A1B2C3D4E5F60718293A4B7F /* SharedUI */,
 			);
-			productName = VampMiniHost;
-			productReference = E1AA00000000000000000005 /* VampMiniHost.app */;
+			productName = "Vamp Sync";
+			productReference = E1AA00000000000000000005 /* Vamp Sync.app */;
 			productType = "com.apple.product-type.application";
 		};
 		D8296085E56FF7DDDE339F5E /* iOSRemoteLiveActivityExtension */ = {
@@ -1653,7 +1653,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampMiniHost.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -1666,7 +1666,7 @@
 				MARKETING_VERSION = 2.3.0;
 				OTHER_LDFLAGS = "$(inherited) -framework AppIntents";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.minhost;
-				PRODUCT_NAME = "Vamp Mini Host";
+				PRODUCT_NAME = "Vamp Sync";
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = VAMP_MINI_HOST;
 			};
@@ -1679,7 +1679,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Configuration/VampMiniHost.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 55;
 				ENABLE_APP_INTENTS_METADATA_GENERATION = NO;
 				ENABLE_POINTER_AUTHENTICATION = NO;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -1692,7 +1692,7 @@
 				MARKETING_VERSION = 2.3.0;
 				OTHER_LDFLAGS = "$(inherited) -framework AppIntents";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mesutcy.remotedesktop.minhost;
-				PRODUCT_NAME = "Vamp Mini Host";
+				PRODUCT_NAME = "Vamp Sync";
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = VAMP_MINI_HOST;
 				SWIFT_COMPILATION_MODE = wholemodule;

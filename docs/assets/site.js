@@ -185,6 +185,125 @@
 
     }
   };
+  Object.assign(translations.tr, {
+  "ux.start": "Buradan başla",
+  "ux.compare": "İstemcileri karşılaştır",
+  "ux.optional": "Assistant",
+  "ux.downloads": "İndir",
+  "ux.hero": "Bir Mac uygulamasını başka bir Mac, iPhone veya iPad’den kullan. Erişmek istediğin Mac’e Vamp Sync kur, diğer cihazın için bir istemci seç.",
+  "ux.setup": "İki uygulama. Tek bağlantı.",
+  "ux.setupLead": "Sync erişilecek Mac’te çalışır. Control veya Stream ise ona erişmek için kullandığın cihazda.",
+  "ux.step0": "Vamp Sync’i kur",
+  "ux.step0Copy": "Erişmek istediğin Mac’e kur. Görüntü için Ekran Kaydı, klavye ve işaretçi kontrolü için Erişilebilirlik izni ver.",
+  "ux.step0Cta": "Sync’i indir",
+  "ux.step1": "Bir istemci seç",
+  "ux.step1Copy": "Mac, iPhone veya iPad’de Control kullan. iPhone veya iPad’de tek uygulamaya odaklanmak için Stream’i seç. Birini kurman yeterli.",
+  "ux.step1Cta": "Aşağıda karşılaştır",
+  "ux.step2": "Eşleştir ve uygulamayı aç",
+  "ux.step2Copy": "Aynı güvenilir yerel ağı veya özel Tailscale ağını kullan. Sync’in QR kodunu tara, cihazın tam parmak izini iki cihazda karşılaştır, Mac’te onayla ve bir uygulama penceresi seç.",
+  "ux.step2Cta": "Sync kurulum ayrıntıları",
+  "ux.clients": "Cihazına hangi istemci uygun?",
+  "ux.clientsLead": "İkisi de Sync’e bağlanır ve seçtiğin Mac uygulama penceresini kontrol eder. Cihazına ve tercih ettiğin deneyime göre seç.",
+  "ux.control": "Başka bir Mac’ten bağlanırken veya iPhone ve iPad’de Control arayüzünü tercih ediyorsan Control’ü seç.",
+  "ux.controlFit": "Mac’ten Mac’e + mobil",
+  "ux.controlGet": "Control’ü indir →",
+  "ux.stream": "iPhone veya iPad’de tek bir Mac uygulamasına odaklanmak, dokunmatik ve klavye kontrolünü kullanmak için Stream’i seç.",
+  "ux.streamFit": "Odaklı mobil deneyim",
+  "ux.streamGet": "Stream’i indir →",
+  "ux.streamPreview": "Stream’i incele",
+  "ux.downloadTitle": "Doğru cihaza kur.",
+  "ux.downloadTitleLead": "Önce Sync’i, sonra seçtiğin istemciyi indir. Her uygulama ve platform için yayımlanmış en güncel derlemeler aşağıda.",
+  "ux.mini-host-dmgDesc": "Erişmek istediğin Mac’e kur. macOS 13 veya üzeri.",
+  "ux.mini-host-dmgButton": "Mac için Sync ↓",
+  "ux.control-macosDesc": "Diğer Mac’e kur. macOS 13 veya üzeri.",
+  "ux.control-macosButton": "Mac için Control ↓",
+  "ux.control-iosDesc": "Telefon veya tabletin için Control istemcisi. İmzasız IPA; yüklemeden önce yeniden imzala.",
+  "ux.control-iosButton": "Control iOS IPA ↓",
+  "ux.stream-iosDesc": "Odaklı mobil istemci. İmzasız IPA; yüklemeden önce yeniden imzala.",
+  "ux.stream-iosButton": "Stream iOS IPA ↓",
+  "ux.install": "Mac indirmeleri doğrudan dağıtılan derlemelerdir; ilk açılışta Sistem Ayarları’ndan “Yine de Aç” gerekebilir. iOS indirmeleri kendi Apple kimliğinle AltStore tipi yeniden imzalama gerektirir.",
+  "ux.installGuide": "Mac kurulum rehberi ↗",
+  "ux.iosGuide": "iOS kurulum rehberi ↗",
+  "ux.ai": "Özel AI mı arıyorsun?",
+  "ux.aiLead": "Assistant, AI çalışmaları için ayrı bir uygulamadır. Sync + Control veya Stream kurulumun zaten tamam.",
+  "ux.separate": "İsteğe bağlı · bağımsız uygulama",
+  "ux.assistant": "Mac’inde yerel modellerle veya kendi AI sağlayıcınla sohbet et, kod üzerinde çalış ve uzman araçları kullan. Kendi iOS ve tarayıcı istemcileriyle bu oturumlara uzaktan devam et. Assistant için Sync gerekmez.",
+  "ux.assistantMore": "Assistant’ı keşfet →",
+  "ux.syncNote": "Apple Silicon · macOS 13+ · menü çubuğunda çalışır.",
+  "ux.streamHero": "Bir Mac uygulamasını iPhone veya iPad’inde kullan. Mac’e Vamp Sync kur, Stream’i eşleştir ve kullanmak istediğin uygulamayı seç.",
+  "ux.alreadyAssistant": "Zaten Vamp Assistant mı kullanıyorsun?",
+  "ux.assistantCompat": "Stream, uygulama penceresi veya tam ekran için Assistant’ın Remote Sessions özelliğiyle doğrudan eşleşebilir. Assistant’ta Remote Sessions’ı etkinleştir ve onun QR koduyla eşleştir. Bu isteğe bağlıdır; uygulama penceresi paylaşmak için Sync yeterli.",
+  "ux.streamInstall": "iPhone veya iPad için Vamp Stream’i yeniden imzala, ardından Mac’ine Vamp Sync kur.",
+  "ux.streamDownloads": "Stream ve Sync’i indir.",
+  "ux.assistantStandalone": "Assistant bağımsız çalışır. Sync gerekmez. Önce Mac uygulamasını kur; uzaktan erişim istiyorsan kendi iOS istemcisini ekle.",
+  "ux.assistantDownloads": "Mac’te başla. İstersen mobili ekle."
+});
+  Object.assign(translations.tr, {"ux.connectionDetails": "Bağlantı ve gizlilik ayrıntıları", "ux.streamVerify": "Sync’te onaylamadan önce cihazın tam parmak izini iki cihazda karşılaştır.", "ux.streamSelect": "Kullanmak istediğin Mac uygulama penceresini seç."});
+  Object.assign(translations.tr, {
+  "ai.hero": "Tek bir yerel AI çalışma alanında yaz, araştır, yazılım geliştir ve Mac’inle çalış. Yerel model çalıştır veya kendi sağlayıcını kullan. Uzman botlara görev ver, çalışmalarını incele ve iPhone veya iPad’inden devam et.",
+  "ai.explore": "Özellikleri keşfet",
+  "ai.navFeatures": "Özellikler",
+  "ai.navBots": "Uzman botlar",
+  "ai.navMobile": "Mobil erişim",
+  "ai.navDownloads": "İndir",
+  "ai.write": "Düşünmek ve yazmak için",
+  "ai.writeCopy": "Proje açmadan sohbet başlat. Bir metin yaz, bir fikri açıklığa kavuştur veya notlarını taslağa dönüştür. Oluşturulan metni yerel Kaydet penceresinden dışarı al.",
+  "ai.research": "Kaynaklarla araştır",
+  "ai.researchCopy": "İsteğe bağlı TinyFish anahtarınla güncel bilgileri ara, kaynak sayfalarını oku ve yerleşik tarayıcıda incele. Görsel destekleyen bir sağlayıcıyla resim veya ekran görüntüsü hakkında soru sor.",
+  "ai.history": "Geçmişini yanında getir",
+  "ai.historyCopy": "Claude, Codex ve Cursor sohbet geçmişini içe aktar. Roller, araç çağrıları ve zaman damgaları korunur. Sohbetlerini tek kitaplıkta ara, sabitle, yeniden adlandır ve dışarı aktar. Parola korumalı görev paketleriyle çalışmalarını çalışma alanları arasında aktar.",
+  "ai.everyday": "Bir sorudan işe yarar sonuçlara.",
+  "ai.everydayLead": "Başlangıç noktası bir sohbet. Görev gerektirdikçe web araştırması, tarayıcı işlemleri veya bir proje ekle.",
+  "ai.local": "Mac’ine uygun modeli seç",
+  "ai.localCopy": "Model Yöneticisi, Apple Silicon çipine ve belleğine göre model önerir. MLX modellerini indir veya içe aktar, yarım kalan indirmelere devam et ve çıkarımı Mac’inde çalıştır. GGUF modelleri kurulu bir llama.cpp çalışma ortamıyla desteklenir.",
+  "ai.providers": "Tercih ettiğin sağlayıcıyı kullan",
+  "ai.providersCopy": "Kendi anahtarlarınla OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek ve diğer sağlayıcılara bağlan. Özel uyumlu uç noktalar Ollama ve LM Studio gibi araçları destekler. Modelleri yazma alanından değiştir; kaydedilen anahtarlar Keychain’de tutulur.",
+  "ai.modelBoundary": "Yerel çıkarım Mac’inde çalışır. Uzak sağlayıcı, web araması veya bağlı bir hizmet seçildiğinde ilgili istekler o hizmete gönderilir; kullanılabilirlik ve ücretler sağlayıcına bağlıdır.",
+  "ai.context": "Proje bağlamıyla kod yaz",
+  "ai.contextCopy": "Dosya aramak, kod düzenlemek, komut çalıştırmak ve tanıları incelemek için çalışma alanı aç. Proje dizini ve sembol özetleri ilgili kodu bulmaya yardımcı olur; isteğe bağlı bellek yararlı bilgileri ve oturum özetlerini sonraki çalışmalara taşır.",
+  "ai.verify": "Planla, incele ve doğrula",
+  "ai.verifyCopy": "İş başlamadan planı incele. Önerilen değişiklik ve komutları onay kartlarında gör, Git kontrol noktalarını sakla ve proje kontrollerini çalıştır. Doğrulama açıkken başarısız kontroller yeniden ele alınmak üzere ajana döner.",
+  "ai.extensions": "Becerilerini ve araçlarını kullan",
+  "ai.extensionsCopy": "MCP sunucularını bağla ve mevcut kodlama araçlarındaki bildirimsel becerileri keşfet. OpenCode sağlayıcılarını, ajanlarını, komutlarını ve izin kurallarını yerel çalışma alanına aktar. Yalnızca JavaScript ile çalışan sağlayıcı eklentileri uyumlu bir ağ geçidi gerektirebilir.",
+  "ai.researcher": "Researcher",
+  "ai.researcherCopy": "Kaynakları topla, seçenekleri karşılaştır ve bulguları bir uygulama özetine dönüştür.",
+  "ai.builder": "Builder",
+  "ai.builderCopy": "Bir değişikliği uygula; değişen dosyaları, çalıştırma sonuçlarını ve doğrulama kanıtlarını raporla.",
+  "ai.reviewer": "Reviewer",
+  "ai.reviewerCopy": "Tamamlanan işi doğruluk, gerilemeler ve eksik testler açısından incele; bulguları önceliklendir.",
+  "ai.navigator": "Navigator",
+  "ai.navigatorCopy": "Bir tarayıcı akışını incele, sayfalarda gezin ve görev için görünen davranışı kaydet.",
+  "ai.botDetail": "Botların kendi özel tarayıcı profilleri vardır. Çalışmayı Bot Konsolu’ndan izle, devam mesajını sıraya ekle veya sürmekte olan işi yönlendir. İsteğe bağlı bot bilgisayarları ayrı çalışma alanları sunar; Linux mikro VM desteği için container çalışma ortamı gerekir.",
+  "ai.models": "Senin modelin. Senin seçimin.",
+  "ai.modelsLead": "Yerel modeller ve uzak sağlayıcılar aynı çalışma alanını paylaşır; her göreve uygun olanı seçebilirsin.",
+  "ai.code": "Yazılım geliştirmek için bir çalışma alanı.",
+  "ai.codeLead": "Code modu, sohbetten fazlasına ihtiyaç duyduğunda proje dosyalarını, komutları, bağlamı ve doğrulamayı ekler.",
+  "ai.bots": "Dört uzman, farklı görevler.",
+  "ai.botsLead": "İşi Researcher, Builder, Reviewer veya Navigator’a ver. İş akışı araştırmayı uygulamaya taşıyabilir ve tamamlanan kodu bağımsız incelemeye gönderebilir.",
+  "ai.ship": "Derlemeden cihaza",
+  "ai.shipCopy": "Ship Center, Apple projelerini doğrulayabilir ve arşivleyebilir; IPA dışarı aktarabilir, bağlı iPhone veya iPad’e kurabilir ya da Xcode üzerinden arşiv yükleyebilir. İmzalama ve dağıtım, Mac’inde yapılandırdığın geçerli kimlik bilgilerini ve araçları kullanır.",
+  "ai.localApi": "Yerel modelini diğer araçlarla kullan",
+  "ai.localApiCopy": "Aynı Mac’te OpenAI uyumlu bir istemciden yüklü modeli kullanmak için yerel API sunucusunu etkinleştir. Arayüzsüz üretim ve sunum için CLI da bulunur; sunucu yalnızca loopback üzerinde dinler.",
+  "ai.mobileWork": "İşi telefonundan sürdür",
+  "ai.mobileWorkCopy": "Chat veya Code oturumu başlat, model seç, son çalışma alanlarından birini aç veya Mac’te klasör oluştur. Canlı yanıtları ve bot çalışmalarını izle, soruları yanıtla, istekleri onayla, devam mesajlarını sıraya ekle veya işi yönlendir.",
+  "ai.mobileControl": "Mac’in kendisine eriş",
+  "ai.mobileControlCopy": "Tam ekranı veya tek bir uygulama penceresini kontrol et; izin verildiğinde terminal araçlarını kullan, dosya ve pano içeriği aktar. İsteğe bağlı uzaktan kilit açma yalnızca host üzerinde etkinleştirildiğinde ve kimliği doğrulanmış Tailscale bağlantısında kullanılabilir.",
+  "ai.approvals": "Yazma işlemleri ve komutlar varsayılan olarak onay ister. Onay kartları işlemi gösterir; otomatik çalışabilecekleri yapılandırılan izin kuralları belirler.",
+  "ai.toolsLead": "Assistant içinde gezin, incele, derle ve sonucu kontrol et. Bunlar uygulamanın Browser ve Simulator panellerinin gerçek görüntüleridir.",
+  "ai.indexmac": "Günlük AI",
+  "ai.indexmodels": "Modeller",
+  "ai.indexcode": "Kod",
+  "ai.indexbots": "Botlar",
+  "ai.indexfeatures": "Araçlar ve dağıtım",
+  "ai.indexremote": "Mobil",
+  "ai.homeNav": "AI Assistant",
+  "ai.homeTitle": "Sana ait bir AI çalışma alanı.",
+  "ai.homeLead": "Vamp Assistant ile tanış: yerel AI, kodlama ajanları, uzman botlar ve mobilde de ulaşabileceğin çalışmaların.",
+  "ai.independent": "Mac uygulaması · Sync’ten bağımsız",
+  "ai.homeCopy": "Yaz ve araştır, kod geliştir ve incele ya da işi dört uzman bota ver. Kendi modellerini, sağlayıcılarını, becerilerini ve sohbet geçmişini kullan. Yerleşik tarayıcı ve iOS Simulator ile çalış; ardından oturumlarını telefonundan takip et ve işleri onayla. Sync gerekmez.",
+  "ai.heroAI": "AI mı arıyorsun? Vamp Assistant ile tanış →"
+});
+  Object.assign(translations.tr, {"ai.account": "ChatGPT hesabını bağla", "ai.accountCopy": "Assistant, yerel Codex app-server üzerinden hesapla oturum açmayı destekler. Kullanılabilir hesap modelleri, sohbet sürekliliği ve durdurma kontrolleriyle yerel ve API modellerinin yanında görünür. Çalışan bir yerel Codex kurulumu ve uygun hesap erişimi gerekir."});
   let currentLanguage = localStorage.getItem('vamp-lang') === 'tr' ? 'tr' : 'en';
   const originalText = new Map();
   document.querySelectorAll('[data-i18n]').forEach((element) => originalText.set(element, element.innerHTML));
@@ -205,17 +324,17 @@
 
   const applyRelease = (release) => {
     if (!release || !release.assets) return;
-    document.querySelectorAll('[data-release-link]').forEach((link) => {
-      const asset = release.assets[link.dataset.releaseLink];
+    document.querySelectorAll('[data-release-link], [data-release-asset]').forEach((link) => {
+      const asset = release.assets[link.dataset.releaseLink || link.dataset.releaseAsset];
       if (!asset) return;
       link.href = asset.url;
       link.removeAttribute('aria-disabled');
     });
     document.querySelectorAll('[data-release-sha256]').forEach((link) => {
       const asset = release.assets[link.dataset.releaseSha256];
-      if (!asset?.sha256Url) return;
-      link.href = asset.sha256Url;
-      link.hidden = false;
+      link.hidden = !asset?.sha256Url;
+      if (asset?.sha256Url) link.href = asset.sha256Url;
+      else link.removeAttribute('href');
     });
     document.querySelectorAll('[data-release-version]').forEach((element) => {
       const asset = release.assets[element.dataset.releaseVersion];

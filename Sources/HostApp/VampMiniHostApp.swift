@@ -13,6 +13,7 @@ import Permissions
 /// The mini host deliberately does not share the full host's identity or peer
 /// list. Installing it should create a separate trust boundary, even though
 /// both products use the same signed signaling and authenticated transport.
+// Keep the legacy storage path so an app rename preserves existing trusted peers.
 private enum VampMiniHostStorage {
     static let identityTag = "com.mesutcy.remotedesktop.minhost.p256"
 

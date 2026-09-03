@@ -1,265 +1,146 @@
 #!/usr/bin/env python3
-"""Write the release metadata consumed by the GitHub Pages site."""
-
+"""Resolve each product's latest stable artifact and update static Pages links."""
 from __future__ import annotations
 
 import json
 import os
 import re
-import sys
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-
 REPOSITORY = "Mesutcydev/vamp-suite"
 ASSISTANT_REPOSITORY = "Mesutcydev/vamp-assistant"
-API_URL = f"https://api.github.com/repos/{REPOSITORY}/releases/latest"
-ASSISTANT_API_URL = f"https://api.github.com/repos/{ASSISTANT_REPOSITORY}/releases?per_page=100"
 ROOT = Path(__file__).resolve().parents[1]
-
 ASSET_PATTERNS = {
-    "vamp-terminal-host": re.compile(r"^VampTerminalHost-macOS-.+-build-\d+-adhoc\.zip$"),
+    "vamp-terminal-ios": re.compile(r"^VampTerminal-iOS-.+-build-\d+-altstore-unsigned\.ipa$"),
+    # Keep the existing metadata key for cached clients and compatibility links.
     "vamp-mini-host-dmg": re.compile(r"^(?:VampSync|VampMiniHost)-macOS-.+-build-\d+-adhoc\.dmg$"),
-    "vamp-stream-ios": re.compile(
-        r"^VampStream-iOS-.+-build-\d+-altstore-unsigned\.ipa$"
-    ),
-    "vamp-terminal-ios": re.compile(
-        r"^VampTerminal-iOS-.+-build-\d+-altstore-unsigned\.ipa$"
-    ),
-    "vamp-control-ios": re.compile(
-        r"^VampControl-iOS-.+-build-\d+-altstore-unsigned(?:-r\d+)?\.ipa$"
-    ),
-    "vamp-control-macos": re.compile(
-        r"^VampControl-macOS-.+-build-\d+-adhoc\.zip$"
-    ),
-    "vamp-linux-host": re.compile(r"^VampTerminalHost-Linux-.+\.zip$"),
+    "vamp-control-macos": re.compile(r"^VampControl-macOS-.+-build-\d+-adhoc\.zip$"),
+    "vamp-control-ios": re.compile(r"^VampControl-iOS-.+-build-\d+-altstore-unsigned(?:-r\d+)?\.ipa$"),
+    "vamp-stream-ios": re.compile(r"^VampStream-iOS-.+-build-\d+-altstore-unsigned\.ipa$"),
 }
-
 ASSISTANT_ASSET_PATTERNS = {
     "vamp-assistant-macos": re.compile(r"^Vamp-Assistant-.+\.dmg$"),
     "vamp-assistant-ios": re.compile(r"^Vamp-Assistant-iOS-.+-unsigned\.ipa$"),
 }
+REQUIRED = {"vamp-mini-host-dmg", "vamp-control-macos", "vamp-control-ios", "vamp-stream-ios", *ASSISTANT_ASSET_PATTERNS}
 
 
 def fetch_json(url: str):
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "User-Agent": "vamp-suite-pages-release-generator",
-    }
-    token = os.environ.get("GITHUB_TOKEN")
-    if token:
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "vamp-suite-pages"}
+    if token := os.environ.get("GITHUB_TOKEN"):
         headers["Authorization"] = f"Bearer {token}"
-    request = Request(url, headers=headers)
-    with urlopen(request, timeout=30) as response:
+    with urlopen(Request(url, headers=headers), timeout=30) as response:
         return json.load(response)
 
 
-def fetch_release() -> dict:
-    return fetch_json(API_URL)
+def fetch_releases(repository: str) -> list[dict]:
+    releases = []
+    page = 1
+    while True:
+        batch = fetch_json(f"https://api.github.com/repos/{repository}/releases?per_page=100&page={page}")
+        releases.extend(batch)
+        if len(batch) < 100:
+            return releases
+        page += 1
 
 
-def fetch_assistant_releases() -> list[dict]:
-    return fetch_json(ASSISTANT_API_URL)
+def asset_version(asset: dict) -> tuple:
+    """Monotonic build numbers survive marketing-version resets (Control 3.7 → 2.3)."""
+    name = asset["name"]
+    version = re.search(r"-(\d+)\.(\d+)\.(\d+)(?=[-.])", name)
+    build = re.search(r"-build-(\d+)", name)
+    revision = re.search(r"-r(\d+)\.", name)
+    return (
+        int(build[1]) if build else 0,
+        tuple(map(int, version.groups())) if version else (0, 0, 0),
+        int(revision[1]) if revision else 0,
+        name.startswith("VampSync-"),
+    )
 
 
-def build_number(asset: dict) -> int:
-    match = re.search(r"-build-(\d+)", asset["name"])
-    return int(match.group(1)) if match else -1
-
-
-def linux_source_version() -> str | None:
-    text = (ROOT / "linux-host" / "vamp_terminal_host.py").read_text(encoding="utf-8")
-    match = re.search(r'^VERSION = "([^"]+)"', text, re.M)
-    return match.group(1) if match else None
-
-
-def linux_semver(name: str) -> tuple[int, int, int]:
-    match = re.search(r"Linux-(\d+)\.(\d+)\.(\d+)\.zip$", name)
-    if not match:
-        return (0, 0, 0)
-    return tuple(int(part) for part in match.groups())
-
-
-def choose_asset(assets: list[dict], pattern: re.Pattern[str], key: str) -> dict | None:
-    matches = [asset for asset in assets if pattern.fullmatch(asset["name"])]
-    if not matches:
-        return None
-    if key == "vamp-linux-host":
-        version = linux_source_version()
-        if version:
-            exact = f"VampTerminalHost-Linux-{version}.zip"
-            for asset in matches:
-                if asset["name"] == exact:
-                    return asset
-        return max(matches, key=lambda asset: linux_semver(asset["name"]))
-    if key == "vamp-mini-host-dmg":
-        # Prefer the new public name when a release contains both the legacy
-        # Mini Host asset and a Vamp Sync rebuild with the same build number.
-        return max(matches, key=lambda asset: (
-            build_number(asset),
-            asset["name"].startswith("VampSync-"),
-            asset.get("updated_at", ""),
-        ))
-    return max(matches, key=lambda asset: (build_number(asset), asset.get("updated_at", "")))
-
-
-def choose_assistant_asset(releases: list[dict], pattern: re.Pattern[str]) -> tuple[dict, dict] | None:
-    """Choose across release tags because Assistant macOS and iOS ship independently."""
-    candidates = []
-    for release in releases:
-        if release.get("draft") or release.get("prerelease"):
-            continue
-        for asset in release.get("assets", []):
-            if pattern.fullmatch(asset["name"]):
-                candidates.append((release, asset))
-    if not candidates:
-        return None
-    return max(candidates, key=lambda item: (item[0].get("published_at", ""), item[1].get("updated_at", "")))
+def choose_release_asset(releases: list[dict], pattern: re.Pattern[str]) -> tuple[dict, dict] | None:
+    """Shared selector: platforms and products can ship in independent release tags."""
+    candidates = [
+        (release, asset)
+        for release in releases if not release.get("draft") and not release.get("prerelease")
+        for asset in release.get("assets", []) if pattern.fullmatch(asset["name"])
+    ]
+    return max(candidates, key=lambda pair: (
+        asset_version(pair[1]), pair[0].get("published_at", ""), pair[1].get("updated_at", "")
+    ), default=None)
 
 
 def checksum_url(raw_assets: list[dict], asset: dict) -> str | None:
-    name = asset["name"] + ".sha256"
-    for other in raw_assets:
-        if other["name"] == name:
-            return other["browser_download_url"]
-    return None
+    return next((other["browser_download_url"] for other in raw_assets
+                 if other["name"] == asset["name"] + ".sha256"), None)
 
 
 def asset_label(name: str) -> str:
     match = re.search(r"-(\d+\.\d+\.\d+)(?:-build-(\d+))?", name)
     if not match:
         return name
-    if match.group(2):
-        return f"{match.group(1)} · build {match.group(2)}"
-    return match.group(1)
+    label = match[1] + (f" · build {match[2]}" if match[2] else "")
+    revision = re.search(r"-r(\d+)\.", name)
+    return label + (f" · revision {revision[1]}" if revision else "")
+
+
+def resolve_assets(suite: list[dict], assistant: list[dict]) -> dict:
+    assets = {}
+    for releases, patterns in ((suite, ASSET_PATTERNS), (assistant, ASSISTANT_ASSET_PATTERNS)):
+        for key, pattern in patterns.items():
+            selected = choose_release_asset(releases, pattern)
+            if not selected:
+                continue
+            release, asset = selected
+            entry = {"name": asset["name"], "url": asset["browser_download_url"],
+                     "label": asset_label(asset["name"]), "releaseUrl": release["html_url"],
+                     "tag": release["tag_name"]}
+            if sha := checksum_url(release.get("assets", []), asset):
+                entry["sha256Url"] = sha
+            assets[key] = entry
+    missing = REQUIRED - assets.keys()
+    if missing:
+        raise ValueError(f"Missing expected release assets: {', '.join(sorted(missing))}")
+    return assets
+
+
+def rewrite_static_links(path: Path, assets: dict, release_url: str = "") -> None:
+    """Keep no-JS downloads, checksums and labels identical to release.json."""
+    html = path.read_text(encoding="utf-8")
+
+    def rewrite_anchor(match):
+        tag, kind, key = match[0], match[1], match[2]
+        if key not in assets:
+            raise ValueError(f"{path}: unknown release key {key}")
+        url = assets[key].get("sha256Url" if kind == "sha256" else "url")
+        tag = re.sub(r'\s(?:href="[^"]*"|hidden(?:="[^"]*")?)', '', tag)
+        return tag[:-1] + (f' href="{url}">' if url else ' hidden>')
+
+    html = re.sub(r'<a\b[^>]*\bdata-release-(link|asset|sha256)="([^"]+)"[^>]*>', rewrite_anchor, html)
+    def rewrite_label(match):
+        return match[1] + assets[match[2]]["label"] + match[3]
+    html = re.sub(r'(<span\b[^>]*\bdata-release-version="([^"]+)"[^>]*>)[^<]*(</span>)', rewrite_label, html)
+    # Repository release/history links intentionally retain their own repository.
+    path.write_text(html, encoding="utf-8")
 
 
 def main() -> int:
-    release = fetch_release()
-    assistant_releases = fetch_assistant_releases()
-    raw_assets = release.get("assets", [])
-    selected = {
-        key: choose_asset(raw_assets, pattern, key)
-        for key, pattern in ASSET_PATTERNS.items()
-    }
-    # Vamp Sync DMG is new and may not exist in the first release that deploys the
-    # updated site. Keep Pages deploys working until the next host release,
-    # while automatically wiring the asset as soon as it appears.
-    missing = [
-        key for key, asset in selected.items()
-        if asset is None and key not in {"vamp-mini-host-dmg", "vamp-stream-ios"}
-    ]
-    if missing:
-        print(f"Missing expected release assets: {', '.join(missing)}", file=sys.stderr)
-        return 1
-
-    assets = {}
-    for key, asset in selected.items():
-        if asset is None:
-            continue
-        entry = {
-            "name": asset["name"],
-            "url": asset["browser_download_url"],
-            "label": asset_label(asset["name"]),
-        }
-        sha_url = checksum_url(raw_assets, asset)
-        if sha_url:
-            entry["sha256Url"] = sha_url
-        assets[key] = entry
-    assistant_selected = {
-        key: choose_assistant_asset(assistant_releases, pattern)
-        for key, pattern in ASSISTANT_ASSET_PATTERNS.items()
-    }
-    missing_assistant = [key for key, result in assistant_selected.items() if result is None]
-    if missing_assistant:
-        print(f"Missing expected Assistant assets: {', '.join(missing_assistant)}", file=sys.stderr)
-        return 1
-    for key, result in assistant_selected.items():
-        assistant_release, asset = result
-        entry = {
-            "name": asset["name"],
-            "url": asset["browser_download_url"],
-            "label": asset_label(asset["name"]),
-            "releaseUrl": assistant_release["html_url"],
-            "tag": assistant_release["tag_name"],
-        }
-        sha_url = checksum_url(assistant_release.get("assets", []), asset)
-        if sha_url:
-            entry["sha256Url"] = sha_url
-        assets[key] = entry
-    payload = {
-        "repository": REPOSITORY,
-        "repositories": {
-            "suite": REPOSITORY,
-            "assistant": ASSISTANT_REPOSITORY,
-        },
-        "tag": release["tag_name"],
-        "name": release.get("name", release["tag_name"]),
-        "url": release["html_url"],
-        "published_at": release.get("published_at"),
-        "assets": assets,
-    }
-
-    docs = Path(__file__).resolve().parents[1] / "docs"
-    output = docs / "release.json"
-    output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {output}")
-
-    for relative_path in ("index.html", "assistant/index.html", "stream/index.html", "sync/index.html"):
-        rewrite_static_links(docs / relative_path, assets, release["html_url"])
-    return 0
-
-
-def rewrite_static_links(index_path: Path, assets: dict, release_url: str) -> None:
-    """Point the static hrefs at the current release.
-
-    The page's JavaScript rewrites the download buttons from release.json at
-    runtime, but the hardcoded hrefs embed a versioned filename. Without this
-    step, the pre-JS / no-JS fallback would 404 the moment a new build ships
-    with a different filename. Rewriting the hrefs here keeps the static markup
-    in sync with the resolved latest release on every Pages deploy.
-    """
-    if not index_path.exists():
-        print(f"Skipped static link rewrite: {index_path} not found", file=sys.stderr)
-        return
-    html = index_path.read_text(encoding="utf-8")
-
-    def rewrite_href(tag: str, url: str) -> str:
-        if 'href="' in tag:
-            return re.sub(r'href="[^"]*"', f'href="{url}"', tag, count=1)
-        return tag[:2] + f' href="{url}"' + tag[2:]
-
+    suite, assistant = fetch_releases(REPOSITORY), fetch_releases(ASSISTANT_REPOSITORY)
+    assets = resolve_assets(suite, assistant)
+    # The footer describes the suite, never an unrelated app sharing this repository.
+    release = max((r for r in suite if not r.get("draft") and not r.get("prerelease")
+                   and r["tag_name"].startswith("vamp-suite-")), key=lambda r: r["published_at"])
+    payload = {"repository": REPOSITORY, "repositories": {"suite": REPOSITORY, "assistant": ASSISTANT_REPOSITORY},
+               "tag": release["tag_name"], "name": release.get("name", release["tag_name"]),
+               "url": release["html_url"], "published_at": release.get("published_at"), "assets": assets}
+    docs = ROOT / "docs"
+    for path in docs.rglob("*.html"):
+        rewrite_static_links(path, assets)
+    (docs / "release.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     for key, asset in assets.items():
-        url = asset["url"]
-        pattern = re.compile(r'<a\b[^>]*\bdata-release-(?:asset|link)="' + re.escape(key) + r'"[^>]*>')
-        html = pattern.sub(lambda m, u=url: rewrite_href(m.group(0), u), html)
-        sha_url = asset.get("sha256Url")
-        if sha_url:
-            sha_pattern = re.compile(r'<a\b[^>]*\bdata-release-sha256="' + re.escape(key) + r'"[^>]*>')
-            html = sha_pattern.sub(lambda m, u=sha_url: rewrite_href(m.group(0), u), html)
-
-        # Keep the pre-JavaScript label in step with the resolved artifact too.
-        # Otherwise the link can download an older build while the adjacent fallback
-        # text still claims an older build.
-        label_pattern = re.compile(
-            r'(<span\b[^>]*\bdata-release-version="'
-            + re.escape(key)
-            + r'"[^>]*>)[^<]*(</span>)'
-        )
-        html = label_pattern.sub(
-            lambda match, label=asset["label"]: f"{match.group(1)}{label}{match.group(2)}",
-            html,
-        )
-
-    # Point any "open the latest release" links at the resolved release page.
-    html = re.sub(
-        r'href="https://github\.com/[^"]*/releases/latest"',
-        f'href="{release_url}"',
-        html,
-    )
-
-    index_path.write_text(html, encoding="utf-8")
-    print(f"Rewrote static download links in {index_path}")
+        print(f"{key}: {asset['label']} ({asset['tag']})")
+    return 0
 
 
 if __name__ == "__main__":

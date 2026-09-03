@@ -6,18 +6,21 @@ This file is the operational contract for AI agents working with the Vamp suite.
 
 Vamp is an open-source remote desktop and terminal suite. Mac hosts and clients
 reuse the signed pairing, trust, Tailscale, and authenticated WebRTC stack in
-this repository. Vamp Linux Host is a separate loopback WebSocket companion.
+this repository. Current hosts are Vamp Sync and Vamp Assistant. Vamp Host,
+Vamp Terminal Host, and Vamp Linux Host are discontinued; historical sources
+and identifiers remain for compatibility and shared-source verification.
+Do not package, reinstall, or advertise discontinued hosts.
 
 | Component | Value |
 | --- | --- |
-| Full host | `Vamp Host` — remote display, input, and optional Terminal Mode |
-| Light host | `Vamp Terminal Host` — always-on terminal and Safari control only |
-| Mini host | `Vamp Mini Host` — pairing-first menu-bar host with permission guidance |
-| Linux host | `Vamp Linux Host` — Python browser host; not a WebRTC peer |
+| Full host | `Vamp Host` — discontinued; historical full host |
+| Light host | `Vamp Terminal Host` — discontinued |
+| Mini host | `Vamp Sync` — active Mac app-window host for Control and Stream |
+| Linux host | `Vamp Linux Host` — discontinued |
 | Remote-desktop client | `Vamp Control` — macOS and iOS/iPadOS. Terminal Mode is an overlay |
 | Terminal client | `Vamp Terminal` — eight concurrent tabs and ten agent launchers |
 | App-stream client | `Vamp Stream` — focused iOS/iPadOS app-window streaming client |
-| Assistant compatibility | `Vamp Assistant` — separate full-screen control surface on private port `9575` |
+| Assistant compatibility | `Vamp Assistant` — active independent AI workspace and remote host on private port `9575` |
 | Browser client | Safari control on host loopback `9475` |
 | Full host bundle ID | `com.mesutcy.remotedesktop.host` |
 | Light host bundle ID | `com.mesutcy.remotedesktop.terminalhost` |
@@ -48,6 +51,9 @@ project-owned Apple team, certificate, provisioning profile, App Store Connect
 account, hosted relay, or public port forwarding is required.
 
 ## Build
+
+MacHost and VampTerminalHost commands below are legacy shared-source
+verification targets, not maintained products or distribution paths.
 
 ```bash
 swift test
@@ -112,7 +118,9 @@ action did not resolve, `7` for a fingerprint mismatch, and `8` on timeout.
 - Show the user the pending device name and fingerprint and require an exact,
   independently verified fingerprint before approving.
 - Never bypass Screen Recording or Accessibility consent. These permissions are
-  granted by the user in System Settings for Vamp Host only.
+  granted by the user in System Settings for the specific installed host.
+  Preserve the bundle identifier, signing identity, data, and existing grants
+  during updates; never reset or edit TCC permissions to force continuity.
 - Never expose host or browser ports directly to the public internet. Use a
   trusted LAN or private Tailscale network.
 - Do not commit private keys, certificates, provisioning profiles, API
@@ -151,7 +159,7 @@ action did not resolve, `7` for a fingerprint mismatch, and `8` on timeout.
 - `scripts/vamp`: agent CLI wrapper
 - `scripts/package-vamp-terminal-ios.sh`: unsigned iOS packaging
 - `docs/index.html`: GitHub Pages product site
-- `docs/mini-host/index.html`: Vamp Mini Host product page
+- `docs/sync/index.html`: Vamp Sync product page
 
 ## Verification
 

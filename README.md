@@ -19,50 +19,50 @@ hosted relay.
 
 </div>
 
-## Choose your Vamp setup
+## Start here
 
-| I want to… | Install on the Mac | Install on the client | Best fit |
-| --- | --- | --- | --- |
-| Use AI tools and reach them privately | **Vamp Assistant** | Assistant for iOS or a browser | [Vamp Assistant](https://thevamp.app/assistant/) |
-| View a display or individual app window | **Vamp Sync**, Host, or Assistant | **Vamp Stream** for iPhone/iPad | [Vamp Stream](https://thevamp.app/stream/) |
-| Fully control a Mac | **Vamp Host** | **Vamp Control** for macOS/iOS | [Downloads](https://thevamp.app/#download) |
-| Open a remote shell | **Vamp Terminal Host** or Host | **Vamp Terminal** | [Terminal guide](docs/VAMP_TERMINAL_SIDELOAD.md) |
+1. Install **Vamp Sync** on the Mac you want to reach.
+2. Install **one client** on your other device:
 
-### The apps
-
-| App | Platform | Role |
+| Client | Install on | Choose it for |
 | --- | --- | --- |
-| **Vamp Assistant** | macOS · iOS · browser | AI chat, local/BYOK models, Code workspaces, specialist bots, approval-gated tools, and private remote sessions |
-| **Vamp Stream** | iPhone · iPad | Focused visual client for a full display or one app window |
-| **Vamp Sync** | macOS | Lightweight menu-bar companion designed for Stream |
-| **Vamp Control** | macOS · iPhone · iPad | Full screen, keyboard, pointer, clipboard, and file control |
-| **Vamp Host** | macOS | Full WebRTC host shared by Control, Stream, and Terminal |
-| **Vamp Terminal** | iPhone · iPad · macOS/Linux host | Remote terminal workspace for approved devices |
+| **Vamp Control** | Mac, iPhone, or iPad | Mac-to-Mac access or the Control interface on mobile |
+| **Vamp Stream** | iPhone or iPad | A focused app-window experience on your phone or tablet |
 
-Vamp Assistant is maintained in the separate
-[vamp-assistant repository](https://github.com/Mesutcydev/vamp-assistant). This
-repository contains Stream, Sync, Control, Host, Terminal, and their shared
-protocol and transport layers.
+Both clients connect to Sync and control a selected Mac app window. Use a trusted
+LAN or private Tailscale network, scan Sync’s QR, compare the complete device
+fingerprint, and approve the verified device on the Mac.
 
-## How it connects
+**[Compare clients and download the latest builds](https://thevamp.app/#families)**
 
-```text
- iPhone / iPad / Mac
- ┌─────────────────────────────────────────────┐
- │ Assistant Remote · Stream · Control · Terminal │
- └──────────────────────┬──────────────────────┘
-                        │ trusted LAN or private tailnet
-                        │ explicit device approval
- ┌──────────────────────▼──────────────────────┐
- │ Your Mac                                    │
- │ Assistant · Vamp Sync · Host · Terminal Host│
- └─────────────────────────────────────────────┘
-```
+### Optional: Vamp Assistant
 
-- No Vamp account is required.
-- No public relay carries the session.
-- A new peer must be approved on the Mac after its identity is checked.
-- Existing discovery and installation identifiers remain stable for backward compatibility.
+[Vamp Assistant](https://thevamp.app/assistant/) is an independent AI app for
+local or BYOK chat, Code workspaces, and specialist tools. Its features include:
+
+- Device-aware model recommendations, local MLX/GGUF, remote providers, and account-backed models through a local Codex setup.
+- Researcher, Builder, Reviewer, and Navigator bots, with private browser profiles.
+- Project context and memory, skills/MCP, plans, Git checkpoints, and verification.
+- Chat history imports, browser and Simulator tools, and Apple app delivery through Ship Center.
+- Its own iOS/browser companions for continuing work; native iOS also offers app/display control.
+
+[Explore all Assistant features](https://thevamp.app/assistant/#mac). Install it
+on your Mac, then add its mobile companion if needed. It does not require Sync. Assistant lives in the separate
+[vamp-assistant repository](https://github.com/Mesutcydev/vamp-assistant).
+
+<details>
+<summary>Other tools and compatibility</summary>
+
+**Vamp Sync and Vamp Assistant are the only current hosts.** Vamp Host, Vamp
+Terminal Host, and Vamp Linux Host are discontinued. Their historical source
+and build targets remain for compatibility and shared-source verification;
+new packages are no longer produced. Vamp Terminal documentation describes
+legacy workflows. New app-window setups use Sync.
+
+No Vamp account or hosted relay is required. Existing discovery, storage, and
+installation identifiers remain stable for compatibility.
+
+</details>
 
 ## Download and install
 
@@ -94,12 +94,12 @@ List the maintained schemes:
 xcodebuild -list -project RemoteDesktopToolApps.xcodeproj
 ```
 
-Build Vamp Host without a signing identity:
+Build Vamp Sync without a signing identity:
 
 ```bash
 xcodebuild \
   -project RemoteDesktopToolApps.xcodeproj \
-  -scheme MacHost \
+  -scheme VampMiniHost \
   -configuration Release \
   CODE_SIGNING_ALLOWED=NO \
   build

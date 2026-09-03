@@ -242,3 +242,35 @@ html[data-theme="dark"] body::before { opacity: .38; mix-blend-mode: normal; fil
 
 .family-preview { display: block; }
 .family-preview:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+
+/* Clear setup order and platform choices within the existing visual system. */
+.flow-step .text-button { display: inline-block; margin-top: 20px; }
+.download-board--catalog .download-card { min-width: 0; min-height: 290px; }
+.download-board--catalog .download-card:nth-child(even) { border-right: 0; }
+.download-board--catalog .download-card:nth-child(-n+2) { border-bottom: 2px solid var(--ink); }
+.download-version { font: 12px/1.5 "IBM Plex Mono", monospace; color: var(--muted); }
+.install-notes { margin-top: 24px; padding: 24px; border: 1px solid var(--line-strong); background: var(--product-glass); font-size: 13px; line-height: 1.7; }
+.install-notes .card-actions { margin-top: 12px; }
+.optional-assistant { display: grid; grid-template-columns: 1fr 200px; gap: 40px; align-items: center; }
+.optional-assistant .family-preview { margin: 0; }
+.optional-assistant .family-preview img { height: 300px; }
+.optional-assistant .text-button { display: inline-block; }
+.stream-preview > a { position: relative; display: block; height: 540px; padding: 24px; }
+.stream-preview img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.product-details { padding: 24px; border: 2px solid var(--ink); background: var(--product-glass); }
+.product-details summary { cursor: pointer; color: var(--ink); font: 700 22px/1.4 "Space Grotesk", sans-serif; }
+.product-details p { margin: 18px 0; max-width: 75ch; font-size: 14px; line-height: 1.7; }
+@media (max-width: 720px) {
+  .optional-assistant { grid-template-columns: 1fr; gap: 24px; }
+  .optional-assistant .family-preview { width: 200px; justify-self: center; }
+  .download-board--catalog .download-card { border-right: 0; }
+  .stream-preview > a { height: 420px; }
+}
+
+/* Assistant features are grouped by the work people want to do. */
+.feature-grid--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.assistant-extra { margin-top: 24px; }
+.feature-note { margin-top: 22px; max-width: 90ch; color: var(--text); font: 13px/1.7 "IBM Plex Mono", monospace; }
+.assistant-index { display: flex; flex-wrap: wrap; gap: 12px 28px; margin-top: 30px; padding: 18px 0; border-block: 1px solid var(--line-strong); }
+.assistant-index a { padding: 8px 0; }
+@media (max-width: 720px) { .feature-grid--two { grid-template-columns: 1fr; } }
