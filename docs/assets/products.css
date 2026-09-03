@@ -89,7 +89,7 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
   box-shadow: 5px 5px 0 var(--ink);
   transition: transform .18s ease, box-shadow .18s ease;
 }
-.family-card:hover, .path-card:hover { transform: translate(-3px, -3px); box-shadow: 8px 8px 0 var(--accent); }
+.path-card:hover { transform: translate(-3px, -3px); box-shadow: 8px 8px 0 var(--accent); }
 .card-topline { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
 .card-number { display: grid; width: 42px; height: 42px; place-items: center; border: 2px solid var(--ink); color: var(--on-accent); background: var(--accent); font: 800 12px/1 "IBM Plex Mono", monospace; }
 .card-tag { padding: 6px 8px; border: 1px solid var(--ink); color: var(--muted); font: 700 8px/1 "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
