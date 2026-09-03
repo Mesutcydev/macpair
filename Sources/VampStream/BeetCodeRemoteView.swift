@@ -433,7 +433,7 @@ struct BeetCodeRemoteView: View {
 
             classicUnavailableButton(
                 systemName: "magicmouse",
-                label: "Bluetooth input status is available for Vamp Host sessions")
+                label: "Bluetooth input status is available for Vamp Sync sessions")
 
             classicIconButton(
                 systemName: annotationStore.isVisible ? "pencil.slash" : "pencil.tip",

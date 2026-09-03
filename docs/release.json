@@ -9,12 +9,6 @@
   "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-55",
   "published_at": "2026-09-02T17:03:25Z",
   "assets": {
-    "vamp-host": {
-      "name": "VampHost-macOS-2.3.0-build-53-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampHost-macOS-2.3.0-build-53-adhoc.zip",
-      "label": "2.3.0 \u00b7 build 53",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampHost-macOS-2.3.0-build-53-adhoc.zip.sha256"
-    },
     "vamp-terminal-host": {
       "name": "VampTerminalHost-macOS-2.3.0-build-50-adhoc.zip",
       "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampTerminalHost-macOS-2.3.0-build-50-adhoc.zip",

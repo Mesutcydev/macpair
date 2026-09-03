@@ -18,7 +18,6 @@ ASSISTANT_API_URL = f"https://api.github.com/repos/{ASSISTANT_REPOSITORY}/releas
 ROOT = Path(__file__).resolve().parents[1]
 
 ASSET_PATTERNS = {
-    "vamp-host": re.compile(r"^VampHost-macOS-.+-build-\d+-adhoc\.zip$"),
     "vamp-terminal-host": re.compile(r"^VampTerminalHost-macOS-.+-build-\d+-adhoc\.zip$"),
     "vamp-mini-host-dmg": re.compile(r"^(?:VampSync|VampMiniHost)-macOS-.+-build-\d+-adhoc\.dmg$"),
     "vamp-stream-ios": re.compile(
@@ -206,7 +205,7 @@ def main() -> int:
     output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {output}")
 
-    for relative_path in ("index.html", "assistant/index.html", "stream/index.html", "mini-host/index.html"):
+    for relative_path in ("index.html", "assistant/index.html", "stream/index.html", "sync/index.html"):
         rewrite_static_links(docs / relative_path, assets, release["html_url"])
     return 0
 

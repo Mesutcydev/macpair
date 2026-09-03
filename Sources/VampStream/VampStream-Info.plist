@@ -37,7 +37,7 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Vamp contributors.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Vamp Stream uses your local network to discover and connect to Macs running Vamp Host or Vamp Assistant.</string>
+	<string>Vamp Stream uses your local network to discover and connect to Macs running Vamp Sync or Vamp Assistant.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIImageName</key>

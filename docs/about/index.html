@@ -27,8 +27,8 @@
     <article class="surface-card trust-card">
       <div class="trust-meta">About the project</div>
       <h1>Your machines. Your network.</h1>
-      <p>Vamp is an open-source remote desktop and terminal workspace for people who want to reach their own computers without handing the connection to a hosted control plane. Three kits share a trust plane: Vamp Host plus Vamp Control for the Mac screen; Vamp Terminal Host plus Vamp Terminal or Safari for eight PTYs; and Vamp Linux Host plus a browser for a Linux shell. Vamp Control and Vamp Terminal cannot attach to the Linux host.</p>
-      <p>The project is local-first by design. Mac connections travel over a trusted LAN or a private Tailscale network using signed WebRTC. Linux Host and Safari use a loopback WebSocket on port 9475, exposed privately with Tailscale Serve or Cloudflare Access. New peers use signed identities and must be visibly approved on the host. Terminal access is opt-in on Vamp Host and always on for Vamp Terminal Host, Vamp Linux Host, and Safari. Vamp does not require a product account, a project-owned relay, public port forwarding, or an App Store account.</p>
+      <p>Vamp brings your Mac within reach. Vamp Sync is the main Mac host for Vamp Control and Vamp Stream: pair a trusted device, choose an app window, and use it from another Mac, iPhone, or iPad. Vamp Assistant adds private AI chat, Code workspaces, and its own remote sessions.</p>
+      <p>Connections stay on a trusted LAN or private Tailscale network. Sync uses signed identities and authenticated WebRTC; every new device needs explicit approval on the Mac. Screen Recording and Accessibility remain under your control in System Settings. Vamp does not require a product account, a hosted relay, or public port forwarding.</p>
       <h2>Why Vamp exists</h2>
       <p>Remote access should feel direct and understandable. Vamp keeps the machine authoritative, makes the pairing boundary visible, and gives both people and automation a stable way to inspect status and manage persistent terminal sessions. Transport loss detaches a client without destroying its terminal work, so long-running shells and agent tasks can survive a reconnect.</p>
       <h2>Open development</h2>
@@ -37,6 +37,6 @@
     </article>
   </main>
   <footer class="container site-footer"><div class="footer-bottom"><span>Vamp · Apache 2.0</span><span><a href="../contact/">Contact</a> · <a href="../privacy/">Privacy</a></span></div></footer>
-  <script src="../assets/site.js?v=suite-3" defer></script>
+  <script src="../assets/site.js?v=sync-20260903" defer></script>
 </body>
 </html>

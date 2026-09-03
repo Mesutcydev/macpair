@@ -28,7 +28,7 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
   -webkit-box-decoration-break: clone;
 }
 .product-hero-sub { max-width: 600px; margin-top: 28px; color: var(--text); font-size: 17px; line-height: 1.65; }
-.product-hero-note { margin-top: 20px; color: var(--muted); font: 11px/1.5 "IBM Plex Mono", monospace; }
+.product-hero-note { margin-top: 20px; color: var(--ink); font: 12px/1.5 "IBM Plex Mono", monospace; }
 .product-visual {
   position: relative;
   min-height: 500px;
@@ -62,7 +62,7 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
 }
 .live-status { display: inline-flex; align-items: center; gap: 8px; }
 .live-status::before { width: 8px; height: 8px; content: ""; background: var(--mint); }
-.visual-shot { position: absolute; z-index: 1; inset: 76px 28px 28px; width: calc(100% - 56px); height: calc(100% - 104px); border: 2px solid var(--ink); object-fit: cover; object-position: center top; box-shadow: 7px 7px 0 var(--ink); }
+.visual-shot { position: absolute; z-index: 1; inset: 76px 28px 28px; width: calc(100% - 56px); height: calc(100% - 104px); border: 2px solid var(--ink); object-fit: contain; object-position: center top; box-shadow: 7px 7px 0 var(--ink); }
 .visual-label { position: absolute; z-index: 2; right: 18px; bottom: 17px; padding: 11px 13px; border: 2px solid var(--ink); color: var(--ink); background: var(--surface); box-shadow: 4px 4px 0 var(--ink); font: 700 9px/1.4 "IBM Plex Mono", monospace; text-transform: uppercase; }
 .visual-label strong { display: block; margin-top: 5px; font: 800 18px/1 "Space Grotesk", sans-serif; text-transform: none; }
 .product-rail { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin-top: 32px; border: 2px solid var(--ink); background: var(--ink); }
@@ -111,8 +111,8 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
 .family-card--lead .card-tag, .family-card--lead .card-meta span { border-color: var(--line-strong); color: var(--muted); }
 .family-card .text-button, .path-card .text-button { align-self: flex-start; margin-top: 24px; }
 .family-preview { overflow: hidden; margin: 24px 0 4px; border: 2px solid var(--ink); background: #111; }
-.family-preview img { display: block; width: 100%; aspect-ratio: 1.15; object-fit: cover; object-position: top; }
-.family-preview--assistant img { object-position: center 34%; }
+.family-preview img { display: block; width: 100%; height: clamp(320px, 38vw, 480px); object-fit: contain; object-position: center; }
+.family-preview--assistant img { object-position: center; }
 .family-card--lead .text-button { color: var(--ink); }
 .family-card--support { min-height: 310px; }
 .family-grid--two .family-card--wide { grid-column: 1 / -1; }
@@ -131,9 +131,9 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
 .gallery-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; }
 .gallery-card { overflow: hidden; border: 2px solid var(--ink); background: var(--product-glass); box-shadow: 5px 5px 0 var(--ink); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: transform .18s ease, box-shadow .18s ease; }
 .gallery-card:hover { transform: translate(-3px, -3px); box-shadow: 8px 8px 0 var(--accent); }
-.gallery-card img { display: block; width: 100%; aspect-ratio: 1.48; object-fit: cover; object-position: top; }
+.gallery-card img { display: block; width: 100%; aspect-ratio: 1.48; object-fit: contain; object-position: top; }
 .gallery-grid--assistant { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.gallery-card--tool img { aspect-ratio: 989 / 768; object-fit: cover; object-position: top; background: #111; }
+.gallery-card--tool img { aspect-ratio: 989 / 768; object-fit: contain; object-position: top; background: #111; }
 .gallery-card--square img { aspect-ratio: 1; }
 .gallery-copy { padding: 20px; border-top: 2px solid var(--ink); }
 .gallery-copy h3 { color: var(--ink); font: 700 22px/1 "Space Grotesk", sans-serif; letter-spacing: -.04em; }
@@ -222,3 +222,17 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
   .family-card, .feature-card, .path-card, .gallery-card { transition: none; }
   .family-card:hover, .feature-card:hover, .path-card:hover, .gallery-card:hover { transform: none; }
 }
+
+/* Complete app frames, including tall phone screens and desktop toolbars. */
+.family-preview { padding: 16px; background: color-mix(in srgb, var(--surface) 88%, transparent); }
+.visual-shot { background: var(--surface); }
+.family-preview img, .gallery-card img { min-width: 0; }
+.product-visual--sync { background: #ede9df url("sync-loggia.png") center / cover; }
+.product-visual--sync::before { background: linear-gradient(135deg, #ffffff26, #121c394d); }
+.sync-diagram { position: relative; z-index: 1; margin: 38px 28px; padding: 28px; border: 1px solid #ffffff9c; border-radius: 24px; color: #191d2b; background: #f9f7f0bd; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 16px 48px #15244130; }
+.sync-diagram > svg { width: 48px; height: 48px; color: #645091; }
+.sync-diagram h2 { margin: 12px 0 8px; font: 700 32px/1.1 "Space Grotesk", sans-serif; letter-spacing: -.04em; }
+.sync-diagram > p { font: 12px/1.6 "IBM Plex Mono", monospace; }
+.sync-client { display: flex; justify-content: space-between; gap: 16px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #191d2b30; font: 600 13px/1.4 "Inter", sans-serif; }
+.sync-client span { font-size: 11px; font-weight: 400; }
+@media (max-width: 720px) { .family-preview { padding: 12px; } .family-preview img { height: 380px; } .sync-diagram { margin: 24px 18px; padding: 22px; } }

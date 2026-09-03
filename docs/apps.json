@@ -89,7 +89,7 @@
       "bundleIdentifier": "com.mesutcy.remotedesktop.stream",
       "developerName": "Mesutcydev",
       "subtitle": "Focused visual control for a trusted Mac.",
-      "localizedDescription": "Stream a Mac display or individual app window from Vamp Sync, Vamp Host, or Vamp Assistant over a trusted LAN or private Tailscale network.",
+      "localizedDescription": "Open a Mac app window from Vamp Sync, or use app-window and full-display streaming through Vamp Assistant, over a trusted LAN or private Tailscale network.",
       "iconURL": "https://raw.githubusercontent.com/Mesutcydev/vamp-suite/main/Sources/VampStream/Assets.xcassets/VampStreamIcon.appiconset/AppIcon-1024.png",
       "tintColor": "#6E6E73",
       "category": "utilities",

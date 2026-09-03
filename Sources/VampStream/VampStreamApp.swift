@@ -2,7 +2,7 @@ import SwiftUI
 import SharedModels
 import SharedUI
 
-/// Vamp Stream — a focused iPhone streaming client. Vamp Host connections open the Mac app
+/// Vamp Stream — a focused iPhone streaming client. Vamp Sync connections open the Mac app
 /// browser, while a paired Vamp Assistant Mac offers two explicit experiences: the original
 /// whole-display Remote Control surface or a separate app/window stream picker.
 @main
@@ -103,7 +103,7 @@ struct VampStreamRootView: View {
         .sheet(isPresented: $showVampHostScanner) {
             NavigationStack {
                 BeetCodeQRScannerView(onPayload: handleVampHostPayload)
-                    .navigationTitle("Scan Vamp Host")
+                    .navigationTitle("Scan Vamp Sync")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
@@ -119,7 +119,7 @@ struct VampStreamRootView: View {
         )) {
             Button("OK", role: .cancel) { hostScannerError = nil }
         } message: {
-            Text(hostScannerError ?? "Scan the QR shown by Vamp Sync or Vamp Host.")
+            Text(hostScannerError ?? "Scan the QR shown by Vamp Sync.")
         }
     }
 
@@ -149,7 +149,7 @@ struct VampStreamRootView: View {
                     VampStreamMessageView(
                         icon: "macwindow.badge.plus",
                         title: "App Streaming Unavailable",
-                        message: "This Mac's Vamp Host doesn't support App Streaming yet. It needs to be updated (macOS 14 or newer).",
+                        message: "This Mac's Vamp Sync doesn't support App Streaming yet. It needs to be updated (macOS 14 or newer).",
                         actionTitle: "Disconnect"
                     ) { Task { await sessionCoordinator.disconnect() } }
                 }
@@ -211,7 +211,7 @@ struct VampStreamRootView: View {
     private func handleVampHostPayload(_ payload: String) {
         guard let pairing = VampHostPairingLink.parse(payload),
               let host = environment.sharedHostsViewModel.addManualHost(address: pairing.address) else {
-            hostScannerError = "Scan the QR shown by Vamp Sync or Vamp Host, then try again."
+            hostScannerError = "Scan the QR shown by Vamp Sync, then try again."
             showVampHostScanner = false
             return
         }

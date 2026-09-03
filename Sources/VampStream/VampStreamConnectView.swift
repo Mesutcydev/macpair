@@ -1,8 +1,16 @@
 import SwiftUI
 
+private var anonymizeStreamPreview: Bool {
+    #if DEBUG
+    ProcessInfo.processInfo.environment["VAMP_SCREENSHOT_PREVIEW"] == "1"
+    #else
+    false
+    #endif
+}
+
 /// The first screen in Vamp Stream. The user chooses an experience first, then a Mac.
 /// Remote Control is intentionally Assistant-only; App Stream can use Assistant or a
-/// legacy Vamp Host when that Mac has not already been paired through Assistant.
+/// Vamp Sync host when that Mac has not already been paired through Assistant.
 struct VampStreamConnectView: View {
     enum ConnectionDestination: String, CaseIterable, Identifiable {
         case remoteControl
@@ -167,7 +175,7 @@ private struct VampAssistantRemoteControlSection: View {
             LazyVStack(alignment: .leading, spacing: 12) {
                 VampAssistantSourceIntro(
                     title: "Remote Control",
-                    detail: "Vamp Assistant is the only source for full Mac control. Vamp Host entries stay out of this flow.",
+                    detail: "Vamp Assistant is the only source for full Mac control. Vamp Sync entries stay out of this flow.",
                     onPair: onPair,
                     hasSavedAssistants: !pairedAssistants.isEmpty)
 
@@ -221,7 +229,7 @@ private struct VampAppStreamSection: View {
             LazyVStack(alignment: .leading, spacing: 12) {
                 VampAssistantSourceIntro(
                     title: "App Stream",
-                    detail: "Open one Mac app in a focused stream. Assistant is preferred; compatible Vamp Host Macs appear only as a fallback.",
+                    detail: "Open one Mac app in a focused stream. Connect through Vamp Sync or a paired Assistant.",
                     onPair: onPair,
                     hasSavedAssistants: !pairedAssistants.isEmpty)
 
@@ -263,7 +271,7 @@ private struct VampAppStreamSection: View {
                             }
                             .buttonStyle(.bordered)
                             .tint(PR.fg)
-                            .accessibilityHint("Hide other Vamp Host Macs")
+                            .accessibilityHint("Hide other Vamp Sync Macs")
                         }
                         Button(action: onScan) {
                             Label("Scan QR", systemImage: "qrcode.viewfinder")
@@ -272,10 +280,10 @@ private struct VampAppStreamSection: View {
                         .buttonStyle(.bordered)
                         .tint(PR.fg)
                     }
-                    ForEach(legacyHosts) { host in
+                    ForEach(anonymizeStreamPreview ? Array(legacyHosts.prefix(1)) : legacyHosts) { host in
                         VampHostMacCard(host: host, onConnect: { onConnect(host) })
                     }
-                    Text("Vamp Host is shown only when this Mac is not already paired through Vamp Assistant.")
+                    Text("Vamp Sync is shown only when this Mac is not already paired through Vamp Assistant.")
                         .font(.caption2)
                         .foregroundStyle(PR.dim)
                         .fixedSize(horizontal: false, vertical: true)
@@ -291,7 +299,7 @@ private struct VampAppStreamSection: View {
                                 showOtherHosts = true
                             }
                         } label: {
-                            Label("Show other Vamp Host Macs (\(legacyHosts.count))", systemImage: "rectangle.3.group")
+                            Label("Show other Vamp Sync Macs (\(legacyHosts.count))", systemImage: "rectangle.3.group")
                                 .font(.caption.weight(.semibold))
                                 .frame(maxWidth: .infinity)
                         }
@@ -491,7 +499,7 @@ private struct VampHostConnectionSection: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Vamp Host")
+                    Text("Vamp Sync")
                         .font(.title3.weight(.bold))
                         .foregroundStyle(PR.fg)
                     Text("Browse Mac apps over the original host session.")
@@ -505,7 +513,7 @@ private struct VampHostConnectionSection: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(PR.fg)
-                .accessibilityHint("Scan a Vamp Host pairing code")
+                .accessibilityHint("Scan a Vamp Sync pairing code")
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 12)
@@ -543,11 +551,11 @@ private struct VampHostMacCard: View {
                     .prGlassSurface(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(host.title)
+                    Text(anonymizeStreamPreview ? "Your Mac" : host.title)
                         .font(.headline)
                         .foregroundStyle(PR.fg)
                         .lineLimit(1)
-                    Text(host.isTerminalOnlyHost ? "Terminal-only host" : "App windows · \(host.subtitle)")
+                    Text(host.isTerminalOnlyHost ? "Terminal-only host" : (anonymizeStreamPreview ? "App windows · Private network" : "App windows · \(host.subtitle)"))
                         .font(.caption)
                         .foregroundStyle(PR.dim)
                         .lineLimit(1)
@@ -569,7 +577,7 @@ private struct VampHostMacCard: View {
         }
         .buttonStyle(.plain)
         .disabled(host.isTerminalOnlyHost)
-        .accessibilityLabel(host.title)
+        .accessibilityLabel(anonymizeStreamPreview ? "Your Mac" : host.title)
         .accessibilityValue(host.isTerminalOnlyHost ? "Terminal-only host" : "Ready to browse apps")
     }
 }
@@ -583,7 +591,7 @@ private struct VampHostEmptyState: View {
             icon: hostsVM.state == .loading
                 ? "hourglass"
                 : (hostsVM.hasLocalNetworkIssue ? "wifi.exclamationmark" : "macbook.and.iphone"),
-            title: hostsVM.state == .loading ? "Looking for Vamp Hosts…" : "No Vamp Host found",
+            title: hostsVM.state == .loading ? "Looking for Vamp Sync…" : "No Vamp Sync found",
             message: message,
             actionTitle: hostsVM.state == .loading ? nil : (onScan == nil ? "Retry discovery" : "Scan QR"),
             action: onScan ?? { Task { await hostsVM.refresh() } })
@@ -592,13 +600,13 @@ private struct VampHostEmptyState: View {
     private var message: String {
         switch hostsVM.state {
         case .loading:
-            return "Open Vamp Host on your Mac and keep both devices on the same LAN or private Tailscale network."
+            return "Open Vamp Sync on your Mac and keep both devices on the same LAN or private Tailscale network."
         case .localNetworkIssue(let message):
             return message
         case .unavailable:
             return "A saved host is unavailable. Check that it is running and reachable on a trusted network."
         case .empty, .available:
-            return "Open Vamp Host on your Mac and keep both devices on the same LAN or private Tailscale network."
+            return "Open Vamp Sync on your Mac and keep both devices on the same LAN or private Tailscale network."
         }
     }
 }
@@ -677,7 +685,7 @@ private extension HostsListViewModel {
     }
 }
 
-/// A small identity adapter used only by the picker. Assistant and Vamp Host use
+/// A small identity adapter used only by the picker. Assistant and Vamp Sync use
 /// different transports and ports, so the private host/IP is the useful common key.
 private enum VampStreamEndpointIdentity {
     static func host(from address: String) -> String? {

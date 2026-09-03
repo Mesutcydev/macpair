@@ -82,3 +82,18 @@ Local validation products and logs for this run are in
 `/tmp/vamp-control-handoff/`. They are not committed. The client app is under
 `Client/Build/Products/Debug/Vamp Control macOS.app`; Sync is under
 `Hosts/Build/Products/Debug/Vamp Mini Host.app`.
+
+## Sync glass and site update — September 3
+
+- Added original blue/ivory loggia artwork and native Liquid Glass surfaces to
+  Sync, with material fallbacks and Reduce Transparency support.
+- Retained the custom vector menu-bar V, added Control + Stream pairing copy,
+  and advanced Sync to build 54, Control macOS to 49, and Stream to 20.
+- Made Sync the public Mac host at `/sync/`, retired the full-host promotion,
+  redirected `/mini-host/`, and updated English/Turkish copy and machine metadata.
+- Replaced cropped image files with full simulator captures and contain sizing.
+- Debug builds: Sync, MacHost, Terminal Host, and Stream passed. Existing release
+  metadata tests passed. Desktop/mobile site, language switch, and dark theme
+  checked in the browser. Earlier connection/test results above still apply.
+- The final native glass visual check requires an unlocked Mac; the computer-use
+  tool reported the local Mac locked. No permissions or pairing were bypassed.

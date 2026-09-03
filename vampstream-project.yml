@@ -1,7 +1,7 @@
 name: VampStream
 
 # Standalone "Vamp Stream" iOS client. Reuses the shared Vamp client stack (Sources/ClientiOS)
-# and connects to the SAME Vamp Host as Vamp Control — no second host, no duplicated transport.
+# and connects to the SAME Vamp Sync as Vamp Control — no second host, no duplicated transport.
 # Generated with: xcodegen generate --spec vampstream-project.yml
 
 options:
@@ -55,7 +55,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSHumanReadableCopyright: "Copyright © 2026 Vamp contributors."
         NSCameraUsageDescription: "Vamp Stream uses the camera to scan the private Vamp Assistant pairing QR code."
-        NSLocalNetworkUsageDescription: "Vamp Stream uses your local network to discover and connect to Macs running Vamp Host or Vamp Assistant."
+        NSLocalNetworkUsageDescription: "Vamp Stream uses your local network to discover and connect to Macs running Vamp Sync or Vamp Assistant."
         NSAppTransportSecurity:
           # Vamp Assistant is intentionally a private-network HTTP peer on
           # port 9575. The client enforces the LAN/Tailscale-only address
@@ -80,7 +80,7 @@ targets:
     settings:
       base:
         MARKETING_VERSION: 0.1.6
-        CURRENT_PROJECT_VERSION: 19
+        CURRENT_PROJECT_VERSION: 20
         PRODUCT_BUNDLE_IDENTIFIER: com.mesutcy.remotedesktop.stream
         PRODUCT_NAME: Vamp Stream
         CODE_SIGN_ENTITLEMENTS: Configuration/VampStream.entitlements

@@ -1,45 +1,41 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "name": "Vamp Terminal",
-  "description": "Open-source multi-tab terminal client for iPhone and iPad. It connects to Vamp Host or Vamp Terminal Host over signed WebRTC. Vamp Linux Host is a separate browser WebSocket companion and cannot be attached from this app.",
-  "manifestVersion": "2.0.0",
+  "name": "Vamp",
+  "manifestVersion": "3.0.0",
+  "description": "Vamp Sync is the main Mac host for Vamp Control and Vamp Stream. Vamp Assistant provides a separate private AI workspace and remote connection.",
   "license": "Apache-2.0",
   "website": "https://thevamp.app/",
   "source": "https://github.com/Mesutcydev/vamp-suite",
-  "platform": {
-    "os": "iOS/iPadOS",
-    "minimumVersion": "18.0"
-  },
-  "supportedPlatforms": {
-    "fullHost": {"os": "macOS", "minimumVersion": "13.0"},
-    "terminalOnlyHost": {"os": "macOS", "minimumVersion": "13.0"},
-    "iosClient": {"os": "iOS/iPadOS", "minimumVersion": "18.0"},
-    "linuxBrowserHost": {"os": "Linux", "minimumVersion": "Python 3"}
-  },
-  "downloads": {
-    "iosArtifactDirectory": "dist/VampTerminal/",
-    "iosArtifactPattern": "VampTerminal-iOS-*-altstore-unsigned.ipa",
-    "integritySuffixes": [".sha256", ".manifest.json", ".sbom.cdx.json"],
-    "appleNotarized": false,
-    "iosCodeSignature": "unsigned",
-    "iosRequiresResigning": true,
-    "iosSideloadTool": "AltStore"
-  },
+  "releaseMetadata": "https://thevamp.app/release.json",
   "apps": {
-    "fullHost": {
-      "displayName": "Vamp Host",
-      "bundleId": "com.mesutcy.remotedesktop.host",
-      "urlScheme": "vamphost"
+    "sync": {
+      "displayName": "Vamp Sync",
+      "role": "Mac app-window host",
+      "bundleId": "com.mesutcy.remotedesktop.minhost",
+      "url": "https://thevamp.app/sync/"
     },
-    "terminalOnlyHost": {
-      "displayName": "Vamp Terminal Host",
-      "bundleId": "com.mesutcy.remotedesktop.terminalhost",
-      "urlScheme": "vampterminalhost"
+    "control": {
+      "displayName": "Vamp Control",
+      "platforms": [
+        "macOS",
+        "iOS",
+        "iPadOS"
+      ],
+      "role": "Client",
+      "url": "https://thevamp.app/#control"
     },
-    "iosClient": {
-      "displayName": "Vamp Terminal",
-      "bundleId": "com.mesutcy.remotedesktop.terminal",
-      "minimumOSVersion": "18.0"
+    "stream": {
+      "displayName": "Vamp Stream",
+      "platforms": [
+        "iOS",
+        "iPadOS"
+      ],
+      "role": "Focused visual client",
+      "url": "https://thevamp.app/stream/"
+    },
+    "assistant": {
+      "displayName": "Vamp Assistant",
+      "role": "AI workspace and separate remote endpoint",
+      "url": "https://thevamp.app/assistant/"
     }
   },
   "network": {
@@ -47,38 +43,7 @@
     "signalingPort": 9471,
     "dataPort": 9472,
     "tlsSignalingPort": 9473,
-    "browserLoopbackPort": 9475,
-    "remoteAccess": "Tailscale only"
-  },
-  "cli": {
-    "command": "vamp",
-    "installation": {
-      "fullHostAppPath": "/Applications/Vamp Host.app",
-      "bundledCommand": "/Applications/Vamp Host.app/Contents/Resources/vamp",
-      "recommendedSymlink": "/usr/local/bin/vamp"
-    },
-    "commands": [
-      ["ensure"],
-      ["status", "--json"],
-      ["pending", "--json"],
-      ["approve-pairing", "--fingerprint", "<verified-hex>"],
-      ["terminal", "list"],
-      ["terminal", "start", "--session", "work"],
-      ["terminal", "attach", "work"],
-      ["terminal", "agent", "opencode", "--session", "opencode"],
-      ["terminal", "agent", "pi", "--session", "pi"],
-      ["terminal", "agent", "commandcode", "--session", "commandcode"],
-      ["terminal", "agent", "chatgpt", "--session", "chatgpt"],
-      ["terminal", "agent", "claude", "--session", "claude"],
-      ["terminal", "agent", "kimi", "--session", "kimi"],
-      ["terminal", "agent", "qwen", "--session", "qwen"],
-      ["terminal", "agent", "codex", "--session", "codex"],
-      ["terminal", "agent", "aider", "--session", "aider"],
-      ["terminal", "agent", "grok", "--session", "grok"],
-      ["terminal", "agent", "gemini", "--session", "gemini"],
-      ["browser", "serve"]
-    ],
-    "statusSnapshot": "~/Library/Application Support/Vamp Host/host.widget.snapshot.json"
+    "remoteAccess": "Trusted LAN or private Tailscale"
   },
   "safety": {
     "requiresVisibleHostApproval": true,
@@ -86,7 +51,6 @@
     "agentMayBypassMacOSPermissions": false,
     "agentMayDisableGatekeeper": false,
     "humanConfirmationRequiredForNewPeer": true,
-    "terminalOnlyHostRejectsRemoteInput": true,
     "publicPortForwardingSupported": false
   }
 }

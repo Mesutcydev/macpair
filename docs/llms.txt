@@ -1,36 +1,39 @@
 # Vamp
 
-> Vamp currently promotes two open-source, local-first products: Vamp
-> Assistant and Vamp Stream. Use a trusted LAN or private Tailscale network;
-> every new device requires visible approval and there is no hosted relay.
+> Vamp Sync is the main Mac host for Vamp Control and Vamp Stream. Pair on a
+> trusted LAN or private Tailscale network. Every new device needs approval.
 
 Website: https://thevamp.app/
-Assistant: https://thevamp.app/assistant/
+Sync: https://thevamp.app/sync/
+Control: https://thevamp.app/#control
 Stream: https://thevamp.app/stream/
+Assistant: https://thevamp.app/assistant/
 Suite source: https://github.com/Mesutcydev/vamp-suite
 Assistant source: https://github.com/Mesutcydev/vamp-assistant
 License: Apache-2.0
 
-## Public products
+## Products
 
+- Vamp Sync: the macOS menu-bar host. Share a selected app window with a verified
+  Control or Stream client over authenticated WebRTC. Screen Recording enables
+  video; Accessibility enables keyboard and pointer control.
+- Vamp Control: Mac, iPhone and iPad client. Connect to Sync to select and control
+  a Mac app window. Assistant has a separate authenticated connection path.
+- Vamp Stream: focused iPhone/iPad client. Stream an app window through Sync,
+  or connect to Assistant through its private Remote Sessions endpoint.
 - Vamp Assistant: native macOS AI chat, local/BYOK models, Code workspaces,
-  specialist bots, browser/simulator tools, and approval-gated automation. Its
-  own iOS app and browser Remote Sessions endpoint provide private remote use.
-- Vamp Stream: focused iPhone/iPad visual client. It connects to Vamp Host or
-  the supporting Vamp Sync companion over signed WebRTC, or to Vamp Assistant
-  through its authenticated private Remote Sessions endpoint.
+  specialist bots, and approval-gated automation. Includes its own iOS and
+  browser remote access.
 
-Vamp Sync is presented only as a Stream host option. Vamp Host, Control,
-Terminal, Terminal Host, Browser control as a standalone product, and Linux
-Host are not in current public promotion. Their source and specialist technical
-documentation remain intact.
+The legacy full host is no longer promoted. Shared transport source and
+specialist technical documentation remain available in the repository.
 
-Never expose host ports directly to the public internet. Never approve a peer
-whose identity was not verified independently.
+Never expose host ports directly to the public internet. Verify a new peer’s
+complete fingerprint independently before approving it. macOS permissions
+must be granted by the user. No hosted relay is required.
 
 ## Documentation
 
-- Install: https://github.com/Mesutcydev/vamp-suite/blob/main/docs/INSTALL.md
+- Install: https://thevamp.app/sync/#download
 - iOS sideloading: https://github.com/Mesutcydev/vamp-suite/blob/main/docs/IOS_SIDELOAD.md
 - Security: https://github.com/Mesutcydev/vamp-suite/blob/main/SECURITY.md
-- Assistant documentation: https://github.com/Mesutcydev/vamp-assistant

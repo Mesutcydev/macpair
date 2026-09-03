@@ -784,17 +784,33 @@ private struct VampSyncCompanionPopover: View {
 
 private struct VampSyncCompanionBackground: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        VampSyncCompanionPalette(colorScheme: colorScheme).background
-            .overlay(alignment: .topLeading) {
-                LinearGradient(
-                    colors: [VampSyncCompanionPalette(colorScheme: colorScheme).accent.opacity(0.065), .clear],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-            .ignoresSafeArea()
+        GeometryReader { proxy in
+            Image("SyncBackdrop")
+                .resizable()
+                .scaledToFill()
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipped()
+                .saturation(colorScheme == .dark ? 0.82 : 0.96)
+                .overlay {
+                    if reduceTransparency {
+                        Color(nsColor: .windowBackgroundColor).opacity(0.92)
+                    } else {
+                        LinearGradient(
+                            colors: colorScheme == .dark
+                                ? [.black.opacity(0.48), .black.opacity(0.62)]
+                                : [.white.opacity(0.22), .white.opacity(0.38)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -810,7 +826,7 @@ private struct VampSyncCompanionHeader: View {
                 Text("Vamp Sync")
                     .font(.system(size: 19, weight: .semibold))
                     .tracking(-0.5)
-                Text("Your Mac. One app away.")
+                Text("For Control and Stream")
                     .font(.caption)
                     .foregroundStyle(palette.secondary)
             }
@@ -904,7 +920,7 @@ private struct VampSyncCompanionStatusCard: View {
         switch state {
         case .stopped: "App Stream host is off"
         case .starting: "Starting secure host…"
-        case .ready: "Ready for Vamp Stream"
+        case .ready: "Ready to connect"
         case .connected(let client): "\(client) is connected"
         case .streaming(let application, _): "Streaming \(application)"
         case .permissionMissing(let permission): "\(permission) is required"
@@ -916,8 +932,8 @@ private struct VampSyncCompanionStatusCard: View {
         switch state {
         case .stopped: "Pairing and private transport are offline."
         case .starting: "Preparing signed discovery and authenticated transport."
-        case .ready: "Pair a device below, then choose one Mac app from the phone."
-        case .connected: "Choose an app in Vamp Stream. The full display is not being captured."
+        case .ready: "Pair Control or Stream, then choose a Mac app."
+        case .connected: "Choose a Mac app in Control or Stream to begin."
         case .streaming(_, let client): "Only the selected app window is visible to \(client)."
         case .permissionMissing: "Grant access in System Settings, then re-check."
         case .error(let message): message
@@ -1038,7 +1054,7 @@ private struct VampSyncCompanionPairingCard: View {
                             .font(.system(size: 17, weight: .semibold))
                             .tracking(-0.35)
                             .fixedSize(horizontal: false, vertical: true)
-                        Text("Scan with Vamp Stream to take a Mac app with you.")
+                        Text("Scan with Stream, or discover this Mac in Control.")
                             .font(.system(size: 12))
                             .foregroundStyle(palette.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1306,6 +1322,7 @@ private struct VampSyncCompanionFooter: View {
         }
         .padding(.horizontal, VampSyncCompanionDesign.inset)
         .padding(.vertical, 9)
+        .background(.ultraThinMaterial)
         .overlay(alignment: .top) { Rectangle().fill(palette.border).frame(height: 0.5) }
     }
 
@@ -1323,6 +1340,7 @@ private struct VampSyncCompanionSurface<Content: View>: View {
     let tint: Color?
     @ViewBuilder let content: Content
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     init(
         raised: Bool = false,
@@ -1334,18 +1352,40 @@ private struct VampSyncCompanionSurface<Content: View>: View {
         self.content = content()
     }
 
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: VampSyncCompanionDesign.radius, style: .continuous)
+    }
+
     var body: some View {
         content
             .padding(18)
-            .background(
-                tint?.opacity(colorScheme == .dark ? 0.11 : 0.075)
-                    ?? (raised ? palette.raised : palette.surface),
-                in: RoundedRectangle(cornerRadius: VampSyncCompanionDesign.radius, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: VampSyncCompanionDesign.radius, style: .continuous)
-                    .strokeBorder(tint?.opacity(0.32) ?? palette.border, lineWidth: 0.65)
+            .background {
+                GeometryReader { proxy in
+                    surface
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .allowsHitTesting(false)
+                }
             }
+            .overlay {
+                shape.strokeBorder(tint?.opacity(0.32) ?? palette.border, lineWidth: 0.65)
+                    .allowsHitTesting(false)
+            }
+    }
+
+    @ViewBuilder private var surface: some View {
+        if reduceTransparency {
+            shape.fill(Color(nsColor: raised ? .controlBackgroundColor : .windowBackgroundColor))
+        } else {
+            #if compiler(>=6.2)
+            if #available(macOS 26.0, *) {
+                Color.clear.glassEffect(.regular.tint(tint?.opacity(0.08)), in: shape)
+            } else {
+                shape.fill(.thinMaterial)
+            }
+            #else
+            shape.fill(.thinMaterial)
+            #endif
+        }
     }
 
     private var palette: VampSyncCompanionPalette { .init(colorScheme: colorScheme) }
