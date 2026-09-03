@@ -73,7 +73,7 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
 .product-section { padding: 96px 0 0; }
 .product-section-head { display: flex; align-items: end; justify-content: space-between; gap: 46px; margin-bottom: 35px; }
 .product-section-head .section-lead { max-width: 450px; margin: 0; }
-.family-grid, .feature-grid, .path-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.family-grid, .feature-grid, .path-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .family-grid--two { grid-template-columns: repeat(2, 1fr); }
 .family-grid--two .family-card--lead { grid-column: auto; }
 .family-card, .feature-card, .path-card {
@@ -89,7 +89,7 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
   box-shadow: 5px 5px 0 var(--ink);
   transition: transform .18s ease, box-shadow .18s ease;
 }
-.family-card:hover, .feature-card:hover, .path-card:hover { transform: translate(-3px, -3px); box-shadow: 8px 8px 0 var(--accent); }
+.path-card:hover { transform: translate(-3px, -3px); box-shadow: 8px 8px 0 var(--accent); }
 .card-topline { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
 .card-number { display: grid; width: 42px; height: 42px; place-items: center; border: 2px solid var(--ink); color: var(--on-accent); background: var(--accent); font: 800 12px/1 "IBM Plex Mono", monospace; }
 .card-tag { padding: 6px 8px; border: 1px solid var(--ink); color: var(--muted); font: 700 8px/1 "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
@@ -118,7 +118,7 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
 .family-grid--two .family-card--wide { grid-column: 1 / -1; }
 .card-actions { display: flex; flex-wrap: wrap; gap: 18px; }
 .card-actions .text-button { margin-top: 24px; }
-.flow-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; border: 2px solid var(--ink); background: var(--ink); }
+.flow-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 2px solid var(--ink); background: transparent; }
 .product-visual > .flow-board { position: absolute; z-index: 1; inset: 94px 35px 45px; grid-template-columns: 1fr auto 1fr; }
 .flow-node { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: 24px; color: var(--ink); background: var(--surface); text-align: center; }
 .flow-node span { color: var(--muted); font: 700 9px/1.4 "IBM Plex Mono", monospace; text-transform: uppercase; }
@@ -128,6 +128,7 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
 .flow-step .mono { color: var(--muted); font-size: 10px; }
 .flow-step h3 { margin-top: 48px; color: var(--ink); font: 700 25px/1.05 "Space Grotesk", sans-serif; letter-spacing: -.05em; }
 .flow-step p { margin-top: 13px; color: var(--text); font: 12px/1.65 "IBM Plex Mono", monospace; }
+.flow-step + .flow-step { border-left: 1px solid var(--line-strong); }
 .gallery-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; }
 .gallery-card { overflow: hidden; border: 2px solid var(--ink); background: var(--product-glass); box-shadow: 5px 5px 0 var(--ink); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: transform .18s ease, box-shadow .18s ease; }
 .gallery-card:hover { transform: translate(-3px, -3px); box-shadow: 8px 8px 0 var(--accent); }
@@ -148,10 +149,12 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
 .guard strong { display: block; color: var(--ink); font: 700 18px/1.15 "Space Grotesk", sans-serif; }
 .guard span { display: block; margin-top: 11px; color: var(--muted); font: 11px/1.6 "IBM Plex Mono", monospace; }
 .download-board { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; border: 2px solid var(--ink); background: var(--ink); box-shadow: 7px 7px 0 var(--ink); }
-.download-card { display: flex; min-height: 350px; flex-direction: column; padding: clamp(25px, 4vw, 42px); background: var(--surface); }
+.download-card { display: flex; min-height: 350px; flex-direction: column; align-items: stretch; gap: 0; padding: clamp(25px, 4vw, 42px); border: 0; box-shadow: none; background: var(--surface); }
 .download-card h3 { margin-top: 28px; color: var(--ink); font: 800 clamp(32px, 3.8vw, 50px)/.98 "Space Grotesk", sans-serif; letter-spacing: -.06em; }
-.download-card p { margin-top: 15px; color: var(--text); font-size: 14px; line-height: 1.7; }
+.download-card p { margin-top: 15px; color: var(--text); font: 14px/1.7 "Inter", sans-serif; }
 .download-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: auto; padding-top: 28px; }
+.download-actions .secondary-button { color: var(--ink); border-color: var(--ink); background: transparent; }
+.download-actions .secondary-button:hover { color: var(--ink); background: var(--accent-soft); }
 .compatibility-table { width: 100%; border-collapse: collapse; border: 2px solid var(--ink); background: var(--surface); }
 .compatibility-table th, .compatibility-table td { padding: 16px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
 .compatibility-table th { color: var(--on-accent); background: var(--accent); font: 700 10px/1.4 "IBM Plex Mono", monospace; text-transform: uppercase; }
@@ -185,6 +188,7 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
   -webkit-backdrop-filter: blur(10px);
 }
 .download-card:not(:last-child) { border-right: 2px solid var(--ink); }
+html[data-theme="dark"] .download-card { background: var(--product-glass); }
 .guard:nth-child(odd) { border-right: 2px solid var(--ink); }
 .guard:nth-child(-n+2) { border-bottom: 2px solid var(--ink); }
 @media (max-width: 980px) {
@@ -210,6 +214,7 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
   .guard:nth-child(odd) { border-right: 0; }
   .guard:not(:last-child) { border-bottom: 2px solid var(--ink); }
   .flow-step { min-height: 205px; }
+  .flow-step + .flow-step { border-left: 0; border-top: 1px solid var(--line-strong); }
   .flow-step h3 { margin-top: 34px; }
   .gallery-side { grid-template-columns: 1fr; }
   .compatibility-wrap { overflow-x: auto; }
@@ -227,15 +232,70 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
 .family-preview { padding: 16px; background: color-mix(in srgb, var(--surface) 88%, transparent); }
 .visual-shot { background: var(--surface); }
 .family-preview img, .gallery-card img { min-width: 0; }
-.product-visual--sync { background: #ede9df url("sync-loggia.png") center / cover; }
-.product-visual--sync::before { background: linear-gradient(135deg, #ffffff26, #121c394d); }
-.sync-diagram { position: relative; z-index: 1; margin: 38px 28px; padding: 28px; border: 1px solid #ffffff9c; border-radius: 24px; color: #191d2b; background: #f9f7f0bd; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 16px 48px #15244130; }
-.sync-diagram > svg { width: 48px; height: 48px; color: #645091; }
-.sync-diagram h2 { margin: 12px 0 8px; font: 700 32px/1.1 "Space Grotesk", sans-serif; letter-spacing: -.04em; }
-.sync-diagram > p { font: 12px/1.6 "IBM Plex Mono", monospace; }
-.sync-client { display: flex; justify-content: space-between; gap: 16px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #191d2b30; font: 600 13px/1.4 "Inter", sans-serif; }
-.sync-client span { font-size: 11px; font-weight: 400; }
-@media (max-width: 720px) { .family-preview { padding: 12px; } .family-preview img { height: 380px; } .sync-diagram { margin: 24px 18px; padding: 22px; } }
+/* A compact Mac-to-client illustration over the original engraved artwork. */
+.product-visual--sync {
+  scroll-margin-top: 100px;
+  --sync-ink: #222737;
+  --sync-muted: #505969;
+  --sync-glass: #f8f6efcf;
+  --sync-edge: #ffffffcc;
+  --sync-wire: #394761a6;
+  min-height: 0;
+  padding: 24px;
+  color: var(--sync-ink);
+  background: #ede9df url("sync-loggia.png") center / cover;
+}
+.product-visual--sync::before { background: linear-gradient(135deg, #f8f4e652, #ced9e14d); }
+.sync-scene-heading, .sync-scene-caption { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sync-scene-heading { font: 600 10px/1.5 "IBM Plex Mono", monospace; letter-spacing: .06em; text-transform: uppercase; }
+.sync-private { display: inline-flex; align-items: center; gap: 4px; }
+.sync-private svg { width: 17px; height: 17px; }
+.sync-diagram { position: relative; z-index: 1; display: grid; width: min(100%, 360px); margin: 32px auto 28px; }
+.sync-computer { width: 80%; justify-self: center; }
+.sync-screen { overflow: hidden; border: 5px solid #303442; border-radius: 14px; background: var(--sync-glass); box-shadow: 0 18px 32px #19283a26, inset 0 0 0 1px var(--sync-edge); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.sync-screen-bar { display: flex; align-items: center; gap: 4px; padding: 8px 10px; border-bottom: 1px solid #5f6a801f; }
+.sync-screen-bar i { width: 4px; height: 4px; border-radius: 50%; background: var(--sync-muted); opacity: .5; }
+.sync-screen-bar span { margin-left: auto; color: var(--sync-muted); font: 8px/1.2 "Inter", sans-serif; }
+.sync-screen-content { display: grid; justify-items: center; padding: 21px 8px 26px; text-align: center; }
+.sync-mark { width: 46px; height: 46px; color: #344e6b; }
+.sync-screen-content h2 { margin-top: 8px; font: 700 25px/1.15 "Space Grotesk", sans-serif; letter-spacing: -.045em; }
+.sync-screen-content p { margin-top: 6px; color: var(--sync-muted); font: 10px/1.5 "Inter", sans-serif; }
+.sync-computer-foot { position: relative; width: 42px; height: 16px; margin: auto; background: linear-gradient(90deg, #303442, #666c77, #303442); }
+.sync-computer-foot::after { content: ""; position: absolute; width: 90px; height: 5px; left: 50%; bottom: -2px; transform: translateX(-50%); border-radius: 5px 5px 2px 2px; background: #414754; }
+.sync-branches { display: block; width: 100%; height: 54px; overflow: visible; stroke: var(--sync-wire); stroke-width: 1.25; }
+.sync-branches circle { fill: var(--sync-glass); }
+.sync-destinations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.sync-destination { position: relative; display: grid; justify-items: center; gap: 7px; padding: 18px 8px; border: 1px solid var(--sync-edge); border-radius: 14px; color: var(--sync-ink); background: var(--sync-glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 8px 22px #19283a18; transition: background .15s ease, border-color .15s ease; }
+.sync-destination > svg { width: 36px; height: 29px; margin-bottom: 3px; }
+.sync-destination strong { font: 600 16px/1.3 "Space Grotesk", sans-serif; letter-spacing: -.025em; }
+.sync-destination > span { color: var(--sync-muted); font: 10px/1.4 "Inter", sans-serif; }
+.sync-destination .sync-destination-arrow { position: absolute; top: 9px; right: 10px; font-size: 12px; }
+.sync-destination:hover { background: #fffaf0ed; border-color: var(--sync-wire); }
+.sync-destination:focus-visible { outline: 2px solid var(--sync-ink); outline-offset: 4px; }
+.sync-scene-caption { align-items: end; padding-top: 16px; border-top: 1px solid var(--sync-wire); }
+.sync-scene-caption > span:first-child { max-width: 220px; font: 500 12px/1.5 "Inter", sans-serif; }
+.sync-scene-caption > span:last-child { white-space: nowrap; color: var(--sync-muted); font: 9px/1.5 "IBM Plex Mono", monospace; }
+html[data-theme="dark"] .product-visual--sync { --sync-ink: #eeeef5; --sync-muted: #bdc6d5; --sync-glass: #202837db; --sync-edge: #a6badf42; --sync-wire: #bdc6d587; }
+html[data-theme="dark"] .product-visual--sync::before { background: #0e1926a6; }
+html[data-theme="dark"] .sync-mark { color: #b6c9df; }
+html[data-theme="dark"] .sync-screen { border-color: #555d70; }
+html[data-theme="dark"] .sync-destination:hover { background: #344157ef; }
+@media (max-width: 720px) {
+  .family-preview { padding: 12px; }
+  .family-preview img { height: 380px; }
+  .product-visual--sync { padding: 20px 16px; }
+  .sync-diagram { margin: 28px auto 24px; }
+  .sync-destinations { gap: 12px; }
+  .sync-destination strong { font-size: 14px; }
+  .sync-destination > span { font-size: 9px; }
+  .sync-scene-caption { align-items: start; flex-direction: column; gap: 6px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .product-visual--sync { --sync-glass: #f8f6ef; }
+  html[data-theme="dark"] .product-visual--sync { --sync-glass: #202837; }
+  .sync-screen, .sync-destination { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@media (prefers-reduced-motion: reduce) { .sync-destination { transition: none; } }
 
 /* Keep engraved paper below readable light text in the dark theme. */
 html[data-theme="dark"] body::before { opacity: .38; mix-blend-mode: normal; filter: saturate(.8) brightness(.55); }
@@ -245,15 +305,12 @@ html[data-theme="dark"] body::before { opacity: .38; mix-blend-mode: normal; fil
 
 /* Clear setup order and platform choices within the existing visual system. */
 .flow-step .text-button { display: inline-block; margin-top: 20px; }
-.download-board--catalog .download-card { min-width: 0; min-height: 290px; }
-.download-board--catalog .download-card:nth-child(even) { border-right: 0; }
-.download-board--catalog .download-card:nth-child(-n+2) { border-bottom: 2px solid var(--ink); }
 .download-version { font: 12px/1.5 "IBM Plex Mono", monospace; color: var(--muted); }
 .install-notes { margin-top: 24px; padding: 24px; border: 1px solid var(--line-strong); background: var(--product-glass); font-size: 13px; line-height: 1.7; }
 .install-notes .card-actions { margin-top: 12px; }
-.optional-assistant { display: grid; grid-template-columns: 1fr 200px; gap: 40px; align-items: center; }
+.optional-assistant { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 36px; align-items: center; padding: 36px; }
 .optional-assistant .family-preview { margin: 0; }
-.optional-assistant .family-preview img { height: 300px; }
+.optional-assistant .family-preview img { height: auto; }
 .optional-assistant .text-button { display: inline-block; }
 .stream-preview > a { position: relative; display: block; height: 540px; padding: 24px; }
 .stream-preview img { display: block; width: 100%; height: 100%; object-fit: contain; }
@@ -262,8 +319,7 @@ html[data-theme="dark"] body::before { opacity: .38; mix-blend-mode: normal; fil
 .product-details p { margin: 18px 0; max-width: 75ch; font-size: 14px; line-height: 1.7; }
 @media (max-width: 720px) {
   .optional-assistant { grid-template-columns: 1fr; gap: 24px; }
-  .optional-assistant .family-preview { width: 200px; justify-self: center; }
-  .download-board--catalog .download-card { border-right: 0; }
+  .optional-assistant .family-preview { width: 100%; }
   .stream-preview > a { height: 420px; }
 }
 
@@ -274,3 +330,84 @@ html[data-theme="dark"] body::before { opacity: .38; mix-blend-mode: normal; fil
 .assistant-index { display: flex; flex-wrap: wrap; gap: 12px 28px; margin-top: 30px; padding: 18px 0; border-block: 1px solid var(--line-strong); }
 .assistant-index a { padding: 8px 0; }
 @media (max-width: 720px) { .feature-grid--two { grid-template-columns: 1fr; } }
+
+/* Editorial cards: app imagery leads, copy stays readable, metadata stays quiet. */
+.product-section { scroll-margin-top: 24px; }
+[id^="download-"] { scroll-margin-top: 100px; }
+.feature-card { min-height: 0; padding: 28px; }
+.feature-card .card-number {
+  width: auto; height: auto; min-height: 24px; border: 0;
+  color: var(--muted); background: transparent; letter-spacing: .08em;
+}
+.feature-card h3 { margin-top: 16px; font-size: 25px; line-height: 1.15; letter-spacing: -.035em; }
+.feature-card p, .family-card p { font: 14px/1.7 "Inter", sans-serif; }
+.suite-home .product-section-head { align-items: start; }
+.suite-home .product-section-head > div { flex: 1.2; }
+.suite-home .product-section-head .section-lead { flex: 1; padding-top: 36px; }
+.suite-home .section-title { font-size: clamp(34px, 4.2vw, 52px); letter-spacing: -.055em; }
+.suite-home .flow-board { gap: 24px; border: 0; background: transparent; }
+.suite-home .flow-step { display: flex; flex-direction: column; padding: 28px; min-height: 0; border: 2px solid var(--ink); }
+.suite-home .flow-step .card-number { width: 32px; height: 32px; }
+.suite-home .flow-step h3 { margin-top: 24px; font-size: 24px; line-height: 1.15; letter-spacing: -.035em; }
+.suite-home .flow-step p { font: 14px/1.65 "Inter", sans-serif; }
+.suite-home .flow-step > .text-button { align-self: start; margin-top: auto; padding-top: 24px; }
+.suite-home .family-grid--two { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.client-card { padding: 28px; min-height: 0; }
+.client-card h3 { margin-top: 20px; font-size: 32px; line-height: 1.1; letter-spacing: -.045em; }
+.client-card .card-number { width: 32px; height: 32px; }
+.client-card .card-tag { font-size: 10px; border: 0; padding: 8px 0; }
+.client-preview {
+  position: relative; isolation: isolate;
+  display: flex; align-items: center; justify-content: center;
+  margin: 24px 0 8px; padding: 24px;
+  border: 0; background: transparent;
+}
+.client-preview::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  inset: 0 -12px;
+  background: radial-gradient(ellipse at center, #758ca326, transparent 68%);
+}
+.client-preview img {
+  display: block; width: auto; max-width: 100%; height: 360px; object-fit: contain;
+  border-radius: 14px;
+  box-shadow: 0 2px 4px #19283a14, 0 12px 28px #19283a26;
+}
+html[data-theme="dark"] .client-preview::before { background: radial-gradient(ellipse at center, #9bb2cc16, transparent 68%); }
+html[data-theme="dark"] .client-preview img { box-shadow: 0 0 0 1px #ffffff12, 0 12px 28px #00000038; }
+.client-preview:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+.client-card > .text-button, .client-card .card-actions .text-button { margin-top: 18px; }
+.section-anchor { display: block; scroll-margin-top: 100px; }
+.host-download { margin-top: auto; padding-top: 24px; }
+.host-download .platform-requirement { margin-top: 14px; }
+.platform-requirement { display: block; margin-top: 5px; color: var(--muted); font: 11px/1.6 "Inter", sans-serif; }
+.release-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; color: var(--muted); font: 10px/1.5 "IBM Plex Mono", monospace; }
+.checksum-link { text-decoration: underline; text-underline-offset: 3px; }
+.client-downloads { margin-top: auto; padding-top: 24px; }
+.client-download { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 18px 0; border-top: 1px solid var(--line-strong); }
+.client-download strong { color: var(--ink); font: 600 15px/1.4 "Inter", sans-serif; }
+.client-download .secondary-button { padding-inline: 12px; }
+.client-card .client-detail-link { display: inline-flex; margin-top: 4px; min-height: 44px; }
+.suite-home details.install-notes { padding: 0; }
+.install-notes summary { padding: 20px 24px; cursor: pointer; color: var(--ink); font: 600 14px/1.5 "Inter", sans-serif; }
+.install-notes[open] summary { border-bottom: 1px solid var(--line); }
+.suite-home details.install-notes > p { padding: 20px 24px 0; }
+.suite-home details.install-notes .card-actions { padding: 0 24px 20px; }
+.optional-assistant h3 { margin-top: 22px; font-size: 36px; line-height: 1.1; }
+.optional-assistant .eyebrow { font-size: 10px; line-height: 1.5; letter-spacing: .04em; }
+.optional-assistant .assistant-desktop-preview { border: 0; padding: 0; background: transparent; }
+.assistant-desktop-preview img { border-radius: 10px; box-shadow: 0 12px 28px #00000030; }
+@media (min-width: 721px) and (max-width: 980px) {
+  .suite-home .nav-links a { display: none; }
+  .suite-home .nav-links a:first-child, .suite-home .nav-links a:last-child { display: inline-flex; }
+}
+@media (max-width: 720px) {
+  .suite-home .family-grid--two { grid-template-columns: 1fr; }
+  .suite-home .product-section-head .section-lead { padding-top: 0; }
+  .suite-home .flow-step, .client-card, .feature-card { padding: 24px; }
+  .suite-home .flow-step h3 { margin-top: 16px; }
+  .client-preview { padding: 20px; }
+  .client-preview img { height: 340px; }
+  .optional-assistant { padding: 24px; }
+  .optional-assistant .assistant-desktop-preview { grid-row: 1; }
+  .optional-assistant h3 { font-size: 32px; }
+}
