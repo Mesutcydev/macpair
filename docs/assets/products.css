@@ -232,15 +232,70 @@ html[data-theme="dark"] .download-card { background: var(--product-glass); }
 .family-preview { padding: 16px; background: color-mix(in srgb, var(--surface) 88%, transparent); }
 .visual-shot { background: var(--surface); }
 .family-preview img, .gallery-card img { min-width: 0; }
-.product-visual--sync { background: #ede9df url("sync-loggia.png") center / cover; }
-.product-visual--sync::before { background: linear-gradient(135deg, #ffffff26, #121c394d); }
-.sync-diagram { position: relative; z-index: 1; margin: 38px 28px; padding: 28px; border: 1px solid #ffffff9c; border-radius: 24px; color: #191d2b; background: #f9f7f0bd; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 16px 48px #15244130; }
-.sync-diagram > svg { width: 48px; height: 48px; color: #645091; }
-.sync-diagram h2 { margin: 12px 0 8px; font: 700 32px/1.1 "Space Grotesk", sans-serif; letter-spacing: -.04em; }
-.sync-diagram > p { font: 12px/1.6 "IBM Plex Mono", monospace; }
-.sync-client { display: flex; justify-content: space-between; gap: 16px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #191d2b30; font: 600 13px/1.4 "Inter", sans-serif; }
-.sync-client span { font-size: 11px; font-weight: 400; }
-@media (max-width: 720px) { .family-preview { padding: 12px; } .family-preview img { height: 380px; } .sync-diagram { margin: 24px 18px; padding: 22px; } }
+/* A compact Mac-to-client illustration over the original engraved artwork. */
+.product-visual--sync {
+  scroll-margin-top: 100px;
+  --sync-ink: #222737;
+  --sync-muted: #505969;
+  --sync-glass: #f8f6efcf;
+  --sync-edge: #ffffffcc;
+  --sync-wire: #394761a6;
+  min-height: 0;
+  padding: 24px;
+  color: var(--sync-ink);
+  background: #ede9df url("sync-loggia.png") center / cover;
+}
+.product-visual--sync::before { background: linear-gradient(135deg, #f8f4e652, #ced9e14d); }
+.sync-scene-heading, .sync-scene-caption { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sync-scene-heading { font: 600 10px/1.5 "IBM Plex Mono", monospace; letter-spacing: .06em; text-transform: uppercase; }
+.sync-private { display: inline-flex; align-items: center; gap: 4px; }
+.sync-private svg { width: 17px; height: 17px; }
+.sync-diagram { position: relative; z-index: 1; display: grid; width: min(100%, 360px); margin: 32px auto 28px; }
+.sync-computer { width: 80%; justify-self: center; }
+.sync-screen { overflow: hidden; border: 5px solid #303442; border-radius: 14px; background: var(--sync-glass); box-shadow: 0 18px 32px #19283a26, inset 0 0 0 1px var(--sync-edge); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.sync-screen-bar { display: flex; align-items: center; gap: 4px; padding: 8px 10px; border-bottom: 1px solid #5f6a801f; }
+.sync-screen-bar i { width: 4px; height: 4px; border-radius: 50%; background: var(--sync-muted); opacity: .5; }
+.sync-screen-bar span { margin-left: auto; color: var(--sync-muted); font: 8px/1.2 "Inter", sans-serif; }
+.sync-screen-content { display: grid; justify-items: center; padding: 21px 8px 26px; text-align: center; }
+.sync-mark { width: 42px; height: 42px; color: #66518b; }
+.sync-screen-content h2 { margin-top: 8px; font: 700 25px/1.15 "Space Grotesk", sans-serif; letter-spacing: -.045em; }
+.sync-screen-content p { margin-top: 6px; color: var(--sync-muted); font: 10px/1.5 "Inter", sans-serif; }
+.sync-computer-foot { position: relative; width: 42px; height: 16px; margin: auto; background: linear-gradient(90deg, #303442, #666c77, #303442); }
+.sync-computer-foot::after { content: ""; position: absolute; width: 90px; height: 5px; left: 50%; bottom: -2px; transform: translateX(-50%); border-radius: 5px 5px 2px 2px; background: #414754; }
+.sync-branches { display: block; width: 100%; height: 54px; overflow: visible; stroke: var(--sync-wire); stroke-width: 1.25; }
+.sync-branches circle { fill: var(--sync-glass); }
+.sync-destinations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.sync-destination { position: relative; display: grid; justify-items: center; gap: 7px; padding: 18px 8px; border: 1px solid var(--sync-edge); border-radius: 14px; color: var(--sync-ink); background: var(--sync-glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 8px 22px #19283a18; transition: background .15s ease, border-color .15s ease; }
+.sync-destination > svg { width: 36px; height: 29px; margin-bottom: 3px; }
+.sync-destination strong { font: 600 16px/1.3 "Space Grotesk", sans-serif; letter-spacing: -.025em; }
+.sync-destination > span { color: var(--sync-muted); font: 10px/1.4 "Inter", sans-serif; }
+.sync-destination .sync-destination-arrow { position: absolute; top: 9px; right: 10px; font-size: 12px; }
+.sync-destination:hover { background: #fffaf0ed; border-color: var(--sync-wire); }
+.sync-destination:focus-visible { outline: 2px solid var(--sync-ink); outline-offset: 4px; }
+.sync-scene-caption { align-items: end; padding-top: 16px; border-top: 1px solid var(--sync-wire); }
+.sync-scene-caption > span:first-child { max-width: 220px; font: 500 12px/1.5 "Inter", sans-serif; }
+.sync-scene-caption > span:last-child { white-space: nowrap; color: var(--sync-muted); font: 9px/1.5 "IBM Plex Mono", monospace; }
+html[data-theme="dark"] .product-visual--sync { --sync-ink: #eeeef5; --sync-muted: #bdc6d5; --sync-glass: #202837db; --sync-edge: #a6badf42; --sync-wire: #bdc6d587; }
+html[data-theme="dark"] .product-visual--sync::before { background: #0e1926a6; }
+html[data-theme="dark"] .sync-mark { color: #bca5e2; }
+html[data-theme="dark"] .sync-screen { border-color: #555d70; }
+html[data-theme="dark"] .sync-destination:hover { background: #344157ef; }
+@media (max-width: 720px) {
+  .family-preview { padding: 12px; }
+  .family-preview img { height: 380px; }
+  .product-visual--sync { padding: 20px 16px; }
+  .sync-diagram { margin: 28px auto 24px; }
+  .sync-destinations { gap: 12px; }
+  .sync-destination strong { font-size: 14px; }
+  .sync-destination > span { font-size: 9px; }
+  .sync-scene-caption { align-items: start; flex-direction: column; gap: 6px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .product-visual--sync { --sync-glass: #f8f6ef; }
+  html[data-theme="dark"] .product-visual--sync { --sync-glass: #202837; }
+  .sync-screen, .sync-destination { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@media (prefers-reduced-motion: reduce) { .sync-destination { transition: none; } }
 
 /* Keep engraved paper below readable light text in the dark theme. */
 html[data-theme="dark"] body::before { opacity: .38; mix-blend-mode: normal; filter: saturate(.8) brightness(.55); }

@@ -79,6 +79,10 @@
       'sync.navPermissions': "İzinler",
       'sync.navSurface': "Yüzey",
       'stream.appWindow': "Bir uygulama penceresi",
+      'sync.sceneHeading': 'Mac’in, bağlantıda.',
+      'sync.scenePrivate': 'Özel',
+      'sync.sceneHost': 'Erişmek istediğin Mac’te',
+      'sync.sceneCaption': 'Bir uygulama penceresi. Her yerden.',
       'sync.diagram': "Tek Mac host’u. Ekranına uygun istemciyi seç.",
       'home.statSync': "Mac host’u",
 
