@@ -4,10 +4,10 @@
     "suite": "Mesutcydev/vamp-suite",
     "assistant": "Mesutcydev/vamp-assistant"
   },
-  "tag": "vamp-suite-2.3.0-build-57",
-  "name": "Vamp Suite 2.3.0 build 57",
-  "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-57",
-  "published_at": "2026-09-03T18:21:05Z",
+  "tag": "vamp-suite-2.3.0-build-58",
+  "name": "Vamp Suite 2.3.0 build 58",
+  "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-58",
+  "published_at": "2026-09-03T18:47:27Z",
   "assets": {
     "vamp-terminal-ios": {
       "name": "VampTerminal-iOS-2.3.0-build-50-altstore-unsigned.ipa",
@@ -26,12 +26,12 @@
       "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-57/VampSync-macOS-2.3.0-build-57-adhoc.dmg.sha256"
     },
     "vamp-control-macos": {
-      "name": "VampControl-macOS-2.3.0-build-50-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-57/VampControl-macOS-2.3.0-build-50-adhoc.zip",
-      "label": "2.3.0 \u00b7 build 50",
-      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-57",
-      "tag": "vamp-suite-2.3.0-build-57",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-57/VampControl-macOS-2.3.0-build-50-adhoc.zip.sha256"
+      "name": "VampControl-macOS-2.3.0-build-51-adhoc.zip",
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-58/VampControl-macOS-2.3.0-build-51-adhoc.zip",
+      "label": "2.3.0 \u00b7 build 51",
+      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-58",
+      "tag": "vamp-suite-2.3.0-build-58",
+      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-58/VampControl-macOS-2.3.0-build-51-adhoc.zip.sha256"
     },
     "vamp-control-ios": {
       "name": "VampControl-iOS-2.3.0-build-47-altstore-unsigned.ipa",
@@ -50,12 +50,12 @@
       "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampStream-iOS-0.1.6-build-20-altstore-unsigned.ipa.sha256"
     },
     "vamp-assistant-macos": {
-      "name": "Vamp-Assistant-0.10.26-build-79.dmg",
-      "url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/v0.10.26/Vamp-Assistant-0.10.26-build-79.dmg",
-      "label": "0.10.26 \u00b7 build 79",
-      "releaseUrl": "https://github.com/Mesutcydev/vamp-assistant/releases/tag/v0.10.26",
-      "tag": "v0.10.26",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/v0.10.26/Vamp-Assistant-0.10.26-build-79.dmg.sha256"
+      "name": "Vamp-Assistant-0.10.27-build-80.dmg",
+      "url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/v0.10.27/Vamp-Assistant-0.10.27-build-80.dmg",
+      "label": "0.10.27 \u00b7 build 80",
+      "releaseUrl": "https://github.com/Mesutcydev/vamp-assistant/releases/tag/v0.10.27",
+      "tag": "v0.10.27",
+      "sha256Url": "https://github.com/Mesutcydev/vamp-assistant/releases/download/v0.10.27/Vamp-Assistant-0.10.27-build-80.dmg.sha256"
     },
     "vamp-assistant-ios": {
       "name": "Vamp-Assistant-iOS-0.1.35-build-57-unsigned.ipa",
