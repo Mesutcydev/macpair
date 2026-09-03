@@ -367,28 +367,17 @@ final class HostAppEnvironment: ObservableObject {
         #endif
         // Remote login-screen unlock uses the same Accessibility-backed input path as
         // normal control, so it stays unavailable in sandboxed builds.
+        #if os(macOS)
         if runtimePolicy.supportsRemoteUnlock {
             self.inputCommandRouter.remoteUnlockEnabled = {
                 UserDefaults.standard.object(forKey: "host.remoteUnlock.enabled") as? Bool ?? false
             }
-            self.inputCommandRouter.onUnlockPassword = { [inputInjectionService = self.inputInjectionService, eventLogStore] password in
-                // Type the password then press Return via HID event tap. Pace the
-                // characters specifically for loginwindow: posting the full burst and
-                // Return back-to-back can make its secure field coalesce/drop characters
-                // or process Return before the password events have settled.
-                // kCGHIDEventTap posts at the hardware-input level so the loginwindow
-                // process receives keystrokes even though it runs as a different user.
+            let loginWindowInput = LoginWindowInputService()
+            self.inputCommandRouter.onUnlockPassword = { [eventLogStore] password in
                 do {
-                    for character in password {
-                        try await inputInjectionService.inject(.text(TextInputCommand(text: String(character))))
-                        try await Task.sleep(for: .milliseconds(18))
-                    }
-                    try await Task.sleep(for: .milliseconds(80))
-                    try await inputInjectionService.inject(.key(KeyCommand(keyCode: 36, action: .down)))
-                    try await Task.sleep(for: .milliseconds(20))
-                    try await inputInjectionService.inject(.key(KeyCommand(keyCode: 36, action: .up)))
+                    try await loginWindowInput.submit(password: password)
                     Logger(subsystem: "com.remotedesktop.host", category: "RemoteUnlock")
-                        .info("Remote unlock keystrokes delivered to loginwindow")
+                        .info("Remote unlock keystrokes posted; waiting for lock-state confirmation")
                 } catch {
                     // Don't silently swallow: a failed remote unlock keystroke injection
                     // (event tap blocked, login window not focused, etc.) must be visible
@@ -403,6 +392,7 @@ final class HostAppEnvironment: ObservableObject {
                 }
             }
         }
+        #endif
         self.inputCommandRouter.onClipboardSync = { text in
             #if os(macOS)
             NSPasteboard.general.clearContents()

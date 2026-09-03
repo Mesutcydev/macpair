@@ -9,6 +9,10 @@ their original product names. The format follows
 
 ### Fixed
 
+- Vamp Sync remote unlock now wakes and clears the macOS login field before
+  entering the submitted password. It posts paced physical HID keys resolved
+  through the Mac's active keyboard layout, and stops immediately if the Mac
+  unlocks locally or Accessibility permission is lost.
 - Vamp Stream now receives the Mac's initial locked/login-window state in the
   reliable session-ready handshake instead of depending on a best-effort early
   data-channel update. Connecting to an already locked Vamp Sync or Vamp Host

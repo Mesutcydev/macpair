@@ -72,12 +72,11 @@ public final class CGEventInputBridge: PlatformInputBridge, @unchecked Sendable 
     // absolute move. nil → next relative move seeds it from the live cursor.
     private var _lastPostedPoint: CGPoint?
 
-    public init() {
-        // Remote-control input must keep independent keyboard and modifier state.
-        // Core Graphics specifically provides a private source state for this use case;
-        // the resulting events are still posted through the HID event tap below, without
-        // borrowing state from the foreground user's login session.
-        eventSource = CGEventSource(stateID: .privateState)
+    public init(sourceState: CGEventSourceStateID = .privateState) {
+        // Desktop control defaults to independent keyboard/modifier state. The
+        // dedicated login-window service selects HID state for its physical keys.
+        // Both paths explicitly set keyboard flags and post through the HID tap.
+        eventSource = CGEventSource(stateID: sourceState)
     }
 
     private func withStateLock<T>(_ body: () -> T) -> T {
