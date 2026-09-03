@@ -38,9 +38,16 @@ fingerprint, and approve the verified device on the Mac.
 ### Optional: Vamp Assistant
 
 [Vamp Assistant](https://thevamp.app/assistant/) is an independent AI app for
-local or BYOK chat, Code workspaces, and specialist tools. Install it on your
-Mac, then optionally add its own iOS or browser companion. It does not require
-Sync. Assistant lives in the separate
+local or BYOK chat, Code workspaces, and specialist tools. Its features include:
+
+- Device-aware model recommendations, local MLX/GGUF, remote providers, and account-backed models through a local Codex setup.
+- Researcher, Builder, Reviewer, and Navigator bots, with private browser profiles.
+- Project context and memory, skills/MCP, plans, Git checkpoints, and verification.
+- Chat history imports, browser and Simulator tools, and Apple app delivery through Ship Center.
+- Its own iOS/browser companions for continuing work; native iOS also offers app/display control.
+
+[Explore all Assistant features](https://thevamp.app/assistant/#mac). Install it
+on your Mac, then add its mobile companion if needed. It does not require Sync. Assistant lives in the separate
 [vamp-assistant repository](https://github.com/Mesutcydev/vamp-assistant).
 
 <details>
