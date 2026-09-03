@@ -28,7 +28,7 @@ final class MacRemoteInputController: ObservableObject {
     private var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay
     private(set) var mapper: ViewportCoordinateMapper?
 
-    private var sendContinuation: AsyncStream<InputCommandMessage>.Continuation?
+    private var sendQueue = MacRemoteInputSendQueue()
     private var sendTask: Task<Void, Never>?
 
     // Coalesced continuous input
@@ -40,14 +40,6 @@ final class MacRemoteInputController: ObservableObject {
 
     init(sessionManager: any WebRTCSessionManaging) {
         self.sessionManager = sessionManager
-        let (stream, continuation) = AsyncStream<InputCommandMessage>.makeStream()
-        sendContinuation = continuation
-        sendTask = Task { [sessionManager] in
-            for await message in stream {
-                guard !Task.isCancelled else { break }
-                try? await sessionManager.sendInputCommand(message)
-            }
-        }
     }
 
     func teardown() {
@@ -56,8 +48,7 @@ final class MacRemoteInputController: ObservableObject {
         pendingMove = nil
         pendingScrollDX = 0
         pendingScrollDY = 0
-        sendContinuation?.finish()
-        sendContinuation = nil
+        sendQueue.removeAll()
         sendTask?.cancel()
         sendTask = nil
     }
@@ -157,7 +148,25 @@ final class MacRemoteInputController: ObservableObject {
 
     private func enqueue(_ command: InputCommand) {
         guard let sessionID else { return }
-        sendContinuation?.yield(InputCommandMessage(sessionID: sessionID, command: command))
+        sendQueue.enqueue(InputCommandMessage(sessionID: sessionID, command: command))
+        startSenderIfNeeded()
+    }
+
+    private func startSenderIfNeeded() {
+        guard sendTask == nil else { return }
+        sendTask = Task { [weak self] in
+            await self?.drainSendQueue()
+        }
+    }
+
+    private func drainSendQueue() async {
+        while !Task.isCancelled, let message = sendQueue.popFirst() {
+            try? await sessionManager.sendInputCommand(message)
+        }
+        sendTask = nil
+        // An event can arrive as the loop observes an empty queue. Recheck on
+        // the actor before parking so that sample cannot be stranded.
+        if !sendQueue.isEmpty { startSenderIfNeeded() }
     }
 
     private func flushPendingMove() {

@@ -117,6 +117,7 @@ struct MacRemoteSessionView: View {
                 isInputEnabled: !environment.prefersViewOnly
                     && coordinator.phase != .error
                     && coordinator.hostLockState != .lockedOrLoginWindow,
+                usesLocalCursor: coordinator.negotiatedCapabilities?.supportsCursorlessCapture == true,
                 displayMode: displayMode
             )
             .ignoresSafeArea()

@@ -42,6 +42,9 @@ public struct HostCapabilityFlags: OptionSet, Codable, Hashable, Sendable {
     /// send `applicationList` / `streamTargetSwitch` control messages. Older peers
     /// never negotiate it, so display streaming is unaffected.
     public static let supportsAppStreaming = HostCapabilityFlags(rawValue: 1 << 14)
+    /// Both peers support omitting the host cursor from captured video so a Mac
+    /// client can show its local cursor with immediate, zero-round-trip feedback.
+    public static let supportsCursorlessCapture = HostCapabilityFlags(rawValue: 1 << 15)
 
     public init(rawValue: Int) {
         self.rawValue = rawValue
@@ -77,6 +80,7 @@ public struct HostCapabilityFlags: OptionSet, Codable, Hashable, Sendable {
         #endif
         if isMacClient {
             flags.insert(.supportsMacClient)
+            flags.insert(.supportsCursorlessCapture)
         }
         return flags
     }
@@ -109,6 +113,7 @@ public extension HostCapabilityFlags {
         if contains(.supportsTaskPlans) { names.append("supportsTaskPlans") }
         if contains(.supportsWorkspaces) { names.append("supportsWorkspaces") }
         if contains(.supportsAppStreaming) { names.append("supportsAppStreaming") }
+        if contains(.supportsCursorlessCapture) { names.append("supportsCursorlessCapture") }
         return names
     }
 
@@ -146,6 +151,8 @@ public extension HostCapabilityFlags {
                 flags.insert(.supportsWorkspaces)
             case "supportsAppStreaming":
                 flags.insert(.supportsAppStreaming)
+            case "supportsCursorlessCapture":
+                flags.insert(.supportsCursorlessCapture)
             default:
                 continue
             }

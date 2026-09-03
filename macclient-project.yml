@@ -110,11 +110,14 @@ targets:
       - path: MacClient/Sources/MacStreamingQualityPolicy.swift
       - path: MacClient/Sources/MacHostNicknameStore.swift
       - path: MacClient/Sources/RemoteInputPolicy.swift
+      - path: MacClient/Sources/MacRemoteInputSendQueue.swift
     dependencies:
       - package: RemoteDesktopTool
         product: SharedModels
       - package: RemoteDesktopTool
         product: SharedUtilities
+      - package: RemoteDesktopTool
+        product: SharedProtocol
       - package: RemoteDesktopTool
         product: Discovery
 

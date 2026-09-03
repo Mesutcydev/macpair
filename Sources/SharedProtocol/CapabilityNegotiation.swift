@@ -18,6 +18,7 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
     public var supportsTaskPlans: Bool
     public var supportsWorkspaces: Bool
     public var supportsAppStreaming: Bool
+    public var supportsCursorlessCapture: Bool
 
     public init(
         videoCodec: VideoCodec,
@@ -30,7 +31,8 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         supportsTerminalChat: Bool = false,
         supportsTaskPlans: Bool = false,
         supportsWorkspaces: Bool = false,
-        supportsAppStreaming: Bool = false
+        supportsAppStreaming: Bool = false,
+        supportsCursorlessCapture: Bool = false
     ) {
         self.videoCodec = videoCodec
         self.supportsMultiDisplay = supportsMultiDisplay
@@ -43,6 +45,7 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         self.supportsTaskPlans = supportsTaskPlans
         self.supportsWorkspaces = supportsWorkspaces
         self.supportsAppStreaming = supportsAppStreaming
+        self.supportsCursorlessCapture = supportsCursorlessCapture
     }
 
     /// A host that shares one application window and has no display stream —
@@ -65,6 +68,7 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         case supportsTaskPlans
         case supportsWorkspaces
         case supportsAppStreaming
+        case supportsCursorlessCapture
     }
 
     public init(from decoder: Decoder) throws {
@@ -80,6 +84,7 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         supportsTaskPlans = try container.decodeIfPresent(Bool.self, forKey: .supportsTaskPlans) ?? false
         supportsWorkspaces = try container.decodeIfPresent(Bool.self, forKey: .supportsWorkspaces) ?? false
         supportsAppStreaming = try container.decodeIfPresent(Bool.self, forKey: .supportsAppStreaming) ?? false
+        supportsCursorlessCapture = try container.decodeIfPresent(Bool.self, forKey: .supportsCursorlessCapture) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -95,6 +100,7 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         try container.encode(supportsTaskPlans, forKey: .supportsTaskPlans)
         try container.encode(supportsWorkspaces, forKey: .supportsWorkspaces)
         try container.encode(supportsAppStreaming, forKey: .supportsAppStreaming)
+        try container.encode(supportsCursorlessCapture, forKey: .supportsCursorlessCapture)
     }
 }
 
@@ -125,7 +131,9 @@ public enum CapabilityNegotiator {
             supportsTerminalChat: host.contains(.supportsTerminalChat) && client.contains(.supportsTerminalChat),
             supportsTaskPlans: host.contains(.supportsTaskPlans) && client.contains(.supportsTaskPlans),
             supportsWorkspaces: host.contains(.supportsWorkspaces) && client.contains(.supportsWorkspaces),
-            supportsAppStreaming: host.contains(.supportsAppStreaming) && client.contains(.supportsAppStreaming)
+            supportsAppStreaming: host.contains(.supportsAppStreaming) && client.contains(.supportsAppStreaming),
+            supportsCursorlessCapture: host.contains(.supportsCursorlessCapture)
+                && client.contains(.supportsCursorlessCapture)
         )
     }
 }

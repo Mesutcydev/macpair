@@ -47,6 +47,7 @@ struct MacVideoStreamView: NSViewRepresentable {
     let renderer: VideoRendererViewModel
     let input: any MacRemoteInputHandling
     var isInputEnabled: Bool
+    var usesLocalCursor: Bool
     var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -55,6 +56,7 @@ struct MacVideoStreamView: NSViewRepresentable {
         let view = RemoteStreamNSView()
         view.input = input
         view.isInputEnabled = isInputEnabled
+        view.usesLocalCursor = usesLocalCursor
         view.displayMode = displayMode
         input.isEnabled = isInputEnabled
         input.updateDisplayMode(displayMode)
@@ -65,6 +67,7 @@ struct MacVideoStreamView: NSViewRepresentable {
 
     func updateNSView(_ nsView: RemoteStreamNSView, context: Context) {
         nsView.isInputEnabled = isInputEnabled
+        nsView.usesLocalCursor = usesLocalCursor
         nsView.displayMode = displayMode
         // Keep the controller's own gate in sync so any coalesced send path is
         // also suppressed in view-only mode, not just the event handlers.
@@ -91,6 +94,11 @@ final class RemoteStreamNSView: NSView {
 
     var input: (any MacRemoteInputHandling)?
     var isInputEnabled = true
+    var usesLocalCursor = false {
+        didSet {
+            if usesLocalCursor { setLocalCursorHidden(false) }
+        }
+    }
     var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay {
         didSet { updateVideoGravity() }
     }
@@ -286,7 +294,7 @@ final class RemoteStreamNSView: NSView {
         }
         input?.pointerMoved(to: point)
         let insideContent = input?.containsRemoteContent(point) == true
-        setLocalCursorHidden(insideContent)
+        setLocalCursorHidden(!usesLocalCursor && insideContent)
     }
 
     override func mouseExited(with event: NSEvent) {

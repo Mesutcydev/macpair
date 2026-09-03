@@ -551,6 +551,9 @@ final class HostSessionCoordinator: ObservableObject {
         // Record the client's advertised decoder capabilities so codec negotiation
         // reflects what this specific client can actually decode (e.g. HEVC).
         advertisedClientCapabilities = offer.clientCapabilities
+        // A compatible Mac client renders its own cursor immediately. Keep the
+        // cursor in captured video for every older peer and non-Mac client.
+        captureEngine.setShowsCursor(!negotiatedCapabilities.supportsCursorlessCapture)
         requestedDynamicRange = offer.preferredDynamicRange ?? .sdr
         webRTCSessionManager.configureVideoTransport(
             fragmentationEnabled: offer.clientCapabilities?.contains(.supportsVideoFragmentation) == true,
@@ -1612,6 +1615,7 @@ final class HostSessionCoordinator: ObservableObject {
             .supportsH264,
             .supportsMultiDisplay,
             .supportsMacClient,
+            .supportsCursorlessCapture,
             .supportsAudioLater,
             .supportsVideoFragmentation,
             .supportsTerminal,

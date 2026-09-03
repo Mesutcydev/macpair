@@ -74,6 +74,8 @@ public protocol CaptureEngineProtocol {
     func startCapture(windowID: String, qualityPreset: StreamQualityPreset, allowsHighResolution: Bool) async throws
     /// Reconfigures the active SCStream frame interval without restarting capture.
     func updateFrameRateLimit(_ framesPerSecond: Int) async throws
+    /// Controls whether subsequent capture sessions include the host cursor.
+    func setShowsCursor(_ showsCursor: Bool)
     func stopCapture() async
 
     func setFrameReceiver(_ receiver: (any CaptureFrameReceiver)?)
@@ -102,6 +104,8 @@ public extension CaptureEngineProtocol {
     }
 
     func updateFrameRateLimit(_ framesPerSecond: Int) async throws {}
+
+    func setShowsCursor(_ showsCursor: Bool) {}
 
     /// Default: window capture is unsupported. `ScreenCaptureEngine` overrides this.
     func startCapture(windowID: String, qualityPreset: StreamQualityPreset, allowsHighResolution: Bool) async throws {

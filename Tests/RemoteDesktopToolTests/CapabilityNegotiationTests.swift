@@ -3,6 +3,20 @@ import XCTest
 @testable import SharedProtocol
 
 final class CapabilityNegotiationTests: XCTestCase {
+    func testCursorlessCaptureRequiresBothPeersAndAMacClient() {
+        let host: HostCapabilityFlags = [.supportsH264, .supportsCursorlessCapture]
+        let macClient = HostCapabilityFlags.currentClient(isMacClient: true)
+        let iOSClient = HostCapabilityFlags.currentClient(isMacClient: false)
+
+        XCTAssertTrue(CapabilityNegotiator.negotiate(host: host, client: macClient)?.supportsCursorlessCapture == true)
+        XCTAssertFalse(CapabilityNegotiator.negotiate(host: host, client: iOSClient)?.supportsCursorlessCapture == true)
+        XCTAssertFalse(CapabilityNegotiator.negotiate(host: [.supportsH264], client: macClient)?.supportsCursorlessCapture == true)
+        XCTAssertEqual(
+            HostCapabilityFlags(stableNames: host.stableNames),
+            host
+        )
+    }
+
     func testNegotiationPrefersHEVCWhenBothPeersSupportIt() {
         let host: HostCapabilityFlags = [.supportsHEVC, .supportsH264, .supportsMultiDisplay]
         let client: HostCapabilityFlags = [.supportsHEVC, .supportsH264, .supportsMultiDisplay]

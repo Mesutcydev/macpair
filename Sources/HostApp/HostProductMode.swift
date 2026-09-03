@@ -61,6 +61,7 @@ enum HostProductMode: String, CaseIterable, Sendable {
                 .supportsMultiDisplay,
                 .supportsAudioLater,
                 .supportsMacClient,
+                .supportsCursorlessCapture,
                 .supportsTerminal,
                 .supportsMultipleTerminals,
                 .supportsTerminalChat,
@@ -74,7 +75,8 @@ enum HostProductMode: String, CaseIterable, Sendable {
         case .mini:
             var flags: HostCapabilityFlags = [
                 .supportsH264,
-                .supportsVideoFragmentation
+                .supportsVideoFragmentation,
+                .supportsCursorlessCapture
             ]
             if #available(macOS 14, *) { flags.insert(.supportsAppStreaming) }
             return flags

@@ -307,6 +307,11 @@ their original product names. The format follows
 
 ### Fixed
 
+- Vamp Control macOS: pointer movement now feels immediate with updated hosts.
+  Mac-to-Mac sessions negotiate cursorless video capture and keep the native
+  local cursor visible, removing video round-trip delay from pointer feedback.
+  Unsent motion is also coalesced to the latest position so a slow data channel
+  cannot replay a stale cursor trail. Older peers keep the prior compatible path.
 - Vamp Control macOS: Fit Display is a labeled top-bar control again. It used
   to live in an unlabeled icon menu packed into the same toolbar item as
   Screen AI, so hovering Screen AI showed “Fit display” and the sizing button

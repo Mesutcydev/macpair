@@ -43,6 +43,7 @@ public final class ScreenCaptureEngine: NSObject, CaptureEngineProtocol, @unchec
     private var _diagnostics = CaptureDiagnostics()
     private weak var _frameReceiver: (any CaptureFrameReceiver)?
     private weak var _audioReceiver: (any CaptureAudioReceiver)?
+    private var _showsCursor = true
     private var stateContinuations: [UUID: AsyncStream<CaptureState>.Continuation] = [:]
     // Ordered audio conduit. Spawning a fresh `Task { await receiver.didCapture... }` per
     // buffer didn't guarantee actor-entry order, so audio frameID/sampleTime could be
@@ -86,6 +87,10 @@ public final class ScreenCaptureEngine: NSObject, CaptureEngineProtocol, @unchec
         if receiver == nil {
             teardownAudioConduit()
         }
+    }
+
+    public func setShowsCursor(_ showsCursor: Bool) {
+        withLock { _showsCursor = showsCursor }
     }
 
     public func stateChanges() -> AsyncStream<CaptureState> {
@@ -170,13 +175,14 @@ public final class ScreenCaptureEngine: NSObject, CaptureEngineProtocol, @unchec
                 throw CaptureEngineError.displayNotFound(displayID)
             }
 
-            let config = CaptureConfiguration.forPreset(
+            var config = CaptureConfiguration.forPreset(
                 qualityPreset,
                 displayWidth: scDisplay.width,
                 displayHeight: scDisplay.height,
                 scaleFactor: Double(scDisplay.width) / max(1, Double(scDisplay.frame.width)),
                 allowsHighResolution: allowsHighResolution
             )
+            config.showsCursor = withLock { _showsCursor }
 
             logger.info("Starting capture: \(config.summaryDescription, privacy: .public)")
 
@@ -247,13 +253,14 @@ public final class ScreenCaptureEngine: NSObject, CaptureEngineProtocol, @unchec
                 throw CaptureEngineError.configurationFailed("Window has zero size.")
             }
 
-            let config = CaptureConfiguration.forPreset(
+            var config = CaptureConfiguration.forPreset(
                 qualityPreset,
                 displayWidth: pixelWidth,
                 displayHeight: pixelHeight,
                 scaleFactor: Double(pixelScale),
                 allowsHighResolution: allowsHighResolution
             )
+            config.showsCursor = withLock { _showsCursor }
             logger.info("Starting window capture: \(config.summaryDescription, privacy: .public)")
 
             // A window stream is video-only for now.
