@@ -1,71 +1,59 @@
-# Sideload Vamp Assistant and Vamp Stream
+# Install Vamp on iPhone or iPad
 
-Both public iPhone/iPad apps are unsigned IPAs intended for AltStore-style
-re-signing. They are separate clients with separate Mac-side connection paths.
+Choose **Control or Stream** to reach a Mac running Sync. **Assistant for iOS**
+is a separate companion for the Assistant Mac app. You do not need all three.
 
-Add `https://thevamp.app/apps.json` as an AltStore source to keep both Vamp
-Assistant and Vamp Stream on their current public builds.
+All public IPAs are unsigned and need AltStore-style re-signing with your own
+Apple ID/team.
 
 ## Install
 
-1. Download the IPA and its `.sha256` file:
+1. Get the latest IPA and its checksum:
 
-   - Vamp Assistant iOS: [Assistant downloads](https://thevamp.app/assistant/#download)
-   - Vamp Stream: [Stream downloads](https://thevamp.app/stream/#download)
+   - [Vamp Control](https://thevamp.app/#download-control-ios)
+   - [Vamp Stream](https://thevamp.app/#download-stream-ios)
+   - [Vamp Assistant](https://thevamp.app/assistant/#download)
 
-2. Verify the download:
-
-   ```sh
-   shasum -a 256 -c Name-of-download.ipa.sha256
-   ```
-
+2. Run `shasum -a 256 Name-of-download.ipa` and compare the complete hash with
+   the downloaded `.sha256` file.
 3. Import the IPA into AltStore, SideStore, Sideloadly, or your own signing
    workflow. Let that tool sign with an Apple ID/team you control.
 4. Allow Local Network access when requested.
-5. Pair only with a Mac you own or are authorized to control, and compare the
-   displayed identity before approval.
+5. Connect over a trusted LAN or private Tailscale network. Pair only with a
+   Mac you own or are authorized to control. For Sync, compare the complete
+   device fingerprint on both devices before approval on the Mac.
 
-The project does not provide certificates, provisioning profiles, signing
-credentials, or a way to bypass Apple’s signing requirements.
+The [AltStore source](https://thevamp.app/apps.json) includes Stream and
+Assistant, alongside Boo Player. Control is currently a direct IPA download.
 
-## Vamp Assistant compatibility
+## Which Mac app do I need?
 
-- Minimum OS: iOS/iPadOS 18
-- Mac side: Vamp Assistant with Remote Sessions enabled
-- Features: chats, Code sessions, bots, approvals/questions, terminal,
-  clipboard/files, full-display control, and app-window control
-- Transport: authenticated private Assistant Remote Sessions endpoint
+| iOS app | Mac app | What you use remotely |
+| --- | --- | --- |
+| Control | Sync | A selected Mac app window |
+| Stream | Sync | A selected Mac app window, with a focused mobile interface |
+| Assistant | Assistant with Remote Sessions enabled | AI chats, Code sessions, tools, and Mac control |
 
-Assistant macOS and iOS releases use separate tags. The website resolves each
-platform independently instead of assuming the latest Mac release also carries
-the latest IPA.
+Stream can also pair directly with Assistant’s Remote Sessions for an app
+window or full display. This is optional and uses a separate pairing.
 
-## Vamp Stream compatibility
+Screen Recording is required on the Mac for video. Accessibility is required
+for keyboard and pointer control. Run only one macOS host at a time and keep
+host ports private.
 
-- Client: Vamp Stream 0.1.0 or later
-- Minimum OS: iOS/iPadOS 18
-- Bundle ID before re-signing: `com.mesutcy.remotedesktop.stream`
-- Mac sides:
+Stream and Assistant require iOS/iPadOS 18 or later. Website downloads resolve
+each app and platform independently, including releases in separate tags.
 
-  - Vamp Host — signed WebRTC
-  - Vamp Sync — signed WebRTC; implementation target `VampMiniHost`
-  - Vamp Assistant — authenticated private Remote Sessions endpoint
-
-Screen Recording is required on the selected Mac host for video.
-Accessibility is required for keyboard and pointer control. Vamp Host and Vamp
-Vamp Sync and Vamp Host share ports, have separate identities/trust stores, and cannot run
-together.
-
-## Build Vamp Stream locally
+## Build Stream locally
 
 ```sh
 scripts/package-vamp-stream-ios.sh --clean
 ```
 
-For a local artifact from a dirty tree, add `--allow-dirty`. The script
-regenerates the standalone project from `vampstream-project.yml`, verifies the
-bundle and arm64 device executable, confirms the app is unsigned, then writes
-the IPA and checksum to `dist/VampStream/`.
+For a local artifact from a dirty tree, add `--allow-dirty`. The script generates
+the project from `vampstream-project.yml`, checks the device executable, and
+writes the unsigned IPA and checksum to `dist/VampStream/`.
 
-Technical sideload documentation for products outside the current promotion
-remains in its specialist files and release history.
+The project provides no signing credentials or provisioning profiles. Older
+builds and specialist terminal instructions remain in release history and
+their technical guides.

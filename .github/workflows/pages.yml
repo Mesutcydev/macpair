@@ -34,6 +34,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 scripts/generate-pages-release.py
+      - name: Validate site links and release selection
+        run: |
+          python3 -m unittest discover -s Tests -p test_generate_pages_release.py
+          python3 scripts/verify-pages-links.py
       - name: Upload static site
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:

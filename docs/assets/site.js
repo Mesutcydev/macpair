@@ -185,6 +185,60 @@
 
     }
   };
+  Object.assign(translations.tr, {
+  "ux.start": "Buradan başla",
+  "ux.compare": "İstemcileri karşılaştır",
+  "ux.optional": "Assistant",
+  "ux.downloads": "İndir",
+  "ux.hero": "Bir Mac uygulamasını başka bir Mac, iPhone veya iPad’den kullan. Erişmek istediğin Mac’e Vamp Sync kur, diğer cihazın için bir istemci seç.",
+  "ux.setup": "İki uygulama. Tek bağlantı.",
+  "ux.setupLead": "Sync erişilecek Mac’te çalışır. Control veya Stream ise ona erişmek için kullandığın cihazda.",
+  "ux.step0": "Vamp Sync’i kur",
+  "ux.step0Copy": "Erişmek istediğin Mac’e kur. Görüntü için Ekran Kaydı, klavye ve işaretçi kontrolü için Erişilebilirlik izni ver.",
+  "ux.step0Cta": "Sync’i indir",
+  "ux.step1": "Bir istemci seç",
+  "ux.step1Copy": "Mac, iPhone veya iPad’de Control kullan. iPhone veya iPad’de tek uygulamaya odaklanmak için Stream’i seç. Birini kurman yeterli.",
+  "ux.step1Cta": "Aşağıda karşılaştır",
+  "ux.step2": "Eşleştir ve uygulamayı aç",
+  "ux.step2Copy": "Aynı güvenilir yerel ağı veya özel Tailscale ağını kullan. Sync’in QR kodunu tara, cihazın tam parmak izini iki cihazda karşılaştır, Mac’te onayla ve bir uygulama penceresi seç.",
+  "ux.step2Cta": "Sync kurulum ayrıntıları",
+  "ux.clients": "Cihazına hangi istemci uygun?",
+  "ux.clientsLead": "İkisi de Sync’e bağlanır ve seçtiğin Mac uygulama penceresini kontrol eder. Cihazına ve tercih ettiğin deneyime göre seç.",
+  "ux.control": "Başka bir Mac’ten bağlanırken veya iPhone ve iPad’de Control arayüzünü tercih ediyorsan Control’ü seç.",
+  "ux.controlFit": "Mac’ten Mac’e + mobil",
+  "ux.controlGet": "Control’ü indir →",
+  "ux.stream": "iPhone veya iPad’de tek bir Mac uygulamasına odaklanmak, dokunmatik ve klavye kontrolünü kullanmak için Stream’i seç.",
+  "ux.streamFit": "Odaklı mobil deneyim",
+  "ux.streamGet": "Stream’i indir →",
+  "ux.streamPreview": "Stream’i incele",
+  "ux.downloadTitle": "Doğru cihaza kur.",
+  "ux.downloadTitleLead": "Önce Sync’i, sonra seçtiğin istemciyi indir. Her uygulama ve platform için yayımlanmış en güncel derlemeler aşağıda.",
+  "ux.mini-host-dmgDesc": "Erişmek istediğin Mac’e kur. macOS 13 veya üzeri.",
+  "ux.mini-host-dmgButton": "Mac için Sync ↓",
+  "ux.control-macosDesc": "Diğer Mac’e kur. macOS 13 veya üzeri.",
+  "ux.control-macosButton": "Mac için Control ↓",
+  "ux.control-iosDesc": "Telefon veya tabletin için Control istemcisi. İmzasız IPA; yüklemeden önce yeniden imzala.",
+  "ux.control-iosButton": "Control iOS IPA ↓",
+  "ux.stream-iosDesc": "Odaklı mobil istemci. İmzasız IPA; yüklemeden önce yeniden imzala.",
+  "ux.stream-iosButton": "Stream iOS IPA ↓",
+  "ux.install": "Mac indirmeleri doğrudan dağıtılan derlemelerdir; ilk açılışta Sistem Ayarları’ndan “Yine de Aç” gerekebilir. iOS indirmeleri kendi Apple kimliğinle AltStore tipi yeniden imzalama gerektirir.",
+  "ux.installGuide": "Mac kurulum rehberi ↗",
+  "ux.iosGuide": "iOS kurulum rehberi ↗",
+  "ux.ai": "Özel AI mı arıyorsun?",
+  "ux.aiLead": "Assistant, AI çalışmaları için ayrı bir uygulamadır. Sync + Control veya Stream kurulumun zaten tamam.",
+  "ux.separate": "İsteğe bağlı · bağımsız uygulama",
+  "ux.assistant": "Mac’inde yerel modellerle veya kendi AI sağlayıcınla sohbet et, kod üzerinde çalış ve uzman araçları kullan. Kendi iOS ve tarayıcı istemcileriyle bu oturumlara uzaktan devam et. Assistant için Sync gerekmez.",
+  "ux.assistantMore": "Assistant’ı keşfet →",
+  "ux.syncNote": "Apple Silicon · macOS 13+ · menü çubuğunda çalışır.",
+  "ux.streamHero": "Bir Mac uygulamasını iPhone veya iPad’inde kullan. Mac’e Vamp Sync kur, Stream’i eşleştir ve kullanmak istediğin uygulamayı seç.",
+  "ux.alreadyAssistant": "Zaten Vamp Assistant mı kullanıyorsun?",
+  "ux.assistantCompat": "Stream, uygulama penceresi veya tam ekran için Assistant’ın Remote Sessions özelliğiyle doğrudan eşleşebilir. Assistant’ta Remote Sessions’ı etkinleştir ve onun QR koduyla eşleştir. Bu isteğe bağlıdır; uygulama penceresi paylaşmak için Sync yeterli.",
+  "ux.streamInstall": "iPhone veya iPad için Vamp Stream’i yeniden imzala, ardından Mac’ine Vamp Sync kur.",
+  "ux.streamDownloads": "Stream ve Sync’i indir.",
+  "ux.assistantStandalone": "Assistant bağımsız çalışır. Sync gerekmez. Önce Mac uygulamasını kur; uzaktan erişim istiyorsan kendi iOS istemcisini ekle.",
+  "ux.assistantDownloads": "Mac’te başla. İstersen mobili ekle."
+});
+  Object.assign(translations.tr, {"ux.connectionDetails": "Bağlantı ve gizlilik ayrıntıları", "ux.streamVerify": "Sync’te onaylamadan önce cihazın tam parmak izini iki cihazda karşılaştır.", "ux.streamSelect": "Kullanmak istediğin Mac uygulama penceresini seç."});
   let currentLanguage = localStorage.getItem('vamp-lang') === 'tr' ? 'tr' : 'en';
   const originalText = new Map();
   document.querySelectorAll('[data-i18n]').forEach((element) => originalText.set(element, element.innerHTML));
@@ -205,17 +259,17 @@
 
   const applyRelease = (release) => {
     if (!release || !release.assets) return;
-    document.querySelectorAll('[data-release-link]').forEach((link) => {
-      const asset = release.assets[link.dataset.releaseLink];
+    document.querySelectorAll('[data-release-link], [data-release-asset]').forEach((link) => {
+      const asset = release.assets[link.dataset.releaseLink || link.dataset.releaseAsset];
       if (!asset) return;
       link.href = asset.url;
       link.removeAttribute('aria-disabled');
     });
     document.querySelectorAll('[data-release-sha256]').forEach((link) => {
       const asset = release.assets[link.dataset.releaseSha256];
-      if (!asset?.sha256Url) return;
-      link.href = asset.sha256Url;
-      link.hidden = false;
+      link.hidden = !asset?.sha256Url;
+      if (asset?.sha256Url) link.href = asset.sha256Url;
+      else link.removeAttribute('href');
     });
     document.querySelectorAll('[data-release-version]').forEach((element) => {
       const asset = release.assets[element.dataset.releaseVersion];
