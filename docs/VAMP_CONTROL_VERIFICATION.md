@@ -97,3 +97,8 @@ Local validation products and logs for this run are in
   checked in the browser. Earlier connection/test results above still apply.
 - The final native glass visual check requires an unlocked Mac; the computer-use
   tool reported the local Mac locked. No permissions or pairing were bypassed.
+
+Release packages for Sync 54, Control macOS 49, and Stream 20 built successfully
+from clean source commit `5be5111`. Packaging signature checks, archive integrity,
+manifest sizes, SHA-256 hashes, and clean-source provenance were verified.
+The website uses distinct full-frame image filenames to avoid stale browser caches.

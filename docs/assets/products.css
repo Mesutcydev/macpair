@@ -236,3 +236,9 @@ html[data-theme="dark"] { --product-glass: color-mix(in srgb, var(--surface) 82%
 .sync-client { display: flex; justify-content: space-between; gap: 16px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #191d2b30; font: 600 13px/1.4 "Inter", sans-serif; }
 .sync-client span { font-size: 11px; font-weight: 400; }
 @media (max-width: 720px) { .family-preview { padding: 12px; } .family-preview img { height: 380px; } .sync-diagram { margin: 24px 18px; padding: 22px; } }
+
+/* Keep engraved paper below readable light text in the dark theme. */
+html[data-theme="dark"] body::before { opacity: .38; mix-blend-mode: normal; filter: saturate(.8) brightness(.55); }
+
+.family-preview { display: block; }
+.family-preview:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }

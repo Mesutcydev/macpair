@@ -96,6 +96,16 @@
       "versions": [
         {
           "version": "0.1.6",
+          "buildVersion": "20",
+          "marketingVersion": "0.1.6 (20)",
+          "date": "2026-09-03",
+          "localizedDescription": "Uses Vamp Sync naming throughout app-window pairing and discovery. Connect with Sync or a paired Assistant.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampStream-iOS-0.1.6-build-20-altstore-unsigned.ipa",
+          "size": 14451558,
+          "minOSVersion": "18.0"
+        },
+        {
+          "version": "0.1.6",
           "buildVersion": "19",
           "marketingVersion": "0.1.6 (19)",
           "date": "2026-09-02",
@@ -162,7 +172,7 @@
         ],
         "privacy": {
           "NSCameraUsageDescription": "Vamp Stream uses the camera to scan the private Vamp Assistant pairing QR code.",
-          "NSLocalNetworkUsageDescription": "Vamp Stream uses your local network to discover and connect to Macs running Vamp Sync, Vamp Host, or Vamp Assistant."
+          "NSLocalNetworkUsageDescription": "Vamp Stream uses your local network to discover and connect to Macs running Vamp Sync or Vamp Assistant."
         }
       }
     }

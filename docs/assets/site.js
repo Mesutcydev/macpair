@@ -90,7 +90,7 @@
       'home.eyebrow': "Tek Mac host’u · İstemcini seç",
       'home.title1': 'Mac’inle çalış.', 'home.title2': 'Her yerden.',
       'home.copy': "Mac’inde Vamp Sync ile başla. Uygulama pencerelerine özel ağın üzerinden Vamp Control veya Vamp Stream ile eriş. Özel AI çalışmaların için Vamp Assistant’ı ekle.",
-      'home.assistantCta': "Vamp Sync’i al", 'home.streamCta': "İstemcini seç",
+      'home.syncCta': "Vamp Sync’i al", 'home.clientsCta': "İstemcini seç",
       'home.note': 'Açık kaynak · özel LAN veya Tailscale · barındırılan aktarıcı yok.',
       'home.statAssistant': 'AI çalışma alanı + uzaktan erişim', 'home.statStream': 'odaklı görsel istemci',
       'home.statControl': "Mac + iOS istemcisi",
@@ -104,7 +104,7 @@
 
       'families.controlMacCta': 'macOS için Control ↓', 'families.controlIosCta': 'Control iOS IPA ↓',
 
-      'families.hostCta': "Vamp Sync’i al →",
+      'families.syncCta': "Vamp Sync’i al →",
 
       'footer.familyCopy': 'Özel AI ve odaklı Mac akışı.',
 
@@ -156,7 +156,7 @@
       'stream.note': 'İmzasız IPA · aygıtın için yeniden imzala · barındırılan aktarıcı yok.',
       'stream.statHosts': 'uyumlu Mac host’u', 'stream.statVideo': 'donanım videosu', 'stream.statNetwork': 'LAN veya Tailscale', 'stream.statNative': 'iPhone + iPad',
       'stream.hostKicker': 'Mac tarafını seç', 'stream.hostTitle': "Ana host’un Sync. Assistant da yanında.",
-      'stream.hostLead': 'İşe uyan host’u seç. Stream desteklenen yüzeyi keşfeder ve kullanılamayan kontrolleri göstermez.',
+      'stream.hostLead': 'Sync, Vamp Stream ve Vamp Control için ana Mac host’udur. Assistant kendi Remote Sessions bağlantısını sunar.',
 
       'stream.miniHostCopy': "Vamp Control ve Vamp Stream için ana Mac host’u. Bir uygulama penceresi seç, özel ağ üzerinden aktar ve onaylı giriş ile kontrol et.",
       'stream.miniLink': 'Vamp Sync’i keşfet →',
