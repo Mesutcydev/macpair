@@ -5,7 +5,18 @@ their original product names. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.3.0] - 2026-09-03 — build 57
+
+### Fixed
+
+- Vamp Control macOS now shows the native local cursor during compatible Mac
+  sessions, removing video round-trip delay from pointer feedback. Pointer moves
+  and scroll updates are coalesced while the input channel is busy so stale
+  motion cannot build up and replay later.
+- Vamp Sync negotiates cursorless capture with the updated macOS client. Older
+  clients keep the prior captured-cursor behavior for wire compatibility.
+
+## [2.3.0] - 2026-09-03 — build 56
 
 ### Fixed
 
