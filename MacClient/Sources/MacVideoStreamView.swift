@@ -48,12 +48,6 @@ struct MacVideoStreamView: NSViewRepresentable {
     let input: any MacRemoteInputHandling
     var isInputEnabled: Bool
     var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay
-    /// Bottom region reserved for local session chrome; the stream view must not
-    /// capture pointer events there so SwiftUI controls remain clickable.
-    var localChromeBottomInset: CGFloat = 0
-    /// The stream still receives the event after this callback. This lets local
-    /// chrome collapse without stealing a click intended for the remote Mac.
-    var onBackgroundPointerActivity: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -62,7 +56,6 @@ struct MacVideoStreamView: NSViewRepresentable {
         view.input = input
         view.isInputEnabled = isInputEnabled
         view.displayMode = displayMode
-        view.onBackgroundPointerActivity = onBackgroundPointerActivity
         input.isEnabled = isInputEnabled
         input.updateDisplayMode(displayMode)
         context.coordinator.cancellable = renderer.framePublisher
@@ -73,8 +66,6 @@ struct MacVideoStreamView: NSViewRepresentable {
     func updateNSView(_ nsView: RemoteStreamNSView, context: Context) {
         nsView.isInputEnabled = isInputEnabled
         nsView.displayMode = displayMode
-        nsView.localChromeBottomInset = localChromeBottomInset
-        nsView.onBackgroundPointerActivity = onBackgroundPointerActivity
         // Keep the controller's own gate in sync so any coalesced send path is
         // also suppressed in view-only mode, not just the event handlers.
         input.isEnabled = isInputEnabled
@@ -103,8 +94,6 @@ final class RemoteStreamNSView: NSView {
     var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay {
         didSet { updateVideoGravity() }
     }
-    var localChromeBottomInset: CGFloat = 0
-    var onBackgroundPointerActivity: (() -> Void)?
 
     private var displayLayer = AVSampleBufferDisplayLayer()
     private var formatDescription: CMVideoFormatDescription?
@@ -119,11 +108,6 @@ final class RemoteStreamNSView: NSView {
     /// `NSCursor.hide()`/`unhide()` are counter-balanced app-wide, so every
     /// hide must be matched by exactly one unhide.
     private var isLocalCursorHidden = false
-
-    /// Cmd-shortcuts that stay local instead of going to the remote Mac. ⌘W is
-    /// NOT reserved: in a session it should close a window on the *remote* Mac,
-    /// not the client window (use ⇧⌘D / the red button to leave the session).
-    private static let locallyReservedKeyEquivalents: Set<String> = ["q", "m", "h", ","]
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -152,14 +136,6 @@ final class RemoteStreamNSView: NSView {
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        guard bounds.contains(point) else { return nil }
-        if point.y >= bounds.height - localChromeBottomInset {
-            return nil
-        }
-        return super.hitTest(point)
-    }
 
     // MARK: - Geometry
 
@@ -304,11 +280,6 @@ final class RemoteStreamNSView: NSView {
 
     override func mouseMoved(with event: NSEvent) {
         let point = viewPoint(for: event)
-        guard !isPointInLocalChrome(point) else {
-            setLocalCursorHidden(false)
-            return
-        }
-        onBackgroundPointerActivity?()
         guard isInputEnabled else {
             setLocalCursorHidden(false)
             return
@@ -338,21 +309,13 @@ final class RemoteStreamNSView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        let point = viewPoint(for: event)
-        guard !isPointInLocalChrome(point) else { return }
         window?.makeFirstResponder(self)
-        onBackgroundPointerActivity?()
         let translated = RemotePrimaryClickTranslation.button(
             controlPressed: event.modifierFlags.contains(.control))
         if translated == .right {
             controlClickIsDown = true
         }
         handleButton(translated, isDown: true, event: event)
-    }
-
-    private func isPointInLocalChrome(_ point: CGPoint) -> Bool {
-        guard localChromeBottomInset > 0 else { return false }
-        return point.y >= bounds.height - localChromeBottomInset
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -421,13 +384,16 @@ final class RemoteStreamNSView: NSView {
     }
 
     /// Forward Cmd-shortcuts to the host (Cmd+C/V, Cmd+Tab won't get here, but
-    /// app-level equivalents do) except a few reserved for this app itself.
+    /// app-level equivalents do) except the ones this app binds in its own menus
+    /// — see `RemoteKeyEquivalentPolicy`. ⌘W is deliberately not reserved: in a
+    /// session it should close a window on the *remote* Mac.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard isInputEnabled, event.type == .keyDown else { return false }
         guard event.modifierFlags.contains(.command) else { return false }
-        if let chars = event.charactersIgnoringModifiers?.lowercased(),
-           Self.locallyReservedKeyEquivalents.contains(chars),
-           !event.modifierFlags.contains(.shift) {
+        if RemoteKeyEquivalentPolicy.staysLocal(
+            characters: event.charactersIgnoringModifiers ?? "",
+            modifiers: event.modifierFlags
+        ) {
             return false
         }
         // Cmd-shortcuts don't generate a matching keyUp through this path, so send

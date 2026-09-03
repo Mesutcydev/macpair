@@ -37,6 +37,7 @@ targets:
       - path: Sources/ClientiOS
         includes:
           - "AppHaptics.swift"
+          - "AppStreamViewModel.swift"
           - "BonjourWakeService.swift"
           - "BeetCodeRemoteClient.swift"
           - "ClientAppEnvironment.swift"
@@ -106,12 +107,16 @@ targets:
     sources:
       - path: MacClient/Tests
       - path: MacClient/Sources/MacMenuBarSemanticState.swift
-      - path: MacClient/Sources/SessionControlBarLayout.swift
+      - path: MacClient/Sources/MacStreamingQualityPolicy.swift
+      - path: MacClient/Sources/MacHostNicknameStore.swift
+      - path: MacClient/Sources/RemoteInputPolicy.swift
     dependencies:
       - package: RemoteDesktopTool
         product: SharedModels
       - package: RemoteDesktopTool
         product: SharedUtilities
+      - package: RemoteDesktopTool
+        product: Discovery
 
 schemes:
   MacClient:

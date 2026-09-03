@@ -797,19 +797,44 @@ final class BeetCodeVideoRendererViewModel: ObservableObject {
     @Published private(set) var geometry: BeetCodeDisplayGeometry?
     @Published private(set) var isReceiving = false
     @Published private(set) var lastError: String?
+    /// Rolling decoded frame rate, recomputed about once a second. Nil until the
+    /// first full window has elapsed, so a session-stats readout can show "—"
+    /// rather than a misleading number from a partial sample.
+    @Published private(set) var framesPerSecond: Double?
 
     private let decoder = VideoFrameDecoder()
     private var streamTask: Task<Void, Never>?
     private var sequence: UInt64 = 0
     private var acceptingFrames = false
+    private var frameRateWindowStart: TimeInterval?
+    private var frameRateWindowCount = 0
 
     init() {
         decoder.onDecodedFrame = { [weak self] pixelBuffer, _ in
             Task { @MainActor [weak self] in
                 guard let self, self.acceptingFrames else { return }
                 self.latestPixelBuffer = pixelBuffer
+                self.noteDecodedFrame()
             }
         }
+    }
+
+    /// A one-second counting window, not a smoothed estimator. Good
+    /// enough to tell a healthy stream from a stalled one, which is all the
+    /// readout claims.
+    private func noteDecodedFrame() {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard let start = frameRateWindowStart else {
+            frameRateWindowStart = now
+            frameRateWindowCount = 1
+            return
+        }
+        frameRateWindowCount += 1
+        let elapsed = now - start
+        guard elapsed >= 1 else { return }
+        framesPerSecond = Double(frameRateWindowCount) / elapsed
+        frameRateWindowStart = now
+        frameRateWindowCount = 0
     }
 
     func start(
@@ -853,6 +878,7 @@ final class BeetCodeVideoRendererViewModel: ObservableObject {
                         case let .jpeg(data):
                             if let pixelBuffer = Self.pixelBuffer(from: data) {
                                 self.latestPixelBuffer = pixelBuffer
+                                self.noteDecodedFrame()
                             }
                         }
                     }
@@ -864,6 +890,9 @@ final class BeetCodeVideoRendererViewModel: ObservableObject {
                     return
                 } catch {
                     self.isReceiving = false
+                    self.framesPerSecond = nil
+                    self.frameRateWindowStart = nil
+                    self.frameRateWindowCount = 0
                     self.lastError = receivedFrame
                         ? "Connection interrupted. Reconnecting…"
                         : "Waiting for Vamp Assistant… \(error.localizedDescription)"
@@ -884,6 +913,9 @@ final class BeetCodeVideoRendererViewModel: ObservableObject {
         latestPixelBuffer = nil
         geometry = nil
         isReceiving = false
+        framesPerSecond = nil
+        frameRateWindowStart = nil
+        frameRateWindowCount = 0
     }
 
     private static func pixelBuffer(from data: Data) -> CVPixelBuffer? {

@@ -10,6 +10,7 @@ import Foundation
 @MainActor
 final class MacAssistantSession: ObservableObject {
     struct ConnectedSession {
+        let id: UUID
         let client: BeetCodeRemoteClient
         let address: String
         let displayName: String
@@ -54,6 +55,7 @@ final class MacAssistantSession: ObservableObject {
             savedAddress = endpoint.url.absoluteString
             defaults.set(endpoint.url.absoluteString, forKey: savedAddressKey)
             connected = ConnectedSession(
+                id: UUID(),
                 client: client,
                 address: endpoint.url.absoluteString,
                 displayName: response.product?.isEmpty == false ? response.product! : "Vamp Assistant",
@@ -83,6 +85,7 @@ final class MacAssistantSession: ObservableObject {
             let client = BeetCodeRemoteClient(baseURL: endpoint.url, token: token)
             let status = try await client.controlStatus()
             connected = ConnectedSession(
+                id: UUID(),
                 client: client,
                 address: endpoint.url.absoluteString,
                 displayName: "Vamp Assistant",
@@ -100,6 +103,7 @@ final class MacAssistantSession: ObservableObject {
         do {
             let status = try await connected.client.controlStatus()
             self.connected = ConnectedSession(
+                id: connected.id,
                 client: connected.client,
                 address: connected.address,
                 displayName: connected.displayName,

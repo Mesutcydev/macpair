@@ -29,6 +29,18 @@ struct MacHostsScreen: View {
     @State private var pendingTailscaleHost: DiscoveredHostRow?
     @State private var showsAssistantPairing = false
 
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+
+    @ObservedObject private var nicknames = MacHostNicknameStore.shared
+    /// The host being renamed, plus the in-progress text.
+    @State private var renamingHost: DiscoveredHostRow?
+    @State private var renameText = ""
+
+    /// The manual-add field is the only text control on the screen, so AppKit
+    /// made it first responder on launch — a blue focus ring shouting for
+    /// attention before the user has any intent to type an address.
+    @FocusState private var manualFieldFocused: Bool
+
     init(environment: ClientAppEnvironment, assistant: MacAssistantSession) {
         self.environment = environment
         self.assistant = assistant
@@ -43,22 +55,33 @@ struct MacHostsScreen: View {
             manualEntryBar
         }
         .background(MacBrand.pageBackdrop)
+        .defaultFocus($manualFieldFocused, false)
         .toolbar {
+            // The idle window's title bar used to carry nothing but a refresh
+            // icon, so the top of the app read as unfinished next to the
+            // session toolbar. Give it the same status-pill idiom.
+            discoveryStatusItem
+            wordmarkItem
+
             ToolbarItem(placement: .primaryAction) {
-                if isScanning {
-                    HStack(spacing: 6) {
-                        ProgressView().controlSize(.small)
-                        Text("Scanning…").foregroundStyle(.secondary)
-                    }
-                    .help("Searching the local network…")
-                } else {
-                    Button {
-                        Task { await hostsVM.refresh() }
-                    } label: {
-                        Label("Refresh", systemImage: "arrow.clockwise")
-                    }
-                    .help("Search the local network again")
+                Button {
+                    showsAssistantPairing = true
+                } label: {
+                    SessionToolbarToggleLabel(title: "Pair Assistant", systemImage: "sparkles.rectangle.stack")
                 }
+                .buttonStyle(SessionToolbarToggleButtonStyle())
+                .help("Pair a Mac running Vamp Assistant")
+                .accessibilityLabel("Pair Vamp Assistant")
+            }
+
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    Task { await hostsVM.refresh() }
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .disabled(isScanning)
+                .help("Search the local network again")
             }
         }
         .task { await hostsVM.start() }
@@ -100,6 +123,17 @@ struct MacHostsScreen: View {
         .sheet(isPresented: $showsAssistantPairing) {
             MacAssistantPairingSheet(model: assistant)
         }
+        .sheet(item: $renamingHost) { row in
+            MacRenameHostSheet(
+                advertisedName: row.endpoint.metadata.displayName,
+                text: $renameText,
+                onCancel: { renamingHost = nil },
+                onSave: {
+                    nicknames.setNickname(renameText, for: row.endpoint)
+                    renamingHost = nil
+                }
+            )
+        }
     }
 
     private var isConnecting: Bool {
@@ -135,7 +169,7 @@ struct MacHostsScreen: View {
         } else if isInitialScan {
             centeredState {
                 DiscoveryHero(isScanning: true)
-                Text("Searching for Vamp Host and Vamp Mini Host…")
+                Text("Searching for Vamp Host and Vamp Sync…")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
@@ -165,7 +199,7 @@ struct MacHostsScreen: View {
                 .padding(.bottom, 4)
             Text("No Macs found yet")
                 .font(.title2.weight(.semibold))
-            Text("Open Vamp Host, Vamp Mini Host, or pair Vamp Assistant. Keep both Macs on the same LAN or reachable over Tailscale.")
+            Text("Open Vamp Host, Vamp Sync, or pair Vamp Assistant. Keep both Macs on the same LAN or reachable over Tailscale.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 440)
@@ -234,8 +268,7 @@ struct MacHostsScreen: View {
         GeometryReader { geo in
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    header
-
+                    sectionLabel("Pair with a code")
                     assistantCard
 
                     if let message = errorBannerMessage {
@@ -247,15 +280,22 @@ struct MacHostsScreen: View {
                             .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
 
+                    sectionLabel("On your network")
+                        .padding(.top, 4)
+
                     LazyVStack(spacing: 10) {
                         ForEach(hostsVM.displayHosts) { row in
                             HostCardView(
                                 row: row,
+                                displayName: nicknames.displayName(for: row.endpoint),
+                                isRenamed: nicknames.nickname(for: row.endpoint) != nil,
                                 isBusy: isConnecting,
                                 canWake: canWake(row),
                                 isWaking: wakingHostID == row.id,
                                 onConnect: { connect(to: row) },
                                 onWake: { sendWake(row) },
+                                onRename: { beginRename(row) },
+                                onResetName: { nicknames.setNickname(nil, for: row.endpoint) },
                                 onToggleSave: {
                                     if row.isSaved { hostsVM.removeSavedHost(row.id) }
                                     else { hostsVM.saveHost(row.id) }
@@ -276,30 +316,68 @@ struct MacHostsScreen: View {
         }
     }
 
-    private var header: some View {
-        HStack(spacing: 14) {
-            Image(nsImage: NSApplication.shared.applicationIconImage)
-                .resizable()
-                .frame(width: 48, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Your Macs")
-                    .font(.title.weight(.semibold))
-                Text(hostSubtitle)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
+    /// Sits directly on the backdrop art rather than on glass, so it needs more
+    /// weight than a plain secondary label to stay readable over the engraving.
+    /// macOS 26 wraps every toolbar item in its own glass capsule. That is right
+    /// for controls and wrong for ambient status text, which should read as part
+    /// of the bar rather than as a second shape competing with the window title.
+    @ToolbarContentBuilder
+    private var discoveryStatusItem: some ToolbarContent {
+        if #available(macOS 26.0, *) {
+            ToolbarItem(placement: .navigation) { discoveryStatus }
+                .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .navigation) { discoveryStatus }
         }
-        .padding(.bottom, 2)
     }
 
-    private var hostSubtitle: String {
-        let count = hostsVM.displayHosts.count
-        let online = hostsVM.displayHosts.filter(\.isAvailable).count
-        if count == 0 { return "Searching your network…" }
-        let noun = count == 1 ? "Mac" : "Macs"
-        return "\(count) \(noun) found · \(online) online"
+    /// Centred in the bar rather than trailing the status text, and unchromed
+    /// for the same reason the status is: it is a wordmark, not a control.
+    @ToolbarContentBuilder
+    private var wordmarkItem: some ToolbarContent {
+        if #available(macOS 26.0, *) {
+            ToolbarItem(placement: .principal) { MacBrandWordmark() }
+                .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .principal) { MacBrandWordmark() }
+        }
+    }
+
+    private var discoveryStatus: some View {
+        MacDiscoveryStatus(
+            title: discoveryStatusText,
+            tint: discoveryStatusColor,
+            isScanning: isScanning,
+            differentiateWithoutColor: differentiateWithoutColor
+        )
+    }
+
+    private func sectionLabel(_ title: String) -> some View {
+        Text(title)
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.primary.opacity(0.72))
+            .textCase(.uppercase)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private var discoveryStatusColor: Color {
+        if case .localNetworkIssue = hostsVM.state { return .orange }
+        if isScanning { return .yellow }
+        return hostsVM.displayHosts.contains(where: \.isAvailable) ? .green : .secondary
+    }
+
+    /// One line, one fact. Stacking "2 Macs found" over "2 online" crammed two
+    /// counts of the same thing into a two-line pill built for a live session's
+    /// host name and quality; "2 of 2 online" says both at once.
+    private var discoveryStatusText: String {
+        if case .localNetworkIssue = hostsVM.state { return "Local network blocked" }
+        let hosts = hostsVM.displayHosts
+        guard !hosts.isEmpty else { return isScanning ? "Scanning…" : "No Macs found" }
+        let online = hosts.filter(\.isAvailable).count
+        if online == hosts.count {
+            return "\(online) online"
+        }
+        return "\(online) of \(hosts.count) online"
     }
 
     private var assistantCard: some View {
@@ -377,12 +455,18 @@ struct MacHostsScreen: View {
         HStack(spacing: 10) {
             Image(systemName: "plus.circle")
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             TextField("Add a Mac by IP or hostname  (e.g. 192.168.1.20:9471)", text: $manualAddress)
                 .textFieldStyle(.roundedBorder)
+                .focused($manualFieldFocused)
+                // Return submits only while this field has focus. It used to be
+                // the window's default action, so Return anywhere on the screen
+                // meant "Add" — including while a host was selected.
                 .onSubmit(addManualHost)
                 // A stale "Invalid address" shouldn't linger while the user is
                 // already fixing the input.
                 .onChange(of: manualAddress) { _ in manualAddError = nil }
+                .accessibilityLabel("Add a Mac by IP address or hostname")
 
             if let manualAddError {
                 Text(manualAddError)
@@ -390,7 +474,6 @@ struct MacHostsScreen: View {
                     .foregroundStyle(.red)
             }
             Button("Add", action: addManualHost)
-                .keyboardShortcut(.defaultAction)
                 .disabled(manualAddress.trimmingCharacters(in: .whitespaces).isEmpty)
         }
         // Match the 720pt card column so the footer aligns with the list above
@@ -399,6 +482,7 @@ struct MacHostsScreen: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 28)
         .padding(.vertical, 10)
+        .background(.bar)
     }
 
     // MARK: - Connecting overlay
@@ -410,7 +494,7 @@ struct MacHostsScreen: View {
                 ProgressView().controlSize(.large)
                 Text(connectingStatusText)
                     .font(.title3.weight(.semibold))
-                Text("If this is the first connection, approve this Mac in the Vamp Host or Vamp Mini Host window on the other computer.")
+                Text("If this is the first connection, approve this Mac in the Vamp Host or Vamp Sync window on the other computer.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -440,6 +524,11 @@ struct MacHostsScreen: View {
     }
 
     // MARK: - Actions
+
+    private func beginRename(_ row: DiscoveredHostRow) {
+        renameText = nicknames.displayName(for: row.endpoint)
+        renamingHost = row
+    }
 
     private func addManualHost() {
         let address = manualAddress.trimmingCharacters(in: .whitespaces)
@@ -600,105 +689,194 @@ private struct DiscoveryHero: View {
 }
 
 // MARK: - Host card
-
 private struct HostCardView: View {
     let row: DiscoveredHostRow
+    /// The nickname if this Mac has one, otherwise the advertised name.
+    let displayName: String
+    let isRenamed: Bool
     let isBusy: Bool
     let canWake: Bool
     let isWaking: Bool
     let onConnect: () -> Void
     let onWake: () -> Void
+    let onRename: () -> Void
+    let onResetName: () -> Void
     let onToggleSave: () -> Void
 
     @State private var isHovering = false
+    @FocusState private var isFocused: Bool
 
+    private var cardShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: MacBrand.cardCornerRadius, style: .continuous)
+    }
+
+    /// The whole card is one button. Previously only the small trailing Connect
+    /// button did anything and a single click on the row was inert, which reads
+    /// on macOS as a selection that never happens; the real action was an
+    /// undiscoverable double-click.
     var body: some View {
-        BrandCard(hovering: isHovering) {
-            HStack(spacing: 14) {
-                // Icon tile — neutral fill; accent only when reachable.
-                Image(systemName: "desktopcomputer")
-                    .font(.title2)
-                    .foregroundStyle(row.isAvailable ? Color.accentColor : Color.secondary)
-                    .frame(width: 48, height: 48)
-                    .background(
-                        RoundedRectangle(cornerRadius: 11, style: .continuous)
-                            .fill(row.isAvailable
-                                  ? Color.accentColor.opacity(0.12)
-                                  : Color.secondary.opacity(0.12))
-                    )
-
-                // Name + address
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text(row.title)
-                            .font(.headline)
-                            .lineLimit(1)
-                        if row.isSaved {
-                            Image(systemName: "star.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.yellow)
-                                .help("Saved host")
-                        }
-                    }
-                    Text(row.subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                        .lineLimit(1)
+        Button(action: primaryAction) {
+            BrandCard(hovering: isHovering) {
+                HStack(spacing: 14) {
+                    icon
+                    details
+                    Spacer(minLength: 12)
+                    statusPill
+                    actionAffordance
                 }
-
-                Spacer(minLength: 12)
-
-                statusPill
-                trailingAction
+                .padding(14)
+                .contentShape(cardShape)
             }
-            .padding(14)
+        }
+        .buttonStyle(.plain)
+        .disabled(!isActionable)
+        .focused($isFocused)
+        .overlay {
+            if isFocused {
+                cardShape
+                    .strokeBorder(Color.accentColor, lineWidth: 3)
+                    .allowsHitTesting(false)
+            }
         }
         .animation(.easeOut(duration: 0.15), value: isHovering)
         .onHover { isHovering = $0 }
-        // Finder idiom: double-click an online host to connect.
-        .onTapGesture(count: 2) {
-            if row.isAvailable && !isBusy { onConnect() }
-        }
         .contextMenu {
+            Button("Rename…", action: onRename)
+            if isRenamed {
+                Button("Reset to \(row.endpoint.metadata.displayName)", action: onResetName)
+            }
+            Divider()
             Button(row.isSaved ? "Remove from Saved" : "Save Host", action: onToggleSave)
             if canWake {
                 Button(isWaking ? "Waking…" : "Wake Host", action: onWake)
                     .disabled(isWaking)
             }
         }
+        .help(actionHint)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(displayName)
+        .accessibilityValue("\(productName), \(row.isAvailable ? "online" : "offline"), \(row.subtitle)")
+        .accessibilityHint(actionHint)
     }
 
-    /// Connect when the host is reachable; Wake when it's asleep but reachable
-    /// by magic packet or Sleep Proxy; otherwise a disabled Connect.
-    @ViewBuilder
-    private var trailingAction: some View {
+    // MARK: - Action
+
+    /// Online hosts connect; a sleeping host that we know how to reach wakes.
+    private var isActionable: Bool {
+        if isBusy { return false }
+        return row.isAvailable || (canWake && !isWaking)
+    }
+
+    private func primaryAction() {
         if row.isAvailable {
-            Button(action: onConnect) {
-                Text("Connect").frame(minWidth: 56)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(isBusy)
+            onConnect()
         } else if canWake {
-            Button(action: onWake) {
-                Label(isWaking ? "Waking…" : "Wake",
-                      systemImage: isWaking ? "bolt.horizontal.fill" : "power")
-                    .frame(minWidth: 56)
-            }
-            .buttonStyle(.bordered)
-            .tint(.orange)
-            .controlSize(.large)
-            .disabled(isWaking)
-            .help("Send a wake signal to this sleeping Mac")
-        } else {
-            Button(action: onConnect) {
-                Text("Connect").frame(minWidth: 56)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(true)
+            onWake()
         }
+    }
+
+    private var actionHint: String {
+        if row.isAvailable { return "Connect to \(displayName)" }
+        if canWake { return "Send a wake signal to \(displayName)" }
+        return "\(displayName) is offline and can’t be woken from here"
+    }
+
+    // MARK: - Pieces
+
+    private var icon: some View {
+        Image(systemName: "desktopcomputer")
+            .font(.title2)
+            .foregroundStyle(row.isAvailable ? Color.accentColor : Color.secondary)
+            .frame(width: 48, height: 48)
+            .background(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(row.isAvailable
+                          ? Color.accentColor.opacity(0.12)
+                          : Color.secondary.opacity(0.12))
+            )
+    }
+
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text(displayName)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if isRenamed {
+                    Image(systemName: "pencil")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .help("Renamed on this Mac — the host still advertises “\(row.endpoint.metadata.displayName)”")
+                }
+                if row.isSaved {
+                    Image(systemName: "star.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.yellow)
+                }
+            }
+            HStack(spacing: 8) {
+                productBadge
+                Text(row.subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    /// Vamp Sync shares one app window; Vamp Host shares the whole desktop.
+    /// They are indistinguishable in the list otherwise, and picking the wrong
+    /// one is the difference between a desktop and an app browser. Rendered as a
+    /// badge rather than more dot-separated prose — the subtitle already carries
+    /// an address.
+    private var productBadge: some View {
+        Text(productName)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(Color.secondary.opacity(0.14), in: Capsule())
+    }
+
+    private var productName: String {
+        let capabilities = row.endpoint.metadata.capabilities
+        if capabilities.contains(.supportsAppStreaming), !capabilities.contains(.supportsMultiDisplay) {
+            return "Vamp Sync"
+        }
+        return "Vamp Host"
+    }
+
+    /// Looks like the old trailing button but is part of the card's own hit
+    /// area — a real nested button inside a button swallows the outer action.
+    @ViewBuilder
+    private var actionAffordance: some View {
+        if isBusy {
+            ProgressView().controlSize(.small)
+        } else if row.isAvailable {
+            affordanceLabel("Connect", tint: Color.accentColor, filled: true)
+        } else if canWake {
+            affordanceLabel(isWaking ? "Waking…" : "Wake", tint: .orange, filled: false)
+        } else {
+            affordanceLabel("Offline", tint: .secondary, filled: false)
+        }
+    }
+
+    private func affordanceLabel(_ title: String, tint: Color, filled: Bool) -> some View {
+        Text(title)
+            .font(.callout.weight(.medium))
+            .foregroundStyle(filled ? Color.white : tint)
+            .frame(minWidth: 56)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background {
+                if filled {
+                    Capsule().fill(tint.opacity(isHovering ? 1 : 0.9))
+                } else {
+                    Capsule().strokeBorder(tint.opacity(0.5), lineWidth: 1)
+                }
+            }
     }
 
     private var statusPill: some View {
@@ -716,5 +894,98 @@ private struct HostCardView: View {
             (row.isAvailable ? Color.green : Color.secondary).opacity(0.12),
             in: Capsule()
         )
+    }
+}
+
+// MARK: - Rename
+
+/// Renames a Mac locally. The host keeps advertising its own name; this is a
+/// label for this Mac only, so the sheet says so rather than implying it edits
+/// the remote machine.
+private struct MacRenameHostSheet: View {
+    let advertisedName: String
+    @Binding var text: String
+    let onCancel: () -> Void
+    let onSave: () -> Void
+
+    @FocusState private var fieldFocused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Rename Mac")
+                .font(.headline)
+
+            TextField("Name", text: $text)
+                .textFieldStyle(.roundedBorder)
+                .focused($fieldFocused)
+                .onSubmit(onSave)
+                .accessibilityLabel("Name for this Mac")
+
+            Text("Shown only on this Mac. \(advertisedName) keeps its own name; leave the field empty to go back to it.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                    .keyboardShortcut(.cancelAction)
+                Button("Save", action: onSave)
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(20)
+        .frame(width: 380)
+        .onAppear { fieldFocused = true }
+    }
+}
+
+// MARK: - Discovery status
+
+/// Ambient status text for the host list's toolbar.
+///
+/// Deliberately unchromed: it is not a control and nothing here is tappable, so
+/// a capsule around it only added a second competing shape next to the window
+/// title. It reads as part of the toolbar instead.
+private struct MacDiscoveryStatus: View {
+    let title: String
+    let tint: Color
+    let isScanning: Bool
+    let differentiateWithoutColor: Bool
+
+    @Environment(\.controlActiveState) private var controlActiveState
+
+    private var dotColor: Color {
+        controlActiveState == .inactive ? Color.secondary : tint
+    }
+
+    var body: some View {
+        HStack(spacing: 7) {
+            if isScanning {
+                ProgressView()
+                    .controlSize(.mini)
+                    .scaleEffect(0.8)
+                    .frame(width: 10, height: 10)
+            } else {
+                Circle()
+                    .fill(dotColor)
+                    .frame(width: 7, height: 7)
+                    .overlay {
+                        if differentiateWithoutColor {
+                            Circle().strokeBorder(Color.primary.opacity(0.55), lineWidth: 1)
+                        }
+                    }
+            }
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .padding(.trailing, 6)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Discovery status")
+        .accessibilityValue(title)
     }
 }

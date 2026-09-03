@@ -45,6 +45,14 @@ public struct NegotiatedCapabilities: Codable, Hashable, Sendable {
         self.supportsAppStreaming = supportsAppStreaming
     }
 
+    /// A host that shares one application window and has no display stream —
+    /// Vamp Sync. It starts no capture until the client names a target, so a
+    /// client that just waits for video will wait forever; it must show an
+    /// application browser instead.
+    public var isAppStreamingOnly: Bool {
+        supportsAppStreaming && !supportsMultiDisplay && !supportsTerminal
+    }
+
     private enum CodingKeys: String, CodingKey {
         case videoCodec
         case supportsMultiDisplay

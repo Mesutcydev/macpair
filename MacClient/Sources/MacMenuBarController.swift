@@ -17,7 +17,7 @@ final class MacMenuBarController: NSObject, ObservableObject {
     }()
 
     private let logger = Logger(
-        subsystem: "com.mesutcy.vamp.remote",
+        subsystem: "com.mesutcy.remotedesktop.client",
         category: "MenuBar"
     )
     private var statusItem: NSStatusItem?

@@ -214,6 +214,11 @@ final class ClientSessionCoordinator: ObservableObject {
     /// their authenticated data-channel session alive without waiting for a
     /// frame or surfacing the normal "no video" timeout.
     private var terminalOnlySession = false
+    /// A host that negotiated App Streaming but has no display stream (Vamp
+    /// Sync) deliberately starts no capture until the client names a window.
+    /// Published so the session UI can show its app browser instead of waiting
+    /// for video that will never arrive on its own.
+    @Published private(set) var appStreamingOnlySession = false
     private var latencyProbeTask: Task<Void, Never>?
     private var disconnectTask: Task<Void, Never>?
     private let qualityService = NetworkQualityIndicatorService()
@@ -382,6 +387,7 @@ final class ClientSessionCoordinator: ObservableObject {
         blockedState = nil
         negotiatedCapabilities = nil
         terminalOnlySession = false
+        appStreamingOnlySession = false
         connectedHostName = endpoint.metadata.displayName
         let target = normalizedHostAndPort(host: endpoint.hostname, fallbackPort: endpoint.metadata.signalingPort)
         connectionDebugger.mark("connect → \(target.host):\(target.port)", metadata: [
@@ -497,7 +503,7 @@ final class ClientSessionCoordinator: ObservableObject {
                     bonjourSig.connectionPIN = nil
                     sigSvc.disconnect()
                     throw RemoteDesktopError.connectionFailed(
-                        "Secure connection to the Mac failed. Make sure the matching host is running: Vamp Host for remote control or Vamp Terminal Host for terminal tabs. Update it, then try again."
+                        "Secure connection to the Mac failed. Make sure a Vamp host is running on that Mac — Vamp Host for the full desktop, Vamp Sync for a single app window, or Vamp Terminal Host for terminal tabs. Update it, then try again."
                     )
                 }
             }
@@ -997,6 +1003,7 @@ final class ClientSessionCoordinator: ObservableObject {
         self.chatMessages = []
         self.negotiatedCapabilities = nil
         self.terminalOnlySession = false
+        self.appStreamingOnlySession = false
         self.phase = .idle
 
         await self.eventLogStore.append(EventLogItem(
@@ -1036,14 +1043,14 @@ final class ClientSessionCoordinator: ObservableObject {
                 if self.activeSessionID == sessionID,
                    (self.phase == .negotiating || self.phase == .signalingConnected) {
                     self.phase = .error
-                    self.errorMessage = "Vamp Host closed the pairing request. Open Vamp Host and approve this device, then tap Connect again."
+                    self.errorMessage = "The Mac closed the pairing request. Open its Vamp host window — Vamp Host or Vamp Sync — approve this device, then connect again."
                 }
             } catch {
                 self.logger.warning("Signaling receive ended: \(error.localizedDescription)")
                 if self.activeSessionID == sessionID,
                    (self.phase == .negotiating || self.phase == .signalingConnected) {
                     self.phase = .error
-                    self.errorMessage = "Waiting for Vamp Host approval ended. Open Vamp Host, approve this device, then tap Connect again."
+                    self.errorMessage = "Waiting for approval ended. Open the Mac's Vamp host window — Vamp Host or Vamp Sync — approve this device, then connect again."
                 }
             }
         }
@@ -1117,6 +1124,7 @@ final class ClientSessionCoordinator: ObservableObject {
             terminalOnlySession = ready.negotiatedCapabilities.supportsTerminal
                 && ready.negotiatedCapabilities.supportsMultipleTerminals
                 && !ready.negotiatedCapabilities.supportsMultiDisplay
+            appStreamingOnlySession = ready.negotiatedCapabilities.isAppStreamingOnly
             if terminalOnlySession {
                 videoObserverTask?.cancel()
                 videoObserverTask = nil
@@ -1356,7 +1364,12 @@ final class ClientSessionCoordinator: ObservableObject {
                 // .waitingForMedia with no deadline, so a wedged encoder / never-opened video
                 // channel / no-display-selected host left a perpetual "connecting…" spinner.
                 // Resolve it with actionable guidance instead of hanging forever.
+                // An app-streaming-only host has nothing to send until the user
+                // picks a window, so "no video yet" is the normal resting state
+                // rather than a wedged encoder. Failing it out here stranded every
+                // Vamp Sync session on a Screen-Recording error 15s after connecting.
                 if diag.firstFrameReceivedAt == nil,
+                   !self.appStreamingOnlySession,
                    elapsed >= Self.mediaArrivalTimeoutSeconds,
                    self.phase == .waitingForMedia {
                     self.logger.error("No video after \(String(format: "%.0f", elapsed))s in waitingForMedia — surfacing error")

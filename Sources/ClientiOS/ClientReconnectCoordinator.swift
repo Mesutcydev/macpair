@@ -22,6 +22,11 @@ final class ClientReconnectCoordinator: ObservableObject {
 
     let reconnectManager: ReconnectManager
     let clientProductRole: ClientProductRole
+    /// Must match the value `ClientSessionCoordinator` sends on the initial
+    /// offer. A reconnect that drops it renegotiates the same Mac as a non-Mac
+    /// client and silently loses the Mac-client capability for the rest of the
+    /// session.
+    let isMacClient: Bool
 
     private let _webRTCSessionManager: any WebRTCSessionManaging
     private let _signalingService: any SessionCoordinatorSignaling
@@ -50,12 +55,14 @@ final class ClientReconnectCoordinator: ObservableObject {
         signalingService: any SessionCoordinatorSignaling,
         displayLayoutViewModel: DisplayLayoutViewModel,
         clientProductRole: ClientProductRole = .remoteControl,
+        isMacClient: Bool = false,
         backoffConfiguration: ReconnectBackoff.Configuration = ReconnectBackoff.Configuration()
     ) {
         self._webRTCSessionManager = webRTCSessionManager
         self._signalingService = signalingService
         self.displayLayoutViewModel = displayLayoutViewModel
         self.clientProductRole = clientProductRole
+        self.isMacClient = isMacClient
         self.reconnectManager = ReconnectManager(configuration: backoffConfiguration)
         self.reconnectStatus = ReconnectStatus(maxAttempts: backoffConfiguration.maxAttempts)
 
@@ -238,6 +245,7 @@ private final class ClientReconnectDelegate: ReconnectDelegate, @unchecked Senda
         let signalingPort = await MainActor.run { coord.lastSignalingPort }
         let hostFingerprint = await MainActor.run { coord.lastHostFingerprint }
         let clientProductRole = await MainActor.run { coord.clientProductRole }
+        let isMacClient = await MainActor.run { coord.isMacClient }
 
         // Rebuild signaling first so reconnect does not depend on a stale TCP socket.
         guard let hostAddress, !hostAddress.isEmpty, let signalingPort, signalingPort > 0 else {
@@ -264,7 +272,7 @@ private final class ClientReconnectDelegate: ReconnectDelegate, @unchecked Senda
         )
         let effectiveToken = sessionTokenHex ?? ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
         offer.sessionToken = effectiveToken
-        offer.clientCapabilities = .currentClient(isMacClient: false)
+        offer.clientCapabilities = .currentClient(isMacClient: isMacClient)
         offer.clientProductRole = clientProductRole
         // Reconnect must preserve the normal SDR default. HDR is an explicit
         // session choice, not an implicit side effect of the Ultra preset.

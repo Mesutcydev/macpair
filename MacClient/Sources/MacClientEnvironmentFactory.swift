@@ -46,12 +46,7 @@ enum MacClientEnvironmentFactory {
             displayLayoutViewModel: displayLayoutViewModel
         )
 
-        // A Mac has ample HEVC decode headroom, so default to `.quality` rather
-        // than the cross-platform `.balanced`. Ultra is not the default, so a
-        // fresh install always starts with a conservative valid preset.
-        // Only applied on first launch — a saved user preference always wins.
         let settingsSyncService = ClientSettingsSyncService()
-        let isFirstLaunch = !settingsSyncService.hasPersistedSettings()
 
         let environment = ClientAppEnvironment(
             clientIdentity: client,
@@ -67,8 +62,16 @@ enum MacClientEnvironmentFactory {
             settingsSyncService: settingsSyncService
         )
 
-        if isFirstLaunch {
-            environment.preferredQualityPreset = .quality
+        // A Mac has ample HEVC decode headroom, so `.quality` — not the
+        // phone-sized cross-platform `.balanced` — is the right floor. This used
+        // to run only on a fresh install, which left every already-installed Mac
+        // streaming at Balanced forever. The promotion now runs once per install
+        // and never lowers a preset the user picked themselves.
+        if let promoted = MacStreamingQualityPolicy.promotedPreset(
+            current: environment.preferredQualityPreset,
+            supportsUltra: environment.isUltraQualityEntitled
+        ) {
+            environment.preferredQualityPreset = promoted
         }
 
         return environment

@@ -26,6 +26,9 @@ struct MacRemoteSessionView: View {
     @StateObject private var clipboardSync = ClientClipboardSyncManager()
     @StateObject private var fileTransferManager: ClientFileTransferManager
     @StateObject private var terminalSession = ClientTerminalSessionManager()
+    /// Drives the app browser for hosts that stream a single window (Vamp Sync).
+    @StateObject private var appStream: AppStreamViewModel
+    @ObservedObject private var nicknames = MacHostNicknameStore.shared
 
     @State private var displaySwitchObserverTask: Task<Void, Never>?
     @State private var isTerminalPresented = false
@@ -47,13 +50,6 @@ struct MacRemoteSessionView: View {
     @AppStorage("client.clipboard.enabled") private var clipboardEnabled = true
     @AppStorage("com.remotedesktop.client.filetransfer.enabled") private var fileTransferEnabled = true
     @AppStorage("client.displayMode") private var displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
-    @AppStorage(ConnectionControlsPresentation.storageKey)
-    private var controlsPresentation = ConnectionControlsPresentation.floatingPill.rawValue
-
-    private var usesWindowToolbar: Bool {
-        controlsPresentation == ConnectionControlsPresentation.floatingPill.rawValue
-    }
-
     private var displayMode: DisplayMappingEngine.DisplayMode {
         DisplayMappingEngine.DisplayMode(rawValue: displayModeRaw) ?? .fitDisplay
     }
@@ -80,6 +76,32 @@ struct MacRemoteSessionView: View {
             sessionCoordinator: environment.sessionCoordinator,
             clientIdentity: environment.clientIdentity
         ))
+        _appStream = StateObject(wrappedValue: AppStreamViewModel(environment: environment))
+    }
+
+    /// Honours a local rename for the whole session, not just the host list.
+    private var hostDisplayName: String {
+        if let endpoint = coordinator.lastEndpoint {
+            return nicknames.displayName(for: endpoint)
+        }
+        return coordinator.connectedHostName ?? "Connected"
+    }
+
+    // MARK: - App streaming (Vamp Sync)
+
+    /// True when the host negotiated App Streaming but has no display stream to
+    /// offer — Vamp Sync. Such a host starts no capture at all until the client
+    /// names a window, so the session must present the app browser instead of
+    /// waiting for video that is never coming.
+    private var isAppStreamingOnlyHost: Bool {
+        coordinator.appStreamingOnlySession
+    }
+
+    /// The browser replaces the video surface until the host confirms a target.
+    private var showsAppBrowser: Bool {
+        guard isAppStreamingOnlyHost else { return false }
+        if case .streaming = appStream.status { return false }
+        return true
     }
 
     var body: some View {
@@ -95,8 +117,7 @@ struct MacRemoteSessionView: View {
                 isInputEnabled: !environment.prefersViewOnly
                     && coordinator.phase != .error
                     && coordinator.hostLockState != .lockedOrLoginWindow,
-                displayMode: displayMode,
-                localChromeBottomInset: 0
+                displayMode: displayMode
             )
             .ignoresSafeArea()
 
@@ -109,12 +130,18 @@ struct MacRemoteSessionView: View {
             //    no feedback and the app looked hung until the user force-quit it.
             if reconnectCoordinator.isReconnecting || coordinator.phase == .error {
                 reconnectOverlay
+            } else if showsAppBrowser {
+                MacAppStreamPicker(
+                    vm: appStream,
+                    hostName: hostDisplayName,
+                    onDisconnect: { Task { await coordinator.endSession() } }
+                )
             } else if !rendererVM.isReceiving {
                 waitingForVideoOverlay
             }
 
             VStack(spacing: 8) {
-                if let warning = displayLayoutVM.mappingWarningMessage {
+                if let warning = displayLayoutVM.mappingWarningMessage, !showsAppBrowser {
                     Label(warning, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundStyle(.orange)
@@ -128,19 +155,22 @@ struct MacRemoteSessionView: View {
                 if multiActive {
                     MultiDisplayThumbnailStrip(multi: multiDisplay, onFocus: focusDisplay)
                 }
-                if usesWindowToolbar {
-                    multiDisplayToggle
-                }
+                multiDisplayToggle
             }
             .padding(.top, 10)
             .padding(.horizontal, 12)
         }
         .background(Color.black)
-        .toolbar {
-            if usesWindowToolbar {
-                sessionWindowToolbar
+        // Tell an app-streaming host the shape of the surface it is streaming
+        // into, so it fits the window to this window instead of guessing.
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { appStream.updateClientViewport(size: proxy.size) }
+                    .onChange(of: proxy.size) { appStream.updateClientViewport(size: $0) }
             }
         }
+        .toolbar { sessionWindowToolbar }
         .overlay(alignment: .bottom) {
             if let sessionToast {
                 sessionToastView(sessionToast, isError: sessionToastIsError)
@@ -156,7 +186,21 @@ struct MacRemoteSessionView: View {
         .onAppear(perform: startSession)
         .onDisappear {
             multiDisplay.stopAll()
+            appStream.stop()
             stopSession()
+        }
+        .onChange(of: coordinator.appStreamingOnlySession) { _ in
+            startAppStreamingIfNeeded()
+        }
+        .onChange(of: coordinator.hostLockState) { lockState in
+            guard isAppStreamingOnlyHost else { return }
+            // A locked Mac rejects app inventory and launch commands outright,
+            // so pause the bounded retries instead of burning them on refusals.
+            if lockState == .lockedOrLoginWindow {
+                appStream.pauseForHostLock()
+            } else {
+                appStream.resumeAfterHostUnlock()
+            }
         }
         .onChange(of: coordinator.activeSessionID) { sessionID in
             inputController.sessionID = sessionID
@@ -170,6 +214,7 @@ struct MacRemoteSessionView: View {
                 })
             }
         }
+        .onChange(of: appStream.streamedWindow) { _ in refreshMapping() }
         .onChange(of: displayLayoutVM.selectedDisplayID) { _ in refreshMapping() }
         .onChange(of: displayLayoutVM.streamConfiguration) { _ in refreshMapping() }
         .onChange(of: rendererVM.frameSize) { frameSize in
@@ -212,7 +257,7 @@ struct MacRemoteSessionView: View {
     private var sessionWindowToolbar: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
             SessionToolbarStatusPill(
-                hostName: coordinator.connectedHostName ?? "Connected",
+                hostName: hostDisplayName,
                 qualityColor: networkQualityColor,
                 qualityLabel: coordinator.activeQualityPreset.rawValue.capitalized,
                 differentiateWithoutColor: differentiateWithoutColor
@@ -227,6 +272,12 @@ struct MacRemoteSessionView: View {
                     latencyMs: statsVM.metrics.latencyMs,
                     bitrateKbps: statsVM.metrics.bitrateKbps
                 )
+            }
+        }
+
+        if isAppStreamingOnlyHost {
+            ToolbarItem(placement: .primaryAction) {
+                sessionToolbarAppSwitchButton
             }
         }
 
@@ -361,7 +412,9 @@ struct MacRemoteSessionView: View {
             if clipboardEnabled {
                 Menu {
                     Button("Send Clipboard to Host") { clipboardSync.pushToHost() }
+                        .keyboardShortcut("v", modifiers: [.control, .option])
                     Button("Fetch Clipboard from Host") { clipboardSync.requestFromHost() }
+                        .keyboardShortcut("c", modifiers: [.control, .option])
                 } label: {
                     SessionToolbarIconLabel(systemImage: "doc.on.clipboard")
                 }
@@ -376,7 +429,8 @@ struct MacRemoteSessionView: View {
             }
             .buttonStyle(SessionToolbarIconButtonStyle())
             .disabled(!rendererVM.isReceiving)
-            .help("Save a screenshot of the remote screen")
+            .keyboardShortcut("s", modifiers: [.control, .option])
+            .help("Save a screenshot of the remote screen (⌃⌥S)")
             .accessibilityLabel("Save screenshot")
 
             if fileTransferEnabled {
@@ -394,7 +448,8 @@ struct MacRemoteSessionView: View {
             }
             .buttonStyle(SessionToolbarIconButtonStyle(active: isTerminalPresented))
             .disabled(coordinator.activeSessionID == nil)
-            .help("Open a terminal on the host")
+            .keyboardShortcut("t", modifiers: [.control, .option])
+            .help("Open a terminal on the host (⌃⌥T)")
             .accessibilityLabel("Open a terminal on the host")
 
             Button {
@@ -413,10 +468,32 @@ struct MacRemoteSessionView: View {
         .sessionToolbarClusterChrome()
     }
 
+    /// Vamp Sync streams one window at a time, so the only way back to another
+    /// app is an explicit switch. Without this the first pick was final for the
+    /// life of the session.
+    private var sessionToolbarAppSwitchButton: some View {
+        Button { appStream.backToApps() } label: {
+            SessionToolbarToggleLabel(
+                title: appStreamedAppName ?? "Apps",
+                systemImage: "macwindow.on.rectangle",
+                isActive: showsAppBrowser
+            )
+        }
+        .buttonStyle(SessionToolbarToggleButtonStyle(active: showsAppBrowser))
+        .disabled(showsAppBrowser)
+        .keyboardShortcut("a", modifiers: [.control, .option])
+        .help("Choose a different app to stream (⌃⌥A)")
+        .accessibilityLabel("Choose a different app to stream")
+    }
+
+    private var appStreamedAppName: String? {
+        if case .streaming(_, let name) = appStream.status { return name }
+        return nil
+    }
+
     private var sessionToolbarScreenAIButton: some View {
         Button { showScreenAI = true } label: {
             SessionToolbarToggleLabel(
-                title: "Screen AI",
                 systemImage: "sparkles",
                 isActive: showScreenAI
             )
@@ -509,7 +586,6 @@ struct MacRemoteSessionView: View {
                 audioRenderer.isMuted.toggle()
             } label: {
                 SessionToolbarToggleLabel(
-                    title: audioRenderer.isMuted ? "Muted" : "Audio",
                     systemImage: audioRenderer.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
                     isActive: !audioRenderer.isMuted
                 )
@@ -523,9 +599,6 @@ struct MacRemoteSessionView: View {
                 environment.prefersViewOnly.toggle()
             } label: {
                 SessionToolbarToggleLabel(
-                    title: environment.prefersViewOnly
-                        ? SessionControlMode.viewOnly.title
-                        : SessionControlMode.fullControl.title,
                     systemImage: environment.prefersViewOnly ? "eye.fill" : "cursorarrow.motionlines",
                     isActive: !environment.prefersViewOnly
                 )
@@ -543,7 +616,6 @@ struct MacRemoteSessionView: View {
                 environment.showsStatsOverlay.toggle()
             } label: {
                 SessionToolbarToggleLabel(
-                    title: "Stats",
                     systemImage: environment.showsStatsOverlay ? "chart.bar.fill" : "chart.bar",
                     isActive: environment.showsStatsOverlay
                 )
@@ -678,62 +750,21 @@ struct MacRemoteSessionView: View {
         }
     }
 
-    private func statsOverlay(layoutMode: SessionControlBarLayoutMode) -> some View {
-        Group {
-            if layoutMode == .wide {
-                HStack(spacing: 16) {
-                    statText("Codec", rendererVM.codecName)
-                    if let size = rendererVM.frameSize {
-                        statText("Stream", "\(Int(size.width))×\(Int(size.height))")
-                    }
-                    if let fps = statsVM.metrics.framesPerSecond {
-                        statText("FPS", String(format: "%.0f", fps))
-                    }
-                    if let bitrate = statsVM.metrics.bitrateKbps {
-                        statText("Bitrate", String(format: "%.1f Mbps", bitrate / 1000))
-                    }
-                    if let latency = statsVM.metrics.latencyMs {
-                        statText("Latency", String(format: "%.0f ms", latency))
-                    }
-                    statText("Frames", "\(rendererVM.framesDecoded)")
-                }
-            } else {
-                HStack(spacing: 12) {
-                    if let fps = statsVM.metrics.framesPerSecond {
-                        statText("FPS", String(format: "%.0f", fps))
-                    }
-                    if let latency = statsVM.metrics.latencyMs {
-                        statText("Latency", String(format: "%.0f ms", latency))
-                    }
-                    if let bitrate = statsVM.metrics.bitrateKbps {
-                        statText("Bitrate", String(format: "%.1f Mbps", bitrate / 1000))
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .sessionControlSurface(in: Capsule())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Connection statistics")
-    }
-
-    private func statText(_ label: String, _ value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(label)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.white.opacity(0.72))
-            Text(value)
-                .font(.caption.weight(.semibold).monospacedDigit())
-                .foregroundStyle(.white)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(label) \(value)")
-    }
-
     // MARK: - Session lifecycle
 
+    /// Vamp Sync publishes its app registry only on request, and capabilities
+    /// can land either side of this view appearing — so this runs from both
+    /// `onAppear` and the capability change.
+    private func startAppStreamingIfNeeded() {
+        guard isAppStreamingOnlyHost else { return }
+        appStream.start()
+        if case .idle = appStream.status {
+            appStream.requestApplicationList()
+        }
+    }
+
     private func startSession() {
+        startAppStreamingIfNeeded()
         inputController.sessionID = coordinator.activeSessionID
         inputController.isEnabled = !environment.prefersViewOnly
         refreshMapping()
@@ -920,9 +951,42 @@ struct MacRemoteSessionView: View {
     }
 
     private func refreshMapping() {
+        // An app-streamed session shows one window, but the host still publishes
+        // its full display layout — mapping pointer input against that would
+        // scale every click by the window-to-display ratio and land it in the
+        // wrong place. Map against the streamed window instead, as iOS does.
+        if let window = appStream.streamedWindow {
+            inputController.updateMapping(
+                display: Self.descriptor(for: window),
+                streamConfiguration: nil
+            )
+            return
+        }
         inputController.updateMapping(
             display: displayLayoutVM.selectedDisplay ?? displayLayoutVM.primaryDisplay,
             streamConfiguration: displayLayoutVM.selectedStreamConfiguration
+        )
+    }
+
+    /// The streamed window presented as a display, so the shared coordinate
+    /// mapper can treat an app window exactly like a screen.
+    private static func descriptor(
+        for window: AppStreamViewModel.StreamedWindow
+    ) -> DisplayDescriptor {
+        DisplayDescriptor(
+            id: window.windowID,
+            name: "window",
+            frame: DesktopRect(
+                origin: DesktopPoint(x: 0, y: 0),
+                size: DesktopSize(width: window.pointWidth, height: window.pointHeight)
+            ),
+            pixelSize: DesktopSize(
+                width: window.pointWidth * window.scale,
+                height: window.pointHeight * window.scale
+            ),
+            scaleFactor: window.scale,
+            isPrimary: true,
+            isActive: true
         )
     }
 
@@ -1134,14 +1198,25 @@ struct SessionToolbarStatusPill: View {
     let qualityLabel: String
     let differentiateWithoutColor: Bool
 
+    /// Every other control in the window desaturates when the window loses key;
+    /// a fully saturated status dot in an inactive window reads as the only live
+    /// thing on screen.
+    @Environment(\.controlActiveState) private var controlActiveState
+
+    private var isWindowActive: Bool { controlActiveState != .inactive }
+
+    private var dotColor: Color {
+        isWindowActive ? qualityColor : Color.secondary
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             ZStack {
                 Circle()
-                    .fill(qualityColor.opacity(0.22))
+                    .fill(dotColor.opacity(0.22))
                     .frame(width: 16, height: 16)
                 Circle()
-                    .fill(qualityColor)
+                    .fill(dotColor)
                     .frame(width: 8, height: 8)
                     .overlay {
                         if differentiateWithoutColor {
@@ -1236,19 +1311,31 @@ struct SessionToolbarIconLabel: View {
 }
 
 struct SessionToolbarToggleLabel: View {
-    let title: String
+    /// Nil renders icon-only. State toggles carry their meaning in the symbol
+    /// and tint; spelling every one out blew the toolbar past the window width,
+    /// which pushed items into AppKit's overflow menu where these custom views
+    /// render poorly. Mode indicators (display sizing) keep their title.
+    let title: String?
     let systemImage: String
     var isActive: Bool = false
+
+    init(title: String? = nil, systemImage: String, isActive: Bool = false) {
+        self.title = title
+        self.systemImage = systemImage
+        self.isActive = isActive
+    }
 
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: systemImage)
                 .font(.system(size: 11, weight: .semibold))
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .lineLimit(1)
+            if let title {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .lineLimit(1)
+            }
         }
-        .padding(.horizontal, 9)
+        .padding(.horizontal, title == nil ? 7 : 9)
         .frame(minHeight: 28)
         .contentShape(Capsule())
     }

@@ -254,6 +254,12 @@ final class ClientAppEnvironment: ObservableObject {
     }
 
     var effectivePreferredQualityPreset: StreamQualityPreset {
+        // `.nominal` is deliberate, not a stub: this value is the preset the
+        // client *requests* at connect time, and the host owns runtime
+        // adaptation — it downgrades for its own thermal and power pressure and
+        // the congestion controller trims bitrate live. Feeding this device's
+        // thermal state in here would cap the request permanently for the whole
+        // session on the strength of one instantaneous reading.
         let resolved = performancePolicyService.profile(
             preferredPreset: preferredQualityPreset,
             lowPowerModeEnabled: lowPowerModeEnabled,

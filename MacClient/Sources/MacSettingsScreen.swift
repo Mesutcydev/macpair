@@ -38,7 +38,10 @@ struct MacSettingsScreen: View {
             openSourceTab
                 .tabItem { Label("Open Source", systemImage: "checkmark.seal") }
         }
-        .frame(width: 520, height: 440)
+        // Sized to the tallest tab. At 440 the General tab overflowed into a
+        // scroller and clipped the last row mid-toggle, which a macOS settings
+        // pane should never do.
+        .frame(width: 540, height: 580)
     }
 
     // MARK: - Diagnostics
@@ -68,8 +71,8 @@ struct MacSettingsScreen: View {
                     Text("No events yet — connect to a Mac, then reopen this.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Group {
                             ForEach(logItems.reversed()) { item in
                                 HStack(alignment: .top, spacing: 6) {
                                     Text(item.severity.rawValue.uppercased())
@@ -83,7 +86,6 @@ struct MacSettingsScreen: View {
                             }
                         }
                     }
-                    .frame(height: 220)
                 }
             } header: { Text("Connection log") }
         }
@@ -147,14 +149,15 @@ struct MacSettingsScreen: View {
                 Toggle(isOn: $environment.lowPowerModeEnabled) {
                     Label("Low power mode (reduce refresh rate)", systemImage: "leaf")
                 }
-                Picker("Connection Controls", selection: connectionControlsPresentation) {
-                    ForEach(ConnectionControlsPresentation.allCases) { mode in
-                        Text(mode.settingsLabel).tag(mode)
-                    }
+                Toggle(isOn: menuBarItemEnabled) {
+                    Label("Show a menu bar status item", systemImage: "menubar.arrow.up.rectangle")
                 }
-                .pickerStyle(.radioGroup)
             } header: {
                 Text("During Sessions")
+            } footer: {
+                Text("The session toolbar is always available in the window. The menu bar item adds connection status and a quick Disconnect.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section {
@@ -196,16 +199,19 @@ struct MacSettingsScreen: View {
         .formStyle(.grouped)
     }
 
-    private var connectionControlsPresentation: Binding<ConnectionControlsPresentation> {
+    private var menuBarItemEnabled: Binding<Bool> {
         Binding(
             get: {
-                ConnectionControlsPresentation(
-                    rawValue: UserDefaults.standard.string(
-                        forKey: ConnectionControlsPresentation.storageKey
-                    ) ?? ""
-                ) ?? .floatingPill
+                MacMenuBarPreference.isEnabled(
+                    UserDefaults.standard.string(forKey: MacMenuBarPreference.storageKey) ?? ""
+                )
             },
-            set: { UserDefaults.standard.set($0.rawValue, forKey: ConnectionControlsPresentation.storageKey) }
+            set: {
+                UserDefaults.standard.set(
+                    MacMenuBarPreference.storedValue(enabled: $0),
+                    forKey: MacMenuBarPreference.storageKey
+                )
+            }
         )
     }
 

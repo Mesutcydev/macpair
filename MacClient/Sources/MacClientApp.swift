@@ -3,20 +3,26 @@ import SwiftUI
 import SharedModels
 import SharedUtilities
 
-enum ConnectionControlsPresentation: String, CaseIterable, Identifiable {
+/// Whether the optional menu-bar status item is shown.
+///
+/// This used to be an either/or: "Window Toolbar" **or** "Menu Bar Item". That
+/// framing was a trap — choosing the menu bar removed the session toolbar
+/// entirely and left a two-item menu, so display sizing, clipboard, screenshot,
+/// file transfer, terminal, Screen AI, audio, view-only and stats all silently
+/// disappeared. The toolbar is now always present and the menu bar item is a
+/// supplement. The storage key and values are unchanged so anyone who had
+/// picked "Menu Bar Item" keeps their status item.
+enum MacMenuBarPreference {
     static let storageKey = "client.connectionControls.presentation"
-    /// Native window title-bar toolbar (default). Stored as `floatingPill` for
-    /// backwards compatibility with existing AppStorage values.
-    case floatingPill
-    case menuBarItem
+    static let enabledValue = "menuBarItem"
+    static let disabledValue = "floatingPill"
 
-    var id: Self { self }
+    static func isEnabled(_ storedValue: String) -> Bool {
+        storedValue == enabledValue
+    }
 
-    var settingsLabel: String {
-        switch self {
-        case .floatingPill: return "Window Toolbar"
-        case .menuBarItem: return "Menu Bar Item"
-        }
+    static func storedValue(enabled: Bool) -> String {
+        enabled ? enabledValue : disabledValue
     }
 }
 
@@ -24,8 +30,8 @@ enum ConnectionControlsPresentation: String, CaseIterable, Identifiable {
 struct MacClientApp: App {
     @StateObject private var environment = MacClientEnvironmentFactory.make()
     @StateObject private var menuBarController = MacMenuBarController()
-    @AppStorage(ConnectionControlsPresentation.storageKey)
-    private var controlsPresentation = ConnectionControlsPresentation.floatingPill.rawValue
+    @AppStorage(MacMenuBarPreference.storageKey)
+    private var menuBarPreference = MacMenuBarPreference.disabledValue
 
     private static var versionString: String {
         "Version " + ((Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "")
@@ -35,17 +41,12 @@ struct MacClientApp: App {
         WindowGroup {
             MacShellView(environment: environment)
                 .frame(minWidth: 760, minHeight: 480)
-                .background(MacClientWindowConfigurator())
                 .task {
                     menuBarController.configure(environment: environment)
-                    menuBarController.setEnabled(
-                        controlsPresentation == ConnectionControlsPresentation.menuBarItem.rawValue
-                    )
+                    menuBarController.setEnabled(MacMenuBarPreference.isEnabled(menuBarPreference))
                 }
-                .onChange(of: controlsPresentation) { newValue in
-                    menuBarController.setEnabled(
-                        newValue == ConnectionControlsPresentation.menuBarItem.rawValue
-                    )
+                .onChange(of: menuBarPreference) { newValue in
+                    menuBarController.setEnabled(MacMenuBarPreference.isEnabled(newValue))
                 }
                 .vampSplashWindow(.macClient(version: Self.versionString))
         }
@@ -73,29 +74,59 @@ struct MacClientApp: App {
     }
 }
 
-/// Keeps the SwiftUI content window transparent and extends the native clear
-/// surface through AppKit's unified title bar.
-private struct MacClientWindowConfigurator: NSViewRepresentable {
+/// Extends the Vamp backdrop up through the title bar and keeps the window's
+/// own surface opaque.
+///
+/// Two separate things were wrong before. The window was forced fully
+/// transparent, so the desktop wallpaper — not the app — decided the contrast
+/// behind every label. And the title bar stayed opaque on top of that, leaving a
+/// hard seam across the top of the window. The window is now opaque and painted
+/// with the product's backdrop art, while the title bar is transparent so that
+/// art runs behind the toolbar as one continuous glass surface.
+struct MacClientWindowConfigurator: NSViewRepresentable {
+    /// True on the host list, where the backdrop art should run behind the
+    /// toolbar as one continuous glass surface. False during a session: a
+    /// full-size content view would push the remote video under the title bar,
+    /// putting the top of the remote screen behind the controls and floating
+    /// those controls over whatever the remote Mac happens to be showing.
+    let extendsUnderTitleBar: Bool
+    /// The host list draws its own centred wordmark, so AppKit's title — which
+    /// it wedges in beside the leading toolbar items — is hidden there. A live
+    /// session keeps the native title: it names the Mac you are controlling.
+    let hidesNativeTitle: Bool
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView(frame: .zero)
-        DispatchQueue.main.async { configure(view.window) }
+        DispatchQueue.main.async { configure(view.window, isFirstConfiguration: true) }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async { configure(nsView.window) }
+        DispatchQueue.main.async { configure(nsView.window, isFirstConfiguration: false) }
     }
 
-    private func configure(_ window: NSWindow?) {
+    private func configure(_ window: NSWindow?, isFirstConfiguration: Bool) {
         guard let window else { return }
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        // Keep a real title bar / toolbar so session controls stay readable and
-        // clickable in the window chrome (not overlaid on the remote video).
-        window.titlebarAppearsTransparent = false
-        window.styleMask.remove(.fullSizeContentView)
+        window.isOpaque = true
+        window.backgroundColor = .windowBackgroundColor
+        window.titlebarAppearsTransparent = extendsUnderTitleBar
+        if extendsUnderTitleBar {
+            window.styleMask.insert(.fullSizeContentView)
+        } else {
+            window.styleMask.remove(.fullSizeContentView)
+        }
         window.toolbarStyle = .unified
-        window.toolbar?.showsBaselineSeparator = true
+        window.toolbar?.showsBaselineSeparator = !extendsUnderTitleBar
+        window.titleVisibility = hidesNativeTitle ? .hidden : .visible
+
+        guard isFirstConfiguration else { return }
+        // AppKit makes the first text field in the window key on launch. The only
+        // one here is "Add a Mac by IP", so the app opened with a blue focus ring
+        // shouting for attention before the user had any intent to type.
+        window.initialFirstResponder = nil
+        if window.firstResponder is NSTextView {
+            window.makeFirstResponder(nil)
+        }
     }
 }
 
@@ -123,6 +154,7 @@ private struct MacRefreshCommand: View {
 private struct MacDisconnectCommand: View {
     @ObservedObject var environment: ClientAppEnvironment
     @ObservedObject private var coordinator: ClientSessionCoordinator
+    @FocusedObject private var assistant: MacAssistantSession?
 
     init(environment: ClientAppEnvironment) {
         self.environment = environment
@@ -131,10 +163,14 @@ private struct MacDisconnectCommand: View {
 
     var body: some View {
         Button("Disconnect from Host") {
-            Task { await coordinator.endSession() }
+            if let assistant, assistant.connected != nil {
+                assistant.disconnect()
+            } else {
+                Task { await coordinator.endSession() }
+            }
         }
         .keyboardShortcut("d", modifiers: [.command, .shift])
-        .disabled(coordinator.phase == .idle)
+        .disabled(coordinator.phase == .idle && assistant?.connected == nil)
     }
 }
 

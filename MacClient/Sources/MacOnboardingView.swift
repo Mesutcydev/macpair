@@ -30,8 +30,8 @@ struct MacOnboardingView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     step(number: 1,
                          icon: "desktopcomputer",
-                         title: "Install Vamp Host on the other Mac",
-                         detail: "Open Vamp Host on the Mac you want to control, and keep it running.")
+                         title: "Run a Vamp host on the other Mac",
+                         detail: "Vamp Host shares its whole desktop, Vamp Sync shares a single app window, and Vamp Assistant connects with a pairing code. Keep it running.")
                     Divider()
                     step(number: 2,
                          icon: "wifi",
@@ -41,7 +41,7 @@ struct MacOnboardingView: View {
                     step(number: 3,
                          icon: "cursorarrow.rays",
                          title: "Connect and approve",
-                         detail: "Pick the Mac from the list, then approve this device once in the Vamp Host window.")
+                         detail: "Pick the Mac from the list, then approve this device once on the other computer. Vamp Assistant pairs with a code instead — use Pair Assistant in the toolbar.")
                 }
                 .padding(6)
             }

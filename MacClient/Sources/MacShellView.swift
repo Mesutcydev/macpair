@@ -14,6 +14,7 @@ struct MacShellView: View {
     @ObservedObject private var coordinator: ClientSessionCoordinator
     @StateObject private var reconnectCoordinator: ClientReconnectCoordinator
     @StateObject private var assistant = MacAssistantSession()
+    @ObservedObject private var nicknames = MacHostNicknameStore.shared
 
     /// Latches once a session reaches `.receiving`, so a subsequent transient
     /// `.error`/`.connecting`/`.negotiating` keeps showing the session view
@@ -30,7 +31,8 @@ struct MacShellView: View {
         _reconnectCoordinator = StateObject(wrappedValue: ClientReconnectCoordinator(
             webRTCSessionManager: environment.webRTCSessionManager,
             signalingService: environment.signalingService,
-            displayLayoutViewModel: environment.displayLayoutViewModel
+            displayLayoutViewModel: environment.displayLayoutViewModel,
+            isMacClient: true
         ))
     }
 
@@ -54,6 +56,14 @@ struct MacShellView: View {
         reconnectCoordinator.isReconnecting || coordinator.isReconnectInProgress
     }
 
+    /// A live stream fills the window with black video. The title bar sits
+    /// directly above it, so it has to switch to the dark appearance too —
+    /// otherwise the session's own dark toolbar chrome sits under a bright
+    /// system title bar and the top of the window reads as a seam.
+    private var showsStreamChrome: Bool {
+        assistant.connected != nil || showsSession
+    }
+
     var body: some View {
         Group {
             if assistant.connected != nil {
@@ -68,7 +78,17 @@ struct MacShellView: View {
             }
         }
         .tint(MacBrand.accent)
-        .navigationTitle(windowTitle)
+        .focusedSceneObject(assistant)
+        .background(MacClientWindowConfigurator(
+            extendsUnderTitleBar: !showsStreamChrome,
+            hidesNativeTitle: !showsStreamChrome
+        ))
+        .preferredColorScheme(showsStreamChrome ? .dark : nil)
+        // The host list draws its own centred wordmark, so SwiftUI must not also
+        // set a window title — AppKit renders that beside the leading toolbar
+        // items and it showed up twice. A session keeps the real title: it names
+        // the Mac being controlled.
+        .navigationTitle(showsStreamChrome ? windowTitle : "")
         .onChange(of: coordinator.phase) { phase in
             switch phase {
             case .receiving:
@@ -107,13 +127,22 @@ struct MacShellView: View {
         }
     }
 
+    /// A Mac the user renamed must stay renamed once connected, not revert to
+    /// whatever the host advertises.
+    private var connectedHostDisplayName: String? {
+        if let endpoint = coordinator.lastEndpoint {
+            return nicknames.displayName(for: endpoint)
+        }
+        return coordinator.connectedHostName
+    }
+
     private var windowTitle: String {
         if let session = assistant.connected {
             return "\(session.displayName) — Vamp Control"
         }
         switch coordinator.phase {
         case .receiving:
-            if let name = coordinator.connectedHostName {
+            if let name = connectedHostDisplayName {
                 return "\(name) — Vamp Control"
             }
             return "Vamp Control"

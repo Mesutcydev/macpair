@@ -25,11 +25,16 @@ struct MacAssistantRemoteView: View {
 
     init(model: MacAssistantSession) {
         self.model = model
-        let client = model.connected?.client ?? BeetCodeRemoteClient(
-            endpoint: try! BeetCodeRemoteEndpoint.parse(address: "127.0.0.1:9575")
+        _input = StateObject(
+            wrappedValue: MacAssistantInputController(client: model.connected?.client)
         )
-        _input = StateObject(wrappedValue: MacAssistantInputController(client: client))
     }
+
+    /// Vamp Assistant streams at whatever resolution the client asks for. The
+    /// renderer's shared default is 1080p, which was sized for a phone and left
+    /// every Retina Mac looking soft; Vamp Stream already moved this path to
+    /// native. A Mac decodes native comfortably, so ask for it here too.
+    private static let streamResolution = "native"
 
     private var displayMode: DisplayMappingEngine.DisplayMode {
         DisplayMappingEngine.DisplayMode(rawValue: displayModeRaw) ?? .fitDisplay
@@ -94,8 +99,12 @@ struct MacAssistantRemoteView: View {
                     .padding(.bottom, 28)
             }
         }
-        .task(id: "\(session.address)-\(selectedDisplayID ?? 0)") {
-            renderer.start(client: session.client, displayID: selectedDisplayID)
+        .task(id: "\(session.id)-\(selectedDisplayID ?? 0)") {
+            input.updateClient(session.client)
+            renderer.start(
+                client: session.client,
+                resolution: Self.streamResolution,
+                displayID: selectedDisplayID)
         }
     }
 
@@ -111,14 +120,14 @@ struct MacAssistantRemoteView: View {
                 differentiateWithoutColor: differentiateWithoutColor)
         }
         if showsStats {
-            ToolbarItem(placement: .principal) {
-                SessionToolbarLiveStats(framesPerSecond: nil, latencyMs: nil, bitrateKbps: nil)
-            }
+            ToolbarItem(placement: .principal) { assistantLiveStats }
         }
         ToolbarItem(placement: .primaryAction) { displaySizingMenu }
         ToolbarItem(placement: .primaryAction) { toolsCluster(session) }
         ToolbarItem(placement: .primaryAction) { screenAIButton }
-        ToolbarItem(placement: .primaryAction) { togglesCluster }
+        ToolbarItem(placement: .primaryAction) { audioButton }
+        ToolbarItem(placement: .primaryAction) { accessModeButton }
+        ToolbarItem(placement: .primaryAction) { statsButton }
         ToolbarItem(placement: .primaryAction) {
             SessionToolbarDisconnectButton { model.disconnect() }
         }
@@ -217,7 +226,7 @@ struct MacAssistantRemoteView: View {
 
     private var screenAIButton: some View {
         Button(action: {}) {
-            SessionToolbarToggleLabel(title: "Screen AI", systemImage: "sparkles")
+            SessionToolbarToggleLabel(systemImage: "sparkles")
         }
         .buttonStyle(SessionToolbarToggleButtonStyle())
         .disabled(true)
@@ -225,36 +234,60 @@ struct MacAssistantRemoteView: View {
         .accessibilityLabel("Screen AI")
     }
 
-    private var togglesCluster: some View {
-        HStack(spacing: 4) {
-            Button(action: {}) {
-                SessionToolbarToggleLabel(title: "Audio", systemImage: "speaker.slash.fill")
-            }
-            .buttonStyle(SessionToolbarToggleButtonStyle())
-            .disabled(true)
-            .help("Remote audio is unavailable through this Assistant connection")
-            Button { fullControl.toggle() } label: {
-                SessionToolbarToggleLabel(
-                    title: fullControl ? SessionControlMode.fullControl.title : SessionControlMode.viewOnly.title,
-                    systemImage: fullControl ? "cursorarrow.motionlines" : "eye.fill",
-                    isActive: fullControl)
-            }
-            .buttonStyle(SessionToolbarToggleButtonStyle(active: fullControl))
-            .help(fullControl ? "Full control — input enabled" : "View only — input disabled")
-            .accessibilityLabel("Access mode")
-            Button { showsStats.toggle() } label: {
-                SessionToolbarToggleLabel(
-                    title: "Stats",
-                    systemImage: showsStats ? "chart.bar.fill" : "chart.bar",
-                    isActive: showsStats)
-            }
-            .buttonStyle(SessionToolbarToggleButtonStyle(active: showsStats))
-            .help(showsStats ? "Hide connection stats" : "Show connection stats")
-            .accessibilityLabel("Connection stats")
+    private var audioButton: some View {
+        Button(action: {}) {
+            SessionToolbarToggleLabel(systemImage: "speaker.slash.fill")
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 3)
+        .buttonStyle(SessionToolbarToggleButtonStyle())
+        .disabled(true)
+        .help("Remote audio is unavailable through this Assistant connection")
+        .accessibilityLabel("Audio")
+    }
+
+    private var accessModeButton: some View {
+        Button { fullControl.toggle() } label: {
+            Label(fullControl ? "Switch to View Only" : "Enable Full Control",
+                  systemImage: fullControl ? "cursorarrow.motionlines" : "eye.fill")
+        }
+        .labelStyle(.iconOnly)
+        .help(fullControl ? "Full control — input enabled" : "View only — input disabled")
+        .accessibilityLabel("Access mode")
+        .accessibilityValue(fullControl ? "Full control" : "View only")
+    }
+
+    private var statsButton: some View {
+        Button { showsStats.toggle() } label: {
+            Label(showsStats ? "Hide Connection Stats" : "Show Connection Stats",
+                  systemImage: showsStats ? "chart.bar.fill" : "chart.bar")
+        }
+        .labelStyle(.iconOnly)
+        .help(showsStats ? "Hide connection stats" : "Show connection stats")
+        .accessibilityLabel("Connection stats")
+    }
+
+    /// The Assistant transport reports neither latency nor bitrate, so this
+    /// shows only what is actually measured. It previously reused the WebRTC
+    /// three-metric cluster with all three values hardcoded to nil, which
+    /// rendered a permanent "— — —" beside a Stats toggle that changed nothing.
+    private var assistantLiveStats: some View {
+        HStack(spacing: 12) {
+            SessionToolbarMetric(
+                label: "FPS",
+                value: renderer.framesPerSecond
+                    .map { $0.formatted(.number.precision(.fractionLength(0))) } ?? "—"
+            )
+            SessionToolbarMetric(
+                label: "Stream",
+                value: renderer.geometry
+                    .map { "\($0.imageWidth)×\($0.imageHeight)" } ?? "—"
+            )
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
         .sessionToolbarClusterChrome()
+        .fixedSize()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Stream statistics")
     }
 
     private var displaySizingTitle: String {
@@ -358,7 +391,12 @@ struct MacAssistantRemoteView: View {
                 Image(systemName: "wifi.exclamationmark").font(.system(size: 36, weight: .light))
                 Text("Vamp Assistant stream stopped").font(.headline)
                 Text(error).font(.callout).foregroundStyle(.white.opacity(0.74)).multilineTextAlignment(.center).frame(maxWidth: 460)
-                Button("Reconnect") { renderer.start(client: session.client, displayID: selectedDisplayID) }
+                Button("Reconnect") {
+                    renderer.start(
+                        client: session.client,
+                        resolution: Self.streamResolution,
+                        displayID: selectedDisplayID)
+                }
                     .buttonStyle(.bordered)
             } else {
                 ProgressView()
@@ -453,7 +491,10 @@ final class MacAssistantInputController: ObservableObject, MacRemoteInputHandlin
     @Published private(set) var lastError: String?
     var isEnabled = true
 
-    private let client: BeetCodeRemoteClient
+    /// Follows the live session. A `@StateObject` is built once, so capturing
+    /// the client at init would keep routing input to the previously paired Mac
+    /// after a re-pair.
+    private var client: BeetCodeRemoteClient?
     private var viewSize: CGSize = .zero
     private var geometry: BeetCodeDisplayGeometry?
     private var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay
@@ -461,7 +502,14 @@ final class MacAssistantInputController: ObservableObject, MacRemoteInputHandlin
     private var moveFlushTask: Task<Void, Never>?
     private var sendTail: Task<Void, Never>?
 
-    init(client: BeetCodeRemoteClient) { self.client = client }
+    init(client: BeetCodeRemoteClient?) {
+        self.client = client
+    }
+
+    func updateClient(_ client: BeetCodeRemoteClient) {
+        stop()
+        self.client = client
+    }
 
     func setGeometry(_ geometry: BeetCodeDisplayGeometry?) { self.geometry = geometry }
     func updateViewGeometry(size: CGSize, pixelScale: Double) { viewSize = size }
@@ -524,6 +572,7 @@ final class MacAssistantInputController: ObservableObject, MacRemoteInputHandlin
         sendTail = nil
         pendingMove = nil
         lastError = nil
+        client = nil
     }
 
     private func flushMove() {
@@ -535,6 +584,7 @@ final class MacAssistantInputController: ObservableObject, MacRemoteInputHandlin
     }
 
     private func enqueue(_ command: BeetCodeInputCommand) {
+        guard isEnabled, let client else { return }
         let previous = sendTail
         sendTail = Task { [client, weak self] in
             _ = await previous?.value
