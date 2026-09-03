@@ -123,6 +123,7 @@ struct BeetCodeControlStatus: Decodable, Equatable, Sendable {
     let remoteUnlockEnabled: Bool?
     let remoteUnlockAvailable: Bool?
     let remoteUnlockMessage: String?
+    let supportsCursorlessCapture: Bool?
     let message: String?
     let displayX: Double?
     let displayY: Double?
@@ -383,7 +384,8 @@ struct BeetCodeRemoteClient: Sendable {
     func screenStream(
         resolution: String = "1080p",
         displayID: UInt32? = nil,
-        windowID: UInt32? = nil
+        windowID: UInt32? = nil,
+        showsCursor: Bool = true
     ) -> AsyncThrowingStream<BeetCodeScreenFrame, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
@@ -397,6 +399,9 @@ struct BeetCodeRemoteClient: Sendable {
                     }
                     if let windowID {
                         queryItems.append(URLQueryItem(name: "window", value: String(windowID)))
+                    }
+                    if !showsCursor {
+                        queryItems.append(URLQueryItem(name: "cursor", value: "0"))
                     }
                     components?.queryItems = queryItems
                     guard let url = components?.url else { throw BeetCodeRemoteError.invalidAddress }
@@ -841,7 +846,8 @@ final class BeetCodeVideoRendererViewModel: ObservableObject {
         client: BeetCodeRemoteClient,
         resolution: String = "1080p",
         displayID: UInt32? = nil,
-        windowID: UInt32? = nil
+        windowID: UInt32? = nil,
+        showsCursor: Bool = true
     ) {
         stop()
         lastError = nil
@@ -855,7 +861,8 @@ final class BeetCodeVideoRendererViewModel: ObservableObject {
                     let stream = client.screenStream(
                         resolution: resolution,
                         displayID: displayID,
-                        windowID: windowID)
+                        windowID: windowID,
+                        showsCursor: showsCursor)
                     for try await frame in stream {
                         guard !Task.isCancelled else { return }
                         receivedFrame = true

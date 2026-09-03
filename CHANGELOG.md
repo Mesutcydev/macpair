@@ -5,6 +5,15 @@ their original product names. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-09-03 — build 58
+
+### Fixed
+
+- Vamp Control macOS now extends immediate local-cursor feedback and bounded
+  pointer delivery to Vamp Assistant sessions. Updated Assistant hosts omit the
+  captured cursor only when the Mac client requests it; iOS clients keep the
+  remote cursor in their video.
+
 ## [2.3.0] - 2026-09-03 — build 57
 
 ### Fixed

@@ -65,6 +65,7 @@ struct MacAssistantRemoteView: View {
                 renderer: renderer,
                 input: input,
                 isInputEnabled: fullControl,
+                usesLocalCursor: session.status.supportsCursorlessCapture == true,
                 displayMode: displayMode)
                 .ignoresSafeArea()
                 .accessibilityLabel("Remote control surface for \(session.displayName)")
@@ -104,7 +105,8 @@ struct MacAssistantRemoteView: View {
             renderer.start(
                 client: session.client,
                 resolution: Self.streamResolution,
-                displayID: selectedDisplayID)
+                displayID: selectedDisplayID,
+                showsCursor: session.status.supportsCursorlessCapture != true)
         }
     }
 
@@ -449,6 +451,7 @@ private struct MacAssistantVideoStreamView: NSViewRepresentable {
     @ObservedObject var renderer: BeetCodeVideoRendererViewModel
     let input: MacAssistantInputController
     let isInputEnabled: Bool
+    let usesLocalCursor: Bool
     let displayMode: DisplayMappingEngine.DisplayMode
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -458,6 +461,7 @@ private struct MacAssistantVideoStreamView: NSViewRepresentable {
         view.input = input
         view.isInputEnabled = isInputEnabled
         view.displayMode = displayMode
+        view.usesLocalCursor = usesLocalCursor
         input.isEnabled = isInputEnabled
         input.updateDisplayMode(displayMode)
         input.setGeometry(renderer.geometry)
@@ -471,6 +475,7 @@ private struct MacAssistantVideoStreamView: NSViewRepresentable {
         view.input = input
         view.isInputEnabled = isInputEnabled
         view.displayMode = displayMode
+        view.usesLocalCursor = usesLocalCursor
         input.isEnabled = isInputEnabled
         input.updateDisplayMode(displayMode)
         input.setGeometry(renderer.geometry)
@@ -500,7 +505,8 @@ final class MacAssistantInputController: ObservableObject, MacRemoteInputHandlin
     private var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay
     private var pendingMove: BeetCodeInputCommand?
     private var moveFlushTask: Task<Void, Never>?
-    private var sendTail: Task<Void, Never>?
+    private var sendQueue = MacAssistantInputSendQueue()
+    private var sendTask: Task<Void, Never>?
 
     init(client: BeetCodeRemoteClient?) {
         self.client = client
@@ -568,8 +574,9 @@ final class MacAssistantInputController: ObservableObject, MacRemoteInputHandlin
     func stop() {
         moveFlushTask?.cancel()
         moveFlushTask = nil
-        sendTail?.cancel()
-        sendTail = nil
+        sendQueue.removeAll()
+        sendTask?.cancel()
+        sendTask = nil
         pendingMove = nil
         lastError = nil
         client = nil
@@ -584,19 +591,32 @@ final class MacAssistantInputController: ObservableObject, MacRemoteInputHandlin
     }
 
     private func enqueue(_ command: BeetCodeInputCommand) {
-        guard isEnabled, let client else { return }
-        let previous = sendTail
-        sendTail = Task { [client, weak self] in
-            _ = await previous?.value
-            guard !Task.isCancelled else { return }
+        guard isEnabled, client != nil else { return }
+        sendQueue.enqueue(command)
+        startSenderIfNeeded()
+    }
+
+    private func startSenderIfNeeded() {
+        guard sendTask == nil else { return }
+        sendTask = Task { [weak self] in
+            await self?.drainSendQueue()
+        }
+    }
+
+    private func drainSendQueue() async {
+        while !Task.isCancelled,
+              let command = sendQueue.popFirst(),
+              let client {
             do {
                 _ = try await client.sendControlBatch([command])
-                self?.lastError = nil
+                lastError = nil
             } catch {
                 guard !Task.isCancelled else { return }
-                self?.lastError = error.localizedDescription
+                lastError = error.localizedDescription
             }
         }
+        sendTask = nil
+        if !sendQueue.isEmpty { startSenderIfNeeded() }
     }
 
     private func map(_ point: CGPoint, clamp: Bool) -> CGPoint? {
