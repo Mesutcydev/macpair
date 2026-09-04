@@ -45,6 +45,9 @@ MANIFEST="$IPA.manifest.json"
 SBOM="$IPA.sbom.cdx.json"
 [[ "$STAGING" == "$WORK/staging" ]] || fail "Unexpected staging path"
 rm -rf "$STAGING"; mkdir -p "$STAGING/Payload"; ditto --norsrc --noextattr "$APP" "$STAGING/Payload/Vamp Stream.app"
+# zip updates existing archives in place, retaining removed app resources. Always
+# create a fresh archive so repeated packaging cannot ship obsolete bundle files.
+rm -f "$IPA"
 (cd "$STAGING" && COPYFILE_DISABLE=1 zip -qryX "$IPA" Payload)
 unzip -tq "$IPA" >/dev/null
 (cd "$OUTPUT" && shasum -a 256 "$NAME" > "$NAME.sha256" && shasum -a 256 -c "$NAME.sha256" >/dev/null)
