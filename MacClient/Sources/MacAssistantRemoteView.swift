@@ -654,7 +654,7 @@ final class MacAssistantInputController: ObservableObject, MacRemoteInputHandlin
         // RemoteStreamNSView without leaking a separate Control press remotely.
         guard !Self.modifierKeyCodes.contains(event.keyCode) else { return }
         let modifiers = Self.modifierNames(event.modifierFlags)
-        if let special = Self.specialKeyName(event.keyCode) {
+        if let special = MacAssistantKeyMapping.name(for: event.keyCode) {
             enqueue(.key(special, modifiers: modifiers))
             return
         }
@@ -748,25 +748,6 @@ final class MacAssistantInputController: ObservableObject, MacRemoteInputHandlin
     }
 
     private static let modifierKeyCodes: Set<UInt16> = [54, 55, 56, 60, 58, 61, 59, 62, 63]
-
-    private static func specialKeyName(_ keyCode: UInt16) -> String? {
-        switch keyCode {
-        case 36, 76: "Return"
-        case 48: "Tab"
-        case 51: "Backspace"
-        case 53: "Escape"
-        case 117: "Delete"
-        case 123: "ArrowLeft"
-        case 124: "ArrowRight"
-        case 125: "ArrowDown"
-        case 126: "ArrowUp"
-        case 115: "Home"
-        case 119: "End"
-        case 116: "PageUp"
-        case 121: "PageDown"
-        default: nil
-        }
-    }
 
     private static func modifierNames(_ flags: NSEvent.ModifierFlags) -> [String] {
         var names: [String] = []

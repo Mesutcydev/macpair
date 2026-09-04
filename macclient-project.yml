@@ -109,6 +109,7 @@ targets:
       - path: MacClient/Sources/MacMenuBarSemanticState.swift
       - path: MacClient/Sources/MacStreamingQualityPolicy.swift
       - path: MacClient/Sources/MacHostNicknameStore.swift
+      - path: MacClient/Sources/MacAssistantKeyMapping.swift
       - path: MacClient/Sources/RemoteInputPolicy.swift
       - path: MacClient/Sources/MacRemoteInputSendQueue.swift
     dependencies:

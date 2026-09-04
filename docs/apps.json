@@ -105,6 +105,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.8",
+          "buildVersion": "22",
+          "marketingVersion": "0.1.8 (22)",
+          "date": "2026-09-04",
+          "localizedDescription": "Keeps two-finger scrolling directed at the Mac app at any zoom level. Adds Adjust view for pinch and pan, and releases long-press dragging when you lift your finger.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-62/VampStream-iOS-0.1.8-build-22-altstore-unsigned.ipa",
+          "size": 14704114,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.7",
           "buildVersion": "21",
           "marketingVersion": "0.1.7 (21)",
@@ -198,6 +208,16 @@
     }
   ],
   "news": [
+    {
+      "title": "Vamp Stream 0.1.8",
+      "identifier": "vamp-stream-ios-0.1.8",
+      "caption": "Separates Mac-app scrolling from Adjust view, and releases long-press dragging on lift.",
+      "date": "2026-09-04",
+      "tintColor": "#6E6E73",
+      "notify": true,
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-62",
+      "appID": "com.mesutcy.remotedesktop.stream"
+    },
     {
       "title": "Vamp Stream 0.1.6",
       "identifier": "vamp-stream-ios-0.1.6",
