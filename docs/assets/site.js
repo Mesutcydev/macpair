@@ -93,6 +93,11 @@
       'nav.security': 'Güvenlik', 'nav.explore': 'Ürünleri keşfet',
       'home.eyebrow': "Tek Mac host’u · İstemcini seç",
       'home.title1': 'Mac’inle çalış.', 'home.title2': 'Her yerden.',
+      'home.filmEyebrow': 'Vamp Stream · Ürün filmi',
+      'home.filmTitle': 'Tek uygulama. Tam ihtiyacın olan yerde.',
+      'home.filmCopy': 'Mac’indeki uygulama listesinden iPhone veya iPad’de odaklı canlı pencereye geç—Vamp Sync üzerinden, özel olarak.',
+      'home.filmCaption': 'Mac’in. Yalnızca ihtiyacın olan.',
+      'home.filmCta': 'Vamp Stream’i keşfet',
       'home.copy': "Mac’inde Vamp Sync ile başla. Uygulama pencerelerine özel ağın üzerinden Vamp Control veya Vamp Stream ile eriş. Özel AI çalışmaların için Vamp Assistant’ı ekle.",
       'home.syncCta': "Vamp Sync’i al", 'home.clientsCta': "İstemcini seç",
       'home.note': 'Açık kaynak · özel LAN veya Tailscale · barındırılan aktarıcı yok.',
@@ -328,6 +333,16 @@
   };
   renderLanguage(currentLanguage);
   languageButton?.addEventListener('click', () => renderLanguage(currentLanguage === 'tr' ? 'en' : 'tr'));
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  document.querySelectorAll('video[data-autoplay]').forEach((video) => {
+    if (reducedMotion.matches) {
+      video.removeAttribute('autoplay');
+      video.pause();
+    } else {
+      video.play().catch(() => {});
+    }
+  });
 
   const applyRelease = (release) => {
     if (!release || !release.assets) return;

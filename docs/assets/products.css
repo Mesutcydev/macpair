@@ -297,6 +297,90 @@ html[data-theme="dark"] .sync-destination:hover { background: #344157ef; }
 }
 @media (prefers-reduced-motion: reduce) { .sync-destination { transition: none; } }
 
+/* The product film is framed like an edition plate, not a generic media player. */
+.promo-film-section { padding: 26px 0 38px; }
+.promo-film-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+  gap: clamp(32px, 7vw, 104px);
+  align-items: end;
+  margin-bottom: 28px;
+}
+.promo-film-intro h2 {
+  max-width: 720px;
+  margin-top: 15px;
+  color: var(--ink);
+  font: 800 clamp(38px, 5.5vw, 72px)/.95 "Space Grotesk", "Inter", sans-serif;
+  letter-spacing: -.07em;
+}
+.promo-film-intro p {
+  max-width: 480px;
+  color: var(--text);
+  font: 16px/1.65 "Inter", sans-serif;
+}
+.promo-film-frame {
+  overflow: hidden;
+  margin: 0;
+  border: 2px solid var(--ink);
+  background: var(--ink);
+  box-shadow: 10px 10px 0 var(--ink);
+}
+.promo-film-bar,
+.promo-film-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 48px;
+  padding: 0 16px;
+  color: #f4f4ee;
+  background: var(--bg-deep);
+  font: 700 10px/1.3 "IBM Plex Mono", monospace;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.promo-film-bar { border-bottom: 2px solid var(--ink); }
+.promo-film-stage {
+  position: relative;
+  overflow: hidden;
+  background: #080a0d;
+}
+.promo-film-stage::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  box-shadow: inset 0 0 0 1px #ffffff16;
+}
+.promo-film-stage video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #080a0d;
+  object-fit: contain;
+}
+.promo-film-caption {
+  min-height: 60px;
+  border-top: 2px solid var(--ink);
+  color: var(--ink);
+  background: var(--surface);
+}
+.promo-film-caption .text-button { color: var(--ink); white-space: nowrap; }
+.promo-film-caption > span:first-child { letter-spacing: .08em; }
+html[data-theme="dark"] .promo-film-caption { background: var(--surface); }
+
+@media (max-width: 720px) {
+  .promo-film-section { padding: 8px 0 24px; }
+  .promo-film-intro { grid-template-columns: 1fr; gap: 16px; margin-bottom: 20px; }
+  .promo-film-intro h2 { font-size: clamp(36px, 11vw, 52px); }
+  .promo-film-intro p { font-size: 15px; }
+  .promo-film-frame { box-shadow: 6px 6px 0 var(--ink); }
+  .promo-film-bar { min-height: 42px; padding: 0 12px; font-size: 8px; }
+  .promo-film-caption { align-items: flex-start; flex-direction: column; gap: 8px; padding: 14px 12px; }
+  .promo-film-caption .text-button { min-height: 40px; }
+}
+
 /* Keep engraved paper below readable light text in the dark theme. */
 html[data-theme="dark"] body::before { opacity: .38; mix-blend-mode: normal; filter: saturate(.8) brightness(.55); }
 
