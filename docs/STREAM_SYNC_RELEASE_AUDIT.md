@@ -30,6 +30,12 @@ The source fixes below are implemented in the working tree. The original finding
 
 Argent's simulator server failed to start, including a retry with the full Xcode developer directory. No live visual verification is claimed. Run authenticated Stream ↔ Sync tests on iPhone and iPad: rapid app switching/cancel, launch while locking or disconnecting, input under backpressure, live revoke followed by rejected input/reconnect, keyboard modes, rotation, accessibility, camera denial/recovery and adverse-network recovery. Test the minimum supported OS. Verify installed Sync signing/permission continuity and final artifact checksums/manifests before distribution. Unit tests do not substitute for these device checks.
 
+## Download update — 2026-09-04
+
+At the user's request, packaged Vamp Sync 2.3.0 build 61 (DMG/ZIP) and Vamp Stream 0.1.7 build 21 (unsigned IPA) from source commit `fd93e9f5be881d58be28cd48ff4c3e6a9bd2cbbb`. Packaging manifests honestly retain the dirty-tree marker because unrelated Mac client edits remain outside this release commit.
+
+The Stream packager now creates a fresh ZIP and validates a single `Payload/Vamp Stream.app` root, iOS arm64 Mach-O platform, bundle metadata, unsigned status, archive integrity, SHA-256 and manifest agreement. Sync's DMG was mounted read-only, its app layout inspected and its ad-hoc signature verified. No app was installed and no TCC grants were changed. Device QA limitations above still apply.
+
 ## Original release assessment (before implementation)
 
 **Hold broad release until the high-priority items below are resolved and an authenticated device smoke test passes.** The focused app-stream experience is implemented, but input delivery and live revocation need stronger guarantees. Physical-device streaming, permission continuity across a Sync update, camera onboarding, and adverse-network recovery remain release gates.
