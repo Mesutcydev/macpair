@@ -4,10 +4,10 @@
     "suite": "Mesutcydev/vamp-suite",
     "assistant": "Mesutcydev/vamp-assistant"
   },
-  "tag": "vamp-suite-2.3.0-build-58",
-  "name": "Vamp Suite 2.3.0 build 58",
-  "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-58",
-  "published_at": "2026-09-03T18:47:27Z",
+  "tag": "vamp-suite-2.3.0-build-59",
+  "name": "Vamp Suite 2.3.0 build 59",
+  "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-59",
+  "published_at": "2026-09-04T08:22:20Z",
   "assets": {
     "vamp-terminal-ios": {
       "name": "VampTerminal-iOS-2.3.0-build-50-altstore-unsigned.ipa",
@@ -26,12 +26,12 @@
       "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-57/VampSync-macOS-2.3.0-build-57-adhoc.dmg.sha256"
     },
     "vamp-control-macos": {
-      "name": "VampControl-macOS-2.3.0-build-51-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-58/VampControl-macOS-2.3.0-build-51-adhoc.zip",
-      "label": "2.3.0 \u00b7 build 51",
-      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-58",
-      "tag": "vamp-suite-2.3.0-build-58",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-58/VampControl-macOS-2.3.0-build-51-adhoc.zip.sha256"
+      "name": "VampControl-macOS-2.3.0-build-52-adhoc.zip",
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-59/VampControl-macOS-2.3.0-build-52-adhoc.zip",
+      "label": "2.3.0 \u00b7 build 52",
+      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-59",
+      "tag": "vamp-suite-2.3.0-build-59",
+      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-59/VampControl-macOS-2.3.0-build-52-adhoc.zip.sha256"
     },
     "vamp-control-ios": {
       "name": "VampControl-iOS-2.3.0-build-47-altstore-unsigned.ipa",
