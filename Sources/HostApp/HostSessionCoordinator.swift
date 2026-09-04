@@ -2282,7 +2282,8 @@ extension HostSessionCoordinator {
             applications: applicationListSnapshot,
             sessionID: message.sessionID,
             senderDeviceID: message.senderDeviceID,
-            offset: message.offset ?? 0
+            offset: message.offset ?? 0,
+            preservesIconsAcrossPages: message.offset != nil
         ) {
             try? webRTCSessionManager.sendDataMessage(envelope)
         }
@@ -2295,16 +2296,21 @@ extension HostSessionCoordinator {
     /// people actually look at.
     nonisolated static func applicationListEnvelope(
         applications: [RemoteApplication], sessionID: UUID, senderDeviceID: UUID,
-        offset: Int = 0
+        offset: Int = 0, preservesIconsAcrossPages: Bool = true
     ) -> DataChannelEnvelope? {
         guard offset >= 0, offset <= applications.count else { return nil }
         let remaining = Array(applications.dropFirst(offset).prefix(512))
         var count = remaining.count
         while true {
             let page = Array(remaining.prefix(count))
-            let candidates = count == remaining.count
+            let legacyCandidates = count == remaining.count
                 ? [page, page.map { $0.isRunning ? $0 : $0.withoutIcon }, page.map(\.withoutIcon)]
                 : [page.map(\.withoutIcon)]
+            // Page before shedding icons. Only an individually oversized icon may
+            // be omitted; old clients without an offset retain their single-list fallback.
+            let candidates = preservesIconsAcrossPages
+                ? (count == 1 ? [page, page.map(\.withoutIcon)] : [page])
+                : legacyCandidates
             for candidate in candidates {
                 let next = offset + count
                 let snapshot = ApplicationListSnapshotMessage(

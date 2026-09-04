@@ -44,7 +44,8 @@ final class HostApplicationRegistryTests: XCTestCase {
         let envelope = try XCTUnwrap(HostSessionCoordinator.applicationListEnvelope(
             applications: applications,
             sessionID: UUID(),
-            senderDeviceID: UUID()
+            senderDeviceID: UUID(),
+            preservesIconsAcrossPages: false
         ))
         let wire = try envelope.wireEncode()
         XCTAssertLessThanOrEqual(wire.count, HostSessionCoordinator.applicationListByteBudget)
@@ -52,6 +53,27 @@ final class HostApplicationRegistryTests: XCTestCase {
         let decoded = try DataChannelEnvelope.wireDecode(wire).decodeApplicationListSnapshot()
         XCTAssertEqual(decoded.applications.count, 200)
         XCTAssertTrue(decoded.applications.contains { $0.iconPNGBase64 != nil })
+    }
+
+    func testPagedInventoryPreservesInstalledApplicationIcons() throws {
+        let icon = String(repeating: "A", count: 3_000)
+        let apps = (0..<200).map {
+            RemoteApplication(bundleIdentifier: "example.\($0)", name: "App \($0)",
+                isRunning: false, isActive: false, iconPNGBase64: icon)
+        }
+        var offset = 0
+        var received: [RemoteApplication] = []
+        repeat {
+            let envelope = try XCTUnwrap(HostSessionCoordinator.applicationListEnvelope(
+                applications: apps, sessionID: UUID(), senderDeviceID: UUID(), offset: offset))
+            XCTAssertLessThanOrEqual(try envelope.wireEncode().count, HostSessionCoordinator.applicationListByteBudget)
+            let page = try envelope.decodeApplicationListSnapshot()
+            received += page.applications
+            guard let next = page.nextOffset else { break }
+            XCTAssertGreaterThan(next, offset)
+            offset = next
+        } while true
+        XCTAssertEqual(received, apps)
     }
 
     func testApplicationListEnvelopeKeepsEveryIconWhenItAlreadyFits() throws {

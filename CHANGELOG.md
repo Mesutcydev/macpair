@@ -7,6 +7,13 @@ their original product names. The format follows
 
 ## [Unreleased]
 
+### Stream stability follow-up
+
+- Restore installed-app icons by paging inventories before removing icon data.
+- Keep scrolling directed to the Mac at every zoom level. Use Adjust view to intentionally pinch or pan the picture.
+- Release long-press dragging when the finger lifts or the gesture is canceled.
+
+
 ### Fixed
 
 - Vamp Stream preserves input order under backpressure and disconnects on delivery failure. Sync releases held input when an attachment ends and immediately invalidates access when a connected device is revoked.

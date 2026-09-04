@@ -3,9 +3,10 @@ import SwiftUI
 import UIKit
 
 /// Vamp Stream's multi-touch surface uses the same semantics as Vamp Control:
-/// one-finger pan moves the pointer, long press toggles drag-lock, two-finger pan scrolls,
+/// one-finger pan moves the pointer, long press drags until release, two-finger pan scrolls,
 /// two-finger tap right-clicks, and three-finger tap middle-clicks.
 struct AppStreamGestureView: UIViewRepresentable {
+    var allowsViewportAdjustment = false
     var viewportZoom: CGFloat = 1
     var viewportOffset: CGSize = .zero
     var viewSize: CGSize = .zero
@@ -20,6 +21,7 @@ struct AppStreamGestureView: UIViewRepresentable {
     var onPinchChanged: (CGFloat, CGPoint) -> Void = { _, _ in }
     var onPinchEnded: () -> Void = {}
     var onLongPress: (CGPoint) -> Void
+    var onLongPressEnded: () -> Void = {}
     var onHoverDelta: (Double, Double) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -60,6 +62,7 @@ struct AppStreamGestureView: UIViewRepresentable {
         private var momentumLink: CADisplayLink?
         private weak var pinchRecognizer: UIPinchGestureRecognizer?
         private var lastHoverLocation: CGPoint?
+        private var longPressDragging = false
 
         init(_ parent: AppStreamGestureView) {
             self.parent = parent
@@ -107,6 +110,7 @@ struct AppStreamGestureView: UIViewRepresentable {
         }
 
         func remove(from view: UIView) {
+            if longPressDragging { parent.onLongPressEnded(); longPressDragging = false }
             momentumLink?.invalidate()
             momentumLink = nil
             for recognizer in view.gestureRecognizers ?? [] {
@@ -165,15 +169,15 @@ struct AppStreamGestureView: UIViewRepresentable {
                 cancelMomentum()
                 lastViewportTranslation = .zero
                 scrollVelocity = .zero
-                // A two-finger gesture is remote scrolling at 1×. Once the user has
-                // zoomed in, the same gesture pans the local viewport instead.
-                twoFingerPansViewport = viewportZoom > 1.05 || isPinching
+                // Scrolling stays remote at every zoom level. Moving the picture
+                // requires the explicit Adjust view mode.
+                twoFingerPansViewport = parent.allowsViewportAdjustment
             case .changed:
                 let translation = recognizer.translation(in: view)
                 let dx = translation.x - lastViewportTranslation.x
                 let dy = translation.y - lastViewportTranslation.y
                 lastViewportTranslation = translation
-                if isPinching { twoFingerPansViewport = true }
+                if parent.allowsViewportAdjustment && isPinching { twoFingerPansViewport = true }
                 if twoFingerPansViewport {
                     parent.onViewportPan(CGSize(width: dx, height: dy))
                 } else {
@@ -193,6 +197,7 @@ struct AppStreamGestureView: UIViewRepresentable {
         }
 
         @objc private func onPinch(_ recognizer: UIPinchGestureRecognizer) {
+            guard parent.allowsViewportAdjustment else { return }
             switch recognizer.state {
             case .began:
                 cancelMomentum()
@@ -210,8 +215,18 @@ struct AppStreamGestureView: UIViewRepresentable {
         }
 
         @objc private func onLongPress(_ recognizer: UILongPressGestureRecognizer) {
-            guard recognizer.state == .began, let view = recognizer.view else { return }
-            parent.onLongPress(adjustedPoint(recognizer.location(in: view)))
+            guard let view = recognizer.view else { return }
+            switch recognizer.state {
+            case .began:
+                cancelMomentum()
+                longPressDragging = true
+                parent.onLongPress(adjustedPoint(recognizer.location(in: view)))
+            case .changed:
+                if longPressDragging { parent.onPointerMove(adjustedPoint(recognizer.location(in: view))) }
+            case .ended, .cancelled, .failed:
+                if longPressDragging { parent.onLongPressEnded(); longPressDragging = false }
+            default: break
+            }
         }
 
         @objc private func onHover(_ recognizer: UIHoverGestureRecognizer) {
@@ -273,6 +288,16 @@ struct AppStreamGestureView: UIViewRepresentable {
         private var isPinching: Bool {
             guard let pinchRecognizer else { return false }
             return pinchRecognizer.state == .began || pinchRecognizer.state == .changed
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            if gestureRecognizer is UIPinchGestureRecognizer {
+                return parent.allowsViewportAdjustment
+            }
+            if parent.allowsViewportAdjustment {
+                return (gestureRecognizer as? UIPanGestureRecognizer)?.minimumNumberOfTouches == 2
+            }
+            return true
         }
 
         func gestureRecognizer(

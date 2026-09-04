@@ -41,6 +41,7 @@ struct BeetCodeRemoteView: View {
     @StateObject private var input: BeetCodeRemoteInputController
     @State private var keyboardActive = false
     @State private var keyboardOverlayBottomPad: CGFloat = 0
+    @State private var adjustsViewport = false
     @State private var viewportZoom: CGFloat = 1
     @State private var viewportOffset: CGSize = .zero
     @State private var viewportSize: CGSize = .zero
@@ -204,6 +205,7 @@ struct BeetCodeRemoteView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                         AppStreamGestureView(
+                        allowsViewportAdjustment: adjustsViewport,
                             viewportZoom: viewportZoom,
                             viewportOffset: viewportOffset,
                             viewSize: proxy.size,
@@ -233,6 +235,7 @@ struct BeetCodeRemoteView: View {
                                 }
                             },
                             onLongPress: { input.toggleDragLock(at: $0) },
+                            onLongPressEnded: { if input.dragLocked { input.toggleDragLockCurrentPointer() } },
                             onHoverDelta: { input.relativePointerMove(deltaX: $0, deltaY: $1) }
                         )
                         .allowsHitTesting(!keyboardActive && !annotationStore.isVisible)
@@ -347,7 +350,7 @@ struct BeetCodeRemoteView: View {
 
             Spacer()
 
-            Text(streamTitle ?? "Mac app")
+            Text(adjustsViewport ? "Adjust view" : (streamTitle ?? "Mac app"))
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 13)
                 .padding(.vertical, 8)
@@ -356,6 +359,16 @@ struct BeetCodeRemoteView: View {
 
             Spacer()
 
+            Button {
+                if input.dragLocked { input.toggleDragLockCurrentPointer() }
+                adjustsViewport.toggle()
+            } label: {
+                Image(systemName: adjustsViewport ? "checkmark" : "viewfinder")
+                    .frame(minWidth: 44, minHeight: 44)
+                    .background(.ultraThinMaterial, in: Capsule())
+            }
+            .accessibilityLabel(adjustsViewport ? "Done adjusting" : "Adjust view")
+            .accessibilityHint("Switch between controlling the Mac and moving or zooming the picture")
             Menu {
                 Picker("Resolution", selection: $resolution) {
                     ForEach(StreamResolution.allCases) { option in Text(option.title).tag(option.rawValue) }

@@ -27,6 +27,7 @@ struct AppStreamBrowserView: View {
     @State private var videoStalled = false
     @State private var keyboardActive = false
     @State private var keyboardOverlayBottomPad: CGFloat = 0
+    @State private var adjustsViewport = false
     @State private var viewportZoom: CGFloat = 1
     @State private var viewportOffset: CGSize = .zero
 
@@ -315,6 +316,7 @@ struct AppStreamBrowserView: View {
                     // pipeline as Vamp Control. Coordinates map through the streamed window's
                     // synthetic display descriptor (see configureInteraction).
                     AppStreamGestureView(
+                        allowsViewportAdjustment: adjustsViewport,
                         viewportZoom: viewportZoom,
                         viewportOffset: viewportOffset,
                         viewSize: proxy.size,
@@ -344,6 +346,7 @@ struct AppStreamBrowserView: View {
                             }
                         },
                         onLongPress: { input.toggleDragLock(at: DesktopPoint(x: $0.x, y: $0.y)) },
+                        onLongPressEnded: { input.releaseDragLock() },
                         onHoverDelta: { dx, dy in input.relativePointerMove(deltaX: dx, deltaY: dy) }
                     )
                     .allowsHitTesting(!keyboardActive)
@@ -420,7 +423,7 @@ struct AppStreamBrowserView: View {
             .accessibilityLabel("Back to apps")
             .accessibilityHint("Stop streaming and return to the Mac app list")
             Spacer()
-            Text(name)
+            Text(adjustsViewport ? "Adjust view" : name)
                 .lineLimit(1)
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 13).padding(.vertical, 8)
@@ -442,6 +445,16 @@ struct AppStreamBrowserView: View {
                 .accessibilityLabel("Reset zoom")
                 .accessibilityValue("Currently zoomed to \(Int(viewportZoom * 100)) percent")
             }
+            Button {
+                if input.dragLocked { input.releaseDragLock() }
+                adjustsViewport.toggle()
+            } label: {
+                Image(systemName: adjustsViewport ? "checkmark" : "viewfinder")
+                    .frame(minWidth: 44, minHeight: 44)
+                    .background(.ultraThinMaterial, in: Capsule())
+            }
+            .accessibilityLabel(adjustsViewport ? "Done adjusting" : "Adjust view")
+            .accessibilityHint("Switch between controlling the Mac and moving or zooming the picture")
             Menu {
                 Picker("Quality", selection: $qualityMode) {
                     Text("Auto").tag("auto")
@@ -701,8 +714,8 @@ struct AppStreamGestureHelpView: View {
                 Label("Tap to click; double-tap to double-click.", systemImage: "hand.tap")
                 Label("Tap with two fingers to right-click.", systemImage: "hand.point.up.left")
                 Label("Move two fingers to scroll.", systemImage: "arrow.up.arrow.down")
-                Label("Pinch to zoom. Use 1× to reset.", systemImage: "plus.magnifyingglass")
-                Label("Long-press to hold the mouse button, then move to drag. Long-press again or choose Release drag lock in Stream options to release.", systemImage: "lock.open")
+                Label("Choose Adjust view to pinch and pan the picture, then Done adjusting to control the Mac. Use 1× to reset.", systemImage: "plus.magnifyingglass")
+                Label("Long-press and move to drag. Lift your finger to release.", systemImage: "lock.open")
                 Label("Use the keyboard button to type into the Mac app.", systemImage: "keyboard")
             }.navigationTitle("Stream controls")
                 .toolbar { Button("Done") { dismiss() } }

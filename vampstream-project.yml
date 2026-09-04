@@ -79,8 +79,8 @@ targets:
           - UIInterfaceOrientationLandscapeRight
     settings:
       base:
-        MARKETING_VERSION: 0.1.7
-        CURRENT_PROJECT_VERSION: 21
+        MARKETING_VERSION: 0.1.8
+        CURRENT_PROJECT_VERSION: 22
         PRODUCT_BUNDLE_IDENTIFIER: com.mesutcy.remotedesktop.stream
         PRODUCT_NAME: Vamp Stream
         CODE_SIGN_ENTITLEMENTS: Configuration/VampStream.entitlements
