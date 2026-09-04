@@ -20,6 +20,10 @@ struct MacAssistantRemoteView: View {
     @State private var showsStats = true
     @State private var sessionToast: String?
     @State private var sessionToastIsError = false
+    @State private var unlockPassword = ""
+    @State private var isUnlockSubmitting = false
+    @State private var unlockError: String?
+    @FocusState private var unlockPasswordFieldFocused: Bool
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @AppStorage("client.displayMode") private var displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
 
@@ -45,6 +49,8 @@ struct MacAssistantRemoteView: View {
             if let session = model.connected {
                 if session.status.ready {
                     stream(session)
+                } else if session.status.shouldOfferRemoteUnlock {
+                    remoteUnlockState(session)
                 } else {
                     permissionState(session)
                 }
@@ -443,7 +449,98 @@ struct MacAssistantRemoteView: View {
         if !status.enabled { return "Mac Control is turned off in Vamp Assistant." }
         if !status.screenRecording { return "Screen Recording permission is required to receive the remote display." }
         if !status.accessibility { return "Accessibility permission is required to send pointer and keyboard input." }
+        if status.locked == true, let message = status.remoteUnlockMessage { return message }
         return status.message ?? "Vamp Assistant is still preparing Mac Control."
+    }
+
+    private func remoteUnlockState(_ session: MacAssistantSession.ConnectedSession) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "lock.open.fill")
+                .font(.system(size: 44, weight: .light))
+            Text("Mac is locked")
+                .font(.title2.weight(.semibold))
+            Text(session.status.remoteUnlockMessage ?? "Enter the Mac login password to resume Vamp Control.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 460)
+
+            SecureField("Mac login password", text: $unlockPassword)
+                .focused($unlockPasswordFieldFocused)
+                .textFieldStyle(.roundedBorder)
+                .privacySensitive()
+                .frame(maxWidth: 340)
+                .onSubmit { submitRemoteUnlock(session) }
+
+            Button {
+                submitRemoteUnlock(session)
+            } label: {
+                if isUnlockSubmitting {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Text("Unlock Mac")
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(unlockPassword.isEmpty || isUnlockSubmitting)
+
+            Text("Remote Unlock is enabled. The password is sent once through the authenticated private connection, then cleared from this field.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
+
+            if let unlockError {
+                Text(unlockError)
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 460)
+            }
+
+            Button("Back to Macs") { model.disconnect() }
+                .keyboardShortcut(.cancelAction)
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(MacBrand.pageBackdrop)
+        .onAppear { focusRemoteUnlockField() }
+        .onChange(of: model.connected?.status) { status in
+            if status?.locked != true {
+                unlockPassword = ""
+                unlockError = nil
+                isUnlockSubmitting = false
+                unlockPasswordFieldFocused = false
+            }
+        }
+    }
+
+    private func submitRemoteUnlock(_ session: MacAssistantSession.ConnectedSession) {
+        guard !unlockPassword.isEmpty, !isUnlockSubmitting else { return }
+        let submittedPassword = unlockPassword
+        unlockPassword = ""
+        unlockError = nil
+        isUnlockSubmitting = true
+
+        Task {
+            do {
+                _ = try await session.client.unlockMac(password: submittedPassword)
+                try? await Task.sleep(for: .milliseconds(700))
+                unlockError = await model.refreshStatus()
+            } catch {
+                unlockError = error.localizedDescription
+            }
+            isUnlockSubmitting = false
+            if model.connected?.status.locked == true {
+                focusRemoteUnlockField()
+            }
+        }
+    }
+
+    private func focusRemoteUnlockField() {
+        DispatchQueue.main.async {
+            unlockPasswordFieldFocused = true
+        }
     }
 }
 
