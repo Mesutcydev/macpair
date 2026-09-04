@@ -51,6 +51,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.36",
+          "buildVersion": "58",
+          "marketingVersion": "0.1.36 (58)",
+          "date": "2026-09-04",
+          "localizedDescription": "Adds saved drafts and connection diagnostics; fixes Mac switching, notification routing, duplicate sends, pairing recovery, and large-text pairing layout.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-assistant/releases/download/ios-v0.1.36/Vamp-Assistant-iOS-0.1.36-build-58-unsigned.ipa",
+          "size": 11313211,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.35",
           "buildVersion": "57",
           "marketingVersion": "0.1.35 (57)",
