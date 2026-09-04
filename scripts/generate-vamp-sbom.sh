@@ -77,8 +77,8 @@ dependencies = [
         "type": "library",
         "group": "xiph.org",
         "name": "opus",
-        "version": "1.4",
-        "bom-ref": "pkg:generic/opus@1.4",
+        "version": "1.6.1",
+        "bom-ref": "pkg:generic/opus@1.6.1",
         "licenses": [{"license": {"id": "BSD-3-Clause"}}],
     }
 ]
@@ -88,8 +88,8 @@ if component in {"vamp-terminal", "vamp-stream-ios"}:
             "type": "library",
             "group": "github.com/migueldeicaza",
             "name": "SwiftTerm",
-            "version": "1.15.0",
-            "bom-ref": "pkg:github/migueldeicaza/SwiftTerm@1.15.0",
+            "version": "1.20.0",
+            "bom-ref": "pkg:github/migueldeicaza/SwiftTerm@1.20.0",
             "licenses": [{"license": {"id": "MIT"}}],
         }
     )

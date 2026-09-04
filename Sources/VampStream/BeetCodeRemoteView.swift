@@ -13,6 +13,7 @@ import UIKit
 /// the picker itself is never embedded into the original remote-control screen.
 struct BeetCodeRemoteView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private enum StreamResolution: String, CaseIterable, Identifiable {
         case p480 = "480p"
         case p720 = "720p"
@@ -46,6 +47,7 @@ struct BeetCodeRemoteView: View {
     @State private var isRefreshing = false
     @State private var refreshError: String?
     @State private var selectedDisplayID: UInt32?
+    @State private var showsGestureHelp = false
     @State private var controlsHidden = false
     @StateObject private var annotationStore = AnnotationOverlayStore()
     @AppStorage("vampstream.assistant.resolution") private var resolution = StreamResolution.native.rawValue
@@ -225,7 +227,7 @@ struct BeetCodeRemoteView: View {
                             },
                             onPinchEnded: {
                                 if viewportZoom < defaultViewportZoom * 1.15 {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                                    withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.86)) {
                                         resetViewportZoom()
                                     }
                                 }
@@ -321,18 +323,9 @@ struct BeetCodeRemoteView: View {
                     })
                 }
 #if canImport(UIKit) && !os(macOS)
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillChangeFrameNotification)) { notification in
-                    guard let end = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-                    let screenHeight = UIScreen.main.bounds.height
-                    withAnimation(.easeOut(duration: 0.25)) {
-                        keyboardOverlayBottomPad = max(0, screenHeight - end.origin.y)
-                    }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillHideNotification)) { _ in
-                    withAnimation(.easeOut(duration: 0.22)) {
-                        keyboardOverlayBottomPad = 0
-                    }
-                }
+                .background(AppStreamKeyboardInsetReader { inset in
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { keyboardOverlayBottomPad = inset }
+                })
 #endif
             }
         }
@@ -363,6 +356,17 @@ struct BeetCodeRemoteView: View {
 
             Spacer()
 
+            Menu {
+                Picker("Resolution", selection: $resolution) {
+                    ForEach(StreamResolution.allCases) { option in Text(option.title).tag(option.rawValue) }
+                }
+                Button("Gesture help", systemImage: "hand.draw") { showsGestureHelp = true }
+                if input.dragLocked {
+                    Button("Release drag lock", systemImage: "lock.open") { input.toggleDragLockCurrentPointer() }
+                }
+            } label: { Image(systemName: "ellipsis.circle").frame(minWidth: 44, minHeight: 44) }
+            .accessibilityLabel("Stream options")
+            .sheet(isPresented: $showsGestureHelp) { AppStreamGestureHelpView() }
             Button {
                 if !keyboardActive, isTerminalApplication { input.focusTerminal() }
                 keyboardActive.toggle()
@@ -379,7 +383,7 @@ struct BeetCodeRemoteView: View {
 
             if viewportZoom > defaultViewportZoom + 0.05 || viewportOffset != .zero {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.86)) {
                         resetViewportZoom()
                     }
                 } label: {
@@ -404,7 +408,7 @@ struct BeetCodeRemoteView: View {
             HStack {
                 Spacer()
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.82)) {
                         controlsHidden = false
                     }
                 } label: {
@@ -525,7 +529,7 @@ struct BeetCodeRemoteView: View {
                 .padding(.horizontal, 6)
 
             classicIconButton(systemName: "eye.slash", isDimmed: true) {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.82)) {
                     keyboardActive = false
                     controlsHidden = true
                 }

@@ -85,4 +85,5 @@ PY
 [[ -x "$ROOT/scripts/generate-vamp-sbom.sh" ]] || fail "SBOM generator is missing"
 "$ROOT/scripts/generate-vamp-sbom.sh" \
   "$IPA" vamp-stream-ios "$VERSION" "$BUILD" "$COMMIT" "$SBOM"
+python3 "$ROOT/scripts/verify-vamp-stream-ipa.py" "$IPA"
 printf '[vamp-stream-ios] wrote %s\n' "$IPA"

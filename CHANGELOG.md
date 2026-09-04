@@ -5,6 +5,24 @@ their original product names. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and releases use
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Vamp Stream preserves input order under backpressure and disconnects on delivery failure. Sync releases held input when an attachment ends and immediately invalidates access when a connected device is revoked.
+- Correlated, cancelable app launches prevent stale results from replacing a newer selection. Large app inventories use bounded pages. QR scanning failures now offer recovery and source-specific connection instructions.
+- Remote keyboard positioning uses the current view's keyboard layout guide. Assistant window selection rejects stale asynchronous results.
+
+### Added
+
+- Stream app search, favorites, recents, window selection, saved quality choices, gesture help, drag release and video recovery controls.
+- A visible Sync connection entry and manual address connection, plus standalone Stream Release CI coverage.
+
+### Changed
+
+- Update SwiftTerm to 1.20.0 and vendored Opus to 1.6.1, with updated provenance and SBOM metadata.
+- Cache app icons, use lazy browser sections, respect system appearance in the Assistant browser and reduce routine stream logging.
+
 ## [2.3.0] - 2026-09-03 — build 58
 
 ### Fixed

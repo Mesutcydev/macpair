@@ -98,6 +98,19 @@ jobs:
           CODE_SIGNING_REQUIRED=NO
           build
 
+      - name: Build Vamp Stream (release device slice)
+        # Stream owns sources outside the shared ClientiOS SwiftPM target.
+        # Compile the shipping configuration before changes reach a release tag.
+        run: >-
+          xcodebuild
+          -project VampStream.xcodeproj
+          -scheme VampStream
+          -configuration Release
+          -destination 'generic/platform=iOS'
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+          build
+
   test-arm64:
     # Release hosts and IPAs ship arm64, but the main build job runs on an
     # Intel runner. Re-run the core suite on Apple silicon so arm64-only codegen

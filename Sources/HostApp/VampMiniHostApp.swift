@@ -530,6 +530,7 @@ private struct VampSyncCompanionPopover: View {
     @State private var isRefreshing = false
     @State private var tailscaleInfo: TailscaleConnectionInfo?
     @State private var copiedValue: String?
+    @State private var deviceManagementError: String?
     @State private var framesPerSecond: Int?
     @State private var lastFrameSampleCount: UInt64?
     @State private var lastFrameSampleAt: Date?
@@ -650,6 +651,14 @@ private struct VampSyncCompanionPopover: View {
         .onChange(of: environment.pendingTrustPrompt?.id) { _ in
             Task { await refreshPeers() }
         }
+        .alert("Device update failed", isPresented: Binding(
+            get: { deviceManagementError != nil },
+            set: { if !$0 { deviceManagementError = nil } }
+        )) {
+            Button("OK", role: .cancel) { deviceManagementError = nil }
+        } message: {
+            Text(deviceManagementError ?? "Please try again.")
+        }
     }
 
     private var state: VampSyncCompanionState {
@@ -754,16 +763,24 @@ private struct VampSyncCompanionPopover: View {
 
     private func revoke(_ peer: TrustedPeer) {
         Task {
-            try? await environment.trustedPeerStore.revokePeer(id: peer.id)
-            await refreshPeers()
+            do {
+                try await sessionCoordinator.revokePeer(peer, store: environment.trustedPeerStore)
+                await refreshPeers()
+            } catch {
+                deviceManagementError = "Could not revoke this device: \(error.localizedDescription)"
+            }
         }
     }
 
     private func pairAgain(_ peer: TrustedPeer) {
         Task {
             guard let store = environment.trustedPeerStore as? PersistentTrustedPeerStore else { return }
-            try? await store.removePeer(id: peer.id)
-            await refreshPeers()
+            do {
+                try await store.removePeer(id: peer.id)
+                await refreshPeers()
+            } catch {
+                deviceManagementError = "Could not reset this device for pairing: \(error.localizedDescription)"
+            }
         }
     }
 

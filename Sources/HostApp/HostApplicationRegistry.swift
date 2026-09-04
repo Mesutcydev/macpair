@@ -41,6 +41,13 @@ public final class HostApplicationRegistry {
 
     private func runningApplications(includeIcons: Bool) -> [RemoteApplication] {
         let windowsByPID = onScreenWindowIDsByPID()
+        let descriptions = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        let titles = descriptions.reduce(into: [String: String]()) { result, info in
+            if let id = info[kCGWindowNumber as String] as? NSNumber,
+               let title = info[kCGWindowName as String] as? String, !title.isEmpty {
+                result[id.stringValue] = title
+            }
+        }
         let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         return NSWorkspace.shared.runningApplications.compactMap { app in
             // `.regular` == a normal windowed app in the Dock; skips agents/UIElements
@@ -55,7 +62,8 @@ public final class HostApplicationRegistry {
                 isRunning: true,
                 isActive: app.processIdentifier == frontmostPID,
                 iconPNGBase64: includeIcons ? iconBase64(bundleID: bundleID) { app.icon } : nil,
-                windowIDs: windowIDs
+                windowIDs: windowIDs,
+                windowTitles: titles.filter { windowIDs.contains($0.key) }
             )
         }
     }

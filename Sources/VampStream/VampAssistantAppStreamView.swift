@@ -16,6 +16,7 @@ struct VampAssistantAppStreamView: View {
     @State private var launchingName: String?
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var selectionRevision = UUID()
     @State private var viewportAspect = 9.0 / 19.5
 
     var body: some View {
@@ -45,7 +46,7 @@ struct VampAssistantAppStreamView: View {
                         streamGeometryRevision: "\(selectedApplication.windowID ?? 0)-\(selectedApplication.width)-\(selectedApplication.height)",
                         onClose: onClose,
                         onRefresh: onRefreshStatus,
-                        onChooseApplication: { self.selectedApplication = nil },
+                        onChooseApplication: { selectionRevision = UUID(); self.selectedApplication = nil },
                         onViewportSize: { updateViewport($0) })
                 } else {
                     VampAssistantApplicationBrowser(
@@ -69,11 +70,15 @@ struct VampAssistantAppStreamView: View {
                 guard let windowID = selectedApplication?.windowID else { return }
                 try? await Task.sleep(for: .milliseconds(250))
                 guard !Task.isCancelled else { return }
+                let revision = selectionRevision
                 do {
-                    present(try await session.client.resizeApplication(
-                        windowID: windowID,
-                        clientViewportAspect: viewportAspect))
+                    let resized = try await session.client.resizeApplication(
+                        windowID: windowID, clientViewportAspect: viewportAspect)
+                    guard !Task.isCancelled, revision == selectionRevision,
+                          selectedApplication?.windowID == windowID else { return }
+                    present(resized)
                 } catch {
+                    guard !Task.isCancelled, revision == selectionRevision else { return }
                     errorMessage = "The Mac kept the closest window size: \(error.localizedDescription)"
                 }
             }
@@ -84,6 +89,7 @@ struct VampAssistantAppStreamView: View {
                 }
             }
         }
+        .onDisappear { selectionRevision = UUID(); launchingName = nil }
     }
 
     private var resizeTaskID: String {
@@ -116,12 +122,19 @@ struct VampAssistantAppStreamView: View {
             return
         }
         guard launchingName == nil else { return }
+        let revision = UUID()
+        selectionRevision = revision
+        launchingName = application.name
+        errorMessage = nil
+        defer { if revision == selectionRevision { launchingName = nil } }
         if application.isRunning, let windowID = application.windowID {
             do {
-                present(try await session.client.resizeApplication(
-                    windowID: windowID,
-                    clientViewportAspect: viewportAspect))
+                let resized = try await session.client.resizeApplication(
+                    windowID: windowID, clientViewportAspect: viewportAspect)
+                guard !Task.isCancelled, revision == selectionRevision else { return }
+                present(resized)
             } catch {
+                guard !Task.isCancelled, revision == selectionRevision else { return }
                 present(application)
                 errorMessage = "The Mac kept the closest window size: \(error.localizedDescription)"
             }
@@ -131,16 +144,17 @@ struct VampAssistantAppStreamView: View {
             errorMessage = "That Mac application does not expose a launch identifier."
             return
         }
-        launchingName = application.name
-        errorMessage = nil
-        defer { launchingName = nil }
         do {
             let launched = try await session.client.launchApplication(
                 bundleIdentifier: bundleIdentifier,
                 clientViewportAspect: viewportAspect)
+            guard !Task.isCancelled, revision == selectionRevision else { return }
             present(launched)
-            apply(try await session.client.applications())
+            let applications = try await session.client.applications()
+            guard !Task.isCancelled, revision == selectionRevision else { return }
+            apply(applications)
         } catch {
+            guard !Task.isCancelled, revision == selectionRevision else { return }
             errorMessage = error.localizedDescription
         }
     }
@@ -176,9 +190,16 @@ private struct VampAssistantApplicationBrowser: View {
     let onRefresh: () -> Void
     let onSelect: (BeetCodeRemoteApplication) -> Void
 
+    @State private var searchText = ""
+    private func matches(_ app: BeetCodeRemoteApplication) -> Bool {
+        searchText.isEmpty || app.name.localizedStandardContains(searchText)
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VampAssistantApplicationHeader(macName: macName, onClose: onClose)
+            TextField("Search apps", text: $searchText)
+                .textFieldStyle(.roundedBorder).autocorrectionDisabled()
+                .padding(.horizontal, 18).padding(.bottom, 12)
             ScrollView {
                 LazyVStack(spacing: 12) {
                     if let errorMessage {
@@ -201,14 +222,14 @@ private struct VampAssistantApplicationBrowser: View {
                         if !runningApplications.isEmpty {
                             VampAssistantApplicationSection(
                                 title: "Running",
-                                applications: runningApplications,
+                                applications: runningApplications.filter(matches),
                                 isDisabled: launchingName != nil,
                                 onSelect: onSelect)
                         }
                         if !installedApplications.isEmpty {
                             VampAssistantApplicationSection(
                                 title: "All Apps",
-                                applications: installedApplications,
+                                applications: installedApplications.filter(matches),
                                 isDisabled: launchingName != nil,
                                 onSelect: onSelect)
                         }
@@ -221,7 +242,7 @@ private struct VampAssistantApplicationBrowser: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(PRAppBackground().ignoresSafeArea())
-        .preferredColorScheme(.dark)
+
     }
 }
 

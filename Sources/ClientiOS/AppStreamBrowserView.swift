@@ -16,6 +16,15 @@ struct AppStreamBrowserView: View {
     var onClose: () -> Void
     @StateObject private var rendererVM: VideoRendererViewModel
     @StateObject private var input: AppStreamInputController
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage("vampstream.favoriteApps") private var favoriteStorage = "[]"
+    @AppStorage("vampstream.recentApps") private var recentStorage = "[]"
+    @AppStorage("vampstream.qualityMode") private var qualityMode = "quality"
+    @AppStorage("vampstream.didShowGestureHelp") private var didShowGestureHelp = false
+    @State private var searchText = ""
+    @State private var windowChoice: RemoteApplication?
+    @State private var showsHelp = false
+    @State private var videoStalled = false
     @State private var keyboardActive = false
     @State private var keyboardOverlayBottomPad: CGFloat = 0
     @State private var viewportZoom: CGFloat = 1
@@ -30,7 +39,9 @@ struct AppStreamBrowserView: View {
             wrappedValue: VideoRendererViewModel(webRTCSessionManager: environment.webRTCSessionManager)
         )
         _input = StateObject(
-            wrappedValue: AppStreamInputController(webRTC: environment.webRTCSessionManager)
+            wrappedValue: AppStreamInputController(webRTC: environment.webRTCSessionManager, onFailure: { reason in
+                Task { await environment.sessionCoordinator.disconnectForInputFailure(reason) }
+            })
         )
     }
 
@@ -73,6 +84,7 @@ struct AppStreamBrowserView: View {
             case .streaming:
                 resetViewportZoom()
                 rendererVM.startReceiving()
+                if !didShowGestureHelp { showsHelp = true; didShowGestureHelp = true }
             default:
                 // Leaving the stream surface must release any drag-lock and stop decoding;
                 // the browser can remain mounted while the app target changes.
@@ -90,6 +102,18 @@ struct AppStreamBrowserView: View {
                 if case .streaming = vm.status { rendererVM.startReceiving() }
             }
         }
+        .sheet(isPresented: $showsHelp) { AppStreamGestureHelpView() }
+        .confirmationDialog("Choose a window", isPresented: Binding(
+            get: { windowChoice != nil }, set: { if !$0 { windowChoice = nil } }
+        ), titleVisibility: .visible) {
+            if let app = windowChoice {
+                ForEach(Array(app.windowIDs.enumerated()), id: \.element) { index, id in
+                    Button(app.windowTitles?[id] ?? "Window \(index + 1)") { open(app, windowID: id) }
+                }
+                Button("Open active window") { open(app) }
+            }
+        }
+        .onChangeCompat(of: qualityMode) { _ in applyQuality() }
         .onDisappear {
             rendererVM.stopReceiving()
             input.stop()
@@ -101,8 +125,33 @@ struct AppStreamBrowserView: View {
     private var hostIsLocked: Bool {
         sessionCoordinator.hostLockState == .lockedOrLoginWindow
     }
-    private var running: [RemoteApplication] { vm.applications.filter { $0.isRunning } }
-    private var installed: [RemoteApplication] { vm.applications.filter { !$0.isRunning } }
+    private var favoriteIDs: [String] { decodeIDs(favoriteStorage) }
+    private var matchingApps: [RemoteApplication] {
+        vm.applications.filter { searchText.isEmpty || $0.name.localizedStandardContains(searchText) }
+    }
+    private var favorites: [RemoteApplication] { matchingApps.filter { favoriteIDs.contains($0.id) } }
+    private var recent: [RemoteApplication] {
+        decodeIDs(recentStorage).compactMap { id in matchingApps.first { $0.id == id && !favoriteIDs.contains(id) } }
+    }
+    private var running: [RemoteApplication] { matchingApps.filter { $0.isRunning } }
+    private var installed: [RemoteApplication] { matchingApps.filter { !$0.isRunning } }
+    private func decodeIDs(_ value: String) -> [String] {
+        (try? JSONDecoder().decode([String].self, from: Data(value.utf8))) ?? []
+    }
+    private func encodeIDs(_ value: [String]) -> String {
+        (try? String(decoding: JSONEncoder().encode(value), as: UTF8.self)) ?? "[]"
+    }
+    private func open(_ app: RemoteApplication, windowID: String? = nil) {
+        recentStorage = encodeIDs(Array(([app.id] + decodeIDs(recentStorage).filter { $0 != app.id }).prefix(10)))
+        windowChoice = nil
+        vm.select(app, windowID: windowID)
+    }
+    private func applyQuality() {
+        let preset: StreamQualityPreset = qualityMode == "performance" ? .performance
+            : qualityMode == "auto" ? .balanced : (environment.isUltraQualityEntitled ? .ultra : .quality)
+        environment.preferredQualityPreset = preset
+        sessionCoordinator.setPreferredQuality(preset)
+    }
 
     // MARK: - Browser
 
@@ -127,19 +176,27 @@ struct AppStreamBrowserView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Close host")
-                .accessibilityHint("Return to the Vamp Host picker")
+                .accessibilityHint("Return to the Mac picker")
             }
             .padding(.horizontal, 22)
             .padding(.top, 16)
             .padding(.bottom, 16)
 
+            TextField("Search apps", text: $searchText)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .padding(.horizontal, 18)
+                .padding(.bottom, 12)
             ScrollView {
-                VStack(spacing: 12) {
+                LazyVStack(spacing: 12) {
                     if let reason = bannerReason { banner(reason) }
 
                     if vm.applications.isEmpty {
                         loadingOrEmpty
                     } else {
+                        if !favorites.isEmpty { section("Favorites", favorites) }
+                        if searchText.isEmpty, !recent.isEmpty { section("Recent", recent) }
+                        if matchingApps.isEmpty { Text("No apps match your search.").foregroundStyle(.secondary) }
                         if !running.isEmpty {
                             section("Running", running)
                         }
@@ -163,53 +220,23 @@ struct AppStreamBrowserView: View {
                 .foregroundStyle(PR.dim)
                 .padding(.horizontal, 4)
                 .padding(.top, 6)
-            VStack(spacing: 10) {
+            LazyVStack(spacing: 10) {
                 ForEach(apps) { appRow($0) }
             }
         }
     }
 
     private func appRow(_ app: RemoteApplication) -> some View {
-        Button {
-            vm.select(app)
-        } label: {
-            HStack(spacing: 13) {
-                icon(for: app)
-                    .resizable()
-                    .frame(width: 40, height: 40)
-                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(app.name)
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(PR.fg)
-                    if app.isActive {
-                        Text("Active now").font(.caption2).foregroundStyle(PR.accent)
-                    } else if app.isRunning {
-                        Text("Running").font(.caption2).foregroundStyle(PR.fg2)
-                    }
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(PR.dim)
+        AppStreamApplicationRow(application: app, isFavorite: favoriteIDs.contains(app.id)) {
+            if app.windowIDs.count > 1 { windowChoice = app } else { open(app) }
+        }
+        .contextMenu {
+            Button(favoriteIDs.contains(app.id) ? "Remove from Favorites" : "Add to Favorites",
+                   systemImage: favoriteIDs.contains(app.id) ? "star.slash" : "star") {
+                favoriteStorage = encodeIDs(favoriteIDs.contains(app.id)
+                    ? favoriteIDs.filter { $0 != app.id } : favoriteIDs + [app.id])
             }
-            .padding(14)
-            .frame(maxWidth: .infinity)
-            .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(app.name)
-        .accessibilityValue(app.isActive ? "Active now" : (app.isRunning ? "Running" : "Installed"))
-        .accessibilityHint("Open this Mac app in Vamp Stream")
-    }
-
-    private func icon(for app: RemoteApplication) -> Image {
-        if let base64 = app.iconPNGBase64,
-           let data = Data(base64Encoded: base64),
-           let uiImage = UIImage(data: data) {
-            return Image(uiImage: uiImage)
-        }
-        return Image(systemName: "app.dashed")
     }
 
     private var bannerReason: String? {
@@ -311,7 +338,7 @@ struct AppStreamBrowserView: View {
                         },
                         onPinchEnded: {
                             if viewportZoom < 1.15 {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                                withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.86)) {
                                     resetViewportZoom()
                                 }
                             }
@@ -320,6 +347,13 @@ struct AppStreamBrowserView: View {
                         onHoverDelta: { dx, dy in input.relativePointerMove(deltaX: dx, deltaY: dy) }
                     )
                     .allowsHitTesting(!keyboardActive)
+                    if videoStalled {
+                        VStack(spacing: 8) {
+                            Text("Waiting for video…").font(.headline)
+                            Button("Retry video") { sessionCoordinator.requestKeyframeRefresh(reason: "Stalled app stream") }
+                                .buttonStyle(.borderedProminent)
+                        }.padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    }
                 } else {
                     VStack(spacing: 12) {
                         ProgressView().tint(.white)
@@ -347,6 +381,12 @@ struct AppStreamBrowserView: View {
                     .padding(.bottom, keyboardOverlayBottomPad)
                 }
             }
+            .task {
+                while !Task.isCancelled {
+                    videoStalled = environment.webRTCSessionManager.streamDiagnostics.isStalled()
+                    do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                }
+            }
             .onAppear {
                 configureInteraction(viewSize: proxy.size)
                 vm.updateClientViewport(size: proxy.size)
@@ -360,20 +400,10 @@ struct AppStreamBrowserView: View {
                 configureInteraction(viewSize: proxy.size)
                 resetViewportZoom()
             }
-#if canImport(UIKit) && !os(macOS)
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillChangeFrameNotification)) { notification in
-                guard let end = notification.userInfo?[UIApplication.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-                let screenHeight = UIScreen.main.bounds.height
-                withAnimation(.easeOut(duration: 0.25)) {
-                    keyboardOverlayBottomPad = max(0, screenHeight - end.origin.y)
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.keyboardWillHideNotification)) { _ in
-                withAnimation(.easeOut(duration: 0.22)) {
-                    keyboardOverlayBottomPad = 0
-                }
-            }
-#endif
+            .background(AppStreamKeyboardInsetReader { inset in
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { keyboardOverlayBottomPad = inset }
+            })
+
         }
         .ignoresSafeArea(edges: [.horizontal, .bottom])
     }
@@ -391,13 +421,14 @@ struct AppStreamBrowserView: View {
             .accessibilityHint("Stop streaming and return to the Mac app list")
             Spacer()
             Text(name)
+                .lineLimit(1)
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 13).padding(.vertical, 8)
                 .background(.ultraThinMaterial, in: Capsule())
             Spacer()
             if viewportZoom > 1.05 {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.86)) {
                         resetViewportZoom()
                     }
                 } label: {
@@ -411,6 +442,25 @@ struct AppStreamBrowserView: View {
                 .accessibilityLabel("Reset zoom")
                 .accessibilityValue("Currently zoomed to \(Int(viewportZoom * 100)) percent")
             }
+            Menu {
+                Picker("Quality", selection: $qualityMode) {
+                    Text("Auto").tag("auto")
+                    Text("Sharper text").tag("quality")
+                    Text("Lower bandwidth").tag("performance")
+                }
+                Button("Gesture help", systemImage: "hand.draw") { showsHelp = true }
+                if input.dragLocked {
+                    Button("Release drag lock", systemImage: "lock.open") { input.releaseDragLock() }
+                }
+                Button("Refresh video", systemImage: "arrow.clockwise") {
+                    sessionCoordinator.requestKeyframeRefresh(reason: "User requested video refresh")
+                }
+                Button("Reconnect", systemImage: "wifi") { Task { await sessionCoordinator.reconnectLast() } }
+            } label: {
+                Image(systemName: input.dragLocked ? "lock.fill" : "ellipsis.circle")
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .accessibilityLabel(input.dragLocked ? "Stream options, drag lock on" : "Stream options")
             Button {
                 if !keyboardActive, isStreamingTerminal { input.focusTerminal() }
                 keyboardActive.toggle()
@@ -603,6 +653,86 @@ private struct AppStreamLockedStateView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
             isSubmitting = false
         }
+    }
+}
+private struct AppStreamApplicationRow: View {
+    let application: RemoteApplication
+    let isFavorite: Bool
+    let onOpen: () -> Void
+    @State private var icon: UIImage?
+    private static let icons = NSCache<NSString, UIImage>()
+    var body: some View {
+        Button(action: onOpen) {
+            HStack(spacing: 13) {
+                Group {
+                    if let icon { Image(uiImage: icon).resizable() }
+                    else { Image(systemName: "app.dashed").resizable() }
+                }.frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 9))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(application.name).font(.body.weight(.medium)).foregroundStyle(PR.fg)
+                    Text(application.isActive ? "Active now" : application.isRunning ? "Running" : "Installed")
+                        .font(.caption).foregroundStyle(PR.fg2)
+                }
+                Spacer()
+                if isFavorite { Image(systemName: "star.fill").foregroundStyle(PR.accent) }
+                Image(systemName: "chevron.right").foregroundStyle(PR.dim)
+            }.padding(14).frame(maxWidth: .infinity, minHeight: 60)
+                .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12))
+        }.buttonStyle(.plain)
+        .accessibilityLabel(application.name)
+        .accessibilityHint("Open app. More actions include Favorites.")
+        .task(id: application.iconPNGBase64) {
+            guard let encoded = application.iconPNGBase64 else { icon = nil; return }
+            let key = (application.id + String(encoded.hashValue)) as NSString
+            Self.icons.countLimit = 256
+            if let cached = Self.icons.object(forKey: key) { icon = cached; return }
+            guard let data = Data(base64Encoded: encoded), let decoded = UIImage(data: data) else { return }
+            Self.icons.setObject(decoded, forKey: key)
+            icon = decoded
+        }
+    }
+}
+
+struct AppStreamGestureHelpView: View {
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            List {
+                Label("Tap to click; double-tap to double-click.", systemImage: "hand.tap")
+                Label("Tap with two fingers to right-click.", systemImage: "hand.point.up.left")
+                Label("Move two fingers to scroll.", systemImage: "arrow.up.arrow.down")
+                Label("Pinch to zoom. Use 1× to reset.", systemImage: "plus.magnifyingglass")
+                Label("Long-press to hold the mouse button, then move to drag. Long-press again or choose Release drag lock in Stream options to release.", systemImage: "lock.open")
+                Label("Use the keyboard button to type into the Mac app.", systemImage: "keyboard")
+            }.navigationTitle("Stream controls")
+                .toolbar { Button("Done") { dismiss() } }
+        }
+    }
+}
+
+struct AppStreamKeyboardInsetReader: UIViewRepresentable {
+    let onChange: (CGFloat) -> Void
+    func makeUIView(context: Context) -> KeyboardInsetView {
+        let view = KeyboardInsetView()
+        view.isUserInteractionEnabled = false
+        view.onChange = onChange
+        return view
+    }
+    func updateUIView(_ view: KeyboardInsetView, context: Context) { view.onChange = onChange }
+}
+
+final class KeyboardInsetView: UIView {
+    var onChange: ((CGFloat) -> Void)?
+    private var lastInset: CGFloat = -1
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // The guide belongs to this view, so split-screen and external-display
+        // coordinates never need to be converted from a global screen.
+        let occlusion = max(0, bounds.maxY - keyboardLayoutGuide.layoutFrame.minY)
+        let inset = occlusion > safeAreaInsets.bottom + 1 ? occlusion : 0
+        guard abs(inset - lastInset) > 0.5 else { return }
+        lastInset = inset
+        DispatchQueue.main.async { [weak self] in self?.onChange?(inset) }
     }
 }
 #endif

@@ -61,6 +61,7 @@ public final class CGEventInputBridge: PlatformInputBridge, @unchecked Sendable 
     // touched from two threads. Keep CGEvent.post calls outside the lock.
     private let stateLock = NSLock()
     private var _heldButton: MouseButton?
+    private var heldKeys: Set<UInt16> = []
     // Carry the truncated fraction of a scroll between events so slow, precise
     // scrolling isn't silently dropped by Int32() rounding to zero.
     private var _scrollResidualX: Double = 0
@@ -338,6 +339,19 @@ public final class CGEventInputBridge: PlatformInputBridge, @unchecked Sendable 
 
     // MARK: - Keyboard
 
+    public func releaseHeldKeys() {
+        let keys = withStateLock { () -> Set<UInt16> in
+            let keys = heldKeys
+            heldKeys.removeAll()
+            return keys
+        }
+        for key in keys {
+            guard let event = CGEvent(keyboardEventSource: eventSource, virtualKey: key, keyDown: false) else { continue }
+            event.flags = []
+            event.post(tap: .cghidEventTap)
+        }
+    }
+
     public func postKeyEvent(keyCode: UInt16, action: KeyAction, modifiers: KeyboardModifierFlags) throws {
         try postKeyEvent(keyCode: keyCode, action: action, modifiers: modifiers, unicodeString: nil)
     }
@@ -360,6 +374,9 @@ public final class CGEventInputBridge: PlatformInputBridge, @unchecked Sendable 
         if let unicodeString, !unicodeString.isEmpty {
             let utf16 = Array(unicodeString.utf16)
             event.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
+        }
+        withStateLock {
+            if keyDown { heldKeys.insert(keyCode) } else { heldKeys.remove(keyCode) }
         }
         event.post(tap: .cghidEventTap)
     }

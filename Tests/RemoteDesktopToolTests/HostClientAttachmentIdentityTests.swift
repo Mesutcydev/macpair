@@ -1,9 +1,18 @@
 import XCTest
+import SharedModels
 @testable import HostApp
 @testable import SharedProtocol
 
 final class HostClientAttachmentIdentityTests: XCTestCase {
     private let fingerprint = String(repeating: "ab", count: 32)
+
+    func testRevocationMatchesFingerprintAfterPeerIDChanges() {
+        let peer = TrustedPeer(id: UUID(), displayName: "Test", fingerprint: fingerprint)
+        XCTAssertTrue(HostClientAttachmentIdentity.matchesRevokedPeer(
+            activeClientID: UUID(), activeClientFingerprint: fingerprint.uppercased(), peer: peer))
+        XCTAssertFalse(HostClientAttachmentIdentity.matchesRevokedPeer(
+            activeClientID: UUID(), activeClientFingerprint: String(repeating: "cd", count: 32), peer: peer))
+    }
 
     func testSamePeerIDCanReplaceItsTransport() {
         let peerID = UUID()

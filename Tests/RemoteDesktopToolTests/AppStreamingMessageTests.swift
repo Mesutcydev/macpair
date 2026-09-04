@@ -6,6 +6,18 @@ import InputControl
 
 final class AppStreamingMessageTests: XCTestCase {
 
+    func testRequestCorrelationAndLegacyCompatibility() throws {
+        let id = UUID()
+        let request = StreamTargetSwitchRequestMessage(sessionID: UUID(), target: .window("42"), senderDeviceID: UUID(), requestID: id)
+        let decoded = try DataChannelEnvelope.streamTargetSwitch(request).decodeStreamTargetSwitchRequest()
+        XCTAssertEqual(decoded.requestID, id)
+        let legacy = StreamTargetSwitchRequestMessage(sessionID: UUID(), target: .window("42"), senderDeviceID: UUID())
+        XCTAssertNil(try DataChannelEnvelope.streamTargetSwitch(legacy).decodeStreamTargetSwitchRequest().requestID)
+        let response = StreamTargetSwitchResultMessage(sessionID: request.sessionID, resolvedTarget: .window("42"),
+            senderDeviceID: request.senderDeviceID, status: .completed, startedAt: Date(), requestID: id)
+        XCTAssertEqual(try DataChannelEnvelope.streamTargetSwitchResult(response).decodeStreamTargetSwitchResult().requestID, id)
+    }
+
     func testApplicationListSnapshotRoundTrip() throws {
         let sessionID = UUID()
         let snapshot = ApplicationListSnapshotMessage(

@@ -29,8 +29,10 @@ public protocol PlatformInputBridge: Sendable {
     /// when a session ends so a lost button-up can't leave the host stuck in a
     /// permanent drag. Default implementation is a no-op.
     func releaseHeldPointerButton()
+    func releaseHeldKeys()
 }
 
 public extension PlatformInputBridge {
     func releaseHeldPointerButton() {}
+    func releaseHeldKeys() {}
 }

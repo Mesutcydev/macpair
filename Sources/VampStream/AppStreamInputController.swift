@@ -21,7 +21,7 @@ final class AppStreamInputController: ObservableObject {
 
     @Published private(set) var lastError: String?
     private(set) var commandsSent: UInt64 = 0
-    private(set) var dragLocked = false
+    @Published private(set) var dragLocked = false
     var sessionID: UUID?
 
     private var interpreter: GestureInterpreter?
@@ -31,8 +31,8 @@ final class AppStreamInputController: ObservableObject {
     // Ordered sender, copied in spirit from RemoteInteractionViewModel. Directly calling
     // sendDataMessage for every UIKit sample can overtake clicks/key events and silently drops
     // failures; this queue keeps all input serialized and observable.
-    private var sendContinuation: AsyncStream<InputCommandMessage>.Continuation?
-    private var senderTask: Task<Void, Never>?
+    private var sender: OrderedCommandSender<InputCommandMessage>?
+    private let onFailure: (String) -> Void
     private var pendingMove: PointerMoveCommand?
     private var pendingScrollDX: Double = 0
     private var pendingScrollDY: Double = 0
@@ -42,16 +42,15 @@ final class AppStreamInputController: ObservableObject {
     private var flushLink: CADisplayLink?
     #endif
 
-    init(webRTC: any WebRTCSessionManaging) {
+    init(webRTC: any WebRTCSessionManaging, onFailure: @escaping (String) -> Void = { _ in }) {
         self.webRTC = webRTC
+        self.onFailure = onFailure
     }
 
     deinit {
         #if canImport(UIKit)
         flushLink?.invalidate()
         #endif
-        sendContinuation?.finish()
-        senderTask?.cancel()
     }
 
     /// The streamed window, as a synthetic display (id = window id, point size, Retina scale).
@@ -89,12 +88,9 @@ final class AppStreamInputController: ObservableObject {
         interpreter = nil
         window = nil
 
-        // Finish the old bounded queue after the release command has been yielded. Do not
-        // cancel its task here: cancellation between the mouse-up and the network send can
-        // leave the Mac button logically held. A later stream creates a fresh queue.
-        sendContinuation?.finish()
-        sendContinuation = nil
-        senderTask = nil
+        // Keep a single ordered sender across app changes so an old mouse-up cannot
+        // overtake the next app's input. The sender is released with this controller.
+
     }
 
     private func rebuild() {
@@ -275,31 +271,32 @@ final class AppStreamInputController: ObservableObject {
         #endif
     }
 
-    private func enqueue(_ command: InputCommand) {
-        guard let sessionID else { return }
-        startSenderIfNeeded()
-        sendContinuation?.yield(InputCommandMessage(sessionID: sessionID, command: command))
+    func releaseDragLock() {
+        guard dragLocked, let lastPointerPoint else { return }
+        toggleDragLock(at: lastPointerPoint)
     }
 
-    private func startSenderIfNeeded() {
-        guard senderTask == nil else { return }
-        let stream = AsyncStream<InputCommandMessage>(bufferingPolicy: .bufferingNewest(128)) { continuation in
-            sendContinuation = continuation
-        }
-        senderTask = Task { [weak self] in
-            for await message in stream {
-                guard let self else { break }
-                do {
+    private func enqueue(_ command: InputCommand) {
+        guard let sessionID else { return }
+        if sender == nil {
+            sender = OrderedCommandSender(
+                send: { [weak self, webRTC] message in
                     try await webRTC.sendInputCommand(message)
-                    commandsSent &+= 1
-                    lastError = nil
-                } catch {
-                    lastError = error.localizedDescription
-                    logger.error("Input send failed: \(error.localizedDescription, privacy: .public)")
+                    self?.commandsSent &+= 1
+                },
+                onFailure: { [weak self, webRTC] reason in
+                    self?.lastError = reason
+                    self?.onFailure(reason)
+                    // A delivery failure invalidates this attachment. Do not continue
+                    // sending later commands after a potentially missing release.
+                    webRTC.configureControlChannelAuth(sessionTokenHex: nil)
+                    Task { await webRTC.closeSession() }
                 }
-            }
+            )
         }
+        sender?.enqueue(InputCommandMessage(sessionID: sessionID, command: command))
     }
+
 }
 
 #if canImport(UIKit)

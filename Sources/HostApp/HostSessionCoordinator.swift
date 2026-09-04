@@ -33,6 +33,13 @@ enum HostClientAttachmentIdentity {
         return activeFingerprint == candidateFingerprint
     }
 
+    static func matchesRevokedPeer(activeClientID: UUID?, activeClientFingerprint: String?, peer: TrustedPeer) -> Bool {
+        if activeClientID == peer.id { return true }
+        let active = normalized(activeClientFingerprint)
+        let revoked = normalized(peer.fingerprint)
+        return PublicKeyFingerprint.isValid(active) && PublicKeyFingerprint.isValid(revoked) && active == revoked
+    }
+
     private static func normalized(_ value: String?) -> String {
         value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
     }
@@ -82,6 +89,8 @@ final class HostSessionCoordinator: ObservableObject {
     /// random peer UUID on each launch, so ID-only replacement rejected the
     /// same paired Mac during the disconnect grace period.
     private var activeClientFingerprint: String?
+    private var trustRevision: UInt64 = 0
+    private var revokingFingerprints: Set<String> = []
 
     // Dependencies
     private let hostIdentity: HostIdentity
@@ -197,6 +206,8 @@ final class HostSessionCoordinator: ObservableObject {
     var isWindowStreamTransitioning = false
     /// Low-frequency task that keeps the window origin aligned for input and detects window loss.
     var windowTrackingTask: Task<Void, Never>?
+    private var targetSwitchTask: Task<Void, Never>?
+    private var applicationListSnapshot: [RemoteApplication] = []
     #endif
 
     init(
@@ -415,6 +426,12 @@ final class HostSessionCoordinator: ObservableObject {
         inputCommandRouter.stopListening()
         streamingCoordinator.stopCoordinating()
 
+        #if os(macOS)
+        targetSwitchTask?.cancel()
+        await targetSwitchTask?.value
+        targetSwitchTask = nil
+        clearWindowStreaming()
+        #endif
         // Await cancellation to ensure clean shutdown
         await bridgeTask?.value
         await connTask?.value
@@ -547,7 +564,25 @@ final class HostSessionCoordinator: ObservableObject {
         ))
     }
 
+    func revokePeer(_ peer: TrustedPeer, store: any TrustedPeerStoreProtocol) async throws {
+        trustRevision &+= 1
+        revokingFingerprints.insert(peer.fingerprint)
+        defer { revokingFingerprints.remove(peer.fingerprint) }
+        if HostClientAttachmentIdentity.matchesRevokedPeer(activeClientID: activeClientID, activeClientFingerprint: activeClientFingerprint, peer: peer) {
+            // Synchronous invalidation precedes every suspension. stopListening detaches
+            // terminals and releases held input; it does not destroy persistent sessions.
+            inputCommandRouter.stopListening()
+            activeSessionID = nil
+            webRTCSessionManager.configureControlChannelAuth(sessionTokenHex: nil)
+            await resetForNextClient(reason: "Device access revoked")
+        }
+        try await store.revokePeer(id: peer.id)
+    }
+
     private func handleClientOffer(_ offer: SessionOfferMessage, sender: SignalingPeer) async {
+        let revision = trustRevision
+        guard !revokingFingerprints.contains(sender.publicKeyFingerprint ?? "") else { return }
+
         // Record the client's advertised decoder capabilities so codec negotiation
         // reflects what this specific client can actually decode (e.g. HEVC).
         advertisedClientCapabilities = offer.clientCapabilities
@@ -645,6 +680,7 @@ final class HostSessionCoordinator: ObservableObject {
             phase = .awaitingClient
             return
         }
+        guard revision == trustRevision else { return }
         webRTCSessionManager.configureControlChannelAuth(sessionTokenHex: sessionTokenHex)
 
         // Proceed with session
@@ -677,8 +713,11 @@ final class HostSessionCoordinator: ObservableObject {
                 return
             }
 
+            guard revision == trustRevision else { return }
             // Prepare WebRTC session
             try await webRTCSessionManager.prepareSession(id: sessionID, role: .host)
+
+            guard revision == trustRevision else { await webRTCSessionManager.closeSession(); return }
 
             // A fast reconnect flows through here on the SAME coordinator while the PREVIOUS
             // session's 8s disconnect-grace task is still armed. prepareSession has now closed
@@ -689,6 +728,7 @@ final class HostSessionCoordinator: ObservableObject {
 
             // Apply client offer and generate answer
             let answer = try await webRTCSessionManager.applyRemoteOffer(offer)
+            guard revision == trustRevision else { await webRTCSessionManager.closeSession(); return }
             // Never put the session token on the signaling answer. The client
             // already holds the value it generated; echoing it re-exposes the
             // control-channel secret on plaintext 9471.
@@ -720,6 +760,7 @@ final class HostSessionCoordinator: ObservableObject {
 
             logger.info("SDP answer sent for session \(sessionID.uuidString)")
 
+            guard revision == trustRevision else { return }
             // Start the capture → encode → transport pipeline
             await startPipeline(
                 sessionID: sessionID,
@@ -795,6 +836,7 @@ final class HostSessionCoordinator: ObservableObject {
         sessionTokenHex: String?,
         terminalOnly: Bool
     ) async {
+        guard activeSessionID == sessionID else { return }
         phase = .pipelineStarting
 
         // Wire the lock state provider into the input router BEFORE startListening, so an input
@@ -1010,12 +1052,14 @@ final class HostSessionCoordinator: ObservableObject {
                         await self.publishInitialSessionState(sessionID: sessionID)
                     }
                 case .disconnected:
+                    self.inputCommandRouter.releaseHeldInput()
                     // TCP-level .disconnected is frequently transient (Wi-Fi roam,
                     // brief congestion) and the provider retries internally — give
                     // it a grace window instead of killing the session instantly.
                     self.logger.warning("Peer disconnected — grace period \(self.disconnectGraceSeconds)s before teardown")
                     self.startDisconnectGraceTimer()
                 case .failed:
+                    self.inputCommandRouter.releaseHeldInput()
                     // A flaky relay (e.g. Tailscale DERP) surfaces a brief path flap as a
                     // terminal `.failed` just as often as `.disconnected`. Treat it the same:
                     // give it the grace window instead of an instant teardown. If the client
@@ -1524,7 +1568,18 @@ final class HostSessionCoordinator: ObservableObject {
     /// is always enforced.
     @MainActor
     private func applyRuntimeQualityAdjust(_ requested: StreamQualityPreset) async {
-        let effective = minQualityPreset(performanceStateController.profile.effectivePreset, requested)
+        guard let sessionID = activeSessionID else { return }
+        let effective = performanceStateController.setActivePreset(requested)
+        #if os(macOS)
+        if let target = activeWindowTarget, let clientID = activeClientID {
+            guard !isWindowStreamTransitioning else { return }
+            await handleStreamTargetSwitchRequest(StreamTargetSwitchRequestMessage(
+                sessionID: sessionID, target: .window(String(target.windowID)),
+                launchIfNeeded: false, senderDeviceID: clientID))
+            return
+        }
+        if productMode.isAppStreamingOnly { return }
+        #endif
         logger.info("Applying runtime quality adjust to \(effective.rawValue)")
         do {
             guard let displayID = captureEngine.diagnostics.currentDisplayID else { return }
@@ -1559,6 +1614,11 @@ final class HostSessionCoordinator: ObservableObject {
         livenessWatchdogTask = nil
         captureStateObserverTask?.cancel()
         captureStateObserverTask = nil
+        #if os(macOS)
+        targetSwitchTask?.cancel()
+        await targetSwitchTask?.value
+        targetSwitchTask = nil
+        #endif
         // Keep host runtime active after disconnect/failure by tearing down
         // only the current session and returning to awaitingClient.
         inputCommandRouter.stopListening()
@@ -2206,6 +2266,12 @@ extension HostSessionCoordinator {
     /// Client → host: publish the current application registry.
     func handleApplicationListRequest(_ message: ApplicationListRequestMessage) async {
         guard activeSessionID == message.sessionID else { return }
+        if (message.offset ?? 0) == 0 {
+            targetSwitchTask?.cancel()
+            await targetSwitchTask?.value
+            targetSwitchTask = nil
+            applicationListSnapshot = applicationRegistry.snapshot()
+        }
         // Returning to the app browser is also the explicit end of a window stream. Stop
         // capture before publishing the new inventory so the host does not keep encoding
         // an invisible window between app selections.
@@ -2213,9 +2279,10 @@ extension HostSessionCoordinator {
             await stopActiveWindowStream()
         }
         if let envelope = Self.applicationListEnvelope(
-            applications: applicationRegistry.snapshot(),
+            applications: applicationListSnapshot,
             sessionID: message.sessionID,
-            senderDeviceID: message.senderDeviceID
+            senderDeviceID: message.senderDeviceID,
+            offset: message.offset ?? 0
         ) {
             try? webRTCSessionManager.sendDataMessage(envelope)
         }
@@ -2227,28 +2294,35 @@ extension HostSessionCoordinator {
     /// until the envelope fits; running apps keep theirs longest because that is the section
     /// people actually look at.
     nonisolated static func applicationListEnvelope(
-        applications: [RemoteApplication],
-        sessionID: UUID,
-        senderDeviceID: UUID
+        applications: [RemoteApplication], sessionID: UUID, senderDeviceID: UUID,
+        offset: Int = 0
     ) -> DataChannelEnvelope? {
-        let candidates = [
-            applications,
-            applications.map { $0.isRunning ? $0 : $0.withoutIcon },
-            applications.map(\.withoutIcon)
-        ]
-        var fallback: DataChannelEnvelope?
-        for candidate in candidates {
-            let snapshot = ApplicationListSnapshotMessage(
-                sessionID: sessionID,
-                senderDeviceID: senderDeviceID,
-                applications: candidate
-            )
-            guard let envelope = try? DataChannelEnvelope.applicationListSnapshot(snapshot),
-                  let size = try? envelope.wireEncode().count else { return fallback }
-            fallback = envelope
-            if size <= applicationListByteBudget { return envelope }
+        guard offset >= 0, offset <= applications.count else { return nil }
+        let remaining = Array(applications.dropFirst(offset).prefix(512))
+        var count = remaining.count
+        while true {
+            let page = Array(remaining.prefix(count))
+            let candidates = count == remaining.count
+                ? [page, page.map { $0.isRunning ? $0 : $0.withoutIcon }, page.map(\.withoutIcon)]
+                : [page.map(\.withoutIcon)]
+            for candidate in candidates {
+                let next = offset + count
+                let snapshot = ApplicationListSnapshotMessage(
+                    sessionID: sessionID, senderDeviceID: senderDeviceID,
+                    applications: candidate, offset: offset,
+                    nextOffset: next < applications.count ? next : nil)
+                guard let envelope = try? DataChannelEnvelope.applicationListSnapshot(snapshot),
+                      let size = try? envelope.wireEncode().count else { return nil }
+                if size <= applicationListByteBudget {
+                    // Never emit a page that cannot advance. The caller's bounded retry
+                    // reports an error for an individually unrepresentable entry.
+                    guard count > 0 || offset == applications.count else { return nil }
+                    return envelope
+                }
+            }
+            guard count > 0 else { return nil }
+            count /= 2
         }
-        return fallback
     }
 
     /// Under `WebRTCSessionManager.maxInboundControlMessageBytes` (128 KB) with room for the
@@ -2259,6 +2333,16 @@ extension HostSessionCoordinator {
     /// `.display` target; resolves + captures a window for `.window` / `.application`.
     func handleStreamTargetSwitchRequest(_ message: StreamTargetSwitchRequestMessage) async {
         guard activeSessionID == message.sessionID else { return }
+        let previous = targetSwitchTask
+        previous?.cancel()
+        targetSwitchTask = Task { [weak self] in
+            await previous?.value
+            guard let self, !Task.isCancelled, self.activeSessionID == message.sessionID else { return }
+            await self.performStreamTargetSwitch(message)
+        }
+    }
+
+    private func performStreamTargetSwitch(_ message: StreamTargetSwitchRequestMessage) async {
         let startTime = Date()
         switch message.target.kind {
         case .display:
@@ -2353,6 +2437,7 @@ extension HostSessionCoordinator {
         // already running — hidden, minimised, or with every window closed — needs the nudge early.
         let nudgeAttempt = existing == nil ? 16 : 4
         for attempt in 0..<40 {
+            guard !Task.isCancelled, activeSessionID == request.sessionID, !lockStateProvider().blocksRemoteInput else { return }
             if let candidate = applicationRegistry.streamableWindow(forPID: runningApp.processIdentifier),
                await applicationRegistry.isShareableWindow(candidate.windowID) {
                 window = candidate
@@ -2434,6 +2519,7 @@ extension HostSessionCoordinator {
     // MARK: Capture
 
     private func beginWindowStream(window rawWindow: WindowInfo, bundleID: String, name: String, request: StreamTargetSwitchRequestMessage, startTime: Date) async {
+        guard !Task.isCancelled, activeSessionID == request.sessionID, !lockStateProvider().blocksRemoteInput else { return }
         isWindowStreamTransitioning = true
         defer { isWindowStreamTransitioning = false }
         var window = rawWindow
@@ -2447,6 +2533,7 @@ extension HostSessionCoordinator {
                 window = resized
             }
         }
+        guard !Task.isCancelled, activeSessionID == request.sessionID, !lockStateProvider().blocksRemoteInput else { return }
         let scale = applicationRegistry.windowScaleFactor(bounds: window.bounds)
         let descriptor = Self.windowDescriptor(windowID: window.windowID, name: name, bounds: window.bounds, scale: scale)
         // Preserve the quality negotiated for this session. The adaptive controller
@@ -2455,8 +2542,11 @@ extension HostSessionCoordinator {
         // resolution before either adaptive system had a chance to operate.
         let preset = performanceStateController.profile.effectivePreset
 
-        // Cancel tracking for the previous window before replacing its capture pipeline.
-        // The old task must not report a loss while this switch is in progress.
+        // Drain a canceled geometry restart before replacing its capture pipeline.
+        let previousTracking = windowTrackingTask
+        previousTracking?.cancel()
+        await previousTracking?.value
+        guard !Task.isCancelled, activeSessionID == request.sessionID else { return }
         clearWindowStreaming()
 
         // Input must map into the window from the first frame.
@@ -2464,6 +2554,11 @@ extension HostSessionCoordinator {
 
         do {
             try await restartStreamingPipelineForWindow(descriptor: descriptor, windowID: window.windowID, qualityPreset: preset)
+            guard !Task.isCancelled, activeSessionID == request.sessionID else {
+                await stopWindowStreamPipeline()
+                clearWindowStreaming()
+                return
+            }
             activeWindowTarget = WindowStreamTarget(
                 windowID: window.windowID,
                 ownerPID: window.ownerPID,
@@ -2616,6 +2711,7 @@ extension HostSessionCoordinator {
         sessionID: UUID,
         senderDeviceID: UUID
     ) async {
+        guard !Task.isCancelled, activeSessionID == sessionID else { return }
         isWindowStreamTransitioning = true
         defer { isWindowStreamTransitioning = false }
         let descriptor = Self.windowDescriptor(
@@ -2630,7 +2726,7 @@ extension HostSessionCoordinator {
                 windowID: target.windowID,
                 qualityPreset: currentQualityPreset
             )
-            guard activeSessionID == sessionID else {
+            guard !Task.isCancelled, activeSessionID == sessionID else {
                 await stopWindowStreamPipeline()
                 clearWindowStreaming()
                 return
@@ -2788,7 +2884,8 @@ extension HostSessionCoordinator {
             width: descriptor.map { Int($0.frame.size.width.rounded()) },
             height: descriptor.map { Int($0.frame.size.height.rounded()) },
             scaleFactor: descriptor?.scaleFactor,
-            startedAt: startTime
+            startedAt: startTime,
+            requestID: request.requestID
         )
         if let envelope = try? DataChannelEnvelope.streamTargetSwitchResult(message) {
             try? webRTCSessionManager.sendDataMessage(envelope)

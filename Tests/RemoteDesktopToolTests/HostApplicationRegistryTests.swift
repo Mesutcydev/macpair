@@ -70,6 +70,28 @@ final class HostApplicationRegistryTests: XCTestCase {
         XCTAssertTrue(decoded.applications.allSatisfy { $0.iconPNGBase64 != nil })
     }
 
+    func testOversizedInventoryIsPagedWithoutDroppingApps() throws {
+        let apps = (0..<1200).map {
+            RemoteApplication(bundleIdentifier: "com.example.app\($0)",
+                name: String(repeating: "Long name ", count: 80) + String($0),
+                isRunning: false, isActive: false)
+        }
+        var offset = 0
+        var received: [RemoteApplication] = []
+        repeat {
+            let envelope = try XCTUnwrap(HostSessionCoordinator.applicationListEnvelope(
+                applications: apps, sessionID: UUID(), senderDeviceID: UUID(), offset: offset))
+            XCTAssertLessThanOrEqual(try envelope.wireEncode().count, HostSessionCoordinator.applicationListByteBudget)
+            let page = try envelope.decodeApplicationListSnapshot()
+            XCTAssertEqual(page.offset, offset)
+            received += page.applications
+            guard let next = page.nextOffset else { break }
+            XCTAssertGreaterThan(next, offset)
+            offset = next
+        } while offset < apps.count
+        XCTAssertEqual(received.map(\.id), apps.map(\.id))
+    }
+
     /// A drag-resize on the Mac changes the frame on every 200ms poll; each reconfigure
     /// rebuilds capture and encode, so only a shape that held still may trigger one.
     func testWindowResizeOnlyRestartsCaptureOnceTheShapeHoldsStill() {

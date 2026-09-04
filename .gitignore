@@ -181,6 +181,7 @@ Sources/HostApp/Assets.xcassets/.DS_Store
 !scripts/package-vamp-terminal-ios.sh
 !scripts/package-vamp-hosts.sh
 !scripts/package-vamp-stream-ios.sh
+!scripts/verify-vamp-stream-ipa.py
 !scripts/package-vamp-mini-host.sh
 !scripts/install-vamp-cli.command
 !scripts/vamp

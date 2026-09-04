@@ -669,10 +669,10 @@ final class ClientSessionCoordinator: ObservableObject {
         let isTLS = lower.contains("tls") || lower.contains("handshake") || lower.contains("certificate")
 
         if isTLS {
-            return "Secure handshake with the Mac failed. Make sure the matching host is running: Vamp Host for remote control or Vamp Terminal Host for terminal tabs. Update it, then try again."
+            return "Secure handshake with the Mac failed. Make sure the matching host is running: Vamp Sync or Vamp Assistant. Update it, then try again."
         }
         if isRefused {
-            return "The Mac refused the connection. Open Vamp Host on the Mac, then try again."
+            return "The Mac refused the connection. Open the Vamp host app on the Mac, then try again."
         }
         if isUnreachable {
             return "Can't reach the Mac. Check that you're on the same Wi-Fi (or that Tailscale is up if connecting remotely)."
@@ -1043,14 +1043,14 @@ final class ClientSessionCoordinator: ObservableObject {
                 if self.activeSessionID == sessionID,
                    (self.phase == .negotiating || self.phase == .signalingConnected) {
                     self.phase = .error
-                    self.errorMessage = "The Mac closed the pairing request. Open its Vamp host window — Vamp Host or Vamp Sync — approve this device, then connect again."
+                    self.errorMessage = "The Mac closed the pairing request. Open its Vamp host window — Vamp Sync or Vamp Assistant — approve this device, then connect again."
                 }
             } catch {
                 self.logger.warning("Signaling receive ended: \(error.localizedDescription)")
                 if self.activeSessionID == sessionID,
                    (self.phase == .negotiating || self.phase == .signalingConnected) {
                     self.phase = .error
-                    self.errorMessage = "Waiting for approval ended. Open the Mac's Vamp host window — Vamp Host or Vamp Sync — approve this device, then connect again."
+                    self.errorMessage = "Waiting for approval ended. Open the Mac's Vamp host window — Vamp Sync or Vamp Assistant — approve this device, then connect again."
                 }
             }
         }
@@ -1075,7 +1075,7 @@ final class ClientSessionCoordinator: ObservableObject {
                 guard claimed == expected else {
                     logger.warning("Rejected answer due to host fingerprint mismatch expected=\(expected, privacy: .public) claimed=\(claimed, privacy: .public)")
                     phase = .error
-                    errorMessage = "This Mac's identity changed since you last connected. If you reinstalled Vamp Host, remove this saved Mac and reconnect; otherwise don't proceed."
+                    errorMessage = "This Mac's identity changed since you last connected. If you reinstalled the Mac host, remove this saved Mac and reconnect; otherwise don't proceed."
                     await eventLogStore.append(EventLogItem(
                         severity: .warning,
                         category: "Trust",
@@ -1374,7 +1374,7 @@ final class ClientSessionCoordinator: ObservableObject {
                    self.phase == .waitingForMedia {
                     self.logger.error("No video after \(String(format: "%.0f", elapsed))s in waitingForMedia — surfacing error")
                     self.phase = .error
-                    self.errorMessage = "Connected to the Mac, but no video arrived. On the Mac, make sure a display is selected and that Screen Recording is allowed for Vamp Host."
+                    self.errorMessage = "Connected to the Mac, but no video arrived. On the Mac, make sure a display is selected and that Screen Recording is allowed for the Mac host."
                     await self.eventLogStore.append(EventLogItem(
                         severity: .error,
                         category: "Session",
@@ -1901,6 +1901,20 @@ final class ClientSessionCoordinator: ObservableObject {
                 sendQualityAdjust(targetPreset, reason: "network_recovered", upgrade: true)
             }
         }
+    }
+
+    func disconnectForInputFailure(_ reason: String) async {
+        await disconnect()
+        errorMessage = reason
+        phase = .error
+    }
+
+    func setPreferredQuality(_ preset: StreamQualityPreset) {
+        lastQualityPreset = preset
+        activeQualityPreset = preset
+        consecutivePoorQualitySamples = 0
+        consecutiveGoodQualitySamples = 0
+        sendQualityAdjust(preset, reason: "user_preference", upgrade: true)
     }
 
     private func sendQualityAdjust(_ preset: StreamQualityPreset, reason: String, upgrade: Bool) {

@@ -28,7 +28,7 @@ Do not package, reinstall, or advertise discontinued hosts.
 | Control macOS bundle ID | `com.mesutcy.remotedesktop.macclient` |
 | Control iOS bundle ID | `com.mesutcy.remotedesktop.ios` |
 | Terminal iOS bundle ID | `com.mesutcy.remotedesktop.terminal` |
-| Stream iOS bundle ID | `com.mesutcydev.remotedesktop.stream` |
+| Stream iOS bundle ID | `com.mesutcy.remotedesktop.stream` |
 | Project | `RemoteDesktopToolApps.xcodeproj` |
 | Full host scheme | `MacHost` |
 | Light host scheme | `VampTerminalHost` |

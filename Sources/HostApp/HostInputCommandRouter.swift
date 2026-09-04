@@ -335,9 +335,15 @@ final class HostInputCommandRouter: @unchecked Sendable {
         }
     }
 
+    func releaseHeldInput() {
+        inputService.releaseHeldPointerButton()
+        inputService.releaseHeldKeys()
+    }
+
     func stopListening() {
         authTimeoutTask?.cancel()
         authTimeoutTask = nil
+        let finishingTask = listenTask
         listenTask?.cancel()
         listenTask = nil
         #if DEBUG
@@ -361,7 +367,12 @@ final class HostInputCommandRouter: @unchecked Sendable {
 
         // Release any button still held from an in-progress drag so a lost
         // button-up can't leave the Mac stuck dragging after disconnect.
-        inputService.releaseHeldPointerButton()
+        releaseHeldInput()
+        Task { [weak self] in
+            await finishingTask?.value
+            guard let self, self.activeSessionID == nil else { return }
+            self.releaseHeldInput()
+        }
 
         if let endedSessionID {
             onSessionTransportEnded?(endedSessionID)

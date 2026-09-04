@@ -28,6 +28,35 @@ final class AppStreamClientTests: XCTestCase {
 
     // MARK: - State machine (pure reduce)
 
+    func testLateLaunchCompletionDoesNotReopenBrowser() {
+        let environment = ClientAppEnvironment.makeDefault(clientName: "App Stream Audit Test")
+        let model = AppStreamViewModel(environment: environment)
+        model.backToApps()
+        let browserStatus = model.status
+
+        model.apply(StreamTargetSwitchResultMessage(
+            sessionID: UUID(),
+            resolvedTarget: .window("42"),
+            senderDeviceID: UUID(),
+            status: .completed,
+            width: 800,
+            height: 600,
+            scaleFactor: 2,
+            startedAt: Date()
+        ))
+
+        XCTAssertEqual(model.status, browserStatus)
+        XCTAssertNil(model.streamedWindow)
+    }
+
+    func testLateLaunchAcceptanceDoesNotRestartStoppedModel() {
+        let environment = ClientAppEnvironment.makeDefault(clientName: "App Stream Audit Test")
+        let model = AppStreamViewModel(environment: environment)
+        model.stop()
+        model.apply(result(.accepted))
+        XCTAssertEqual(model.status, .idle)
+    }
+
     func testAcceptedGoesToLaunching() {
         let next = AppStreamViewModel.reduce(status: .browsing, result: result(.accepted), pendingName: "Terminal")
         XCTAssertEqual(next, .launching(name: "Terminal"))

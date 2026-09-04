@@ -56,6 +56,7 @@ public struct RemoteApplication: Codable, Hashable, Sendable, Identifiable {
     public var iconPNGBase64: String?
     /// `CGWindowID`s (as strings) of this app's on-screen windows, if running.
     public var windowIDs: [String]
+    public var windowTitles: [String: String]?
 
     public init(
         bundleIdentifier: String,
@@ -63,7 +64,8 @@ public struct RemoteApplication: Codable, Hashable, Sendable, Identifiable {
         isRunning: Bool,
         isActive: Bool,
         iconPNGBase64: String? = nil,
-        windowIDs: [String] = []
+        windowIDs: [String] = [],
+        windowTitles: [String: String]? = nil
     ) {
         self.bundleIdentifier = bundleIdentifier
         self.name = name
@@ -71,6 +73,7 @@ public struct RemoteApplication: Codable, Hashable, Sendable, Identifiable {
         self.isActive = isActive
         self.iconPNGBase64 = iconPNGBase64
         self.windowIDs = windowIDs
+        self.windowTitles = windowTitles
     }
 
     /// The same entry with its icon dropped, so a large inventory can be shed down to fit
@@ -84,11 +87,13 @@ public struct RemoteApplication: Codable, Hashable, Sendable, Identifiable {
 
 /// Client → host: give me your current application registry.
 public struct ApplicationListRequestMessage: Codable, Hashable, Sendable {
+    public var offset: Int?
     public var sessionID: UUID
     public var senderDeviceID: UUID
     public var requestedAt: Date
 
-    public init(sessionID: UUID, senderDeviceID: UUID, requestedAt: Date = Date()) {
+    public init(sessionID: UUID, senderDeviceID: UUID, requestedAt: Date = Date(), offset: Int? = nil) {
+        self.offset = offset
         self.sessionID = sessionID
         self.senderDeviceID = senderDeviceID
         self.requestedAt = requestedAt
@@ -97,6 +102,8 @@ public struct ApplicationListRequestMessage: Codable, Hashable, Sendable {
 
 /// Host → client: the current application registry.
 public struct ApplicationListSnapshotMessage: Codable, Hashable, Sendable {
+    public var offset: Int?
+    public var nextOffset: Int?
     public var sessionID: UUID
     public var senderDeviceID: UUID
     public var applications: [RemoteApplication]
@@ -106,12 +113,16 @@ public struct ApplicationListSnapshotMessage: Codable, Hashable, Sendable {
         sessionID: UUID,
         senderDeviceID: UUID,
         applications: [RemoteApplication],
-        capturedAt: Date = Date()
+        capturedAt: Date = Date(),
+        offset: Int? = nil,
+        nextOffset: Int? = nil
     ) {
         self.sessionID = sessionID
         self.senderDeviceID = senderDeviceID
         self.applications = applications
         self.capturedAt = capturedAt
+        self.offset = offset
+        self.nextOffset = nextOffset
     }
 }
 
@@ -119,6 +130,7 @@ public struct ApplicationListSnapshotMessage: Codable, Hashable, Sendable {
 /// is not running, the host launches/activates it and resolves its front window
 /// when `launchIfNeeded` is true.
 public struct StreamTargetSwitchRequestMessage: Codable, Hashable, Sendable {
+    public var requestID: UUID?
     public var sessionID: UUID
     public var target: StreamTarget
     public var launchIfNeeded: Bool
@@ -135,7 +147,8 @@ public struct StreamTargetSwitchRequestMessage: Codable, Hashable, Sendable {
         launchIfNeeded: Bool = true,
         senderDeviceID: UUID,
         requestedAt: Date = Date(),
-        clientViewportAspect: Double? = nil
+        clientViewportAspect: Double? = nil,
+        requestID: UUID? = nil
     ) {
         self.sessionID = sessionID
         self.target = target
@@ -143,6 +156,7 @@ public struct StreamTargetSwitchRequestMessage: Codable, Hashable, Sendable {
         self.senderDeviceID = senderDeviceID
         self.requestedAt = requestedAt
         self.clientViewportAspect = clientViewportAspect
+        self.requestID = requestID
     }
 }
 
@@ -150,6 +164,7 @@ public struct StreamTargetSwitchRequestMessage: Codable, Hashable, Sendable {
 /// `status == .failed` when a live window disappears (window closed / app quit) so
 /// the client can drop back to the app browser instead of freezing on a dead frame.
 public struct StreamTargetSwitchResultMessage: Codable, Hashable, Sendable {
+    public var requestID: UUID?
     public var sessionID: UUID
     public var resolvedTarget: StreamTarget
     public var senderDeviceID: UUID
@@ -173,7 +188,8 @@ public struct StreamTargetSwitchResultMessage: Codable, Hashable, Sendable {
         height: Int? = nil,
         scaleFactor: Double? = nil,
         startedAt: Date,
-        completedAt: Date = Date()
+        completedAt: Date = Date(),
+        requestID: UUID? = nil
     ) {
         self.sessionID = sessionID
         self.resolvedTarget = resolvedTarget
@@ -185,5 +201,6 @@ public struct StreamTargetSwitchResultMessage: Codable, Hashable, Sendable {
         self.scaleFactor = scaleFactor
         self.startedAt = startedAt
         self.completedAt = completedAt
+        self.requestID = requestID
     }
 }

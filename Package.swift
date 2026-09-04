@@ -46,7 +46,7 @@ let package = Package(
         .library(name: "SharedUI", targets: ["SharedUI"])
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.15.0")
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.20.0")
     ],
     targets: [
         .target(
@@ -58,14 +58,14 @@ let package = Package(
                 .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
-        // Vendored opus 1.4 (Xiph) C codec, float build. SIMD/fixed-point/test/demo
+        // Vendored opus 1.6.1 (Xiph) C codec, float build. SIMD/fixed-point/test/demo
         // sources are excluded; the kept sources are pure portable C. Hung off
         // SharedProtocol (below) because both the host encode path and the client decode
         // path already import SharedProtocol and every app links it — so the codec links
         // transitively into all three apps with no Xcode-project changes.
         .target(
             name: "Copus",
-            exclude: ["celt/arm", "celt/x86", "silk/arm", "silk/x86", "celt/opus_custom_demo.c"],
+            exclude: ["celt/arm", "celt/x86", "silk/arm", "silk/x86"],
             publicHeadersPath: "include",
             cSettings: [
                 .define("HAVE_CONFIG_H"),
@@ -139,6 +139,7 @@ let package = Package(
             ],
             path: "Sources/ClientiOS",
             exclude: [
+                "AppStreamBrowserView.swift",
                 "AnnotationOverlayStore.swift",
                 "AppIntents.swift",
                 "AppLockService.swift",

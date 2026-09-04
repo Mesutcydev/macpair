@@ -7,8 +7,10 @@ public protocol InputInjectionServiceProtocol {
 
     /// Release any held pointer button. Called when a session ends. Default no-op.
     func releaseHeldPointerButton()
+    func releaseHeldKeys()
 }
 
 public extension InputInjectionServiceProtocol {
     func releaseHeldPointerButton() {}
+    func releaseHeldKeys() {}
 }

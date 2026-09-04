@@ -27,6 +27,7 @@ public final class HostInputInjectionService: InputInjectionServiceProtocol, @un
     // MARK: - InputInjectionServiceProtocol
 
     public func inject(_ command: InputCommand) async throws {
+        try Task.checkCancellation()
         guard accessibilityChecker() else {
             logger.warning("Input rejected: accessibility not granted")
             throw InputInjectionError.accessibilityNotGranted
@@ -45,6 +46,7 @@ public final class HostInputInjectionService: InputInjectionServiceProtocol, @un
         }
 
         let layout = try await layoutProvider()
+        try Task.checkCancellation()
 
         switch InputCoordinateTranslator.translateToGlobal(command, layout: layout) {
         case .success(let translated):
@@ -54,6 +56,8 @@ public final class HostInputInjectionService: InputInjectionServiceProtocol, @un
             throw error
         }
     }
+
+    public func releaseHeldKeys() { bridge.releaseHeldKeys() }
 
     public func releaseHeldPointerButton() {
         bridge.releaseHeldPointerButton()

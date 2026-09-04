@@ -15,10 +15,14 @@ struct VampStreamApp: App {
     init() {
         VampStreamStreamingQualityPolicy.migrateAssistantResolution()
         let env = ClientAppEnvironment.makeDefault(clientName: "Vamp Stream")
-        env.preferredQualityPreset = VampStreamStreamingQualityPolicy.preferredPreset(
-            current: env.preferredQualityPreset,
-            supportsUltra: env.isUltraQualityEntitled
-        )
+        switch UserDefaults.standard.string(forKey: "vampstream.qualityMode") {
+        case "performance": env.preferredQualityPreset = .performance
+        case "quality": env.preferredQualityPreset = env.isUltraQualityEntitled ? .ultra : .quality
+        case "auto": env.preferredQualityPreset = .balanced
+        default:
+            env.preferredQualityPreset = VampStreamStreamingQualityPolicy.preferredPreset(
+                current: env.preferredQualityPreset, supportsUltra: env.isUltraQualityEntitled)
+        }
         _environment = StateObject(wrappedValue: env)
         _appStream = StateObject(wrappedValue: AppStreamViewModel(environment: env))
         _vampAssistant = StateObject(wrappedValue: BeetCodeRemoteSessionViewModel())
@@ -102,7 +106,7 @@ struct VampStreamRootView: View {
         }
         .sheet(isPresented: $showVampHostScanner) {
             NavigationStack {
-                BeetCodeQRScannerView(onPayload: handleVampHostPayload)
+                BeetCodeQRScannerView(source: .sync, onPayload: handleVampHostPayload)
                     .navigationTitle("Scan Vamp Sync")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
@@ -189,7 +193,7 @@ struct VampStreamRootView: View {
                 onScanVampHost: { showVampHostScanner = true },
                 pairedVampAssistants: vampAssistant.savedAssistants,
                 vampAssistantAvailability: vampAssistant.availabilityByAddress,
-                vampAssistantError: vampAssistant.lastError,
+                vampAssistantError: vampAssistant.lastError ?? sessionCoordinator.errorMessage,
                 onRemoteControl: { saved in
                     assistantExperience = .remoteControl
                     Task { await vampAssistant.reconnect(saved) }

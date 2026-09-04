@@ -16,7 +16,7 @@ packages:
     path: .
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm
-    exactVersion: 1.15.0
+    exactVersion: 1.20.0
 
 settings:
   base:
@@ -54,7 +54,7 @@ targets:
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
         NSHumanReadableCopyright: "Copyright © 2026 Vamp contributors."
-        NSCameraUsageDescription: "Vamp Stream uses the camera to scan the private Vamp Assistant pairing QR code."
+        NSCameraUsageDescription: "Vamp Stream uses the camera to scan private Vamp Sync or Vamp Assistant pairing QR codes."
         NSLocalNetworkUsageDescription: "Vamp Stream uses your local network to discover and connect to Macs running Vamp Sync or Vamp Assistant."
         NSAppTransportSecurity:
           # Vamp Assistant is intentionally a private-network HTTP peer on
@@ -79,8 +79,8 @@ targets:
           - UIInterfaceOrientationLandscapeRight
     settings:
       base:
-        MARKETING_VERSION: 0.1.6
-        CURRENT_PROJECT_VERSION: 20
+        MARKETING_VERSION: 0.1.7
+        CURRENT_PROJECT_VERSION: 21
         PRODUCT_BUNDLE_IDENTIFIER: com.mesutcy.remotedesktop.stream
         PRODUCT_NAME: Vamp Stream
         CODE_SIGN_ENTITLEMENTS: Configuration/VampStream.entitlements

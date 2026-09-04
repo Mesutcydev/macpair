@@ -45,20 +45,8 @@ struct VampStreamConnectView: View {
     let onForgetVampAssistant: (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void
     @ObservedObject private var hostsVM: HostsListViewModel
 
-    // Remote Control remains implemented behind the transport adapter, but this
-    // build intentionally exposes only App Stream while that surface is being
-    // finalized. Flip this gate when the classic control screen is ready to
-    // return to the destination picker.
-    private static let showsRemoteControlDestination = false
-
     private var legacyHostsForAppStream: [DiscoveredHostRow] {
-        let assistantHosts = Set(
-            pairedVampAssistants.compactMap { VampStreamEndpointIdentity.host(from: $0.address) }
-        )
-        return hostsVM.displayHosts.filter {
-            guard let host = VampStreamEndpointIdentity.host(from: $0.endpoint.hostname) else { return true }
-            return !assistantHosts.contains(host)
-        }
+        hostsVM.displayHosts.filter { !$0.isTerminalOnlyHost }
     }
 
     init(
@@ -89,11 +77,6 @@ struct VampStreamConnectView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VampStreamConnectHeader()
-            if Self.showsRemoteControlDestination {
-                VampStreamConnectionDestinationPicker(selection: .constant(.remoteControl))
-                    .padding(.horizontal, 18)
-                    .padding(.bottom, 14)
-            }
             VampAppStreamSection(
                 pairedAssistants: pairedVampAssistants,
                 availability: vampAssistantAvailability,
@@ -222,16 +205,35 @@ private struct VampAppStreamSection: View {
     let onForget: (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void
     let onScan: () -> Void
     let onConnect: (DiscoveredHostRow) -> Void
-    @State private var showOtherHosts = false
+
+
+    @State private var manualAddress = ""
+    @State private var manualError: String?
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 VampAssistantSourceIntro(
-                    title: "App Stream",
-                    detail: "Open one Mac app in a focused stream. Connect through Vamp Sync or a paired Assistant.",
+                    title: "Connect your Mac",
+                    detail: "Use Vamp Sync for app windows, or connect to your Vamp Assistant workspace.",
                     onPair: onPair,
-                    hasSavedAssistants: !pairedAssistants.isEmpty)
+                    hasSavedAssistants: !pairedAssistants.isEmpty,
+                    onScan: onScan)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("Vamp Sync private address", text: $manualAddress)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .textFieldStyle(.roundedBorder)
+                    Button("Connect by address") {
+                        guard let host = hostsVM.addManualHost(address: manualAddress) else {
+                            manualError = "Enter the private address shown by Vamp Sync, including its port."
+                            return
+                        }
+                        manualError = nil
+                        onConnect(host)
+                    }.buttonStyle(.bordered).disabled(manualAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if let manualError { Text(manualError).font(.footnote).foregroundStyle(.red) }
+                }
 
                 if let errorMessage {
                     VampStreamConnectionError(message: errorMessage)
@@ -254,57 +256,15 @@ private struct VampAppStreamSection: View {
                     }
                 }
 
-                if !legacyHosts.isEmpty, (pairedAssistants.isEmpty || showOtherHosts) {
+                if !legacyHosts.isEmpty {
                     HStack(alignment: .firstTextBaseline) {
-                        Text("OTHER APP-STREAM HOSTS")
+                        Text("VAMP SYNC MACS")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(PR.dim)
                         Spacer(minLength: 8)
-                        if !pairedAssistants.isEmpty {
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    showOtherHosts = false
-                                }
-                            } label: {
-                                Label("Hide", systemImage: "chevron.up")
-                                    .font(.caption.weight(.semibold))
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(PR.fg)
-                            .accessibilityHint("Hide other Vamp Sync Macs")
-                        }
-                        Button(action: onScan) {
-                            Label("Scan QR", systemImage: "qrcode.viewfinder")
-                                .font(.caption.weight(.semibold))
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(PR.fg)
                     }
                     ForEach(anonymizeStreamPreview ? Array(legacyHosts.prefix(1)) : legacyHosts) { host in
                         VampHostMacCard(host: host, onConnect: { onConnect(host) })
-                    }
-                    Text("Vamp Sync is shown only when this Mac is not already paired through Vamp Assistant.")
-                        .font(.caption2)
-                        .foregroundStyle(PR.dim)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else if !pairedAssistants.isEmpty {
-                    Text("Other hosts are hidden by default so one Mac never appears twice in this flow.")
-                        .font(.caption)
-                        .foregroundStyle(PR.dim)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 4)
-                    if !legacyHosts.isEmpty {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                showOtherHosts = true
-                            }
-                        } label: {
-                            Label("Show other Vamp Sync Macs (\(legacyHosts.count))", systemImage: "rectangle.3.group")
-                                .font(.caption.weight(.semibold))
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(PR.fg)
                     }
                 } else {
                     VampHostEmptyState(hostsVM: hostsVM, onScan: onScan)
@@ -322,6 +282,7 @@ private struct VampAssistantSourceIntro: View {
     let detail: String
     let onPair: () -> Void
     let hasSavedAssistants: Bool
+    var onScan: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -342,8 +303,12 @@ private struct VampAssistantSourceIntro: View {
                 }
             }
 
+            if let onScan {
+                Button(action: onScan) { Label("Connect Vamp Sync", systemImage: "qrcode.viewfinder").frame(maxWidth: .infinity, minHeight: 44) }
+                    .buttonStyle(.bordered)
+            }
             Button(action: onPair) {
-                Label(hasSavedAssistants ? "Pair another Mac" : "Pair Vamp Assistant", systemImage: "plus")
+                Label(hasSavedAssistants ? "Pair another Assistant" : "Pair Vamp Assistant", systemImage: "plus")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
             }

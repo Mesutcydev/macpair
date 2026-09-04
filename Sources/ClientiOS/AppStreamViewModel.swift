@@ -72,7 +72,10 @@ final class AppStreamViewModel: ObservableObject {
     private var listRetryTask: Task<Void, Never>?
     private var launchTimeoutTask: Task<Void, Never>?
     private var pendingTargetName: String?
+    private var pendingRequestID: UUID?
     private var clientViewportAspect: Double?
+    private var listOffset = 0
+    private var loadingApplications: [RemoteApplication] = []
 
     init(environment: ClientAppEnvironment) {
         self.environment = environment
@@ -114,6 +117,7 @@ final class AppStreamViewModel: ObservableObject {
         streamedWindow = nil
         streamedApplication = nil
         pendingTargetName = nil
+        pendingRequestID = nil
         status = .idle
     }
 
@@ -137,6 +141,8 @@ final class AppStreamViewModel: ObservableObject {
             status = .failed(reason: "Not connected to a Mac.")
             return
         }
+        listOffset = 0
+        loadingApplications = []
         status = .loadingApps
         sendListRequest(attempt: 1)
     }
@@ -150,7 +156,8 @@ final class AppStreamViewModel: ObservableObject {
         }
         let request = ApplicationListRequestMessage(
             sessionID: sessionID,
-            senderDeviceID: environment.clientIdentity.id
+            senderDeviceID: environment.clientIdentity.id,
+            offset: listOffset
         )
         do {
             try environment.webRTCSessionManager.sendDataMessage(
@@ -165,7 +172,8 @@ final class AppStreamViewModel: ObservableObject {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             guard let self, !Task.isCancelled else { return }
             // Still waiting? Retry (up to a bound) or surface a failure.
-            guard self.applications.isEmpty, case .loadingApps = self.status else { return }
+            // Cached apps remain visible during refresh; only a new snapshot ends the wait.
+            guard case .loadingApps = self.status else { return }
             if attempt < 6 {
                 self.sendListRequest(attempt: attempt + 1)
             } else {
@@ -174,7 +182,7 @@ final class AppStreamViewModel: ObservableObject {
         }
     }
 
-    func select(_ application: RemoteApplication) {
+    func select(_ application: RemoteApplication, windowID: String? = nil) {
         guard environment.sessionCoordinator.hostLockState == .unlockedActiveSession else {
             status = .failed(reason: "Unlock the Mac to open applications.")
             return
@@ -184,22 +192,24 @@ final class AppStreamViewModel: ObservableObject {
             return
         }
         streamedApplication = application
-        sendTargetRequest(application)
+        sendTargetRequest(application, windowID: windowID)
     }
 
-    private func sendTargetRequest(_ application: RemoteApplication) {
+    private func sendTargetRequest(_ application: RemoteApplication, windowID: String?) {
         guard let sessionID = environment.sessionCoordinator.activeSessionID else {
             status = .failed(reason: "Not connected to a Mac.")
             return
         }
         pendingTargetName = application.name
+        pendingRequestID = UUID()
         status = .launching(name: application.name)
         armLaunchTimeout(name: application.name)
         let request = StreamTargetSwitchRequestMessage(
             sessionID: sessionID,
-            target: .application(application.bundleIdentifier),
+            target: windowID.map(StreamTarget.window) ?? .application(application.bundleIdentifier),
             senderDeviceID: environment.clientIdentity.id,
-            clientViewportAspect: clientViewportAspect
+            clientViewportAspect: clientViewportAspect,
+            requestID: pendingRequestID
         )
         do {
             try environment.webRTCSessionManager.sendDataMessage(
@@ -227,6 +237,7 @@ final class AppStreamViewModel: ObservableObject {
         launchTimeoutTask?.cancel()
         launchTimeoutTask = nil
         pendingTargetName = nil
+        pendingRequestID = nil
         streamedWindow = nil
         streamedApplication = nil
         status = .browsing
@@ -243,6 +254,7 @@ final class AppStreamViewModel: ObservableObject {
         launchTimeoutTask = nil
         if case .streaming = status { return }
         pendingTargetName = nil
+        pendingRequestID = nil
         status = .browsing
     }
 
@@ -254,7 +266,7 @@ final class AppStreamViewModel: ObservableObject {
     // MARK: - Inbound
 
     func handle(_ envelope: DataChannelEnvelope) {
-        appStreamLog.info("rx kind=\(envelope.kind.rawValue, privacy: .public) payload=\(envelope.payload.count, privacy: .public)B")
+        appStreamLog.debug("rx kind=\(envelope.kind.rawValue, privacy: .public) payload=\(envelope.payload.count, privacy: .public)B")
         switch envelope.kind {
         case .applicationList:
             guard let snapshot = try? envelope.decodeApplicationListSnapshot() else {
@@ -264,9 +276,25 @@ final class AppStreamViewModel: ObservableObject {
             guard snapshot.sessionID == environment.sessionCoordinator.activeSessionID,
                   snapshot.senderDeviceID == environment.clientIdentity.id else { return }
             appStreamLog.info("applicationList snapshot apps=\(snapshot.applications.count, privacy: .public)")
-            listRetryTask?.cancel()
-            applications = snapshot.applications
-            if case .loadingApps = status { status = .browsing }
+            if case .loadingApps = status {
+                guard (snapshot.offset ?? 0) == listOffset else { return }
+                listRetryTask?.cancel()
+                loadingApplications.append(contentsOf: snapshot.applications)
+                if let next = snapshot.nextOffset {
+                    guard next > listOffset, next <= 65_536,
+                          loadingApplications.count <= 65_536 else {
+                        status = .failed(reason: "The Mac returned an invalid app list page.")
+                        return
+                    }
+                    listOffset = next
+                    sendListRequest(attempt: 1)
+                    return
+                }
+                var seen = Set<String>()
+                applications = loadingApplications.filter { seen.insert($0.id).inserted }
+                loadingApplications = []
+                status = .browsing
+            }
         case .streamTargetSwitch:
             guard let result = try? envelope.decodeStreamTargetSwitchResult() else { return }
             guard result.sessionID == environment.sessionCoordinator.activeSessionID,
@@ -278,8 +306,18 @@ final class AppStreamViewModel: ObservableObject {
     }
 
     func apply(_ result: StreamTargetSwitchResultMessage) {
-        if result.status == .completed, let width = result.width, let height = result.height {
-            guard width > 0, height > 0,
+        // Returning to the browser cancels the local launch intent. A delayed host reply
+        // must not navigate back into a stream the user has already left.
+        switch status {
+        case .launching, .streaming: break
+        default: return
+        }
+        if let requestID = result.requestID {
+            guard requestID == pendingRequestID else { return }
+        }
+
+        if result.status == .completed {
+            guard let width = result.width, let height = result.height, width > 0, height > 0,
                   let scale = result.scaleFactor,
                   scale.isFinite, scale > 0 else {
                 streamedWindow = nil
