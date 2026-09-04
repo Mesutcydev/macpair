@@ -4,13 +4,21 @@ import Carbon
 import Foundation
 import SharedModels
 
-/// A separate, paced physical-key path for the login window. Ordinary desktop text
-/// still uses Unicode insertion; secure fields may translate virtual keys themselves.
+/// A separate, paced physical-key path for the login window. Secure fields need a
+/// real virtual key code, while the Unicode payload preserves the character selected
+/// by the active keyboard layout.
 @MainActor
 public final class LoginWindowInputService {
     struct Key: Equatable {
         let code: UInt16
         var modifiers: KeyboardModifierFlags = []
+        var unicodeString: String?
+
+        init(code: UInt16, modifiers: KeyboardModifierFlags = [], unicodeString: String? = nil) {
+            self.code = code
+            self.modifiers = modifiers
+            self.unicodeString = unicodeString
+        }
     }
 
     private let isLocked: () -> Bool
@@ -32,7 +40,12 @@ public final class LoginWindowInputService {
             hasAccessibility: { AXIsProcessTrusted() },
             resolveKeys: Self.keysForCurrentLayout,
             postKey: { key, action in
-                try bridge.postKeyEvent(keyCode: key.code, action: action, modifiers: key.modifiers)
+                try bridge.postKeyEvent(
+                    keyCode: key.code,
+                    action: action,
+                    modifiers: key.modifiers,
+                    unicodeString: key.unicodeString
+                )
             },
             sleep: { try await Task.sleep(for: $0) }
         )
@@ -70,6 +83,9 @@ public final class LoginWindowInputService {
             throw InputInjectionError.platformBridgeFailed("Mac keyboard layout is unavailable")
         }
         selectAll.modifiers.insert(.command)
+        // Cmd+A is a shortcut, not text input. Do not attach the mapped character
+        // to it or loginwindow may treat the Unicode payload as an inserted "a".
+        selectAll.unicodeString = nil
 
         // Space wakes/reveals the login form. If it lands in the field, the clear
         // below removes it along with any partial entry from a previous attempt.
@@ -142,7 +158,7 @@ public final class LoginWindowInputService {
                 guard result == noErr, deadKeyState == 0, count > 0 else { continue }
                 let character = String(utf16CodeUnits: units, count: count)
                 if mapping[character] == nil {
-                    mapping[character] = Key(code: code, modifiers: flags)
+                    mapping[character] = Key(code: code, modifiers: flags, unicodeString: character)
                 }
             }
         }

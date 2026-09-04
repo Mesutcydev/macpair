@@ -339,6 +339,15 @@ public final class CGEventInputBridge: PlatformInputBridge, @unchecked Sendable 
     // MARK: - Keyboard
 
     public func postKeyEvent(keyCode: UInt16, action: KeyAction, modifiers: KeyboardModifierFlags) throws {
+        try postKeyEvent(keyCode: keyCode, action: action, modifiers: modifiers, unicodeString: nil)
+    }
+
+    func postKeyEvent(
+        keyCode: UInt16,
+        action: KeyAction,
+        modifiers: KeyboardModifierFlags,
+        unicodeString: String?
+    ) throws {
         let keyDown = action == .down
         guard let event = CGEvent(
             keyboardEventSource: eventSource,
@@ -348,6 +357,10 @@ public final class CGEventInputBridge: PlatformInputBridge, @unchecked Sendable 
             throw InputInjectionError.platformBridgeFailed("Failed to create key event")
         }
         event.flags = cgEventFlags(from: modifiers)
+        if let unicodeString, !unicodeString.isEmpty {
+            let utf16 = Array(unicodeString.utf16)
+            event.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
+        }
         event.post(tap: .cghidEventTap)
     }
 
