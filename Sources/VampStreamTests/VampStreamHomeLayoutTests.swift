@@ -166,4 +166,21 @@ final class VampStreamHomeLayoutTests: XCTestCase {
         XCTAssertEqual(VampStreamHomeCopy.syncConnectCollapse, "Minimize Vamp Sync connection")
         XCTAssertEqual(VampStreamHomeCopy.syncConnectExpand, "Show Vamp Sync connection")
     }
+
+    func testHomeCardStyleTogglesBetweenListAndGrid() {
+        XCTAssertEqual(VampStreamHomeCardStyle.list.toggled, .grid)
+        XCTAssertEqual(VampStreamHomeCardStyle.grid.toggled, .list)
+        XCTAssertEqual(VampStreamHomeCardStyle.list.toggleSystemImage, "square.grid.2x2")
+        XCTAssertEqual(VampStreamHomeCardStyle.grid.toggleSystemImage, "list.bullet")
+        XCTAssertEqual(VampStreamHomeCopy.showGrid, "Show rectangular cards")
+        XCTAssertEqual(VampStreamHomeCopy.showList, "Show list cards")
+
+        let suite = "VampStreamHomeCardStyleStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        XCTAssertEqual(VampStreamHomeCardStyleStore.load(defaults: defaults), .list)
+        VampStreamHomeCardStyleStore.save(.grid, defaults: defaults)
+        XCTAssertEqual(VampStreamHomeCardStyleStore.load(defaults: defaults), .grid)
+    }
 }
