@@ -53,6 +53,28 @@ final class AppStreamingMessageTests: XCTestCase {
         XCTAssertFalse(payload.applications[1].isRunning)
     }
 
+    /// The first inventory page always sends `offset: 0`. That must round-trip as `.some(0)`,
+    /// not `nil` — a missing offset selects the host's legacy path, which strips installed-app
+    /// icons while keeping running-app icons (exactly the All Apps placeholder bug).
+    func testApplicationListRequestOffsetZeroIsPresentSoHostPreservesIcons() throws {
+        let request = ApplicationListRequestMessage(
+            sessionID: UUID(),
+            senderDeviceID: UUID(),
+            offset: 0
+        )
+        let decoded = try DataChannelEnvelope
+            .applicationListRequest(request)
+            .decodeApplicationListRequest()
+        XCTAssertEqual(decoded.offset, 0)
+        XCTAssertNotNil(decoded.offset)
+
+        let omitted = ApplicationListRequestMessage(
+            sessionID: UUID(),
+            senderDeviceID: UUID()
+        )
+        XCTAssertNil(try DataChannelEnvelope.applicationListRequest(omitted).decodeApplicationListRequest().offset)
+    }
+
     func testStreamTargetSwitchRequestRoundTrip() throws {
         let request = StreamTargetSwitchRequestMessage(
             sessionID: UUID(),

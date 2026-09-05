@@ -23,6 +23,7 @@ struct AppStreamKeyboardOverlayView: View {
     @State private var textInput = ""
     @State private var activeModifiers: KeyboardModifierFlags = []
     @FocusState private var isTextFieldFocused: Bool
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     @ViewBuilder var body: some View {
         if mode == .terminal {
@@ -36,18 +37,24 @@ struct AppStreamKeyboardOverlayView: View {
     }
 
     private var standardDeck: some View {
-        VStack(spacing: 10) {
-            header
-            composer
-            quickActions
-            shortcutRow
-            modifierRow
-            keyRow
-            helper
+        ScrollView {
+            VStack(spacing: 10) {
+                header
+                composer
+                quickActions
+                shortcutRow
+                modifierRow
+                keyRow
+                helper
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
         }
-        .padding(.horizontal, 10)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
+        .scrollBounceBehavior(.basedOnSize)
+        // A landscape phone is ~390pt tall in total. Uncapped, these seven stacked rows bury the
+        // app being typed into; capped, the deck scrolls and the Mac window stays visible.
+        .frame(maxHeight: verticalSizeClass == .compact ? 210 : nil)
         .background(PR.card.opacity(0.96), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)

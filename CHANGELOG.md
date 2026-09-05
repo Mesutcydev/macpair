@@ -12,6 +12,16 @@ their original product names. The format follows
 - Restore installed-app icons by paging inventories before removing icon data.
 - Keep scrolling directed to the Mac at every zoom level. Use Adjust view to intentionally pinch or pan the picture.
 - Release long-press dragging when the finger lifts or the gesture is canceled.
+- Keep the streamed picture where the user put it: resizing the Mac window mid-session no
+  longer snaps the view back to 1x, and leaving Adjust view stops the picture moving
+  immediately rather than at the next gesture.
+- Draw app icons directly instead of through a cancellable task, so rows no longer stay on
+  the dashed placeholder when the list settles.
+- Send Vamp Assistant the key names its input endpoint accepts, so Return, Tab, Escape and
+  the arrow keys stop being ignored from Vamp Stream. Space and F1–F4 use the same
+  lower-snake-case shape (`space`, `f1`…`f4`); those names are not in the Mac client's map.
+- Explain why a locked Mac offers no password form when Vamp Assistant reports Remote Unlock
+  as unavailable.
 
 
 ### Fixed
@@ -22,6 +32,11 @@ their original product names. The format follows
 
 ### Added
 
+- A live Vamp Stream may be held in either landscape orientation as well as portrait, instead of
+  being locked to whichever one matched the Mac window. Opening a stream still turns the phone once
+  to match the window's shape; the connect screen and app pickers stay portrait.
+- Landscape stream chrome: the top bar thins out and clears the side notch, and the keyboard deck is
+  height-capped so it no longer buries the app being typed into.
 - Stream app search, favorites, recents, window selection, saved quality choices, gesture help, drag release and video recovery controls.
 - A visible Sync connection entry and manual address connection, plus standalone Stream Release CI coverage.
 

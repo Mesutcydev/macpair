@@ -178,7 +178,9 @@ struct AppStreamGestureView: UIViewRepresentable {
                 let dy = translation.y - lastViewportTranslation.y
                 lastViewportTranslation = translation
                 if parent.allowsViewportAdjustment && isPinching { twoFingerPansViewport = true }
-                if twoFingerPansViewport {
+                // Re-check the mode on every delta: leaving Adjust view mid-gesture must stop
+                // moving the picture immediately, not at the next gesture's .began.
+                if twoFingerPansViewport && parent.allowsViewportAdjustment {
                     parent.onViewportPan(CGSize(width: dx, height: dy))
                 } else {
                     let scrollX = Double(-dx)

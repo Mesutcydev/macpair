@@ -76,6 +76,36 @@ final class HostApplicationRegistryTests: XCTestCase {
         XCTAssertEqual(received, apps)
     }
 
+    /// Real Macs encode ~3.2 KB of base64 per 32px icon across ~120 apps. Every page must
+    /// arrive with every icon intact, or the browser renders placeholder rows.
+    func testRealisticInventoryPagesWithEveryIconIntact() throws {
+        let apps = (0..<140).map {
+            RemoteApplication(
+                bundleIdentifier: "com.example.app\($0)", name: "Application \($0)",
+                isRunning: $0 < 12, isActive: $0 == 0,
+                iconPNGBase64: String(repeating: "A", count: 3_216),
+                windowIDs: $0 < 12 ? ["\($0)"] : [])
+        }
+        var offset = 0
+        var received: [RemoteApplication] = []
+        var pages = 0
+        while true {
+            let envelope = try XCTUnwrap(HostSessionCoordinator.applicationListEnvelope(
+                applications: apps, sessionID: UUID(), senderDeviceID: UUID(), offset: offset))
+            XCTAssertLessThanOrEqual(try envelope.wireEncode().count,
+                                     HostSessionCoordinator.applicationListByteBudget)
+            let page = try envelope.decodeApplicationListSnapshot()
+            pages += 1
+            XCTAssertFalse(page.applications.isEmpty, "page \(pages) at offset \(offset) was empty")
+            received += page.applications
+            guard let next = page.nextOffset else { break }
+            offset = next
+        }
+        XCTAssertEqual(received.count, apps.count)
+        XCTAssertTrue(received.allSatisfy { $0.iconPNGBase64 != nil },
+                      "\(received.filter { $0.iconPNGBase64 == nil }.count) of \(received.count) lost their icon")
+    }
+
     func testApplicationListEnvelopeKeepsEveryIconWhenItAlreadyFits() throws {
         let applications = [
             RemoteApplication(bundleIdentifier: "com.example.a", name: "A", isRunning: true,

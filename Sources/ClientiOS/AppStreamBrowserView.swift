@@ -17,6 +17,9 @@ struct AppStreamBrowserView: View {
     @StateObject private var rendererVM: VideoRendererViewModel
     @StateObject private var input: AppStreamInputController
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Compact height == a phone in landscape. The stream chrome gets thinner there so the
+    /// picture keeps the short axis; an iPad in landscape has the height to spare and stays put.
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @AppStorage("vampstream.favoriteApps") private var favoriteStorage = "[]"
     @AppStorage("vampstream.recentApps") private var recentStorage = "[]"
     @AppStorage("vampstream.qualityMode") private var qualityMode = "quality"
@@ -369,7 +372,11 @@ struct AppStreamBrowserView: View {
 
             }
             .safeAreaInset(edge: .top, spacing: 0) {
-                streamTopBar(name: name)
+                // Keep the bar thin on a short screen, and clear the side safe area so pills
+                // never sit under the notch when the phone is rotated.
+                streamTopBar(name: name, isCompactHeight: verticalSizeClass == .compact)
+                    .padding(.leading, VampStreamSafeArea.current.leading)
+                    .padding(.trailing, VampStreamSafeArea.current.trailing)
                     .background(.black.opacity(0.28))
             }
             .overlay(alignment: .bottom) {
@@ -399,8 +406,14 @@ struct AppStreamBrowserView: View {
                 vm.updateClientViewport(size: newSize)
                 resetViewportZoom()
             }
+            // The host re-reports the same window on every resize/scale change, and
+            // interacting with a Mac app resizes it constantly (sheets, panels, menus).
+            // Re-map input each time, but only snap the picture back when the stream
+            // actually moves to a different window.
             .onChangeCompat(of: vm.streamedWindow) { _ in
                 configureInteraction(viewSize: proxy.size)
+            }
+            .onChangeCompat(of: vm.streamedWindow?.windowID) { _ in
                 resetViewportZoom()
             }
             .background(AppStreamKeyboardInsetReader { inset in
@@ -411,12 +424,13 @@ struct AppStreamBrowserView: View {
         .ignoresSafeArea(edges: [.horizontal, .bottom])
     }
 
-    private func streamTopBar(name: String) -> some View {
-        HStack(spacing: 10) {
+    private func streamTopBar(name: String, isCompactHeight: Bool) -> some View {
+        let pillPad: CGFloat = isCompactHeight ? 4 : 8
+        return HStack(spacing: isCompactHeight ? 8 : 10) {
             Button { vm.backToApps() } label: {
                 Label("Apps", systemImage: "chevron.left")
                     .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 13).padding(.vertical, 8)
+                    .padding(.horizontal, 13).padding(.vertical, pillPad)
                     .background(.ultraThinMaterial, in: Capsule())
             }
             .buttonStyle(.plain)
@@ -426,7 +440,7 @@ struct AppStreamBrowserView: View {
             Text(adjustsViewport ? "Adjust view" : name)
                 .lineLimit(1)
                 .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 13).padding(.vertical, 8)
+                .padding(.horizontal, 13).padding(.vertical, pillPad)
                 .background(.ultraThinMaterial, in: Capsule())
             Spacer()
             if viewportZoom > 1.05 {
@@ -438,7 +452,7 @@ struct AppStreamBrowserView: View {
                     Text("1×")
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 13)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, pillPad)
                         .background(.ultraThinMaterial, in: Capsule())
                 }
                 .buttonStyle(.plain)
@@ -450,7 +464,7 @@ struct AppStreamBrowserView: View {
                 adjustsViewport.toggle()
             } label: {
                 Image(systemName: adjustsViewport ? "checkmark" : "viewfinder")
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(minWidth: 44, minHeight: isCompactHeight ? 36 : 44)
                     .background(.ultraThinMaterial, in: Capsule())
             }
             .accessibilityLabel(adjustsViewport ? "Done adjusting" : "Adjust view")
@@ -471,7 +485,7 @@ struct AppStreamBrowserView: View {
                 Button("Reconnect", systemImage: "wifi") { Task { await sessionCoordinator.reconnectLast() } }
             } label: {
                 Image(systemName: input.dragLocked ? "lock.fill" : "ellipsis.circle")
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(minWidth: 44, minHeight: isCompactHeight ? 36 : 44)
             }
             .accessibilityLabel(input.dragLocked ? "Stream options, drag lock on" : "Stream options")
             Button {
@@ -480,7 +494,7 @@ struct AppStreamBrowserView: View {
             } label: {
                 Image(systemName: keyboardActive ? "keyboard.chevron.compact.down" : "keyboard")
                     .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 13).padding(.vertical, 8)
+                    .padding(.horizontal, 13).padding(.vertical, pillPad)
                     .background(.ultraThinMaterial, in: Capsule())
             }
             .buttonStyle(.plain)
@@ -488,7 +502,7 @@ struct AppStreamBrowserView: View {
             .accessibilityHint("Type into the streamed Mac app")
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 6)
+        .padding(.vertical, isCompactHeight ? 3 : 6)
     }
 
     private var isStreamingTerminal: Bool {
@@ -672,8 +686,21 @@ private struct AppStreamApplicationRow: View {
     let application: RemoteApplication
     let isFavorite: Bool
     let onOpen: () -> Void
-    @State private var icon: UIImage?
     private static let icons = NSCache<NSString, UIImage>()
+
+    /// Decoded straight in `body`: a 32px PNG costs microseconds and the cache makes it
+    /// once per app, whereas the previous `@State` + `.task(id:)` pair left a row stuck on
+    /// the placeholder whenever SwiftUI cancelled the task while the lazy list settled.
+    private var icon: UIImage? {
+        guard let encoded = application.iconPNGBase64 else { return nil }
+        let key = application.id as NSString
+        if let cached = Self.icons.object(forKey: key) { return cached }
+        guard let data = Data(base64Encoded: encoded), let decoded = UIImage(data: data) else { return nil }
+        Self.icons.countLimit = 512
+        Self.icons.setObject(decoded, forKey: key)
+        return decoded
+    }
+
     var body: some View {
         Button(action: onOpen) {
             HStack(spacing: 13) {
@@ -694,15 +721,6 @@ private struct AppStreamApplicationRow: View {
         }.buttonStyle(.plain)
         .accessibilityLabel(application.name)
         .accessibilityHint("Open app. More actions include Favorites.")
-        .task(id: application.iconPNGBase64) {
-            guard let encoded = application.iconPNGBase64 else { icon = nil; return }
-            let key = (application.id + String(encoded.hashValue)) as NSString
-            Self.icons.countLimit = 256
-            if let cached = Self.icons.object(forKey: key) { icon = cached; return }
-            guard let data = Data(base64Encoded: encoded), let decoded = UIImage(data: data) else { return }
-            Self.icons.setObject(decoded, forKey: key)
-            icon = decoded
-        }
     }
 }
 
