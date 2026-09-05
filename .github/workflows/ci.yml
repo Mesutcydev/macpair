@@ -38,6 +38,13 @@ jobs:
       - name: Run core tests
         run: swift test
 
+      # Reviewed SwiftTerm 1.20.0 plugin only; keep fingerprint validation enabled.
+      # This build tool writes version metadata into its sandboxed output folder.
+      - name: Trust pinned SwiftTerm build plugin
+        run: |
+          mkdir -p "$HOME/Library/org.swift.swiftpm/security"
+          cp .github/swiftpm/plugins.json "$HOME/Library/org.swift.swiftpm/security/plugins.json"
+
       - name: Resolve app dependencies
         run: >-
           xcodebuild
