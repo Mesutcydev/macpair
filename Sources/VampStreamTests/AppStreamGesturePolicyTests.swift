@@ -92,6 +92,15 @@ final class AppStreamGesturePolicyTests: XCTestCase {
         XCTAssertEqual(input.commandsSent, 0, "No attachment means no commands leave the controller")
     }
 
+    func testFailedConnectionDoesNotKeepSessionScreenVisible() {
+        let allocatedID = UUID()
+        XCTAssertFalse(VampStreamRootView.shouldPresentSession(sessionID: allocatedID, phase: .error))
+        XCTAssertFalse(VampStreamRootView.shouldPresentSession(sessionID: allocatedID, phase: .idle))
+        XCTAssertFalse(VampStreamRootView.shouldPresentSession(sessionID: nil, phase: .waitingForMedia))
+        XCTAssertTrue(VampStreamRootView.shouldPresentSession(sessionID: allocatedID, phase: .waitingForMedia))
+        XCTAssertTrue(VampStreamRootView.shouldPresentSession(sessionID: allocatedID, phase: .receiving))
+    }
+
     func testStreamSupportsOnlyPortrait() {
         let delegate = VampStreamAppDelegate()
         XCTAssertEqual(delegate.application(.shared, supportedInterfaceOrientationsFor: nil), .portrait)

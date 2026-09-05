@@ -89,3 +89,9 @@ The simulator browsed Mac M4's authenticated application inventory before the re
 After the test build it again remained on Connecting, so no new live video/readability
 verification is claimed. The prior simulator decoder limitation and missing Assistant
 paired test workspace still prevent full live acceptance. No trust or TCC changes were made.
+
+A subsequent live observation confirmed a persistent Connecting screen. The root cause was
+in Stream's presentation state: `activeSessionID` is allocated before negotiation and may
+remain set on error, so the root preferred its session branch and hid the actual failure.
+The root now excludes error/idle phases from session presentation. The final simulator suite
+passes 32 tests, including failed/idle session IDs and valid waiting/receiving states.
