@@ -441,6 +441,7 @@ html[data-theme="dark"] body::before { opacity: .38; mix-blend-mode: normal; fil
 .suite-home .flow-step h3 { margin-top: 24px; font-size: 24px; line-height: 1.15; letter-spacing: -.035em; }
 .suite-home .flow-step p { font: 14px/1.65 "Inter", sans-serif; }
 .suite-home .flow-step > .text-button { align-self: start; margin-top: auto; padding-top: 24px; }
+.suite-home .flow-step + .flow-step { border-left: 2px solid var(--ink); }
 .suite-home .flow-step--host {
   grid-column: 1 / -1;
   display: grid;
