@@ -8,9 +8,9 @@ private var anonymizeStreamPreview: Bool {
     #endif
 }
 
-/// The first screen in Vamp Stream. App Stream leads with Vamp Sync, then
-/// Assistant as a follow-on pairing path. Remote Control remains Assistant-only
-/// and is not the default destination in this build.
+/// The first screen in Vamp Stream. Onboarding picks Vamp Sync, Vamp Assistant,
+/// or both; the connect home then shows only that host. Remote Control remains
+/// Assistant-only and is not the default destination in this build.
 struct VampStreamConnectView: View {
     enum ConnectionDestination: String, CaseIterable, Identifiable {
         case remoteControl
@@ -44,6 +44,13 @@ struct VampStreamConnectView: View {
     let onAppStream: (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void
     let onForgetVampAssistant: (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void
     @ObservedObject private var hostsVM: HostsListViewModel
+    @AppStorage(VampStreamHostSourceStore.key) private var hostSourceRaw = ""
+    @State private var showHostSourcePicker = false
+
+    private var hostSource: VampStreamHostSource? {
+        if anonymizeStreamPreview { return .both }
+        return VampStreamHostSource(rawValue: hostSourceRaw)
+    }
 
     private var legacyHostsForAppStream: [DiscoveredHostRow] {
         hostsVM.displayHosts.filter { !$0.isTerminalOnlyHost }
@@ -75,41 +82,89 @@ struct VampStreamConnectView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VampStreamConnectHeader()
-            VampAppStreamSection(
-                pairedAssistants: pairedVampAssistants,
-                availability: vampAssistantAvailability,
-                errorMessage: vampAssistantError,
-                legacyHosts: legacyHostsForAppStream,
-                hostsVM: hostsVM,
-                onPair: onPairVampAssistant,
-                onAppStream: onAppStream,
-                onForget: onForgetVampAssistant,
-                onScan: onScanVampHost,
-                onConnect: onConnect)
+        Group {
+            if let hostSource {
+                VStack(alignment: .leading, spacing: 0) {
+                    VampStreamConnectHeader(source: hostSource) {
+                        showHostSourcePicker = true
+                    }
+                    VampAppStreamSection(
+                        source: hostSource,
+                        pairedAssistants: pairedVampAssistants,
+                        availability: vampAssistantAvailability,
+                        errorMessage: vampAssistantError,
+                        legacyHosts: legacyHostsForAppStream,
+                        hostsVM: hostsVM,
+                        onPair: onPairVampAssistant,
+                        onAppStream: onAppStream,
+                        onForget: onForgetVampAssistant,
+                        onScan: onScanVampHost,
+                        onConnect: onConnect)
+                }
+            } else {
+                VampStreamHostSourceOnboarding { source in
+                    hostSourceRaw = source.rawValue
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .task { await hostsVM.start() }
+        .background { VampStreamHomeAtmosphere() }
+        .task(id: hostSource) {
+            if hostSource?.showsSync == true {
+                await hostsVM.start()
+            }
+        }
+        .sheet(isPresented: $showHostSourcePicker) {
+            if let hostSource {
+                VampStreamHostSourcePickerSheet(current: hostSource) { source in
+                    hostSourceRaw = source.rawValue
+                }
+            }
+        }
     }
 }
 
 private struct VampStreamConnectHeader: View {
+    let source: VampStreamHostSource
+    let onChangeHost: () -> Void
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(VampStreamHomeCopy.headerTitle)
-                .font(.largeTitle.weight(.bold))
-                .foregroundStyle(PR.fg)
-            Text(VampStreamHomeCopy.headerDetail)
-                .font(.subheadline)
-                .foregroundStyle(PR.fg2)
-                .fixedSize(horizontal: false, vertical: true)
-            VampStreamVersionBadge()
-                .padding(.top, 5)
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(VampStreamHomeCopy.headerTitleLead)
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(PR.fg)
+                    Text(VampStreamHomeCopy.headerTitleTrail)
+                        .font(.title3.weight(.regular))
+                        .foregroundStyle(PR.fg2)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(VampStreamHomeCopy.headerTitle)
+
+                Text(VampStreamHomeCopy.headerDetail(for: source))
+                    .font(.footnote)
+                    .foregroundStyle(PR.fg2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 8) {
+                Button(action: onChangeHost) {
+                    Text(VampStreamHomeCopy.changeHost)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(PR.fg)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .prGlassSurface(in: Capsule(style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Choose Vamp Sync, Vamp Assistant, or both")
+                VampStreamVersionBadge()
+            }
         }
         .padding(.horizontal, 22)
         .padding(.top, 18)
-        .padding(.bottom, 16)
+        .padding(.bottom, 14)
     }
 }
 
@@ -195,6 +250,7 @@ private struct VampAssistantRemoteControlSection: View {
 }
 
 private struct VampAppStreamSection: View {
+    let source: VampStreamHostSource
     let pairedAssistants: [BeetCodeRemoteSessionViewModel.SavedAssistant]
     let availability: [String: BeetCodeRemoteSessionViewModel.Availability]
     let errorMessage: String?
@@ -215,6 +271,7 @@ private struct VampAppStreamSection: View {
             LazyVStack(alignment: .leading, spacing: 12) {
                 ForEach(
                     VampStreamHomeLayout.sections(
+                        source: source,
                         hasSyncHosts: !legacyHosts.isEmpty,
                         hasAssistants: !pairedAssistants.isEmpty,
                         hasAssistantError: errorMessage != nil
@@ -226,7 +283,11 @@ private struct VampAppStreamSection: View {
             .padding(.horizontal, 18)
             .padding(.bottom, 28)
         }
-        .refreshable { await hostsVM.refresh() }
+        .refreshable {
+            if source.showsSync {
+                await hostsVM.refresh()
+            }
+        }
     }
 
     @ViewBuilder
@@ -247,6 +308,8 @@ private struct VampAppStreamSection: View {
             }
         case .syncEmptyHint:
             VampSyncEmptyHint(hostsVM: hostsVM)
+        case .syncPromo:
+            VampStreamSyncPromoCard()
         case .assistantError:
             if let errorMessage {
                 VampStreamConnectionError(message: errorMessage)
@@ -316,30 +379,44 @@ private struct VampSyncConnectCard: View {
                         .foregroundStyle(PR.fg2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                Spacer(minLength: 8)
+                Button(action: onScan) {
+                    Label("Scan QR", systemImage: "qrcode.viewfinder")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(PR.fg)
+                .vampHomeLiveGlass(in: Capsule(style: .continuous), phaseOffset: 0.6)
+                .vampHomeLivePulse(isActive: true, period: 2.6)
+                .accessibilityLabel(Text(VampStreamHomeCopy.scanSync))
+                .accessibilityHint(Text(VampStreamHomeCopy.scanSyncHint))
             }
-
-            Button(action: onScan) {
-                Label(VampStreamHomeCopy.scanSync, systemImage: "qrcode.viewfinder")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: 44)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(PR.fg)
-            .foregroundStyle(PR.bg)
-            .accessibilityHint(Text(VampStreamHomeCopy.scanSyncHint))
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(VampStreamHomeCopy.orConnectByAddress)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(PR.dim)
+                    .foregroundStyle(PR.fg2)
                 TextField(
                     "",
                     text: $manualAddress,
                     prompt: Text(VampStreamHomeCopy.addressPlaceholder)
+                        .foregroundStyle(PR.fg.opacity(0.82))
                 )
+                    .font(.subheadline)
+                    .foregroundStyle(PR.fg)
+                    .tint(PR.fg)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .textFieldStyle(.roundedBorder)
+                    .keyboardType(.URL)
+                    .textContentType(.URL)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 11)
+                    .vampHomeLiveGlass(
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous),
+                        phaseOffset: 1.1
+                    )
                     .accessibilityLabel(Text(VampStreamHomeCopy.addressPlaceholder))
                 Button(action: onConnectByAddress) {
                     Text(VampStreamHomeCopy.connectByAddress)
@@ -354,7 +431,10 @@ private struct VampSyncConnectCard: View {
             }
         }
         .padding(16)
-        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .vampHomeLiveGlass(
+            in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous),
+            phaseOffset: 0.2
+        )
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(VampStreamHomeCopy.syncTitle))
     }
@@ -370,6 +450,7 @@ private struct VampSyncEmptyHint: View {
                 .foregroundStyle(PR.fg)
                 .frame(width: 38, height: 38)
                 .prGlassSurface(in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .vampHomeLivePulse(isActive: isLoading, period: 1.25, trough: 0.55)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
@@ -391,7 +472,10 @@ private struct VampSyncEmptyHint: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .vampHomeLiveGlass(
+            in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous),
+            phaseOffset: 0.9
+        )
         .accessibilityElement(children: .combine)
     }
 
@@ -446,19 +530,20 @@ private struct VampAssistantFollowOnCard: View {
                 }
             }
 
-            Button(action: onPair) {
-                Label(
-                    VampStreamHomeCopy.pairAssistantTitle(hasSavedAssistants: hasSavedAssistants),
-                    systemImage: "plus"
-                )
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity, minHeight: 44)
-            }
-            .buttonStyle(.bordered)
+            VampAssistantActionButton(
+                title: LocalizedStringKey(
+                    VampStreamHomeCopy.pairAssistantTitle(hasSavedAssistants: hasSavedAssistants)
+                ),
+                systemImage: "plus",
+                action: onPair
+            )
             .accessibilityHint(Text(VampStreamHomeCopy.pairAssistantHint))
         }
         .padding(16)
-        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .vampHomeLiveGlass(
+            in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous),
+            phaseOffset: 1.7
+        )
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(VampStreamHomeCopy.assistantTitle))
     }
@@ -582,13 +667,16 @@ private struct VampAssistantMacCard: View {
             }
         }
         .padding(14)
-        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .vampHomeLiveGlass(
+            in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous),
+            phaseOffset: 2.1
+        )
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(assistant.displayName), \(assistant.address)")
     }
 }
 
-private struct VampAssistantActionButton: View {
+struct VampAssistantActionButton: View {
     let title: LocalizedStringKey
     let systemImage: String
     let action: () -> Void
@@ -632,6 +720,11 @@ private struct VampAssistantAvailabilityBadge: View {
                 .fill(color)
                 .frame(width: 7, height: 7)
                 .shadow(color: color.opacity(0.65), radius: 3)
+                .vampHomeLivePulse(
+                    isActive: availability != .unavailable,
+                    period: availability == .checking ? 0.9 : 2.1,
+                    trough: 0.42
+                )
             Text(text)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(PR.fg2)
@@ -723,7 +816,10 @@ private struct VampHostMacCard: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+            .vampHomeLiveGlass(
+                in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous),
+                phaseOffset: 1.3
+            )
         }
         .buttonStyle(.plain)
         .disabled(host.isTerminalOnlyHost)

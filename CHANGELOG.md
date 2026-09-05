@@ -27,7 +27,9 @@ their original product names. The format follows
 
 ### Changed
 
-- Vamp Stream's connect home leads with Vamp Sync (scan QR and private address), lists Sync Macs next, and treats Assistant pairing as a follow-on card.
+- Vamp Stream asks which Mac host you use (Vamp Sync, Vamp Assistant, or both) and builds the connect home from that choice.
+- The Stream connect home keeps a quiet live atmosphere behind the glass.
+- Stream offers a Vamp Sync download card that opens the latest Sync build.
 - Update SwiftTerm to 1.20.0 and vendored Opus to 1.6.1, with updated provenance and SBOM metadata.
 - Cache app icons, use lazy browser sections, respect system appearance in the Assistant browser and reduce routine stream logging.
 
