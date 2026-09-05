@@ -53,7 +53,7 @@ struct MacSessionToolsMenu: View {
             Button("Keyboard shortcuts…", action: showKeyboardHelp)
             Divider()
             Toggle("Show live stats", isOn: $showsStats)
-            Picker("Toolbar quick action", selection: Binding(
+            Picker("Quick action in wide windows", selection: Binding(
                 get: { actions.contains(where: { $0.id == quickActionID }) ? quickActionID : "none" },
                 set: { quickActionID = $0 })) {
                 Text("None").tag("none")
@@ -170,5 +170,19 @@ struct MacSessionQualitySettings: View {
                 .font(.callout).foregroundStyle(.secondary)
             HStack { Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction) }
         }.padding(24).frame(width: 420)
+    }
+}
+
+/// Preserve primary controls in narrow windows. Secondary actions remain in Tools.
+struct MacSessionWidthReader: ViewModifier {
+    @Binding var isCompact: Bool
+    func body(content: Content) -> some View {
+        content.background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { isCompact = proxy.size.width < 900 }
+                    .onChange(of: proxy.size.width) { isCompact = $0 < 900 }
+            }
+        }
     }
 }

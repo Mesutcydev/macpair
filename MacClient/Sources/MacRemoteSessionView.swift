@@ -47,6 +47,7 @@ struct MacRemoteSessionView: View {
     @FocusState private var unlockPasswordFieldFocused: Bool
     @State private var showScreenAI = false
     @State private var keyboardFocused = false
+    @State private var isCompactToolbar = true
     @State private var showsConnectionDetails = false
     @State private var showsKeyboardHelp = false
     @State private var showsQualitySettings = false
@@ -191,6 +192,7 @@ struct MacRemoteSessionView: View {
                     .onChange(of: proxy.size) { appStream.updateClientViewport(size: $0) }
             }
         }
+        .modifier(MacSessionWidthReader(isCompact: $isCompactToolbar))
         .toolbar { sessionWindowToolbar }
         .focusedSceneValue(\.remoteDisplayMode, $preferences.displayModeRaw)
         .focusedSceneValue(\.keepsDisplayShortcutsLocal, preferences.keepsDisplayShortcutsLocal)
@@ -312,7 +314,7 @@ struct MacRemoteSessionView: View {
                     qualityColor: inputReadiness == .reconnecting ? .orange : networkQualityColor,
                     qualityLabel: inputReadiness == .reconnecting ? "Reconnecting" : coordinator.activeQualityPreset.rawValue.capitalized,
                     differentiateWithoutColor: differentiateWithoutColor)
-                    .frame(maxWidth: 190)
+                    .frame(maxWidth: isCompactToolbar ? 140 : 190)
             }
             .buttonStyle(.plain)
             .help("Connection details")
@@ -347,7 +349,7 @@ struct MacRemoteSessionView: View {
                     inputController.keyPress(keyCode: key.keyCode, modifiers: key.modifiers)
                 }, showKeyboardHelp: { showsKeyboardHelp = true }, showsStats: $environment.showsStatsOverlay, quickActionID: $preferences.quickActionID)
         }
-        if let quick = sessionActions.first(where: { $0.id == preferences.quickActionID }) {
+        if !isCompactToolbar, let quick = sessionActions.first(where: { $0.id == preferences.quickActionID }) {
             ToolbarItem(placement: .primaryAction) { MacSessionQuickAction(action: quick) }
         }
         ToolbarItem(placement: .primaryAction) {
@@ -440,7 +442,7 @@ struct MacRemoteSessionView: View {
                   : "Resize the window to the display's aspect ratio")
         } label: {
             SessionToolbarToggleLabel(
-                title: displaySizingTitle,
+                title: isCompactToolbar ? compactDisplaySizingTitle : displaySizingTitle,
                 systemImage: displaySizingSymbol,
                 isActive: displayMode != .fitDisplay
             )
@@ -449,6 +451,14 @@ struct MacRemoteSessionView: View {
         .help(displaySizingHelp)
         .accessibilityLabel("Remote display sizing")
         .accessibilityValue(displaySizingTitle)
+    }
+
+    private var compactDisplaySizingTitle: String {
+        switch displayMode {
+        case .fitDisplay: "Fit"
+        case .fillScreen: "Fill"
+        case .actualSize: "1:1"
+        }
     }
 
     private var displaySizingTitle: String {
@@ -481,11 +491,12 @@ struct MacRemoteSessionView: View {
     private var sessionToolbarAppSwitchButton: some View {
         Button { appStream.backToApps() } label: {
             SessionToolbarToggleLabel(
-                title: appStreamedAppName ?? "Apps",
+                title: isCompactToolbar ? "Apps" : (appStreamedAppName ?? "Apps"),
                 systemImage: "macwindow.on.rectangle",
                 isActive: showsAppBrowser
             )
         }
+        .frame(maxWidth: 140)
         .buttonStyle(SessionToolbarToggleButtonStyle(active: showsAppBrowser))
         .disabled(showsAppBrowser)
         .keyboardShortcut("a", modifiers: [.control, .option])

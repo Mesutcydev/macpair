@@ -18,6 +18,7 @@ struct MacAssistantRemoteView: View {
     @State private var selectedDisplayID: UInt32?
     @State private var fullControl = true
     @State private var keyboardFocused = false
+    @State private var isCompactToolbar = true
     @State private var showsConnectionDetails = false
     @State private var showsKeyboardHelp = false
     @State private var showsStats = true
@@ -118,6 +119,7 @@ struct MacAssistantRemoteView: View {
             }
         }
         .background(Color.black)
+        .modifier(MacSessionWidthReader(isCompact: $isCompactToolbar))
         .toolbar { assistantWindowToolbar(session) }
         .focusedSceneValue(\.remoteDisplayMode, $preferences.displayModeRaw)
         .focusedSceneValue(\.keepsDisplayShortcutsLocal, preferences.keepsDisplayShortcutsLocal)
@@ -165,7 +167,7 @@ struct MacAssistantRemoteView: View {
                     qualityColor: renderer.isReceiving ? .green : .orange,
                     qualityLabel: renderer.isReceiving ? "Assistant" : "Waiting for video",
                     differentiateWithoutColor: differentiateWithoutColor)
-                    .frame(maxWidth: 190)
+                    .frame(maxWidth: isCompactToolbar ? 140 : 190)
             }
             .buttonStyle(.plain)
             .help("Connection details")
@@ -203,7 +205,7 @@ struct MacAssistantRemoteView: View {
                     input.keyPress(key.assistantKey, modifiers: key.assistantModifiers)
                 }, showKeyboardHelp: { showsKeyboardHelp = true }, showsStats: $showsStats, quickActionID: $preferences.quickActionID)
         }
-        if let quick = sessionActions.first(where: { $0.id == preferences.quickActionID }) {
+        if !isCompactToolbar, let quick = sessionActions.first(where: { $0.id == preferences.quickActionID }) {
             ToolbarItem(placement: .primaryAction) { MacSessionQuickAction(action: quick) }
         }
         ToolbarItem(placement: .primaryAction) {
@@ -242,7 +244,7 @@ struct MacAssistantRemoteView: View {
             .disabled(renderer.geometry == nil)
         } label: {
             SessionToolbarToggleLabel(
-                title: displaySizingTitle,
+                title: isCompactToolbar ? compactDisplaySizingTitle : displaySizingTitle,
                 systemImage: displaySizingSymbol,
                 isActive: displayMode != .fitDisplay)
         }
@@ -275,6 +277,14 @@ struct MacAssistantRemoteView: View {
         .fixedSize()
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Stream statistics")
+    }
+
+    private var compactDisplaySizingTitle: String {
+        switch displayMode {
+        case .fitDisplay: "Fit"
+        case .fillScreen: "Fill"
+        case .actualSize: "1:1"
+        }
     }
 
     private var displaySizingTitle: String {

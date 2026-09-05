@@ -74,3 +74,9 @@ No protocol, host, trust or persistent-session implementation was changed. No in
 `MacSessionUXPreview.swift` is compiled only in Debug. To run it, copy a Debug app to a temporary location, give the copy a distinct bundle identifier, add Boolean `VampUXAudit = true` to its Info.plist, and ad-hoc sign the copy. The fixture uses the real native event surface with a local input recorder and never opens a remote connection. It does not validate host injection or transport behavior. The temporary copy used here is `/tmp/Vamp Control UX Check.app`.
 
 Final code validation: 39 macOS tests passed with zero failures. The Release application build also succeeded for arm64 and x86_64. `git diff --check` passed. Build logs remain in `/tmp/vamp-control-ux-final-tests.log` and `/tmp/vamp-control-ux-release.log`; they are not repository artifacts. Final visual and trusted remote-session acceptance remains pending as described above.
+
+### Release follow-up: build 53
+
+After the Mac was unlocked, the final native fixture was checked at 760 points. This exposed two overflow cases: a pinned quick action and the longer View only label could displace Disconnect. The release fixes those cases with compact host/sizing labels and a quick action that appears only in wide windows. Both Control and View only now leave Disconnect visible at 760 points; selecting a quick action does not displace it. At 1050 points the selected quick action appears beside the other controls. Tools continues to offer the action at every width. The latest native regression run still passes all 39 tests.
+
+Trusted remote-host caret verification remains unperformed because the connection requested new trust approval. Local physical-key delivery and focus isolation were verified as described above; no host permission or trust approval was bypassed.

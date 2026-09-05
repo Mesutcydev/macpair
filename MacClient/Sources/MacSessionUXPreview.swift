@@ -9,6 +9,7 @@ import SharedUtilities
 struct MacSessionUXPreview: View {
     @StateObject private var input = MacPreviewInput()
     @State private var viewOnly = false
+    @State private var isCompactToolbar = true
     @State private var receiving = true
     @State private var focused = false
     @State private var showsStats = true
@@ -49,11 +50,12 @@ struct MacSessionUXPreview: View {
             }
         }
         .frame(minWidth: 760, minHeight: 480)
+        .modifier(MacSessionWidthReader(isCompact: $isCompactToolbar))
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button { showDetails.toggle() } label: {
                     SessionToolbarStatusPill(hostName: "Design Studio — Long Host Name", qualityColor: .green,
-                        qualityLabel: "Local test", differentiateWithoutColor: false).frame(maxWidth: 190)
+                        qualityLabel: "Local test", differentiateWithoutColor: false).frame(maxWidth: isCompactToolbar ? 140 : 190)
                 }.buttonStyle(.plain)
                     .popover(isPresented: $showDetails) {
                         MacConnectionDetails(hostName: "Local test", transportConnected: true,
@@ -63,7 +65,7 @@ struct MacSessionUXPreview: View {
             }
             ToolbarItem { Menu("Apps") { Button("Preview") {} } }
             ToolbarItem {
-                Menu("Fit Display") {
+                Menu(isCompactToolbar ? "Fit" : "Fit Display") {
                     Button("Fit Display") { preferences.displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue }
                 }
             }
@@ -75,7 +77,7 @@ struct MacSessionUXPreview: View {
                     sendKey: { input.note(keyCode: $0.keyCode) }, showKeyboardHelp: { showsHelp = true },
                     showsStats: $showsStats, quickActionID: $preferences.quickActionID)
             }
-            if let quick = actions.first(where: { $0.id == preferences.quickActionID }) {
+            if !isCompactToolbar, let quick = actions.first(where: { $0.id == preferences.quickActionID }) {
                 ToolbarItem { MacSessionQuickAction(action: quick) }
             }
             ToolbarItem { SessionToolbarDisconnectButton { receiving = false } }
