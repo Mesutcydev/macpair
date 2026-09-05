@@ -51,6 +51,18 @@ struct MacRemoteInputSendQueue {
         return messages.removeFirst()
     }
 
+    /// A release can finish an interaction already sent before control paused.
+    /// Drop unsent actions but retain releases, in order, to avoid stuck keys.
+    mutating func discardPendingInteractions() {
+        messages.removeAll { message in
+            switch message.command {
+            case .key(let key): return key.action != .up
+            case .pointerButton(let button): return button.action != .up
+            default: return true
+            }
+        }
+    }
+
     mutating func removeAll() {
         messages.removeAll(keepingCapacity: true)
     }

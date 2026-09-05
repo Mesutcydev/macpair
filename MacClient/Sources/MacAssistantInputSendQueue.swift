@@ -49,6 +49,13 @@ struct MacAssistantInputSendQueue {
         return commands.removeFirst()
     }
 
+    mutating func discardPendingInteractions() {
+        commands.removeAll { command in
+            if case .up = command { return false }
+            return true
+        }
+    }
+
     mutating func removeAll() {
         commands.removeAll(keepingCapacity: true)
     }

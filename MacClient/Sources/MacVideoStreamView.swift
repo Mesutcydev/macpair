@@ -49,11 +49,15 @@ struct MacVideoStreamView: NSViewRepresentable {
     var isInputEnabled: Bool
     var usesLocalCursor: Bool
     var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay
+    var onKeyboardFocusChange: (Bool) -> Void = { _ in }
+    var keepsDisplayShortcutsLocal = true
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> RemoteStreamNSView {
         let view = RemoteStreamNSView()
+        view.keepsDisplayShortcutsLocal = keepsDisplayShortcutsLocal
+        view.onKeyboardFocusChange = onKeyboardFocusChange
         view.input = input
         view.isInputEnabled = isInputEnabled
         view.usesLocalCursor = usesLocalCursor
@@ -66,6 +70,8 @@ struct MacVideoStreamView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: RemoteStreamNSView, context: Context) {
+        nsView.keepsDisplayShortcutsLocal = keepsDisplayShortcutsLocal
+        nsView.onKeyboardFocusChange = onKeyboardFocusChange
         nsView.isInputEnabled = isInputEnabled
         nsView.usesLocalCursor = usesLocalCursor
         nsView.displayMode = displayMode
@@ -77,6 +83,9 @@ struct MacVideoStreamView: NSViewRepresentable {
 
     static func dismantleNSView(_ nsView: RemoteStreamNSView, coordinator: Coordinator) {
         coordinator.cancellable?.cancel()
+        nsView.stopInputCapture()
+        nsView.isInputEnabled = false
+        nsView.input?.isEnabled = false
         nsView.setLocalCursorHidden(false)
         nsView.display(pixelBuffer: nil)
     }
@@ -93,7 +102,17 @@ struct MacVideoStreamView: NSViewRepresentable {
 final class RemoteStreamNSView: NSView {
 
     var input: (any MacRemoteInputHandling)?
-    var isInputEnabled = true
+    var isInputEnabled = true {
+        willSet {
+            if !newValue { arrowKeyMonitor.releasePressedKeys(); setLocalCursorHidden(false) }
+        }
+        didSet { reportKeyboardFocus() }
+    }
+    var onKeyboardFocusChange: (Bool) -> Void = { _ in }
+    var keepsDisplayShortcutsLocal = true
+    private var reportedKeyboardFocus = false
+    private var focusObservers: [NSObjectProtocol] = []
+    private let arrowKeyMonitor = RemoteArrowKeyMonitor()
     var usesLocalCursor = false {
         didSet {
             if usesLocalCursor { setLocalCursorHidden(false) }
@@ -122,6 +141,7 @@ final class RemoteStreamNSView: NSView {
         wantsLayer = true
         layerContentsRedrawPolicy = .duringViewResize
         layer?.backgroundColor = NSColor.black.cgColor
+        layer?.masksToBounds = true
         displayLayer.videoGravity = .resizeAspect
         layer?.addSublayer(displayLayer)
         updateVideoGravity()
@@ -142,7 +162,7 @@ final class RemoteStreamNSView: NSView {
 
     /// Top-left origin so view coordinates match the shared coordinate mapper.
     override var isFlipped: Bool { true }
-    override var acceptsFirstResponder: Bool { true }
+    override var acceptsFirstResponder: Bool { isInputEnabled }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     // MARK: - Geometry
@@ -177,6 +197,55 @@ final class RemoteStreamNSView: NSView {
         super.viewDidMoveToWindow()
         notifyGeometry()
         window?.makeFirstResponder(self)
+        if let window {
+            for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification,
+                         NSWindow.willBeginSheetNotification, NSWindow.didEndSheetNotification] {
+                focusObservers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        if name == NSWindow.willBeginSheetNotification {
+                            self?.arrowKeyMonitor.releasePressedKeys()
+                            self?.reportKeyboardFocus(focused: false)
+                        } else { self?.reportKeyboardFocus() }
+                    }
+                })
+            }
+            arrowKeyMonitor.start(for: self, isEnabled: { [weak self] in
+                self?.isInputEnabled == true
+            }, send: { [weak self] event, action in
+                self?.input?.keyEvent(event, action: action)
+            })
+        }
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted { reportKeyboardFocus(focused: isInputEnabled && window?.isKeyWindow == true && window?.attachedSheet == nil) }
+        return accepted
+    }
+
+    override func resignFirstResponder() -> Bool {
+        arrowKeyMonitor.releasePressedKeys()
+        reportKeyboardFocus(focused: false)
+        return super.resignFirstResponder()
+    }
+
+    private func reportKeyboardFocus(focused: Bool? = nil) {
+        let value = focused ?? (isInputEnabled && window?.isKeyWindow == true
+            && window?.firstResponder === self && window?.attachedSheet == nil)
+        guard reportedKeyboardFocus != value else { return }
+        reportedKeyboardFocus = value
+        // Never mutate SwiftUI state synchronously from updateNSView.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.reportedKeyboardFocus == value else { return }
+            self.onKeyboardFocusChange(value)
+        }
+    }
+
+    func stopInputCapture() {
+        arrowKeyMonitor.stop()
+        focusObservers.forEach(NotificationCenter.default.removeObserver)
+        focusObservers.removeAll()
+        reportKeyboardFocus(focused: false)
     }
 
     private func notifyGeometry() {
@@ -267,6 +336,7 @@ final class RemoteStreamNSView: NSView {
     }
 
     override func viewWillMove(toWindow newWindow: NSWindow?) {
+        stopInputCapture()
         super.viewWillMove(toWindow: newWindow)
         if newWindow == nil {
             setLocalCursorHidden(false)
@@ -336,6 +406,7 @@ final class RemoteStreamNSView: NSView {
     }
 
     override func rightMouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
         handleButton(.right, isDown: true, event: event)
     }
 
@@ -344,6 +415,7 @@ final class RemoteStreamNSView: NSView {
     }
 
     override func otherMouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
         handleButton(.middle, isDown: true, event: event)
     }
 
@@ -396,11 +468,14 @@ final class RemoteStreamNSView: NSView {
     /// — see `RemoteKeyEquivalentPolicy`. ⌘W is deliberately not reserved: in a
     /// session it should close a window on the *remote* Mac.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard isInputEnabled, event.type == .keyDown else { return false }
+        guard isInputEnabled, event.type == .keyDown,
+              window?.isKeyWindow == true, window?.firstResponder === self,
+              window?.attachedSheet == nil else { return false }
         guard event.modifierFlags.contains(.command) else { return false }
         if RemoteKeyEquivalentPolicy.staysLocal(
             characters: event.charactersIgnoringModifiers ?? "",
-            modifiers: event.modifierFlags
+            modifiers: event.modifierFlags,
+            keepsDisplayShortcutsLocal: keepsDisplayShortcutsLocal
         ) {
             return false
         }

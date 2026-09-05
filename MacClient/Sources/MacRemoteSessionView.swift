@@ -46,12 +46,17 @@ struct MacRemoteSessionView: View {
     @State private var isUnlockSubmitting = false
     @FocusState private var unlockPasswordFieldFocused: Bool
     @State private var showScreenAI = false
+    @State private var keyboardFocused = false
+    @State private var showsConnectionDetails = false
+    @State private var showsKeyboardHelp = false
+    @State private var showsQualitySettings = false
 
     @AppStorage("client.clipboard.enabled") private var clipboardEnabled = true
     @AppStorage("com.remotedesktop.client.filetransfer.enabled") private var fileTransferEnabled = true
-    @AppStorage("client.displayMode") private var displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
+    @State private var preferences = MacConnectionPreferences()
+    @State private var loadedPreferenceKey: String?
     private var displayMode: DisplayMappingEngine.DisplayMode {
-        DisplayMappingEngine.DisplayMode(rawValue: displayModeRaw) ?? .fitDisplay
+        DisplayMappingEngine.DisplayMode(rawValue: preferences.displayModeRaw) ?? .fitDisplay
     }
 
     init(environment: ClientAppEnvironment, reconnectCoordinator: ClientReconnectCoordinator) {
@@ -104,21 +109,34 @@ struct MacRemoteSessionView: View {
         return true
     }
 
+    private var preferenceKey: String? { coordinator.lastEndpoint.map { MacHostNicknameStore.key(for: $0) } }
+
+    private func loadPreferences() {
+        guard let key = preferenceKey, key != loadedPreferenceKey else { return }
+        preferences = MacConnectionPreferenceStore().load(for: key)
+        loadedPreferenceKey = key
+    }
+
+    private var inputReadiness: MacInputReadiness {
+        .resolve(connected: coordinator.activeSessionID != nil
+                    && (coordinator.phase == .receiving || coordinator.phase == .waitingForMedia)
+                    && !reconnectCoordinator.isReconnecting && !coordinator.isReconnectInProgress,
+                 locked: coordinator.hostLockState == .lockedOrLoginWindow,
+                 choosingApp: showsAppBrowser,
+                 receivingVideo: rendererVM.isReceiving && !displayLayoutVM.isSwitchingDisplay,
+                 viewOnly: environment.prefersViewOnly)
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             MacVideoStreamView(
                 renderer: rendererVM,
                 input: inputController,
-                // Pause capture while the session is lost (.error) so local keys and
-                // Cmd-shortcuts aren't swallowed into a dead channel.
-                // The stream view is normally first responder and forwards every
-                // keystroke to the host. Disable that capture while the local
-                // unlock prompt is shown so its SecureField can receive typing.
-                isInputEnabled: !environment.prefersViewOnly
-                    && coordinator.phase != .error
-                    && coordinator.hostLockState != .lockedOrLoginWindow,
+                isInputEnabled: inputReadiness.canSendInput,
                 usesLocalCursor: coordinator.negotiatedCapabilities?.supportsCursorlessCapture == true,
-                displayMode: displayMode
+                displayMode: displayMode,
+                onKeyboardFocusChange: { keyboardFocused = $0 },
+                keepsDisplayShortcutsLocal: preferences.keepsDisplayShortcutsLocal
             )
             .ignoresSafeArea()
 
@@ -142,6 +160,8 @@ struct MacRemoteSessionView: View {
             }
 
             VStack(spacing: 8) {
+                MacKeyboardFocusHint(readiness: inputReadiness, keyboardFocused: keyboardFocused)
+
                 if let warning = displayLayoutVM.mappingWarningMessage, !showsAppBrowser {
                     Label(warning, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
@@ -172,6 +192,35 @@ struct MacRemoteSessionView: View {
             }
         }
         .toolbar { sessionWindowToolbar }
+        .focusedSceneValue(\.remoteDisplayMode, $preferences.displayModeRaw)
+        .focusedSceneValue(\.keepsDisplayShortcutsLocal, preferences.keepsDisplayShortcutsLocal)
+        .onAppear(perform: loadPreferences)
+        .onChange(of: preferences.displayModeRaw) { raw in
+            if raw == DisplayMappingEngine.DisplayMode.actualSize.rawValue { resizeWindowToActualSize() }
+        }
+        .onChange(of: preferenceKey) { _ in loadPreferences() }
+        .onChange(of: preferences) { value in
+            guard let key = loadedPreferenceKey, key == preferenceKey else { return }
+            MacConnectionPreferenceStore().save(value, for: key)
+        }
+        .sheet(isPresented: $showsQualitySettings) {
+            MacSessionQualitySettings(selection: Binding(
+                get: { coordinator.activeQualityPreset },
+                set: { preset in
+                    guard coordinator.phase == .receiving else { return }
+                    environment.preferredQualityPreset = preset
+                    coordinator.setPreferredQuality(preset)
+                }), supportsUltra: environment.isUltraQualityEntitled,
+                isConnected: coordinator.phase == .receiving)
+        }
+        .sheet(isPresented: $showsKeyboardHelp) { MacKeyboardHelp(keepsDisplayShortcutsLocal: $preferences.keepsDisplayShortcutsLocal) }
+        .overlay(alignment: .bottomLeading) {
+            if environment.showsStatsOverlay && !showsAppBrowser {
+                SessionToolbarLiveStats(framesPerSecond: statsVM.metrics.framesPerSecond,
+                    latencyMs: statsVM.metrics.latencyMs, bitrateKbps: statsVM.metrics.bitrateKbps)
+                    .padding(12).allowsHitTesting(false)
+            }
+        }
         .overlay(alignment: .bottom) {
             if let sessionToast {
                 sessionToastView(sessionToast, isError: sessionToastIsError)
@@ -243,8 +292,9 @@ struct MacRemoteSessionView: View {
         .sheet(isPresented: $showScreenAI) {
             MacScreenAIView(
                 frameProvider: { rendererVM.latestPixelBuffer },
-                onSendText: { inputController.insertText($0) },
+                onSendText: { if inputReadiness.canSendInput { inputController.insertText($0) } },
                 onSendKey: { keyCode in
+                    guard inputReadiness.canSendInput else { return }
                     inputController.keyEvent(keyCode: keyCode, action: .down, modifiers: [])
                     inputController.keyEvent(keyCode: keyCode, action: .up, modifiers: [])
                 }
@@ -257,52 +307,97 @@ struct MacRemoteSessionView: View {
     @ToolbarContentBuilder
     private var sessionWindowToolbar: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
-            SessionToolbarStatusPill(
-                hostName: hostDisplayName,
-                qualityColor: networkQualityColor,
-                qualityLabel: coordinator.activeQualityPreset.rawValue.capitalized,
-                differentiateWithoutColor: differentiateWithoutColor
-            )
-        }
-
-
-        if environment.showsStatsOverlay {
-            ToolbarItem(placement: .principal) {
-                SessionToolbarLiveStats(
-                    framesPerSecond: statsVM.metrics.framesPerSecond,
-                    latencyMs: statsVM.metrics.latencyMs,
-                    bitrateKbps: statsVM.metrics.bitrateKbps
-                )
+            Button { showsConnectionDetails.toggle() } label: {
+                SessionToolbarStatusPill(hostName: hostDisplayName,
+                    qualityColor: inputReadiness == .reconnecting ? .orange : networkQualityColor,
+                    qualityLabel: inputReadiness == .reconnecting ? "Reconnecting" : coordinator.activeQualityPreset.rawValue.capitalized,
+                    differentiateWithoutColor: differentiateWithoutColor)
+                    .frame(maxWidth: 190)
+            }
+            .buttonStyle(.plain)
+            .help("Connection details")
+            .popover(isPresented: $showsConnectionDetails) {
+                MacConnectionDetails(hostName: hostDisplayName,
+                    transportConnected: coordinator.phase == .receiving || coordinator.phase == .waitingForMedia,
+                    receivingVideo: rendererVM.isReceiving, readiness: inputReadiness,
+                    keyboardFocused: keyboardFocused, unavailable: unavailableFeatures)
             }
         }
-
         if isAppStreamingOnlyHost {
+            ToolbarItem(placement: .primaryAction) { sessionToolbarAppSwitchButton }
+        } else if displayLayoutVM.displays.count > 1 {
             ToolbarItem(placement: .primaryAction) {
-                sessionToolbarAppSwitchButton
+                Menu("Display") {
+                    ForEach(displayLayoutVM.displays) { display in
+                        Button(display.name) { requestDisplaySwitch(to: display.id) }
+                    }
+                }
+                .disabled(displayLayoutVM.isSwitchingDisplay)
             }
         }
-
+        ToolbarItem(placement: .primaryAction) { sessionToolbarDisplaySizingMenu }
         ToolbarItem(placement: .primaryAction) {
-            sessionToolbarDisplaySizingMenu
+            MacSessionAccessButton(viewOnly: $environment.prefersViewOnly,
+                readiness: inputReadiness, keyboardFocused: keyboardFocused)
         }
-
         ToolbarItem(placement: .primaryAction) {
-            sessionToolbarToolsCluster
+            MacSessionToolsMenu(actions: sessionActions, canSendInput: inputReadiness.canSendInput,
+                sendKey: { key in
+                    guard inputReadiness.canSendInput else { return }
+                    inputController.keyPress(keyCode: key.keyCode, modifiers: key.modifiers)
+                }, showKeyboardHelp: { showsKeyboardHelp = true }, showsStats: $environment.showsStatsOverlay, quickActionID: $preferences.quickActionID)
         }
-
+        if let quick = sessionActions.first(where: { $0.id == preferences.quickActionID }) {
+            ToolbarItem(placement: .primaryAction) { MacSessionQuickAction(action: quick) }
+        }
         ToolbarItem(placement: .primaryAction) {
-            sessionToolbarScreenAIButton
+            SessionToolbarDisconnectButton { Task { await coordinator.endSession() } }
         }
+    }
 
-        ToolbarItem(placement: .primaryAction) {
-            sessionToolbarTogglesCluster
-        }
+    private var unavailableFeatures: [String] {
+        var features: [String] = []
+        if coordinator.negotiatedCapabilities?.supportsTerminal != true { features.append("Terminal") }
+        if coordinator.negotiatedCapabilities?.supportsAudio != true { features.append("Remote audio") }
+        if !clipboardEnabled { features.append("Clipboard (disabled in Settings)") }
+        if !fileTransferEnabled { features.append("File transfer (disabled in Settings)") }
+        return features
+    }
 
-        ToolbarItem(placement: .primaryAction) {
-            SessionToolbarDisconnectButton {
-                Task { await coordinator.endSession() }
-            }
+    private var sessionActions: [MacSessionAction] {
+        var actions: [MacSessionAction] = [
+            .init(id: "quality", title: "Stream Quality…", symbol: "dial.high",
+                  enabled: coordinator.phase == .receiving, perform: { showsQualitySettings = true })
+        ]
+        if clipboardEnabled {
+            actions.append(.init(id: "sendClipboard", title: "Send Clipboard to Host", symbol: "doc.on.clipboard",
+                enabled: inputReadiness.canSendInput, shortcut: "v", perform: {
+                    guard inputReadiness.canSendInput else { return }; clipboardSync.pushToHost()
+                }))
+            actions.append(.init(id: "fetchClipboard", title: "Fetch Clipboard from Host", symbol: "clipboard",
+                enabled: inputReadiness.canSendInput, shortcut: "c", perform: {
+                    guard inputReadiness.canSendInput else { return }; clipboardSync.requestFromHost()
+                }))
         }
+        actions.append(.init(id: "screenshot", title: "Save Screenshot…", symbol: "camera",
+            enabled: rendererVM.isReceiving, shortcut: "s", perform: captureScreenshot))
+        if fileTransferEnabled {
+            actions.append(.init(id: "file", title: "Send File…", symbol: "arrow.up.doc",
+                enabled: inputReadiness.canSendInput, perform: {
+                    guard inputReadiness.canSendInput else { return }; presentSendFilePicker()
+                }))
+        }
+        if coordinator.negotiatedCapabilities?.supportsTerminal == true {
+            actions.append(.init(id: "terminal", title: "Open Terminal…", symbol: "terminal",
+                enabled: inputReadiness.canSendInput, shortcut: "t", perform: { isTerminalPresented = true }))
+        }
+        actions.append(.init(id: "screenAI", title: "Screen AI…", symbol: "sparkles",
+            enabled: rendererVM.isReceiving, perform: { showScreenAI = true }))
+        if coordinator.negotiatedCapabilities?.supportsAudio == true {
+            actions.append(.init(id: "audio", title: audioRenderer.isMuted ? "Unmute Remote Audio" : "Mute Remote Audio",
+                symbol: audioRenderer.isMuted ? "speaker.slash" : "speaker.wave.2", perform: { audioRenderer.isMuted.toggle() }))
+        }
+        return actions
     }
 
     /// First-class Fit Display control. Kept as its own toolbar item so its
@@ -311,23 +406,19 @@ struct MacRemoteSessionView: View {
     private var sessionToolbarDisplaySizingMenu: some View {
         Menu {
             Button {
-                displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
+                preferences.displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
             } label: {
                 Label("Fit Display", systemImage: displayMode == .fitDisplay ? "checkmark" : "rectangle.inset.filled")
             }
 
             Button {
-                displayModeRaw = DisplayMappingEngine.DisplayMode.fillScreen.rawValue
+                preferences.displayModeRaw = DisplayMappingEngine.DisplayMode.fillScreen.rawValue
             } label: {
                 Label("Fill Window", systemImage: displayMode == .fillScreen ? "checkmark" : "arrow.up.left.and.arrow.down.right")
             }
 
             Button {
-                displayModeRaw = DisplayMappingEngine.DisplayMode.actualSize.rawValue
-                // A window smaller than the stream silently degrades Actual
-                // Size to aspect-fit; matching the window to the 1:1 size
-                // makes the mode deliver what it promises.
-                resizeWindowToActualSize()
+                preferences.displayModeRaw = DisplayMappingEngine.DisplayMode.actualSize.rawValue
             } label: {
                 Label("Actual Size", systemImage: displayMode == .actualSize ? "checkmark" : "1.magnifyingglass")
             }
@@ -384,91 +475,6 @@ struct MacRemoteSessionView: View {
         }
     }
 
-    @ViewBuilder
-    private var sessionToolbarToolsCluster: some View {
-        HStack(spacing: 2) {
-            if displayLayoutVM.displays.count > 1 {
-                Menu {
-                    ForEach(displayLayoutVM.displays) { display in
-                        Button {
-                            requestDisplaySwitch(to: display.id)
-                        } label: {
-                            if display.id == displayLayoutVM.selectedDisplayID {
-                                Label(display.name, systemImage: "checkmark")
-                            } else {
-                                Text(display.name)
-                            }
-                        }
-                    }
-                } label: {
-                    SessionToolbarIconLabel(systemImage: "rectangle.on.rectangle")
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .disabled(displayLayoutVM.isSwitchingDisplay)
-                .help("Switch display")
-                .accessibilityLabel("Switch display")
-            }
-
-            if clipboardEnabled {
-                Menu {
-                    Button("Send Clipboard to Host") { clipboardSync.pushToHost() }
-                        .keyboardShortcut("v", modifiers: [.control, .option])
-                    Button("Fetch Clipboard from Host") { clipboardSync.requestFromHost() }
-                        .keyboardShortcut("c", modifiers: [.control, .option])
-                } label: {
-                    SessionToolbarIconLabel(systemImage: "doc.on.clipboard")
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .help("Clipboard")
-                .accessibilityLabel("Clipboard")
-            }
-
-            Button(action: captureScreenshot) {
-                SessionToolbarIconLabel(systemImage: "camera")
-            }
-            .buttonStyle(SessionToolbarIconButtonStyle())
-            .disabled(!rendererVM.isReceiving)
-            .keyboardShortcut("s", modifiers: [.control, .option])
-            .help("Save a screenshot of the remote screen (⌃⌥S)")
-            .accessibilityLabel("Save screenshot")
-
-            if fileTransferEnabled {
-                Button(action: presentSendFilePicker) {
-                    SessionToolbarIconLabel(systemImage: "arrow.up.doc")
-                }
-                .buttonStyle(SessionToolbarIconButtonStyle())
-                .disabled(coordinator.activeSessionID == nil)
-                .help("Send a file to the host")
-                .accessibilityLabel("Send a file to the host")
-            }
-
-            Button { isTerminalPresented = true } label: {
-                SessionToolbarIconLabel(systemImage: "terminal", isActive: isTerminalPresented)
-            }
-            .buttonStyle(SessionToolbarIconButtonStyle(active: isTerminalPresented))
-            .disabled(coordinator.activeSessionID == nil)
-            .keyboardShortcut("t", modifiers: [.control, .option])
-            .help("Open a terminal on the host (⌃⌥T)")
-            .accessibilityLabel("Open a terminal on the host")
-
-            Button {
-                inputController.keyPress(keyCode: 48, modifiers: [.command])
-            } label: {
-                SessionToolbarIconLabel(systemImage: "command")
-            }
-            .buttonStyle(SessionToolbarIconButtonStyle())
-            .disabled(environment.prefersViewOnly || coordinator.activeSessionID == nil)
-            .keyboardShortcut(.tab, modifiers: [.control, .option])
-            .help("Send ⌘Tab to the remote Mac (local shortcut: ⌃⌥Tab)")
-            .accessibilityLabel("Switch apps on the remote Mac")
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 3)
-        .sessionToolbarClusterChrome()
-    }
-
     /// Vamp Sync streams one window at a time, so the only way back to another
     /// app is an explicit switch. Without this the first pick was final for the
     /// life of the session.
@@ -490,19 +496,6 @@ struct MacRemoteSessionView: View {
     private var appStreamedAppName: String? {
         if case .streaming(_, let name) = appStream.status { return name }
         return nil
-    }
-
-    private var sessionToolbarScreenAIButton: some View {
-        Button { showScreenAI = true } label: {
-            SessionToolbarToggleLabel(
-                systemImage: "sparkles",
-                isActive: showScreenAI
-            )
-        }
-        .buttonStyle(SessionToolbarToggleButtonStyle(active: showScreenAI))
-        .disabled(!rendererVM.isReceiving)
-        .help("Screen AI — read text, ask, automate")
-        .accessibilityLabel("Screen AI")
     }
 
     private func matchWindowToDisplay() {
@@ -578,57 +571,6 @@ struct MacRemoteSessionView: View {
             screen.visibleFrame.maxY - targetFrame.height
         )
         window.setFrame(targetFrame, display: true, animate: true)
-    }
-
-    @ViewBuilder
-    private var sessionToolbarTogglesCluster: some View {
-        HStack(spacing: 4) {
-            Button {
-                audioRenderer.isMuted.toggle()
-            } label: {
-                SessionToolbarToggleLabel(
-                    systemImage: audioRenderer.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
-                    isActive: !audioRenderer.isMuted
-                )
-            }
-            .buttonStyle(SessionToolbarToggleButtonStyle(active: !audioRenderer.isMuted))
-            .help(audioRenderer.isMuted ? "Unmute remote audio" : "Mute remote audio")
-            .accessibilityLabel("Remote audio")
-            .accessibilityValue(audioRenderer.isMuted ? "Muted" : "Unmuted")
-
-            Button {
-                environment.prefersViewOnly.toggle()
-            } label: {
-                SessionToolbarToggleLabel(
-                    systemImage: environment.prefersViewOnly ? "eye.fill" : "cursorarrow.motionlines",
-                    isActive: !environment.prefersViewOnly
-                )
-            }
-            .buttonStyle(SessionToolbarToggleButtonStyle(active: !environment.prefersViewOnly))
-            .help(environment.prefersViewOnly ? "View only — input disabled" : "Full control — input enabled")
-            .accessibilityLabel("Access mode")
-            .accessibilityValue(
-                environment.prefersViewOnly
-                    ? SessionControlMode.viewOnly.title
-                    : SessionControlMode.fullControl.title
-            )
-
-            Button {
-                environment.showsStatsOverlay.toggle()
-            } label: {
-                SessionToolbarToggleLabel(
-                    systemImage: environment.showsStatsOverlay ? "chart.bar.fill" : "chart.bar",
-                    isActive: environment.showsStatsOverlay
-                )
-            }
-            .buttonStyle(SessionToolbarToggleButtonStyle(active: environment.showsStatsOverlay))
-            .help(environment.showsStatsOverlay ? "Hide connection stats" : "Show connection stats")
-            .accessibilityLabel("Connection stats")
-            .accessibilityValue(environment.showsStatsOverlay ? "Visible" : "Hidden")
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 3)
-        .sessionToolbarClusterChrome()
     }
 
     // MARK: - Multi-display (Tier 4a)
@@ -767,7 +709,7 @@ struct MacRemoteSessionView: View {
     private func startSession() {
         startAppStreamingIfNeeded()
         inputController.sessionID = coordinator.activeSessionID
-        inputController.isEnabled = !environment.prefersViewOnly
+        inputController.isEnabled = inputReadiness.canSendInput
         refreshMapping()
 
         // Reconnect: drive recovery through the session coordinator's full connect
@@ -1098,6 +1040,7 @@ struct MacRemoteSessionView: View {
     // MARK: - File transfer
 
     private func presentSendFilePicker() {
+        guard inputReadiness.canSendInput, let targetSession = coordinator.activeSessionID else { return }
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
@@ -1106,6 +1049,7 @@ struct MacRemoteSessionView: View {
         panel.prompt = "Send"
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
+            guard inputReadiness.canSendInput, coordinator.activeSessionID == targetSession else { return }
             fileTransferManager.sendFile(url: url)
         }
     }

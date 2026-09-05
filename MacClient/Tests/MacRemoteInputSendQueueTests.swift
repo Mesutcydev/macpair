@@ -5,6 +5,22 @@ import XCTest
 final class MacRemoteInputSendQueueTests: XCTestCase {
     private let sessionID = UUID()
 
+    func testPausingDropsQueuedInputButPreservesReleases() {
+        var queue = MacRemoteInputSendQueue()
+        queue.enqueue(message(.key(KeyCommand(keyCode: 126, action: .down, modifiers: []))))
+        queue.enqueue(message(.key(KeyCommand(keyCode: 126, action: .up, modifiers: []))))
+        queue.enqueue(message(move(x: 10)))
+        queue.enqueue(message(.pointerButton(PointerButtonCommand(button: .left, action: .up))))
+        queue.discardPendingInteractions()
+        XCTAssertEqual(queue.messages.count, 2)
+        guard case .key(let key) = queue.popFirst()?.command,
+              case .pointerButton(let button) = queue.popFirst()?.command else {
+            return XCTFail("Only releases should remain")
+        }
+        XCTAssertEqual(key.action, .up)
+        XCTAssertEqual(button.action, .up)
+    }
+
     func testPointerBacklogKeepsOnlyLatestPosition() {
         var queue = MacRemoteInputSendQueue()
         for x in 0..<500 {

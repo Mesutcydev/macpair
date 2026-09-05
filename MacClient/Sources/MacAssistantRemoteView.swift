@@ -17,6 +17,9 @@ struct MacAssistantRemoteView: View {
     @State private var refreshError: String?
     @State private var selectedDisplayID: UInt32?
     @State private var fullControl = true
+    @State private var keyboardFocused = false
+    @State private var showsConnectionDetails = false
+    @State private var showsKeyboardHelp = false
     @State private var showsStats = true
     @State private var sessionToast: String?
     @State private var sessionToastIsError = false
@@ -25,7 +28,8 @@ struct MacAssistantRemoteView: View {
     @State private var unlockError: String?
     @FocusState private var unlockPasswordFieldFocused: Bool
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
-    @AppStorage("client.displayMode") private var displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
+    @State private var preferences = MacConnectionPreferences()
+    @State private var loadedPreferenceKey: String?
 
     init(model: MacAssistantSession) {
         self.model = model
@@ -41,7 +45,22 @@ struct MacAssistantRemoteView: View {
     private static let streamResolution = "native"
 
     private var displayMode: DisplayMappingEngine.DisplayMode {
-        DisplayMappingEngine.DisplayMode(rawValue: displayModeRaw) ?? .fitDisplay
+        DisplayMappingEngine.DisplayMode(rawValue: preferences.displayModeRaw) ?? .fitDisplay
+    }
+
+    private var preferenceKey: String? { model.connected.map { MacConnectionPreferenceStore.assistantKey(address: $0.address) } }
+
+    private func loadPreferences() {
+        guard let key = preferenceKey, key != loadedPreferenceKey else { return }
+        preferences = MacConnectionPreferenceStore().load(for: key)
+        loadedPreferenceKey = key
+    }
+
+    private var inputReadiness: MacInputReadiness {
+        .resolve(connected: model.connected != nil && renderer.lastError == nil,
+                 locked: model.connected?.status.ready != true,
+                 choosingApp: false, receivingVideo: renderer.isReceiving,
+                 viewOnly: !fullControl)
     }
 
     var body: some View {
@@ -70,13 +89,20 @@ struct MacAssistantRemoteView: View {
             MacAssistantVideoStreamView(
                 renderer: renderer,
                 input: input,
-                isInputEnabled: fullControl,
+                isInputEnabled: inputReadiness.canSendInput,
                 usesLocalCursor: session.status.supportsCursorlessCapture == true,
-                displayMode: displayMode)
+                displayMode: displayMode,
+                onKeyboardFocusChange: { keyboardFocused = $0 },
+                keepsDisplayShortcutsLocal: preferences.keepsDisplayShortcutsLocal)
                 .ignoresSafeArea()
                 .accessibilityLabel("Remote control surface for \(session.displayName)")
 
-            if renderer.latestPixelBuffer == nil {
+            VStack {
+                MacKeyboardFocusHint(readiness: inputReadiness, keyboardFocused: keyboardFocused)
+                Spacer()
+            }.padding(.top, 10)
+
+            if !renderer.isReceiving {
                 streamStatus(session)
             }
 
@@ -93,6 +119,21 @@ struct MacAssistantRemoteView: View {
         }
         .background(Color.black)
         .toolbar { assistantWindowToolbar(session) }
+        .focusedSceneValue(\.remoteDisplayMode, $preferences.displayModeRaw)
+        .focusedSceneValue(\.keepsDisplayShortcutsLocal, preferences.keepsDisplayShortcutsLocal)
+        .onAppear(perform: loadPreferences)
+        .onChange(of: preferences.displayModeRaw) { raw in
+            if raw == DisplayMappingEngine.DisplayMode.actualSize.rawValue { resizeWindowToActualSize() }
+        }
+        .onChange(of: preferenceKey) { _ in loadPreferences() }
+        .onChange(of: preferences) { value in
+            guard let key = loadedPreferenceKey, key == preferenceKey else { return }
+            MacConnectionPreferenceStore().save(value, for: key)
+        }
+        .sheet(isPresented: $showsKeyboardHelp) { MacKeyboardHelp(keepsDisplayShortcutsLocal: $preferences.keepsDisplayShortcutsLocal) }
+        .overlay(alignment: .bottomLeading) {
+            if showsStats { assistantLiveStats.padding(12).allowsHitTesting(false) }
+        }
         .overlay(alignment: .bottom) {
             if let sessionToast {
                 Label(
@@ -117,45 +158,78 @@ struct MacAssistantRemoteView: View {
     }
 
     @ToolbarContentBuilder
-    private func assistantWindowToolbar(
-        _ session: MacAssistantSession.ConnectedSession
-    ) -> some ToolbarContent {
+    private func assistantWindowToolbar(_ session: MacAssistantSession.ConnectedSession) -> some ToolbarContent {
         ToolbarItem(placement: .navigation) {
-            SessionToolbarStatusPill(
-                hostName: session.displayName,
-                qualityColor: .green,
-                qualityLabel: "Assistant",
-                differentiateWithoutColor: differentiateWithoutColor)
+            Button { showsConnectionDetails.toggle() } label: {
+                SessionToolbarStatusPill(hostName: session.displayName,
+                    qualityColor: renderer.isReceiving ? .green : .orange,
+                    qualityLabel: renderer.isReceiving ? "Assistant" : "Waiting for video",
+                    differentiateWithoutColor: differentiateWithoutColor)
+                    .frame(maxWidth: 190)
+            }
+            .buttonStyle(.plain)
+            .help("Connection details")
+            .popover(isPresented: $showsConnectionDetails) {
+                MacConnectionDetails(hostName: session.displayName,
+                    transportConnected: renderer.lastError == nil,
+                    receivingVideo: renderer.isReceiving, readiness: inputReadiness,
+                    keyboardFocused: keyboardFocused,
+                    unavailable: ["Clipboard", "File transfer", "Terminal", "Screen AI", "Remote audio"])
+            }
         }
-        if showsStats {
-            ToolbarItem(placement: .principal) { assistantLiveStats }
+        if let displays = session.status.displays, displays.count > 1 {
+            ToolbarItem(placement: .primaryAction) {
+                Menu("Display") {
+                    ForEach(displays) { display in
+                        Button(display.name) {
+                            guard selectedDisplayID != display.id else { return }
+                            input.isEnabled = false
+                            renderer.stop()
+                            selectedDisplayID = display.id
+                        }
+                    }
+                }
+            }
         }
         ToolbarItem(placement: .primaryAction) { displaySizingMenu }
-        ToolbarItem(placement: .primaryAction) { toolsCluster(session) }
-        ToolbarItem(placement: .primaryAction) { screenAIButton }
-        ToolbarItem(placement: .primaryAction) { audioButton }
-        ToolbarItem(placement: .primaryAction) { accessModeButton }
-        ToolbarItem(placement: .primaryAction) { statsButton }
+        ToolbarItem(placement: .primaryAction) {
+            MacSessionAccessButton(viewOnly: Binding(get: { !fullControl }, set: { fullControl = !$0 }),
+                readiness: inputReadiness, keyboardFocused: keyboardFocused)
+        }
+        ToolbarItem(placement: .primaryAction) {
+            MacSessionToolsMenu(actions: sessionActions, canSendInput: inputReadiness.canSendInput,
+                sendKey: { key in
+                    guard inputReadiness.canSendInput else { return }
+                    input.keyPress(key.assistantKey, modifiers: key.assistantModifiers)
+                }, showKeyboardHelp: { showsKeyboardHelp = true }, showsStats: $showsStats, quickActionID: $preferences.quickActionID)
+        }
+        if let quick = sessionActions.first(where: { $0.id == preferences.quickActionID }) {
+            ToolbarItem(placement: .primaryAction) { MacSessionQuickAction(action: quick) }
+        }
         ToolbarItem(placement: .primaryAction) {
             SessionToolbarDisconnectButton { model.disconnect() }
         }
     }
 
+    private var sessionActions: [MacSessionAction] {
+        [.init(id: "screenshot", title: "Save Screenshot…", symbol: "camera",
+               enabled: renderer.isReceiving, shortcut: "s", perform: captureScreenshot)]
+    }
+
     private var displaySizingMenu: some View {
         Menu {
             Button {
-                displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
+                preferences.displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
             } label: {
                 Label("Fit Display", systemImage: displayMode == .fitDisplay ? "checkmark" : "rectangle.inset.filled")
             }
             Button {
-                displayModeRaw = DisplayMappingEngine.DisplayMode.fillScreen.rawValue
+                preferences.displayModeRaw = DisplayMappingEngine.DisplayMode.fillScreen.rawValue
             } label: {
                 Label("Fill Window", systemImage: displayMode == .fillScreen ? "checkmark" : "arrow.up.left.and.arrow.down.right")
             }
             Button {
-                displayModeRaw = DisplayMappingEngine.DisplayMode.actualSize.rawValue
-                resizeWindowToActualSize()
+                preferences.displayModeRaw = DisplayMappingEngine.DisplayMode.actualSize.rawValue
             } label: {
                 Label("Actual Size", systemImage: displayMode == .actualSize ? "checkmark" : "1.magnifyingglass")
             }
@@ -176,101 +250,6 @@ struct MacAssistantRemoteView: View {
         .help(displaySizingHelp)
         .accessibilityLabel("Remote display sizing")
         .accessibilityValue(displaySizingTitle)
-    }
-
-    private func toolsCluster(_ session: MacAssistantSession.ConnectedSession) -> some View {
-        HStack(spacing: 2) {
-            if let displays = session.status.displays, displays.count > 1 {
-                Menu {
-                    ForEach(displays) { display in
-                        Button { selectedDisplayID = display.id } label: {
-                            if selectedDisplayID == display.id {
-                                Label(display.name, systemImage: "checkmark")
-                            } else {
-                                Text(display.name)
-                            }
-                        }
-                    }
-                } label: {
-                    SessionToolbarIconLabel(systemImage: "rectangle.on.rectangle")
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .help("Switch display")
-                .accessibilityLabel("Switch display")
-            }
-            unavailableTool(systemImage: "doc.on.clipboard", name: "Clipboard")
-            Button(action: captureScreenshot) {
-                SessionToolbarIconLabel(systemImage: "camera")
-            }
-            .buttonStyle(SessionToolbarIconButtonStyle())
-            .disabled(renderer.latestPixelBuffer == nil)
-            .help("Save a screenshot of the remote screen")
-            .accessibilityLabel("Save screenshot")
-            unavailableTool(systemImage: "arrow.up.doc", name: "File transfer")
-            unavailableTool(systemImage: "terminal", name: "Terminal")
-            Button { input.keyPress("Tab", modifiers: ["command"]) } label: {
-                SessionToolbarIconLabel(systemImage: "command")
-            }
-            .buttonStyle(SessionToolbarIconButtonStyle())
-            .disabled(!fullControl)
-            .keyboardShortcut(.tab, modifiers: [.control, .option])
-            .help("Send ⌘Tab to the remote Mac (local shortcut: ⌃⌥Tab)")
-            .accessibilityLabel("Switch apps on the remote Mac")
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 3)
-        .sessionToolbarClusterChrome()
-    }
-
-    private func unavailableTool(systemImage: String, name: String) -> some View {
-        Button(action: {}) { SessionToolbarIconLabel(systemImage: systemImage) }
-            .buttonStyle(SessionToolbarIconButtonStyle())
-            .disabled(true)
-            .help("\(name) is unavailable through this Assistant connection")
-            .accessibilityLabel(name)
-            .accessibilityHint("Unavailable through this Assistant connection")
-    }
-
-    private var screenAIButton: some View {
-        Button(action: {}) {
-            SessionToolbarToggleLabel(systemImage: "sparkles")
-        }
-        .buttonStyle(SessionToolbarToggleButtonStyle())
-        .disabled(true)
-        .help("Screen AI is unavailable through this Assistant connection")
-        .accessibilityLabel("Screen AI")
-    }
-
-    private var audioButton: some View {
-        Button(action: {}) {
-            SessionToolbarToggleLabel(systemImage: "speaker.slash.fill")
-        }
-        .buttonStyle(SessionToolbarToggleButtonStyle())
-        .disabled(true)
-        .help("Remote audio is unavailable through this Assistant connection")
-        .accessibilityLabel("Audio")
-    }
-
-    private var accessModeButton: some View {
-        Button { fullControl.toggle() } label: {
-            Label(fullControl ? "Switch to View Only" : "Enable Full Control",
-                  systemImage: fullControl ? "cursorarrow.motionlines" : "eye.fill")
-        }
-        .labelStyle(.iconOnly)
-        .help(fullControl ? "Full control — input enabled" : "View only — input disabled")
-        .accessibilityLabel("Access mode")
-        .accessibilityValue(fullControl ? "Full control" : "View only")
-    }
-
-    private var statsButton: some View {
-        Button { showsStats.toggle() } label: {
-            Label(showsStats ? "Hide Connection Stats" : "Show Connection Stats",
-                  systemImage: showsStats ? "chart.bar.fill" : "chart.bar")
-        }
-        .labelStyle(.iconOnly)
-        .help(showsStats ? "Hide connection stats" : "Show connection stats")
-        .accessibilityLabel("Connection stats")
     }
 
     /// The Assistant transport reports neither latency nor bitrate, so this
@@ -550,11 +529,15 @@ private struct MacAssistantVideoStreamView: NSViewRepresentable {
     let isInputEnabled: Bool
     let usesLocalCursor: Bool
     let displayMode: DisplayMappingEngine.DisplayMode
+    let onKeyboardFocusChange: (Bool) -> Void
+    let keepsDisplayShortcutsLocal: Bool
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> RemoteStreamNSView {
         let view = RemoteStreamNSView()
+        view.keepsDisplayShortcutsLocal = keepsDisplayShortcutsLocal
+        view.onKeyboardFocusChange = onKeyboardFocusChange
         view.input = input
         view.isInputEnabled = isInputEnabled
         view.displayMode = displayMode
@@ -569,6 +552,8 @@ private struct MacAssistantVideoStreamView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: RemoteStreamNSView, context: Context) {
+        view.keepsDisplayShortcutsLocal = keepsDisplayShortcutsLocal
+        view.onKeyboardFocusChange = onKeyboardFocusChange
         view.input = input
         view.isInputEnabled = isInputEnabled
         view.displayMode = displayMode
@@ -580,6 +565,9 @@ private struct MacAssistantVideoStreamView: NSViewRepresentable {
 
     static func dismantleNSView(_ view: RemoteStreamNSView, coordinator: Coordinator) {
         coordinator.cancellable?.cancel()
+        view.stopInputCapture()
+        view.isInputEnabled = false
+        view.input?.isEnabled = false
         view.setLocalCursorHidden(false)
         view.display(pixelBuffer: nil)
     }
@@ -591,13 +579,22 @@ private struct MacAssistantVideoStreamView: NSViewRepresentable {
 @MainActor
 final class MacAssistantInputController: ObservableObject, MacRemoteInputHandling {
     @Published private(set) var lastError: String?
-    var isEnabled = true
+    var isEnabled = false {
+        didSet {
+            guard !isEnabled else { return }
+            pendingMove = nil
+            moveFlushTask?.cancel()
+            moveFlushTask = nil
+            sendQueue.discardPendingInteractions()
+        }
+    }
 
     /// Follows the live session. A `@StateObject` is built once, so capturing
     /// the client at init would keep routing input to the previously paired Mac
     /// after a re-pair.
     private var client: BeetCodeRemoteClient?
     private var viewSize: CGSize = .zero
+    private var viewPixelScale: Double = 1
     private var geometry: BeetCodeDisplayGeometry?
     private var displayMode: DisplayMappingEngine.DisplayMode = .fitDisplay
     private var pendingMove: BeetCodeInputCommand?
@@ -615,7 +612,10 @@ final class MacAssistantInputController: ObservableObject, MacRemoteInputHandlin
     }
 
     func setGeometry(_ geometry: BeetCodeDisplayGeometry?) { self.geometry = geometry }
-    func updateViewGeometry(size: CGSize, pixelScale: Double) { viewSize = size }
+    func updateViewGeometry(size: CGSize, pixelScale: Double) {
+        viewSize = size
+        viewPixelScale = max(1, pixelScale)
+    }
     func updateDisplayMode(_ displayMode: DisplayMappingEngine.DisplayMode) { self.displayMode = displayMode }
     func containsRemoteContent(_ point: CGPoint) -> Bool { contentRect(geometry)?.contains(point) == true }
     func remoteContentRect(in viewSize: CGSize) -> CGRect? { contentRect(geometry) }
@@ -726,25 +726,10 @@ final class MacAssistantInputController: ObservableObject, MacRemoteInputHandlin
     }
 
     private func contentRect(_ geometry: BeetCodeDisplayGeometry?) -> CGRect? {
-        guard let geometry, geometry.imageWidth > 0, geometry.imageHeight > 0,
-              viewSize.width > 0, viewSize.height > 0 else { return nil }
-        let imageAspect = CGFloat(geometry.imageWidth) / CGFloat(geometry.imageHeight)
-        let viewAspect = viewSize.width / viewSize.height
-        let size: CGSize
-        if displayMode == .fillScreen {
-            size = imageAspect > viewAspect
-                ? CGSize(width: viewSize.height * imageAspect, height: viewSize.height)
-                : CGSize(width: viewSize.width, height: viewSize.width / imageAspect)
-        } else {
-            size = imageAspect > viewAspect
-                ? CGSize(width: viewSize.width, height: viewSize.width / imageAspect)
-                : CGSize(width: viewSize.height * imageAspect, height: viewSize.height)
-        }
-        return CGRect(
-            x: (viewSize.width - size.width) / 2,
-            y: (viewSize.height - size.height) / 2,
-            width: size.width,
-            height: size.height)
+        guard let geometry else { return nil }
+        return MacRemoteContentLayout.rect(
+            imageSize: CGSize(width: geometry.imageWidth, height: geometry.imageHeight),
+            viewSize: viewSize, pixelScale: viewPixelScale, mode: displayMode)
     }
 
     private static let modifierKeyCodes: Set<UInt16> = [54, 55, 56, 60, 58, 61, 59, 62, 63]

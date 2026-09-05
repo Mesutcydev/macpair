@@ -39,7 +39,32 @@ struct MacClientApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MacShellView(environment: environment)
+            #if DEBUG
+            if Bundle.main.object(forInfoDictionaryKey: "VampUXAudit") as? Bool == true {
+                MacSessionUXPreview()
+            } else {
+                clientWindow
+            }
+            #else
+            clientWindow
+            #endif
+        }
+        .windowStyle(.titleBar)
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 860, height: 600)
+        .commands {
+            CommandMenu("Session") {
+                MacRefreshCommand(environment: environment)
+                Divider()
+                MacDisconnectCommand(environment: environment)
+            }
+            CommandGroup(after: .toolbar) { MacDisplayModeCommands() }
+        }
+        Settings { MacSettingsScreen(environment: environment) }
+    }
+
+    private var clientWindow: some View {
+        MacShellView(environment: environment)
                 .frame(minWidth: 760, minHeight: 480)
                 .task {
                     menuBarController.configure(environment: environment)
@@ -49,28 +74,6 @@ struct MacClientApp: App {
                     menuBarController.setEnabled(MacMenuBarPreference.isEnabled(newValue))
                 }
                 .vampSplashWindow(.macClient(version: Self.versionString))
-        }
-        .windowStyle(.titleBar)
-        .windowResizability(.contentMinSize)
-        // Sensible first-launch size — opens composed, not at the bare minimum
-        // or some oversized restored frame.
-        .defaultSize(width: 860, height: 600)
-        .commands {
-            // Session verbs belong in their own menu, not buried under the app
-            // app menu — and it leaves room for future actions.
-            CommandMenu("Session") {
-                MacRefreshCommand(environment: environment)
-                Divider()
-                MacDisconnectCommand(environment: environment)
-            }
-            CommandMenu("View") {
-                MacDisplayModeCommands()
-            }
-        }
-
-        Settings {
-            MacSettingsScreen(environment: environment)
-        }
     }
 }
 
@@ -91,8 +94,8 @@ struct MacClientWindowConfigurator: NSViewRepresentable {
     /// those controls over whatever the remote Mac happens to be showing.
     let extendsUnderTitleBar: Bool
     /// The host list draws its own centred wordmark, so AppKit's title — which
-    /// it wedges in beside the leading toolbar items — is hidden there. A live
-    /// session keeps the native title: it names the Mac you are controlling.
+    /// it wedges in beside the leading toolbar items — is hidden there. Sessions
+    /// also hide it because the status control already names the remote Mac.
     let hidesNativeTitle: Bool
 
     func makeNSView(context: Context) -> NSView {
@@ -135,6 +138,7 @@ struct MacClientWindowConfigurator: NSViewRepresentable {
 private struct MacRefreshCommand: View {
     @ObservedObject var environment: ClientAppEnvironment
     @ObservedObject private var coordinator: ClientSessionCoordinator
+    @FocusedObject private var assistant: MacAssistantSession?
 
     init(environment: ClientAppEnvironment) {
         self.environment = environment
@@ -146,7 +150,7 @@ private struct MacRefreshCommand: View {
             Task { await environment.sharedHostsViewModel.refresh() }
         }
         .keyboardShortcut("r", modifiers: .command)
-        .disabled(coordinator.phase == .receiving || coordinator.phase == .waitingForMedia)
+        .disabled((coordinator.phase != .idle && coordinator.phase != .error) || assistant?.connected != nil)
     }
 }
 
@@ -174,23 +178,20 @@ private struct MacDisconnectCommand: View {
     }
 }
 
-/// View-menu display sizing. Same AppStorage key the session toolbar uses, so
-/// the menu bar and the Fit Display button stay in sync.
+/// Commands edit only the active connection; two windows never share sizing.
 private struct MacDisplayModeCommands: View {
-    @AppStorage("client.displayMode") private var displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
+    @FocusedBinding(\.remoteDisplayMode) private var displayModeRaw: String?
+    @FocusedValue(\.keepsDisplayShortcutsLocal) private var keepsDisplayShortcutsLocal
 
     var body: some View {
-        Button("Fit Display") {
-            displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue
+        Group {
+            Button("Fit Display") { displayModeRaw = DisplayMappingEngine.DisplayMode.fitDisplay.rawValue }
+                .keyboardShortcut(keepsDisplayShortcutsLocal == false ? nil : KeyboardShortcut("0", modifiers: .command))
+            Button("Fill Window") { displayModeRaw = DisplayMappingEngine.DisplayMode.fillScreen.rawValue }
+                .keyboardShortcut(keepsDisplayShortcutsLocal == false ? nil : KeyboardShortcut("1", modifiers: .command))
+            Button("Actual Size") { displayModeRaw = DisplayMappingEngine.DisplayMode.actualSize.rawValue }
+                .keyboardShortcut(keepsDisplayShortcutsLocal == false ? nil : KeyboardShortcut("2", modifiers: .command))
         }
-        .keyboardShortcut("0", modifiers: .command)
-        Button("Fill Window") {
-            displayModeRaw = DisplayMappingEngine.DisplayMode.fillScreen.rawValue
-        }
-        .keyboardShortcut("1", modifiers: .command)
-        Button("Actual Size") {
-            displayModeRaw = DisplayMappingEngine.DisplayMode.actualSize.rawValue
-        }
-        .keyboardShortcut("2", modifiers: .command)
+        .disabled(displayModeRaw == nil)
     }
 }

@@ -17,7 +17,17 @@ final class MacRemoteInputController: ObservableObject {
 
     var sessionID: UUID?
     /// View-only mode gate; when false, all input is dropped.
-    var isEnabled = true
+    var isEnabled = false {
+        didSet {
+            guard !isEnabled else { return }
+            pendingMove = nil
+            pendingScrollDX = 0
+            pendingScrollDY = 0
+            flushTask?.cancel()
+            flushTask = nil
+            sendQueue.discardPendingInteractions()
+        }
+    }
 
     private let sessionManager: any WebRTCSessionManaging
 

@@ -57,6 +57,7 @@ struct MacBrandWordmark: View {
 /// a predictable contrast floor, via the adaptive veil below.
 private struct MacWindowBackdrop: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -71,7 +72,7 @@ private struct MacWindowBackdrop: View {
                     .clipped()
                     .saturation(colorScheme == .dark ? 0.82 : 0.96)
                     .contrast(colorScheme == .dark ? 1.04 : 1.02)
-                    .opacity(reduceTransparency ? 0.44 : (colorScheme == .dark ? 0.78 : 0.88))
+                    .opacity(reduceTransparency || contrast == .increased ? 0.12 : (colorScheme == .dark ? 0.42 : 0.40))
 
                 LinearGradient(
                     colors: colorScheme == .dark

@@ -169,7 +169,7 @@ struct MacHostsScreen: View {
         } else if isInitialScan {
             centeredState {
                 DiscoveryHero(isScanning: true)
-                Text("Searching for Vamp Host and Vamp Sync…")
+                Text("Searching for Vamp Sync…")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
@@ -199,7 +199,7 @@ struct MacHostsScreen: View {
                 .padding(.bottom, 4)
             Text("No Macs found yet")
                 .font(.title2.weight(.semibold))
-            Text("Open Vamp Host, Vamp Sync, or pair Vamp Assistant. Keep both Macs on the same LAN or reachable over Tailscale.")
+            Text("Open Vamp Sync, or pair Vamp Assistant. Keep both Macs on the same LAN or reachable over Tailscale.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 440)
@@ -223,25 +223,25 @@ struct MacHostsScreen: View {
         }
     }
 
-    // MARK: - Get Vamp Host
+    // MARK: - Get Vamp Sync
 
     /// Canonical direct-download page for the host companion.
-    private static let hostWebsiteURL = URL(string: "https://thevamp.app/#download")!
+    private static let hostWebsiteURL = URL(string: "https://thevamp.app/sync/")!
 
-    /// Small directional card pointing users to install the free Vamp Host on the Mac they
+    /// Small directional card pointing users to install the free Vamp Sync on the Mac they
     /// want to control.
     private var vampHostBox: some View {
         HStack(alignment: .top, spacing: 14) {
-            Image("VampHostIcon")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
+            Image(systemName: "macwindow.on.rectangle")
+                .font(.system(size: 32))
+                .foregroundStyle(Color.accentColor)
                 .frame(width: 52, height: 52)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.08)))
             VStack(alignment: .leading, spacing: 5) {
-                Text("Don’t have Vamp Host yet?")
+                Text("Don’t have Vamp Sync yet?")
                     .font(.headline)
-                Text("Install the free Vamp Host app on the Mac you want to control.")
+                Text("Install the free Vamp Sync app on the Mac you want to control.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -268,7 +268,7 @@ struct MacHostsScreen: View {
         GeometryReader { geo in
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    sectionLabel("Pair with a code")
+                    sectionLabel(assistant.savedAddress == nil ? "Add a connection" : "Saved connections")
                     assistantCard
 
                     if let message = errorBannerMessage {
@@ -354,9 +354,8 @@ struct MacHostsScreen: View {
 
     private func sectionLabel(_ title: String) -> some View {
         Text(title)
-            .font(.caption.weight(.bold))
-            .foregroundStyle(.primary.opacity(0.72))
-            .textCase(.uppercase)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
             .accessibilityAddTraits(.isHeader)
     }
 
@@ -422,7 +421,7 @@ struct MacHostsScreen: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
             } else {
-                Button("Pair") { showsAssistantPairing = true }
+                Button("Pair Assistant") { showsAssistantPairing = true }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
             }
@@ -494,7 +493,7 @@ struct MacHostsScreen: View {
                 ProgressView().controlSize(.large)
                 Text(connectingStatusText)
                     .font(.title3.weight(.semibold))
-                Text("If this is the first connection, approve this Mac in the Vamp Host or Vamp Sync window on the other computer.")
+                Text("If this is the first connection, approve this Mac in the Vamp Sync window on the other computer.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -845,7 +844,7 @@ private struct HostCardView: View {
         if capabilities.contains(.supportsAppStreaming), !capabilities.contains(.supportsMultiDisplay) {
             return "Vamp Sync"
         }
-        return "Vamp Host"
+        return "Legacy host"
     }
 
     /// Looks like the old trailing button but is part of the card's own hit

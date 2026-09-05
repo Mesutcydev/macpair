@@ -81,13 +81,11 @@ struct MacShellView: View {
         .focusedSceneObject(assistant)
         .background(MacClientWindowConfigurator(
             extendsUnderTitleBar: !showsStreamChrome,
-            hidesNativeTitle: !showsStreamChrome
+            hidesNativeTitle: true
         ))
         .preferredColorScheme(showsStreamChrome ? .dark : nil)
-        // The host list draws its own centred wordmark, so SwiftUI must not also
-        // set a window title — AppKit renders that beside the leading toolbar
-        // items and it showed up twice. A session keeps the real title: it names
-        // the Mac being controlled.
+        // Keep the title for Window menus and accessibility. The toolbar's host
+        // status already names the remote Mac, so do not repeat it in the bar.
         .navigationTitle(showsStreamChrome ? windowTitle : "")
         .onChange(of: coordinator.phase) { phase in
             switch phase {
