@@ -112,3 +112,17 @@ Normal startup retains Opening until the frame arrives, with no extra recovery p
 34 simulator tests passed, including frame arrival between timer checks, startup with old
 or missing frames, sustained interruption, and immediate recovery. Sync and Terminal Release
 builds passed after the shared UI change. Live physical-device acceptance remains outstanding.
+
+## User acceptance and installed host updates
+
+After receiving the build 32 update and real-device check instructions, the user reported
+“both are okey” for the Sync and Assistant paths. This is user-reported acceptance, not an
+agent-observed live-video test. The simulator's historical decoder limitation is not treated
+as a remaining product defect.
+
+The installed Sync was updated from 2.3.0/build 64 to build 65, and Assistant from
+0.10.28/build 81 to 0.10.29/build 82. Each update was signed with its existing local identity
+and verified against the installed designated requirement. Read-only checks before and
+after confirmed Screen Recording and Accessibility remained granted. Application data and
+TCC records were not changed. Original app bundles were retained as local backups. Sync
+was left running; Assistant was verified separately and closed to keep one host running.
