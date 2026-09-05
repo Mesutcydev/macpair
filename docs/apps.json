@@ -105,6 +105,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.14",
+          "buildVersion": "28",
+          "marketingVersion": "0.1.14 (28)",
+          "date": "2026-09-05",
+          "localizedDescription": "Fixes landscape switching and the automatic window-selection popup. Opens apps directly, preserves Mac window sizing by default, and makes adaptive resizing opt-in. Portrait-only; full-screen on iPad.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-70/VampStream-iOS-0.1.14-build-28-altstore-unsigned.ipa",
+          "size": 13698376,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.13",
           "buildVersion": "27",
           "marketingVersion": "0.1.13 (27)",
