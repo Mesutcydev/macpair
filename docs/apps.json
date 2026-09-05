@@ -105,6 +105,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.13",
+          "buildVersion": "27",
+          "marketingVersion": "0.1.13 (27)",
+          "date": "2026-09-05",
+          "localizedDescription": "Improves app-window rotation, resize coordination, stale-event filtering, input safety, and exact-window reconnect. Adaptive Sync resizing requires updated host support. Live device acceptance testing remains incomplete.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-69/VampStream-iOS-0.1.13-build-27-altstore-unsigned.ipa",
+          "size": 13706917,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.12",
           "buildVersion": "26",
           "marketingVersion": "0.1.12 (26)",
