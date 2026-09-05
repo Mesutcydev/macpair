@@ -8,7 +8,7 @@ struct VampStreamHostSourceOnboarding: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(VampStreamHomeCopy.hostOnboardingTitle)
-                    .font(.largeTitle.weight(.bold))
+                    .font(.title2.weight(.semibold))
                     .foregroundStyle(PR.fg)
                 Text(VampStreamHomeCopy.hostOnboardingDetail)
                     .font(.subheadline)
@@ -26,7 +26,7 @@ struct VampStreamHostSourceOnboarding: View {
                 )
             }
         }
-        .padding(.horizontal, 22)
+        .padding(.horizontal, 18)
         .padding(.top, 18)
         .padding(.bottom, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -113,7 +113,7 @@ struct VampStreamHostSourceOptions: View {
                             .strokeBorder(selection == source ? PR.fg.opacity(0.28) : Color.clear, lineWidth: 1.5)
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PRGlassPressButtonStyle())
                 .accessibilityAddTraits(selection == source ? [.isSelected] : [])
                 .accessibilityLabel(source.title)
                 .accessibilityHint(source.detail)

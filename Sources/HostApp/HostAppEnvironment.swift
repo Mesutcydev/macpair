@@ -364,6 +364,9 @@ final class HostAppEnvironment: ObservableObject {
         self.inputCommandRouter.onStreamTargetSwitchRequest = { [sessionCoordinator = self.sessionCoordinator] message in
             await sessionCoordinator.handleStreamTargetSwitchRequest(message)
         }
+        self.inputCommandRouter.onApplicationCloseRequest = { [sessionCoordinator = self.sessionCoordinator] message in
+            await sessionCoordinator.handleApplicationCloseRequest(message)
+        }
         #endif
         // Remote login-screen unlock uses the same Accessibility-backed input path as
         // normal control, so it stays unavailable in sandboxed builds.

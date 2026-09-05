@@ -351,6 +351,18 @@ struct BeetCodeRemoteClient: Sendable {
         return response.application
     }
 
+    func quitApplication(bundleIdentifier: String) async throws {
+        do {
+            let _: BeetCodeAcceptedResponse = try await request(
+                "api/control/apps/quit",
+                method: "POST",
+                body: ["bundleIdentifier": bundleIdentifier],
+                timeout: 15)
+        } catch BeetCodeRemoteError.server(let message) where message.contains("404") {
+            throw BeetCodeRemoteError.server("This Vamp Assistant build cannot close apps yet.")
+        }
+    }
+
     func resizeApplication(
         windowID: UInt32,
         clientViewportAspect: Double

@@ -60,6 +60,8 @@ final class HostInputCommandRouter: @unchecked Sendable {
     var onApplicationListRequest: (@Sendable (ApplicationListRequestMessage) async -> Void)?
     /// App Streaming: client asks to retarget the live stream to a window/application.
     var onStreamTargetSwitchRequest: (@Sendable (StreamTargetSwitchRequestMessage) async -> Void)?
+    /// App Streaming: client asks the Mac to quit a running application.
+    var onApplicationCloseRequest: (@Sendable (ApplicationCloseRequestMessage) async -> Void)?
     /// Called when the client requests a fresh keyframe because its decoder is stuck.
     /// The coordinator wires this to `encoderPipeline.forceKeyframe()`.
     var onKeyframeRequest: (@Sendable () -> Void)?
@@ -282,6 +284,8 @@ final class HostInputCommandRouter: @unchecked Sendable {
                     await self.handleApplicationListEnvelope(envelope)
                 case .streamTargetSwitch:
                     await self.handleStreamTargetSwitchEnvelope(envelope)
+                case .applicationClose:
+                    await self.handleApplicationCloseEnvelope(envelope)
                 case .setActiveDisplays:
                     await self.handleSetActiveDisplaysEnvelope(envelope)
                 case .controlAuth:
@@ -954,6 +958,45 @@ final class HostInputCommandRouter: @unchecked Sendable {
             return
         }
         await onStreamTargetSwitchRequest(message)
+    }
+
+    private func handleApplicationCloseEnvelope(_ envelope: DataChannelEnvelope) async {
+        guard envelope.hasAcceptableTimestamp else {
+            rejectCommand(reason: "Application close timestamp out of acceptable window")
+            return
+        }
+        guard validateControlEnvelopeAuth(envelope) else {
+            rejectCommand(reason: "Application close authentication required")
+            return
+        }
+        let currentLockState = lockStateProvider()
+        if currentLockState.blocksRemoteInput {
+            rejectCommand(reason: "Mac is locked: \(currentLockState.rawValue)")
+            return
+        }
+        guard let message = try? envelope.decodeApplicationCloseRequest() else {
+            rejectCommand(reason: "Application close decode failed")
+            return
+        }
+        let rejection = InputCommandValidation.validateRouting(
+            commandSessionID: message.sessionID,
+            activeSessionID: activeSessionID,
+            isRouterEnabled: isEnabled,
+            connectionState: webRTCSessionManager.connectionState
+        )
+        if let rejection {
+            rejectCommand(reason: "Application close rejected: \(rejection)")
+            return
+        }
+        guard shouldAllowDisplaySwitch() else {
+            rejectCommand(reason: "Application close rate-limited")
+            return
+        }
+        guard let onApplicationCloseRequest else {
+            rejectCommand(reason: "Application close handler unavailable")
+            return
+        }
+        await onApplicationCloseRequest(message)
     }
 
     private func handleControlAuthEnvelope(_ envelope: DataChannelEnvelope) async {

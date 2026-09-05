@@ -73,6 +73,9 @@ final class AppStreamViewModel: ObservableObject {
     private var launchTimeoutTask: Task<Void, Never>?
     private var pendingTargetName: String?
     private var pendingRequestID: UUID?
+    private var pendingCloseRequestID: UUID?
+    private var pendingCloseName: String?
+    private var closeTimeoutTask: Task<Void, Never>?
     private var clientViewportAspect: Double?
     private var listOffset = 0
     private var loadingApplications: [RemoteApplication] = []
@@ -113,11 +116,15 @@ final class AppStreamViewModel: ObservableObject {
         listRetryTask = nil
         launchTimeoutTask?.cancel()
         launchTimeoutTask = nil
+        closeTimeoutTask?.cancel()
+        closeTimeoutTask = nil
         applications = []
         streamedWindow = nil
         streamedApplication = nil
         pendingTargetName = nil
         pendingRequestID = nil
+        pendingCloseRequestID = nil
+        pendingCloseName = nil
         status = .idle
     }
 
@@ -182,6 +189,39 @@ final class AppStreamViewModel: ObservableObject {
         }
     }
 
+    func close(_ application: RemoteApplication) {
+        guard ApplicationClosePolicy.canClose(application.bundleIdentifier) else {
+            status = .failed(reason: "\(application.name) cannot be closed remotely.")
+            return
+        }
+        guard environment.sessionCoordinator.hostLockState == .unlockedActiveSession else {
+            status = .failed(reason: "Unlock the Mac to close applications.")
+            return
+        }
+        guard let sessionID = environment.sessionCoordinator.activeSessionID else {
+            status = .failed(reason: "Not connected to a Mac.")
+            return
+        }
+        pendingCloseName = application.name
+        pendingCloseRequestID = UUID()
+        let request = ApplicationCloseRequestMessage(
+            sessionID: sessionID,
+            bundleIdentifier: application.bundleIdentifier,
+            senderDeviceID: environment.clientIdentity.id,
+            requestID: pendingCloseRequestID
+        )
+        do {
+            try environment.webRTCSessionManager.sendDataMessage(
+                try DataChannelEnvelope.applicationCloseRequest(request))
+        } catch {
+            status = .failed(reason: "Could not ask the Mac to close \(application.name).")
+            pendingCloseRequestID = nil
+            pendingCloseName = nil
+            return
+        }
+        armCloseTimeout(name: application.name)
+    }
+
     func select(_ application: RemoteApplication, windowID: String? = nil) {
         guard environment.sessionCoordinator.hostLockState == .unlockedActiveSession else {
             status = .failed(reason: "Unlock the Mac to open applications.")
@@ -230,6 +270,18 @@ final class AppStreamViewModel: ObservableObject {
             guard case .launching = self.status else { return }
             self.pendingTargetName = nil
             self.status = .failed(reason: "The Mac did not open \(name) in time. Tap Retry.")
+        }
+    }
+
+    private func armCloseTimeout(name: String) {
+        closeTimeoutTask?.cancel()
+        closeTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 12_000_000_000)
+            guard let self, !Task.isCancelled else { return }
+            guard self.pendingCloseRequestID != nil else { return }
+            self.pendingCloseRequestID = nil
+            self.pendingCloseName = nil
+            self.status = .failed(reason: "The Mac did not close \(name) in time.")
         }
     }
 
@@ -300,6 +352,11 @@ final class AppStreamViewModel: ObservableObject {
             guard result.sessionID == environment.sessionCoordinator.activeSessionID,
                   result.senderDeviceID == environment.clientIdentity.id else { return }
             apply(result)
+        case .applicationClose:
+            guard let result = try? envelope.decodeApplicationCloseResult() else { return }
+            guard result.sessionID == environment.sessionCoordinator.activeSessionID,
+                  result.senderDeviceID == environment.clientIdentity.id else { return }
+            applyClose(result)
         default:
             break
         }
@@ -341,6 +398,46 @@ final class AppStreamViewModel: ObservableObject {
         } else {
             launchTimeoutTask?.cancel()
             launchTimeoutTask = nil
+        }
+    }
+
+    func applyClose(_ result: ApplicationCloseResultMessage) {
+        if let requestID = result.requestID {
+            guard requestID == pendingCloseRequestID else { return }
+        }
+        closeTimeoutTask?.cancel()
+        closeTimeoutTask = nil
+        let name = pendingCloseName ?? result.bundleIdentifier
+        pendingCloseRequestID = nil
+        pendingCloseName = nil
+
+        switch result.status {
+        case .completed, .accepted:
+            markClosed(result.bundleIdentifier)
+            if streamedApplication?.bundleIdentifier == result.bundleIdentifier {
+                backToApps()
+            } else if case .streaming = status {
+                break
+            } else {
+                status = .browsing
+            }
+        case .rejected, .failed:
+            status = .failed(reason: result.reason ?? "Could not close \(name).")
+        }
+    }
+
+    private func markClosed(_ bundleIdentifier: String) {
+        applications = applications.map { application in
+            guard application.bundleIdentifier == bundleIdentifier else { return application }
+            return RemoteApplication(
+                bundleIdentifier: application.bundleIdentifier,
+                name: application.name,
+                isRunning: false,
+                isActive: false,
+                iconPNGBase64: application.iconPNGBase64,
+                windowIDs: [],
+                windowTitles: nil
+            )
         }
     }
 

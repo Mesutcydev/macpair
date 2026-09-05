@@ -165,6 +165,44 @@ final class ControlChannelAuthEnforcementTests: XCTestCase {
         router.stopListening()
     }
 
+    func testApplicationCloseReachesHandlerAfterAuth() async throws {
+        let sessionManager = ControlAuthTestSessionManager()
+        let inputService = RecordingInputInjectionService()
+        let eventLogStore = RecordingEventLogStore()
+        let modeProvider = HostSessionModeController(mode: .fullControl)
+        let router = HostInputCommandRouter(
+            inputService: inputService,
+            webRTCSessionManager: sessionManager,
+            eventLogStore: eventLogStore,
+            modeProvider: modeProvider
+        )
+
+        let sessionID = UUID()
+        let token = ConnectionSecurity.tokenToHex(ConnectionSecurity.generateSessionToken())
+
+        let reached = expectation(description: "applicationClose reached handler")
+        router.onApplicationCloseRequest = { _ in reached.fulfill() }
+
+        router.startListening(sessionID: sessionID, expectedSessionTokenHex: token)
+        try sessionManager.emit(try DataChannelEnvelope.controlAuth(
+            ControlChannelAuthMessage(sessionID: sessionID, sessionToken: token)
+        ))
+
+        let req = ApplicationCloseRequestMessage(
+            sessionID: sessionID,
+            bundleIdentifier: "com.apple.Safari",
+            senderDeviceID: UUID()
+        )
+        let envelope = try XCTUnwrap(
+            try DataChannelEnvelope.applicationCloseRequest(req).authenticated(using: token, counter: 1)
+        )
+        try sessionManager.emit(envelope)
+
+        await fulfillment(of: [reached], timeout: 1.0)
+        XCTAssertEqual(router.commandsRejected, 0, "applicationClose should not be rejected after valid auth")
+        router.stopListening()
+    }
+
     func testTerminalOnlyHostRejectsRemoteInputAfterAuthentication() async throws {
         let sessionManager = ControlAuthTestSessionManager()
         let inputService = RecordingInputInjectionService()

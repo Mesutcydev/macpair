@@ -105,6 +105,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.12",
+          "buildVersion": "26",
+          "marketingVersion": "0.1.12 (26)",
+          "date": "2026-09-05",
+          "localizedDescription": "Adds Close on running Mac apps, and matches app-list search, pairing, and empty states to the connect-home glass.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-66/VampStream-iOS-0.1.12-build-26-altstore-unsigned.ipa",
+          "size": 13657020,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.11",
           "buildVersion": "25",
           "marketingVersion": "0.1.11 (25)",
@@ -238,6 +248,16 @@
     }
   ],
   "news": [
+    {
+      "title": "Vamp Stream 0.1.12",
+      "identifier": "vamp-stream-ios-0.1.12",
+      "caption": "Close a running Mac app from the list or stream menu, with the same glass controls as home.",
+      "date": "2026-09-05",
+      "tintColor": "#6E6E73",
+      "notify": true,
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-66",
+      "appID": "com.mesutcy.remotedesktop.stream"
+    },
     {
       "title": "Vamp Stream 0.1.11",
       "identifier": "vamp-stream-ios-0.1.11",

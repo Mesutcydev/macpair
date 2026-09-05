@@ -97,6 +97,11 @@ struct MacAppStreamPicker: View {
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(sortedApplications) { app in
                         MacAppStreamTile(application: app, isBusy: isBusy) { vm.select(app) }
+                            .contextMenu {
+                                if app.isRunning, ApplicationClosePolicy.canClose(app.bundleIdentifier) {
+                                    Button("Close \(app.name)", role: .destructive) { vm.close(app) }
+                                }
+                            }
                     }
                 }
                 .padding(20)

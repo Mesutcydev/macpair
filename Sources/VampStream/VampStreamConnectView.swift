@@ -171,7 +171,7 @@ private struct VampStreamConnectHeader: View {
                             .frame(width: 28, height: 28)
                             .prGlassSurface(in: Circle(), isInteractive: true)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PRGlassPressButtonStyle())
                     .accessibilityLabel(
                         Text(cardStyle == .grid ? VampStreamHomeCopy.showList : VampStreamHomeCopy.showGrid)
                     )
@@ -181,15 +181,15 @@ private struct VampStreamConnectHeader: View {
                             .foregroundStyle(PR.fg)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .prGlassSurface(in: Capsule(style: .continuous))
+                            .prGlassSurface(in: Capsule(style: .continuous), isInteractive: true)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PRGlassPressButtonStyle())
                     .accessibilityHint("Choose Vamp Sync, Vamp Assistant, or both")
                 }
                 VampStreamVersionBadge()
             }
         }
-        .padding(.horizontal, 22)
+        .padding(.horizontal, 18)
         .padding(.top, 18)
         .padding(.bottom, 14)
     }
@@ -484,7 +484,7 @@ private struct VampSyncConnectCard: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PRGlassPressButtonStyle())
         .foregroundStyle(PR.fg)
         .vampHomeLiveGlass(in: Capsule(style: .continuous), phaseOffset: 0.6)
         .vampHomeLivePulse(isActive: !isCollapsed, period: 2.6)
@@ -504,7 +504,7 @@ private struct VampSyncConnectCard: View {
                 .frame(width: 28, height: 28)
                 .prGlassSurface(in: Circle(), isInteractive: true)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PRGlassPressButtonStyle())
         .accessibilityLabel(
             Text(isCollapsed ? VampStreamHomeCopy.syncConnectExpand : VampStreamHomeCopy.syncConnectCollapse)
         )
@@ -535,15 +535,16 @@ private struct VampSyncConnectCard: View {
                     phaseOffset: 1.1
                 )
                 .accessibilityLabel(Text(VampStreamHomeCopy.addressPlaceholder))
-            Button(action: onConnectByAddress) {
-                Text(VampStreamHomeCopy.connectByAddress)
-            }
-                .buttonStyle(.bordered)
-                .disabled(manualAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            VampGlassActionButton(
+                title: LocalizedStringKey(VampStreamHomeCopy.connectByAddress),
+                systemImage: "link",
+                isDisabled: manualAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                action: onConnectByAddress
+            )
             if let manualError {
                 Text(manualError)
                     .font(.footnote)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(PR.fg)
             }
         }
     }
@@ -683,17 +684,14 @@ private struct VampAssistantSourceIntro: View {
                 }
             }
 
-            Button(action: onPair) {
-                Label(
-                    VampStreamHomeCopy.pairAssistantTitle(hasSavedAssistants: hasSavedAssistants),
-                    systemImage: "plus"
-                )
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(PR.fg)
-            .foregroundStyle(PR.bg)
+            VampGlassActionButton(
+                title: LocalizedStringKey(
+                    VampStreamHomeCopy.pairAssistantTitle(hasSavedAssistants: hasSavedAssistants)
+                ),
+                systemImage: "plus",
+                isProminent: true,
+                action: onPair
+            )
             .accessibilityHint(Text(VampStreamHomeCopy.pairAssistantHint))
         }
         .padding(16)
@@ -798,9 +796,9 @@ struct VampAssistantActionButton: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PRGlassPressButtonStyle())
         .foregroundStyle(PR.fg)
-        .prGlassSurface(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .prGlassSurface(in: RoundedRectangle(cornerRadius: 10, style: .continuous), isInteractive: true)
     }
 }
 
@@ -1040,7 +1038,7 @@ private struct VampHostMacCard: View {
                 phaseOffset: 1.3
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PRGlassPressButtonStyle())
         .disabled(host.isTerminalOnlyHost)
         .accessibilityLabel(anonymizeStreamPreview ? "Your Mac" : host.title)
         .accessibilityValue(host.isTerminalOnlyHost ? "Terminal-only host" : "Ready to browse apps")
@@ -1131,9 +1129,7 @@ private struct VampStreamEmptyState: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 20)
             if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .buttonStyle(.bordered)
-                    .tint(PR.fg)
+                VampGlassActionButton(title: actionTitle, action: action)
                     .padding(.top, 3)
             }
         }
@@ -1175,8 +1171,10 @@ struct VampStreamConnectingView: View {
     var onCancel: () -> Void
 
     var body: some View {
-        VStack(spacing: 18) {
-            ProgressView().controlSize(.large)
+        VStack(spacing: 16) {
+            ProgressView()
+                .tint(PR.fg)
+                .controlSize(.large)
             Text("Connecting to \(name)…")
                 .font(.headline)
                 .foregroundStyle(PR.fg)
@@ -1184,10 +1182,11 @@ struct VampStreamConnectingView: View {
                 .font(.subheadline)
                 .foregroundStyle(PR.fg2)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 30)
-            Button("Cancel", role: .cancel, action: onCancel)
-                .padding(.top, 6)
+            VampGlassActionButton(title: "Cancel", action: onCancel)
         }
+        .padding(22)
+        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .padding(.horizontal, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -1213,10 +1212,16 @@ struct VampStreamMessageView: View {
                 .foregroundStyle(PR.fg2)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 34)
-            Button(actionTitle, action: action)
-                .buttonStyle(.borderedProminent)
-                .padding(.top, 6)
+            VampGlassActionButton(
+                title: LocalizedStringKey(actionTitle),
+                isProminent: true,
+                action: action
+            )
+            .padding(.top, 6)
         }
+        .padding(22)
+        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .padding(.horizontal, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
