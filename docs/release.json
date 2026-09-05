@@ -4,10 +4,10 @@
     "suite": "Mesutcydev/vamp-suite",
     "assistant": "Mesutcydev/vamp-assistant"
   },
-  "tag": "vamp-suite-2.3.0-build-66",
-  "name": "Vamp Stream 0.1.12 and Sync 2.3.0 build 64",
-  "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-66",
-  "published_at": "2026-09-05T12:01:20Z",
+  "tag": "vamp-suite-2.3.0-build-67",
+  "name": "Vamp Control macOS 2.3.0 build 53",
+  "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-67",
+  "published_at": "2026-09-05T15:15:40Z",
   "assets": {
     "vamp-terminal-ios": {
       "name": "VampTerminal-iOS-2.3.0-build-50-altstore-unsigned.ipa",
@@ -26,12 +26,12 @@
       "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-66/VampSync-macOS-2.3.0-build-64-adhoc.dmg.sha256"
     },
     "vamp-control-macos": {
-      "name": "VampControl-macOS-2.3.0-build-52-adhoc.zip",
-      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-59/VampControl-macOS-2.3.0-build-52-adhoc.zip",
-      "label": "2.3.0 \u00b7 build 52",
-      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-59",
-      "tag": "vamp-suite-2.3.0-build-59",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-59/VampControl-macOS-2.3.0-build-52-adhoc.zip.sha256"
+      "name": "VampControl-macOS-2.3.0-build-53-adhoc.zip",
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-67/VampControl-macOS-2.3.0-build-53-adhoc.zip",
+      "label": "2.3.0 \u00b7 build 53",
+      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-67",
+      "tag": "vamp-suite-2.3.0-build-67",
+      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-67/VampControl-macOS-2.3.0-build-53-adhoc.zip.sha256"
     },
     "vamp-control-ios": {
       "name": "VampControl-iOS-2.3.0-build-47-altstore-unsigned.ipa",
