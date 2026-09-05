@@ -61,3 +61,11 @@ Validation: 605 Swift tests passed, the iOS 27 simulator suite passed, and all t
 Sizing requests now retain a newer explicit choice while an older request is in flight. Both paths use a testable latest-intent token. Assistant ignores superseded sizing replies, gates input through the debounce/queue, revalidates bounds after resize failures, and requires the capture to match the current stream configuration before interaction. The updated Swift suite passes 607 tests.
 
 Revalidated live-test availability: Assistant is now listening, but the simulator has no saved Assistant trust and Sync still requires pairing approval. A physical iPhone is available to devicectl and has Stream 0.1.11/build25 installed; available UI automation does not expose physical iPhone control. No pairing approval, credential copying, signing changes, or physical-device installation was performed. Live ChatGPT and multi-app acceptance remain outstanding on both hosts.
+
+## 0.1.16: Claude launcher hit area
+
+Authenticated Sync checks confirmed ChatGPT and Claude open directly without window-choice popups, and Claude stays portrait through both landscape rotations. Claude's blank card area did not respond while its text did. Both Sync and Assistant row labels now explicitly include their entire rectangular area in hit testing.
+
+The connected physical iPhone reports 0.1.11/build25; that historical release contains aspect-driven landscape requests. The publicly downloaded 0.1.15/build29 IPA was independently checked and declares portrait only for iPhone/iPad, with a matching checksum.
+
+Video fails to decode in this simulator (callback -8969), while the user confirms video works on the real device. No video-pipeline changes were made based on the simulator failure. After installing the row fix without removing app data, reconnect needed host approval again, so a post-fix authenticated tap retest remains unverified. Assistant has no paired simulator workspace.

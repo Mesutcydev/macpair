@@ -488,6 +488,7 @@ private struct VampAssistantApplicationRow: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
         .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous), isInteractive: true)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(name)

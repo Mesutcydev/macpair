@@ -795,6 +795,7 @@ private struct AppStreamApplicationRow: View {
                 if isFavorite { Image(systemName: "star.fill").foregroundStyle(PR.accent) }
                 Image(systemName: "chevron.right").foregroundStyle(PR.dim)
             }.padding(14).frame(maxWidth: .infinity, minHeight: 60)
+                .contentShape(Rectangle())
                 .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous), isInteractive: true)
         }.buttonStyle(PRGlassPressButtonStyle())
         .accessibilityLabel(application.name)
