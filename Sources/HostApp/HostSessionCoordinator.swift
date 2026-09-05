@@ -738,7 +738,7 @@ final class HostSessionCoordinator: ObservableObject {
             streamingCoordinator.startCoordinating()
             observeConnectionState()
             observeDataChannelState()
-            if !isTerminalSession && !productMode.isAppStreamingOnly {
+            if !isTerminalSession && !sessionStartsWithAppBrowser {
                 observeDisplayLayoutChanges()
             }
             lastClientActivityAt = nil
@@ -884,7 +884,7 @@ final class HostSessionCoordinator: ObservableObject {
                 self.logger.info("Host lock state changed: \(newState.statusLabel, privacy: .public)")
             }
 
-        if productMode.isAppStreamingOnly {
+        if sessionStartsWithAppBrowser {
             // Match Vamp Assistant: establish trust, transport, input routing,
             // and the application browser without capturing the full display.
             // The first capture begins only after a streamTargetSwitch request
@@ -1201,10 +1201,7 @@ final class HostSessionCoordinator: ObservableObject {
 
         do {
             #if os(macOS)
-            if productMode.isAppStreamingOnly {
-                guard let target = activeWindowTarget else {
-                    throw CaptureEngineError.streamFailed("No application window available for capture recovery")
-                }
+            if let target = activeWindowTarget {
                 try await restartStreamingPipelineForWindow(
                     descriptor: target.descriptor,
                     windowID: target.windowID,
@@ -1215,6 +1212,9 @@ final class HostSessionCoordinator: ObservableObject {
                 logger.info("Application window pipeline restarted after capture failure")
                 await publishHostStatusUpdate()
                 return
+            }
+            if sessionStartsWithAppBrowser {
+                throw CaptureEngineError.streamFailed("No application window available for capture recovery")
             }
             #endif
 
@@ -1256,7 +1256,7 @@ final class HostSessionCoordinator: ObservableObject {
 
                 do {
                     let layout = try await self.displayLayoutProvider.currentDisplayLayout()
-                    let didSend = self.productMode.isAppStreamingOnly
+                    let didSend = self.sessionStartsWithAppBrowser
                         ? self.sendAppStreamingInitialState(layout: layout, sessionID: sessionID)
                         : self.sendInitialDataChannelState(layout: layout, sessionID: sessionID)
                     if didSend {
@@ -1521,6 +1521,11 @@ final class HostSessionCoordinator: ObservableObject {
             return
         }
 
+        #if os(macOS)
+        isWindowStreamTransitioning = true
+        defer { isWindowStreamTransitioning = false }
+        clearWindowStreaming()
+        #endif
         do {
             try await restartStreamingPipeline(
                 for: display,
@@ -1578,7 +1583,7 @@ final class HostSessionCoordinator: ObservableObject {
                 launchIfNeeded: false, senderDeviceID: clientID))
             return
         }
-        if productMode.isAppStreamingOnly { return }
+        if sessionStartsWithAppBrowser { return }
         #endif
         logger.info("Applying runtime quality adjust to \(effective.rawValue)")
         do {
@@ -1715,12 +1720,16 @@ final class HostSessionCoordinator: ObservableObject {
     /// `nil` until an offer with capabilities arrives (older clients leave it nil).
     private var advertisedClientCapabilities: HostCapabilityFlags?
 
+    private var sessionStartsWithAppBrowser: Bool {
+        productMode.startsWithAppBrowser(for: effectiveClientCapabilities)
+    }
+
     private var hostCapabilityFlags: HostCapabilityFlags {
         if productMode.isTerminalOnly || activeSessionIsTerminalOnly {
             return HostProductMode.terminalOnly.advertisedCapabilities
         }
-        if productMode.isAppStreamingOnly {
-            return productMode.advertisedCapabilities
+        if productMode == .mini {
+            return productMode.sessionCapabilities(for: effectiveClientCapabilities)
         }
         return Self.fullHostCapabilityFlags
     }
@@ -1790,7 +1799,7 @@ final class HostSessionCoordinator: ObservableObject {
                 return
             }
 
-            if productMode.isAppStreamingOnly {
+            if sessionStartsWithAppBrowser {
                 try await sendSignalingEvent(
                     .sessionReady(
                         SessionReadyMessage(
@@ -1951,7 +1960,7 @@ final class HostSessionCoordinator: ObservableObject {
         do {
             let displayLayout = try await displayLayoutProvider.currentDisplayLayout()
             #if os(macOS)
-            let activeWindow = productMode.isAppStreamingOnly ? activeWindowTarget : nil
+            let activeWindow = activeWindowTarget
             let layout = activeWindow.map {
                 DisplayLayout(
                     displays: [$0.descriptor],
@@ -1959,9 +1968,8 @@ final class HostSessionCoordinator: ObservableObject {
                     virtualBounds: $0.descriptor.frame
                 )
             } ?? displayLayout
-            let selectedDisplayID = productMode.isAppStreamingOnly
-                ? activeWindow?.descriptor.id
-                : (captureEngine.diagnostics.currentDisplayID ?? layout.primaryDisplayID)
+            let selectedDisplayID = activeWindow?.descriptor.id
+                ?? captureEngine.diagnostics.currentDisplayID ?? layout.primaryDisplayID
             #else
             let layout = displayLayout
             let selectedDisplayID = captureEngine.diagnostics.currentDisplayID ?? layout.primaryDisplayID
@@ -2083,8 +2091,15 @@ final class HostSessionCoordinator: ObservableObject {
 
         let startTime = Date()
         let currentDisplayID = captureEngine.diagnostics.currentDisplayID
+        #if os(macOS)
+        let previousWindow = activeWindowTarget
+        let previousApplicationName = activeApplicationName
+        let alreadyShowingDisplay = previousWindow == nil && currentDisplayID == request.targetDisplayID
+        #else
+        let alreadyShowingDisplay = currentDisplayID == request.targetDisplayID
+        #endif
 
-        if currentDisplayID == request.targetDisplayID {
+        if alreadyShowingDisplay {
             let result = DisplaySwitchResultMessage(
                 sessionID: request.sessionID,
                 selectedDisplayID: request.targetDisplayID,
@@ -2151,6 +2166,20 @@ final class HostSessionCoordinator: ObservableObject {
                 try? webRTCSessionManager.sendDataMessage(envelope)
             }
         } catch {
+            #if os(macOS)
+            if let previousWindow {
+                do {
+                    try await restartStreamingPipelineForWindow(descriptor: previousWindow.descriptor,
+                        windowID: previousWindow.windowID, qualityPreset: qualityPreset)
+                    activeWindowTarget = previousWindow
+                    activeApplicationName = previousApplicationName
+                    updateWindowInputGeometry(descriptor: previousWindow.descriptor)
+                    startWindowTracking(sessionID: request.sessionID, senderDeviceID: request.senderDeviceID)
+                } catch {
+                    logger.warning("Could not restore window capture after display-switch failure")
+                }
+            }
+            #endif
             if let fallbackID = currentDisplayID,
                let fallbackDisplay = layout.display(withID: fallbackID) {
                 try? await encoderPipeline.configure(
@@ -2431,7 +2460,7 @@ extension HostSessionCoordinator {
         let startTime = Date()
         switch message.target.kind {
         case .display:
-            if productMode.isAppStreamingOnly {
+            if sessionStartsWithAppBrowser {
                 sendTargetResult(
                     request: message,
                     resolved: message.target,
@@ -2442,8 +2471,8 @@ extension HostSessionCoordinator {
                 )
                 return
             }
-            // Back to a whole display: drop window input geometry, then delegate unchanged.
-            clearWindowStreaming()
+            // The display-switch path validates the target before releasing window
+            // geometry, and restores the window if display capture cannot start.
             await handleDisplaySwitchRequest(DisplaySwitchRequestMessage(
                 sessionID: message.sessionID,
                 targetDisplayID: message.target.identifier,
