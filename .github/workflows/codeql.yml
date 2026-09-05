@@ -93,3 +93,20 @@ jobs:
         uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
         with:
           category: ${{ matrix.category }}
+
+  required-analysis:
+    # Preserve the branch-protection check names while retaining every component
+    # scan above. A failed, skipped, or cancelled matrix must never report success.
+    name: Analyze ${{ matrix.language }}
+    needs: analyze
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        language: [swift, c-cpp]
+    steps:
+      - name: Require all component analyses
+        env:
+          ANALYSIS_RESULT: ${{ needs.analyze.result }}
+        run: test "$ANALYSIS_RESULT" = success
