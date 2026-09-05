@@ -2335,6 +2335,85 @@ extension HostSessionCoordinator {
     /// authentication nonce/tag that `sendDataMessage` adds after this measurement.
     nonisolated static let applicationListByteBudget = 112 * 1024
 
+    /// Client → host: quit a running application with a normal terminate request.
+    func handleApplicationCloseRequest(_ message: ApplicationCloseRequestMessage) async {
+        guard activeSessionID == message.sessionID else { return }
+        let hostBundle = Bundle.main.bundleIdentifier
+        guard let bundleID = ApplicationClosePolicy.normalizedBundleIdentifier(message.bundleIdentifier),
+              ApplicationClosePolicy.canClose(bundleID, hostBundleIdentifier: hostBundle) else {
+            sendCloseResult(
+                request: message,
+                status: .rejected,
+                reason: "That application cannot be closed remotely."
+            )
+            return
+        }
+
+        if activeWindowTarget?.bundleIdentifier == bundleID {
+            targetSwitchTask?.cancel()
+            await targetSwitchTask?.value
+            targetSwitchTask = nil
+            await stopActiveWindowStream()
+        }
+
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+        if running.isEmpty {
+            sendCloseResult(request: message, status: .completed, reason: nil)
+            return
+        }
+
+        let displayName = running.first?.localizedName ?? bundleID
+        await MainActor.run {
+            for application in running {
+                _ = application.terminate()
+            }
+        }
+
+        var stillRunning = true
+        for _ in 0..<40 {
+            try? await Task.sleep(for: .milliseconds(100))
+            if NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty {
+                stillRunning = false
+                break
+            }
+        }
+
+        if stillRunning {
+            sendCloseResult(
+                request: message,
+                status: .failed,
+                reason: "\(displayName) did not quit. It may have unsaved changes."
+            )
+        } else {
+            sendCloseResult(request: message, status: .completed, reason: nil)
+        }
+    }
+
+    private func sendCloseResult(
+        request: ApplicationCloseRequestMessage,
+        status: DisplaySwitchStatus,
+        reason: String?
+    ) {
+        let message = ApplicationCloseResultMessage(
+            sessionID: request.sessionID,
+            bundleIdentifier: request.bundleIdentifier,
+            senderDeviceID: request.senderDeviceID,
+            status: status,
+            reason: reason,
+            requestID: request.requestID
+        )
+        if let envelope = try? DataChannelEnvelope.applicationCloseResult(message) {
+            try? webRTCSessionManager.sendDataMessage(envelope)
+        }
+        Task {
+            await eventLogStore.append(EventLogItem(
+                severity: .info,
+                category: "AppStreaming",
+                message: "Application close \(status.rawValue): \(request.bundleIdentifier)"
+            ))
+        }
+    }
+
     /// Client → host: retarget the live stream. Reuses the proven display-switch path for a
     /// `.display` target; resolves + captures a window for `.window` / `.application`.
     func handleStreamTargetSwitchRequest(_ message: StreamTargetSwitchRequestMessage) async {

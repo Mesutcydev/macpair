@@ -33,6 +33,8 @@ their original product names. The format follows
 - After a Sync host is paired, the connect card can be minimized from the corner so the home list stays primary.
 - Vamp Sync and Vamp Stream use the window-and-fangs mark for the Sync tray, Sync panel, and Stream app icon.
 - Stream’s connect home can switch Macs to a Control-style rectangular card grid.
+- Stream’s app lists, pairing, and empty states use the same glass controls and title scale as the connect home.
+- Stream can quit a running Mac app from the app list or the live stream menu. Sync asks the app to quit and never force-kills it.
 - Update SwiftTerm to 1.20.0 and vendored Opus to 1.6.1, with updated provenance and SBOM metadata.
 - Cache app icons, use lazy browser sections, respect system appearance in the Assistant browser and reduce routine stream logging.
 

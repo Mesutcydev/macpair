@@ -27,7 +27,7 @@ struct VampStreamSyncPromoCard: View {
                     .frame(width: 28, height: 28)
                     .prGlassSurface(in: Circle(), isInteractive: true)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PRGlassPressButtonStyle())
             .padding(10)
             .accessibilityLabel(Text(VampStreamHomeCopy.syncPromoDismiss))
         }

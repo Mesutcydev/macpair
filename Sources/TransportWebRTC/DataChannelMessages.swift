@@ -79,6 +79,8 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
     /// App Streaming target control: client → host switch request, host → client
     /// result (also unsolicited on window loss). Reuses the live retarget path.
     case streamTargetSwitch
+    /// App Streaming quit: client → host request, host → client result.
+    case applicationClose
 
     /// One source of truth for the control-channel authentication contract.
     /// Any kind that can inject input, change host state, read/write host data,
@@ -94,7 +96,7 @@ public enum DataChannelMessageKind: String, Codable, Hashable, Sendable {
              .workspaceDirectoryResponse, .workspaceAccessRequest,
              .workspaceAccessResponse, .taskPlanEvent, .agentPrompt,
              .providerSemanticEvent, .sessionSyncRequest, .sessionSnapshot,
-             .sessionSyncEvent, .applicationList, .streamTargetSwitch:
+             .sessionSyncEvent, .applicationList, .streamTargetSwitch, .applicationClose:
             return true
         default:
             return false
@@ -242,6 +244,22 @@ extension DataChannelEnvelope {
     public static func streamTargetSwitchResult(_ message: StreamTargetSwitchResultMessage) throws -> DataChannelEnvelope {
         DataChannelEnvelope(
             kind: .streamTargetSwitch,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func applicationCloseRequest(_ message: ApplicationCloseRequestMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .applicationClose,
+            sessionID: message.sessionID,
+            payload: try makeEncoder().encode(message)
+        )
+    }
+
+    public static func applicationCloseResult(_ message: ApplicationCloseResultMessage) throws -> DataChannelEnvelope {
+        DataChannelEnvelope(
+            kind: .applicationClose,
             sessionID: message.sessionID,
             payload: try makeEncoder().encode(message)
         )
@@ -530,6 +548,14 @@ extension DataChannelEnvelope {
 
     public func decodeStreamTargetSwitchResult() throws -> StreamTargetSwitchResultMessage {
         try Self.makeDecoder().decode(StreamTargetSwitchResultMessage.self, from: payload)
+    }
+
+    public func decodeApplicationCloseRequest() throws -> ApplicationCloseRequestMessage {
+        try Self.makeDecoder().decode(ApplicationCloseRequestMessage.self, from: payload)
+    }
+
+    public func decodeApplicationCloseResult() throws -> ApplicationCloseResultMessage {
+        try Self.makeDecoder().decode(ApplicationCloseResultMessage.self, from: payload)
     }
 
     public func decodeChatMessage() throws -> SessionChatMessage {

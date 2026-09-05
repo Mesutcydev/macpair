@@ -91,6 +91,29 @@ final class AppStreamingMessageTests: XCTestCase {
         // These mutate host state / reveal the app inventory — must be MACed like input.
         XCTAssertTrue(DataChannelMessageKind.applicationList.requiresControlChannelAuthentication)
         XCTAssertTrue(DataChannelMessageKind.streamTargetSwitch.requiresControlChannelAuthentication)
+        XCTAssertTrue(DataChannelMessageKind.applicationClose.requiresControlChannelAuthentication)
+    }
+
+    func testApplicationCloseRequestRoundTrip() throws {
+        let request = ApplicationCloseRequestMessage(
+            sessionID: UUID(),
+            bundleIdentifier: "com.apple.Safari",
+            senderDeviceID: UUID(),
+            requestID: UUID()
+        )
+        let decoded = try DataChannelEnvelope
+            .wireDecode(try DataChannelEnvelope.applicationCloseRequest(request).wireEncode())
+            .decodeApplicationCloseRequest()
+        XCTAssertEqual(decoded.bundleIdentifier, "com.apple.Safari")
+        XCTAssertEqual(decoded.requestID, request.requestID)
+    }
+
+    func testApplicationClosePolicyRejectsHostsAndShells() {
+        XCTAssertTrue(ApplicationClosePolicy.canClose("com.apple.Safari"))
+        XCTAssertFalse(ApplicationClosePolicy.canClose("com.mesutcy.remotedesktop.minhost"))
+        XCTAssertFalse(ApplicationClosePolicy.canClose("com.apple.finder"))
+        XCTAssertFalse(ApplicationClosePolicy.canClose("not-a-bundle"))
+        XCTAssertFalse(ApplicationClosePolicy.canClose("com.example.App", hostBundleIdentifier: "com.example.App"))
     }
 
     func testAppStreamingCapabilityFlagSurvivesStableNameRoundTrip() {

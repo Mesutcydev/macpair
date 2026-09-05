@@ -1,4 +1,5 @@
 import SwiftUI
+import SharedProtocol
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -58,7 +59,8 @@ struct VampAssistantAppStreamView: View {
                         errorMessage: errorMessage,
                         onClose: onClose,
                         onRefresh: { Task { await loadApplications() } },
-                        onSelect: { application in Task { await open(application) } })
+                        onSelect: { application in Task { await open(application) } },
+                        onQuit: { application in Task { await quit(application) } })
                 }
             }
             .tint(PR.accent)
@@ -111,6 +113,32 @@ struct VampAssistantAppStreamView: View {
         defer { isLoading = false }
         do {
             apply(try await session.client.applications())
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func quit(_ application: BeetCodeRemoteApplication) async {
+        guard session.status.ready else {
+            errorMessage = "Unlock the Mac before closing an application."
+            return
+        }
+        guard launchingName == nil else { return }
+        guard let bundleIdentifier = application.bundleIdentifier, !bundleIdentifier.isEmpty else {
+            errorMessage = "That Mac application does not expose a close identifier."
+            return
+        }
+        guard ApplicationClosePolicy.canClose(bundleIdentifier) else {
+            errorMessage = "\(application.name) cannot be closed remotely."
+            return
+        }
+        errorMessage = nil
+        do {
+            try await session.client.quitApplication(bundleIdentifier: bundleIdentifier)
+            if selectedApplication?.bundleIdentifier == bundleIdentifier {
+                selectedApplication = nil
+            }
+            await loadApplications()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -189,6 +217,9 @@ private struct VampAssistantApplicationBrowser: View {
     let onClose: () -> Void
     let onRefresh: () -> Void
     let onSelect: (BeetCodeRemoteApplication) -> Void
+    let onQuit: (BeetCodeRemoteApplication) -> Void
+
+    @State private var closeChoice: BeetCodeRemoteApplication?
 
     @State private var searchText = ""
     private func matches(_ app: BeetCodeRemoteApplication) -> Bool {
@@ -197,9 +228,9 @@ private struct VampAssistantApplicationBrowser: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VampAssistantApplicationHeader(macName: macName, onClose: onClose)
-            TextField("Search apps", text: $searchText)
-                .textFieldStyle(.roundedBorder).autocorrectionDisabled()
-                .padding(.horizontal, 18).padding(.bottom, 12)
+            VampAppSearchField(text: $searchText)
+                .padding(.horizontal, 18)
+                .padding(.bottom, 14)
             ScrollView {
                 LazyVStack(spacing: 12) {
                     if let errorMessage {
@@ -217,32 +248,60 @@ private struct VampAssistantApplicationBrowser: View {
                         .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
                     }
                     if runningApplications.isEmpty, installedApplications.isEmpty {
-                        VampAssistantApplicationsEmptyState(isLoading: isLoading, onRefresh: onRefresh)
+                        VampStreamAppListEmptyHint(
+                            title: isLoading ? "Loading applications…" : "No applications found",
+                            isLoading: isLoading,
+                            actionTitle: isLoading ? nil : "Refresh",
+                            action: isLoading ? nil : onRefresh
+                        )
                     } else {
-                        if !runningApplications.isEmpty {
-                            VampAssistantApplicationSection(
-                                title: "Running",
-                                applications: runningApplications.filter(matches),
-                                isDisabled: launchingName != nil,
-                                onSelect: onSelect)
-                        }
-                        if !installedApplications.isEmpty {
-                            VampAssistantApplicationSection(
-                                title: "All Apps",
-                                applications: installedApplications.filter(matches),
-                                isDisabled: launchingName != nil,
-                                onSelect: onSelect)
+                        let runningMatches = runningApplications.filter(matches)
+                        let installedMatches = installedApplications.filter(matches)
+                        if runningMatches.isEmpty, installedMatches.isEmpty {
+                            VampStreamAppListEmptyHint(title: "No apps match")
+                        } else {
+                            if !runningMatches.isEmpty {
+                                VampAssistantApplicationSection(
+                                    title: "Running",
+                                    applications: runningMatches,
+                                    isDisabled: launchingName != nil,
+                                    onSelect: onSelect,
+                                    onQuit: { closeChoice = $0 })
+                            }
+                            if !installedMatches.isEmpty {
+                                VampAssistantApplicationSection(
+                                    title: "All Apps",
+                                    applications: installedMatches,
+                                    isDisabled: launchingName != nil,
+                                    onSelect: onSelect,
+                                    onQuit: { closeChoice = $0 })
+                            }
                         }
                     }
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 28)
             }
+            .scrollDismissesKeyboard(.interactively)
             .refreshable { onRefresh() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(PRAppBackground().ignoresSafeArea())
-
+        .confirmationDialog(
+            closeChoice.map { "Close \($0.name)?" } ?? "Close this app?",
+            isPresented: Binding(
+                get: { closeChoice != nil },
+                set: { if !$0 { closeChoice = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let application = closeChoice {
+                Button("Close \(application.name)", role: .destructive) { onQuit(application) }
+            }
+            Button("Cancel", role: .cancel) { closeChoice = nil }
+        } message: {
+            Text("Unsaved changes on the Mac may be lost.")
+        }
     }
 }
 
@@ -252,25 +311,30 @@ private struct VampAssistantApplicationHeader: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Apps").font(.largeTitle.weight(.bold)).foregroundStyle(PR.fg)
-                Text(macName).font(.subheadline).foregroundStyle(PR.fg2)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Apps")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(PR.fg)
+                Text(macName)
+                    .font(.title3.weight(.regular))
+                    .foregroundStyle(PR.fg2)
+                    .lineLimit(1)
             }
-            Spacer()
+            Spacer(minLength: 8)
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.footnote.weight(.bold))
                     .foregroundStyle(PR.fg2)
-                    .frame(width: 40, height: 40)
-                    .prGlassSurface(in: Circle())
+                    .frame(width: 36, height: 36)
+                    .prGlassSurface(in: Circle(), isInteractive: true)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PRGlassPressButtonStyle())
             .accessibilityLabel("Close host")
             .accessibilityHint("Return to the Vamp Assistant picker")
         }
         .padding(.horizontal, 18)
-        .padding(.top, 16)
-        .padding(.bottom, 18)
+        .padding(.top, 18)
+        .padding(.bottom, 12)
     }
 }
 
@@ -279,6 +343,7 @@ private struct VampAssistantApplicationSection: View {
     let applications: [BeetCodeRemoteApplication]
     let isDisabled: Bool
     let onSelect: (BeetCodeRemoteApplication) -> Void
+    let onQuit: (BeetCodeRemoteApplication) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -298,8 +363,17 @@ private struct VampAssistantApplicationSection: View {
                             isActive: application.isActive,
                             iconPNGBase64: application.iconPNGBase64)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PRGlassPressButtonStyle())
                     .disabled(isDisabled)
+                    .contextMenu {
+                        if application.isRunning,
+                           let bundle = application.bundleIdentifier,
+                           ApplicationClosePolicy.canClose(bundle) {
+                            Button("Close \(application.name)", systemImage: "xmark.app", role: .destructive) {
+                                onQuit(application)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -335,7 +409,7 @@ private struct VampAssistantApplicationRow: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity)
-        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous), isInteractive: true)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(name)
         .accessibilityValue(isActive ? "Active now" : (isRunning ? "Running" : "Installed"))
@@ -367,33 +441,11 @@ private struct VampAssistantApplicationError: View {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(PR.warn)
             Text(message).font(.footnote).foregroundStyle(PR.fg)
             Spacer()
-            Button("Retry", action: onRetry).font(.footnote.weight(.semibold))
+            Button("Retry", action: onRetry)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(PR.fg)
         }
         .padding(14)
         .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
-    }
-}
-
-private struct VampAssistantApplicationsEmptyState: View {
-    let isLoading: Bool
-    let onRefresh: () -> Void
-
-    var body: some View {
-        VStack(spacing: 12) {
-            if isLoading {
-                ProgressView().padding(.top, 50)
-            } else {
-                Image(systemName: "app.dashed")
-                    .font(.system(size: 34, weight: .light))
-                    .foregroundStyle(PR.fg2)
-            }
-            Text(isLoading ? "Loading applications…" : "No applications found")
-                .font(.subheadline)
-                .foregroundStyle(PR.fg2)
-            if !isLoading {
-                Button("Refresh", action: onRefresh).buttonStyle(.bordered)
-            }
-        }
-        .frame(maxWidth: .infinity)
     }
 }

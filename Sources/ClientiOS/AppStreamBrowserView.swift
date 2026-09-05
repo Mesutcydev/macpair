@@ -23,6 +23,7 @@ struct AppStreamBrowserView: View {
     @AppStorage("vampstream.didShowGestureHelp") private var didShowGestureHelp = false
     @State private var searchText = ""
     @State private var windowChoice: RemoteApplication?
+    @State private var closeChoice: RemoteApplication?
     @State private var showsHelp = false
     @State private var videoStalled = false
     @State private var keyboardActive = false
@@ -114,12 +115,32 @@ struct AppStreamBrowserView: View {
                 Button("Open active window") { open(app) }
             }
         }
+        .confirmationDialog(
+            closePromptTitle,
+            isPresented: Binding(
+                get: { closeChoice != nil },
+                set: { if !$0 { closeChoice = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let app = closeChoice {
+                Button("Close \(app.name)", role: .destructive) { vm.close(app) }
+            }
+            Button("Cancel", role: .cancel) { closeChoice = nil }
+        } message: {
+            Text("Unsaved changes on the Mac may be lost.")
+        }
         .onChangeCompat(of: qualityMode) { _ in applyQuality() }
         .onDisappear {
             rendererVM.stopReceiving()
             input.stop()
             vm.stop()
         }
+    }
+
+    private var closePromptTitle: String {
+        if let closeChoice { return "Close \(closeChoice.name)?" }
+        return "Close this app?"
     }
 
     private var macName: String { sessionCoordinator.connectedHostName ?? "My Mac" }
@@ -158,36 +179,35 @@ struct AppStreamBrowserView: View {
 
     private var browser: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text("Apps")
-                        .font(.largeTitle.weight(.bold))
+                        .font(.title2.weight(.semibold))
                         .foregroundStyle(PR.fg)
                     Text(macName)
-                        .font(.subheadline)
+                        .font(.title3.weight(.regular))
                         .foregroundStyle(PR.fg2)
+                        .lineLimit(1)
                 }
-                Spacer()
+                Spacer(minLength: 8)
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                         .font(.footnote.weight(.bold))
                         .foregroundStyle(PR.fg2)
-                        .padding(10)
-                        .prGlassSurface(in: Circle())
+                        .frame(width: 36, height: 36)
+                        .prGlassSurface(in: Circle(), isInteractive: true)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PRGlassPressButtonStyle())
                 .accessibilityLabel("Close host")
                 .accessibilityHint("Return to the Mac picker")
             }
-            .padding(.horizontal, 22)
-            .padding(.top, 16)
-            .padding(.bottom, 16)
+            .padding(.horizontal, 18)
+            .padding(.top, 18)
+            .padding(.bottom, 12)
 
-            TextField("Search apps", text: $searchText)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
+            VampAppSearchField(text: $searchText)
                 .padding(.horizontal, 18)
-                .padding(.bottom, 12)
+                .padding(.bottom, 14)
             ScrollView {
                 LazyVStack(spacing: 12) {
                     if let reason = bannerReason { banner(reason) }
@@ -197,7 +217,9 @@ struct AppStreamBrowserView: View {
                     } else {
                         if !favorites.isEmpty { section("Favorites", favorites) }
                         if searchText.isEmpty, !recent.isEmpty { section("Recent", recent) }
-                        if matchingApps.isEmpty { Text("No apps match your search.").foregroundStyle(.secondary) }
+                        if matchingApps.isEmpty {
+                            VampStreamAppListEmptyHint(title: "No apps match")
+                        }
                         if !running.isEmpty {
                             section("Running", running)
                         }
@@ -209,6 +231,7 @@ struct AppStreamBrowserView: View {
                 .padding(.horizontal, 18)
                 .padding(.bottom, 24)
             }
+            .scrollDismissesKeyboard(.interactively)
             .refreshable { vm.requestApplicationList() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -237,6 +260,11 @@ struct AppStreamBrowserView: View {
                 favoriteStorage = encodeIDs(favoriteIDs.contains(app.id)
                     ? favoriteIDs.filter { $0 != app.id } : favoriteIDs + [app.id])
             }
+            if app.isRunning, ApplicationClosePolicy.canClose(app.bundleIdentifier) {
+                Button("Close \(app.name)", systemImage: "xmark.app", role: .destructive) {
+                    closeChoice = app
+                }
+            }
         }
     }
 
@@ -254,28 +282,19 @@ struct AppStreamBrowserView: View {
             Spacer()
             Button("Retry") { vm.requestApplicationList() }
                 .font(.footnote.weight(.semibold))
+                .foregroundStyle(PR.fg)
         }
         .padding(14)
         .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
     }
 
     @ViewBuilder private var loadingOrEmpty: some View {
-        VStack(spacing: 12) {
-            if vmIsLoading {
-                ProgressView().padding(.top, 50)
-            } else {
-                Image(systemName: "app.dashed")
-                    .font(.system(size: 32, weight: .light))
-                    .foregroundStyle(PR.accent)
-            }
-            Text(vmIsLoading ? "Loading applications…" : "No applications found.")
-                .font(.subheadline).foregroundStyle(PR.fg2)
-            if !vmIsLoading {
-                Button("Refresh") { vm.requestApplicationList() }
-                    .buttonStyle(.bordered)
-            }
-        }
-        .frame(maxWidth: .infinity)
+        VampStreamAppListEmptyHint(
+            title: vmIsLoading ? "Loading applications…" : "No applications found",
+            isLoading: vmIsLoading,
+            actionTitle: vmIsLoading ? nil : "Refresh",
+            action: vmIsLoading ? nil : { vm.requestApplicationList() }
+        )
     }
 
     private var vmIsLoading: Bool {
@@ -287,10 +306,15 @@ struct AppStreamBrowserView: View {
 
     private func launching(name: String) -> some View {
         VStack(spacing: 16) {
-            ProgressView().controlSize(.large)
-            Text("Launching \(name)…").font(.headline).foregroundStyle(PR.fg)
-            Button("Cancel") { vm.backToApps() }.padding(.top, 4)
+            ProgressView().tint(PR.fg).controlSize(.large)
+            Text("Launching \(name)…")
+                .font(.headline)
+                .foregroundStyle(PR.fg)
+            VampGlassActionButton(title: "Cancel", action: { vm.backToApps() })
         }
+        .padding(22)
+        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .padding(.horizontal, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -461,6 +485,12 @@ struct AppStreamBrowserView: View {
                     Text("Sharper text").tag("quality")
                     Text("Lower bandwidth").tag("performance")
                 }
+                if let streamed = vm.streamedApplication,
+                   ApplicationClosePolicy.canClose(streamed.bundleIdentifier) {
+                    Button("Close \(streamed.name)", systemImage: "xmark.app", role: .destructive) {
+                        closeChoice = streamed
+                    }
+                }
                 Button("Gesture help", systemImage: "hand.draw") { showsHelp = true }
                 if input.dragLocked {
                     Button("Release drag lock", systemImage: "lock.open") { input.releaseDragLock() }
@@ -622,15 +652,22 @@ private struct AppStreamLockedStateView: View {
                         if isSubmitting {
                             ProgressView()
                                 .controlSize(.small)
-                                .tint(.white)
+                                .tint(PR.bg)
                         }
                         Text(isSubmitting ? "Unlocking…" : "Unlock")
                     }
                     .font(.body.weight(.semibold))
+                    .foregroundStyle(PR.bg)
                     .frame(maxWidth: 312)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(PR.fg)
+                    )
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(PRGlassPressButtonStyle())
                 .disabled(password.isEmpty || isSubmitting)
+                .opacity(password.isEmpty || isSubmitting ? 0.4 : 1)
 
                 Text("Remote Unlock must be enabled in Vamp Sync or Vamp Host.")
                     .font(.caption)
@@ -640,11 +677,28 @@ private struct AppStreamLockedStateView: View {
                     Button("Check connection") {
                         sessionCoordinator.sendConnectionProbe()
                     }
-                    .buttonStyle(.bordered)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(PR.fg)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .prGlassSurface(
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                        isInteractive: true
+                    )
+                    .buttonStyle(PRGlassPressButtonStyle())
 
                     Button("Disconnect", action: onDisconnect)
-                        .buttonStyle(.bordered)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(PR.fg)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .prGlassSurface(
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                            isInteractive: true
+                        )
+                        .buttonStyle(PRGlassPressButtonStyle())
                 }
+                .frame(maxWidth: 340)
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 32)
@@ -682,7 +736,7 @@ private struct AppStreamApplicationRow: View {
                     else { Image(systemName: "app.dashed").resizable() }
                 }.frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 9))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(application.name).font(.body.weight(.medium)).foregroundStyle(PR.fg)
+                    Text(application.name).font(.body.weight(.semibold)).foregroundStyle(PR.fg)
                     Text(application.isActive ? "Active now" : application.isRunning ? "Running" : "Installed")
                         .font(.caption).foregroundStyle(PR.fg2)
                 }
@@ -690,8 +744,8 @@ private struct AppStreamApplicationRow: View {
                 if isFavorite { Image(systemName: "star.fill").foregroundStyle(PR.accent) }
                 Image(systemName: "chevron.right").foregroundStyle(PR.dim)
             }.padding(14).frame(maxWidth: .infinity, minHeight: 60)
-                .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12))
-        }.buttonStyle(.plain)
+                .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous), isInteractive: true)
+        }.buttonStyle(PRGlassPressButtonStyle())
         .accessibilityLabel(application.name)
         .accessibilityHint("Open app. More actions include Favorites.")
         .task(id: application.iconPNGBase64) {

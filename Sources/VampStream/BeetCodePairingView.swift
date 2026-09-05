@@ -41,17 +41,14 @@ struct BeetCodePairingView: View {
                             .foregroundStyle(PR.fg2)
                     }
 
-                    Button {
-                        scanError = nil
-                        showScanner = true
-                    } label: {
-                        Label("Scan pairing QR code", systemImage: "qrcode.viewfinder")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(PR.accent)
+                    VampGlassActionButton(
+                        title: "Scan pairing QR code",
+                        systemImage: "qrcode.viewfinder",
+                        action: {
+                            scanError = nil
+                            showScanner = true
+                        }
+                    )
                     .accessibilityHint("Scan the private Vamp Assistant QR code to fill the address and pairing code")
 
                     if let scanError {
@@ -121,15 +118,21 @@ struct BeetCodePairingView: View {
                         Task { await model.pair(address: address, code: code) }
                     } label: {
                         HStack {
-                            if model.isPairing { ProgressView().tint(.white) }
+                            if model.isPairing { ProgressView().tint(PR.bg) }
                             Text(model.isPairing ? "Pairing…" : "Pair Mac")
                                 .fontWeight(.semibold)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
+                        .foregroundStyle(PR.bg)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(PR.fg)
+                        )
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(PRGlassPressButtonStyle())
                     .disabled(!canPair)
+                    .opacity(canPair ? 1 : 0.4)
                     .accessibilityLabel(model.isPairing ? "Pairing with Vamp Assistant" : "Pair with Vamp Assistant")
                     .accessibilityHint("Connect using the private address and one-time code")
 

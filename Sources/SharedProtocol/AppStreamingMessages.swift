@@ -204,3 +204,97 @@ public struct StreamTargetSwitchResultMessage: Codable, Hashable, Sendable {
         self.requestID = requestID
     }
 }
+
+/// Client → host: ask the Mac to quit a running application. The host uses a
+/// normal terminate (the same request as Quit in the Dock), never a force-kill.
+public struct ApplicationCloseRequestMessage: Codable, Hashable, Sendable {
+    public var requestID: UUID?
+    public var sessionID: UUID
+    public var bundleIdentifier: String
+    public var senderDeviceID: UUID
+    public var requestedAt: Date
+
+    public init(
+        sessionID: UUID,
+        bundleIdentifier: String,
+        senderDeviceID: UUID,
+        requestedAt: Date = Date(),
+        requestID: UUID? = nil
+    ) {
+        self.sessionID = sessionID
+        self.bundleIdentifier = bundleIdentifier
+        self.senderDeviceID = senderDeviceID
+        self.requestedAt = requestedAt
+        self.requestID = requestID
+    }
+}
+
+/// Host → client: outcome of a quit request.
+public struct ApplicationCloseResultMessage: Codable, Hashable, Sendable {
+    public var requestID: UUID?
+    public var sessionID: UUID
+    public var bundleIdentifier: String
+    public var senderDeviceID: UUID
+    public var status: DisplaySwitchStatus
+    public var reason: String?
+    public var completedAt: Date
+
+    public init(
+        sessionID: UUID,
+        bundleIdentifier: String,
+        senderDeviceID: UUID,
+        status: DisplaySwitchStatus,
+        reason: String? = nil,
+        completedAt: Date = Date(),
+        requestID: UUID? = nil
+    ) {
+        self.sessionID = sessionID
+        self.bundleIdentifier = bundleIdentifier
+        self.senderDeviceID = senderDeviceID
+        self.status = status
+        self.reason = reason
+        self.completedAt = completedAt
+        self.requestID = requestID
+    }
+}
+
+/// Shared allow-list for remote quit. System shells and Vamp hosts stay off-limits.
+public enum ApplicationClosePolicy {
+    public static let protectedBundleIdentifiers: Set<String> = [
+        "com.mesutcy.remotedesktop.minhost",
+        "com.mesutcy.remotedesktop.host",
+        "com.mesutcy.remotedesktop.terminalhost",
+        "com.apple.loginwindow",
+        "com.apple.WindowServer",
+        "com.apple.dock",
+        "com.apple.finder",
+        "com.apple.systemuiserver",
+        "com.apple.controlcenter",
+        "com.apple.notificationcenterui",
+        "com.apple.UserNotificationCenter",
+        "com.apple.SecurityAgent",
+    ]
+
+    public static func normalizedBundleIdentifier(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (1...256).contains(trimmed.count) else { return nil }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ".-"))
+        guard trimmed.unicodeScalars.allSatisfy(allowed.contains) else { return nil }
+        guard trimmed.contains(".") else { return nil }
+        return trimmed
+    }
+
+    public static func canClose(_ raw: String, hostBundleIdentifier: String? = nil) -> Bool {
+        guard let identifier = normalizedBundleIdentifier(raw) else { return false }
+        let lower = identifier.lowercased()
+        if protectedBundleIdentifiers.contains(where: { $0.lowercased() == lower }) {
+            return false
+        }
+        if let host = hostBundleIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !host.isEmpty,
+           host.lowercased() == lower {
+            return false
+        }
+        return true
+    }
+}
