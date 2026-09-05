@@ -32,8 +32,45 @@ final class AppStreamGesturePolicyTests: XCTestCase {
         XCTAssertTrue(sut.gestureRecognizerShouldBegin(pan))
         XCTAssertFalse(sut.gestureRecognizerShouldBegin(UITapGestureRecognizer()))
         XCTAssertFalse(sut.gestureRecognizerShouldBegin(UILongPressGestureRecognizer()))
-        XCTAssertFalse(sut.gestureRecognizerShouldBegin(UIPanGestureRecognizer()))
+        XCTAssertTrue(sut.gestureRecognizerShouldBegin(UIPanGestureRecognizer()))
     }
+    func testOneFingerAdjustmentMovesPictureWithoutSendingMacInput() {
+        var pans: [CGSize] = []
+        var pointerEvents = 0
+        var view = AppStreamGestureView(
+            allowsViewportAdjustment: true,
+            onTap: { _ in }, onDoubleTap: { _ in }, onRightClick: { _ in },
+            onMiddleClick: { _ in }, onPointerMove: { _ in pointerEvents += 1 },
+            onPointerEnded: { pointerEvents += 1 }, onScroll: { _, _ in },
+            onLongPress: { _ in }, onHoverDelta: { _, _ in })
+        view.onViewportPan = { pans.append($0) }
+        let sut = view.makeCoordinator()
+        let surface = UIView(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let pan = TestPanRecognizer()
+        surface.addGestureRecognizer(pan)
+        pan.testState = .began
+        sut.onPointerPan(pan)
+        pan.testState = .changed
+        pan.testTranslation = CGPoint(x: 30, y: 45)
+        sut.onPointerPan(pan)
+        pan.testTranslation = CGPoint(x: 50, y: 55)
+        sut.onPointerPan(pan)
+        pan.testState = .ended
+        sut.onPointerPan(pan)
+        XCTAssertEqual(pans, [CGSize(width: 30, height: 45), CGSize(width: 20, height: 10)])
+        XCTAssertEqual(pointerEvents, 0)
+    }
+
+    private final class TestPanRecognizer: UIPanGestureRecognizer {
+        var testState: UIGestureRecognizer.State = .possible
+        var testTranslation: CGPoint = .zero
+        override var state: UIGestureRecognizer.State {
+            get { testState }
+            set { testState = newValue }
+        }
+        override func translation(in view: UIView?) -> CGPoint { testTranslation }
+    }
+
     func testInputSuspensionReleasesDragAndRejectsNewDrag() {
         let environment = ClientAppEnvironment.makeDefault(clientName: "Input suspension test")
         let input = AppStreamInputController(webRTC: environment.webRTCSessionManager)

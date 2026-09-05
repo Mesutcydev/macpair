@@ -814,18 +814,104 @@ private struct AppStreamApplicationRow: View {
 
 struct AppStreamGestureHelpView: View {
     @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         NavigationStack {
-            List {
-                Label("Tap to click; double-tap to double-click.", systemImage: "hand.tap")
-                Label("Tap with two fingers to right-click.", systemImage: "hand.point.up.left")
-                Label("Move two fingers to scroll.", systemImage: "arrow.up.arrow.down")
-                Label("Choose Adjust view to pinch and pan the picture, then Done adjusting to control the Mac. Use 1× to reset.", systemImage: "plus.magnifyingglass")
-                Label("Long-press and move to drag. Lift your finger to release.", systemImage: "lock.open")
-                Label("Use the keyboard button to type into the Mac app.", systemImage: "keyboard")
-            }.navigationTitle("Stream controls")
-                .toolbar { Button("Done") { dismiss() } }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text("Your Mac, at your fingertips.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    AppStreamControlHelpSection()
+                    AppStreamPictureHelpSection()
+                }
+                .frame(maxWidth: 560)
+                .padding(20)
+                .frame(maxWidth: .infinity)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("Stream controls")
+            .navigationBarTitleDisplayMode(.inline)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Button("Done") { dismiss() }
+                    .font(.headline)
+                    .frame(maxWidth: 560, minHeight: 50)
+                    .frame(maxWidth: .infinity)
+                    .background(.tint, in: RoundedRectangle(cornerRadius: 16))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(.regularMaterial)
+            }
         }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+    }
+}
+
+private struct AppStreamControlHelpSection: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Control the Mac")
+                .font(.title3.weight(.semibold))
+                .accessibilityAddTraits(.isHeader)
+            VStack(spacing: 20) {
+                AppStreamHelpRow(symbol: "hand.tap", title: "Click", detail: "Tap once to click. Tap twice to double-click.")
+                AppStreamHelpRow(symbol: "hand.point.up.left", title: "Right-click", detail: "Tap with two fingers.")
+                AppStreamHelpRow(symbol: "arrow.up.arrow.down", title: "Scroll", detail: "Slide two fingers up or down.")
+                AppStreamHelpRow(symbol: "hand.draw", title: "Drag", detail: "Touch and hold, then move. Lift to release.")
+                AppStreamHelpRow(symbol: "keyboard", title: "Type", detail: "Tap the keyboard button to type in the Mac app.")
+            }
+            .padding(18)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+        }
+    }
+}
+
+private struct AppStreamPictureHelpSection: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Adjust the picture")
+                .font(.title3.weight(.semibold))
+                .accessibilityAddTraits(.isHeader)
+            VStack(spacing: 20) {
+                AppStreamHelpRow(symbol: "viewfinder", title: "Zoom and move", detail: "Tap Adjust view, then pinch to zoom or drag to move the picture.")
+                AppStreamHelpRow(symbol: "checkmark", title: "Return to control", detail: "Tap the checkmark when you’re done adjusting.")
+                AppStreamHelpRow(symbol: "ellipsis.circle", title: "Find a comfortable size", detail: "Open the ••• menu. Choose Fit window to see everything or Larger text (2×) to zoom in.")
+            }
+            .padding(18)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+            Text("Adjust view moves the picture on this device. It doesn’t resize the Mac window.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct AppStreamHelpRow: View {
+    let symbol: String
+    let title: LocalizedStringKey
+    let detail: LocalizedStringKey
+    @ScaledMetric(relativeTo: .body) private var iconSize = 24
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: symbol)
+                .font(.system(size: iconSize, weight: .medium))
+                .foregroundStyle(.tint)
+                .frame(width: iconSize + 8, height: iconSize + 8)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.headline)
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

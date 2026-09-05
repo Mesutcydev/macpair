@@ -69,3 +69,23 @@ Authenticated Sync checks confirmed ChatGPT and Claude open directly without win
 The connected physical iPhone reports 0.1.11/build25; that historical release contains aspect-driven landscape requests. The publicly downloaded 0.1.15/build29 IPA was independently checked and declares portrait only for iPhone/iPad, with a matching checksum.
 
 Video fails to decode in this simulator (callback -8969), while the user confirms video works on the real device. No video-pipeline changes were made based on the simulator failure. After installing the row fix without removing app data, reconnect needed host approval again, so a post-fix authenticated tap retest remains unverified. Assistant has no paired simulator workspace.
+
+
+## 0.1.17: Controls help and direct picture adjustment
+
+The shared Stream controls sheet now separates Mac gestures from picture adjustment, uses
+readable cards and scalable text/icons, and keeps Done outside the scroll area. The actual
+SwiftUI view was rendered and scrolled in an iPhone 17 simulator; all instructions remained
+reachable above the pinned button. Both host paths present this same view.
+
+Adjust view now accepts one-finger panning as well as two-finger panning. Its single-finger
+handler routes deltas only to the viewport, with no remote pointer movement or end event.
+Changing modes cancels active recognizers and scroll momentum and releases any drag lock.
+The 31-test iOS 27 simulator suite passes, including incremental one-finger panning without
+Mac pointer events. Stream Release rebuilt successfully; Sync and Terminal Release builds
+passed after the shared help change.
+
+The simulator browsed Mac M4's authenticated application inventory before the rebuild.
+After the test build it again remained on Connecting, so no new live video/readability
+verification is claimed. The prior simulator decoder limitation and missing Assistant
+paired test workspace still prevent full live acceptance. No trust or TCC changes were made.
