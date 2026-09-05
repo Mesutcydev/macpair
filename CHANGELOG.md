@@ -27,6 +27,7 @@ their original product names. The format follows
 
 ### Changed
 
+- Vamp Stream's connect home leads with Vamp Sync (scan QR and private address), lists Sync Macs next, and treats Assistant pairing as a follow-on card.
 - Update SwiftTerm to 1.20.0 and vendored Opus to 1.6.1, with updated provenance and SBOM metadata.
 - Cache app icons, use lazy browser sections, respect system appearance in the Assistant browser and reduce routine stream logging.
 

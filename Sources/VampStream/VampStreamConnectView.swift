@@ -8,9 +8,9 @@ private var anonymizeStreamPreview: Bool {
     #endif
 }
 
-/// The first screen in Vamp Stream. The user chooses an experience first, then a Mac.
-/// Remote Control is intentionally Assistant-only; App Stream can use Assistant or a
-/// Vamp Sync host when that Mac has not already been paired through Assistant.
+/// The first screen in Vamp Stream. App Stream leads with Vamp Sync, then
+/// Assistant as a follow-on pairing path. Remote Control remains Assistant-only
+/// and is not the default destination in this build.
 struct VampStreamConnectView: View {
     enum ConnectionDestination: String, CaseIterable, Identifiable {
         case remoteControl
@@ -97,10 +97,10 @@ struct VampStreamConnectView: View {
 private struct VampStreamConnectHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text("Stream an app from your Mac")
+            Text(VampStreamHomeCopy.headerTitle)
                 .font(.largeTitle.weight(.bold))
                 .foregroundStyle(PR.fg)
-            Text("Choose a trusted Mac, then open and control one app at a time.")
+            Text(VampStreamHomeCopy.headerDetail)
                 .font(.subheadline)
                 .foregroundStyle(PR.fg2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -213,67 +213,254 @@ private struct VampAppStreamSection: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
-                VampAssistantSourceIntro(
-                    title: "Connect your Mac",
-                    detail: "Use Vamp Sync for app windows, or connect to your Vamp Assistant workspace.",
-                    onPair: onPair,
-                    hasSavedAssistants: !pairedAssistants.isEmpty,
-                    onScan: onScan)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("Vamp Sync private address", text: $manualAddress)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
-                        .textFieldStyle(.roundedBorder)
-                    Button("Connect by address") {
-                        guard let host = hostsVM.addManualHost(address: manualAddress) else {
-                            manualError = "Enter the private address shown by Vamp Sync, including its port."
-                            return
-                        }
-                        manualError = nil
-                        onConnect(host)
-                    }.buttonStyle(.bordered).disabled(manualAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    if let manualError { Text(manualError).font(.footnote).foregroundStyle(.red) }
-                }
-
-                if let errorMessage {
-                    VampStreamConnectionError(message: errorMessage)
-                }
-
-                if !pairedAssistants.isEmpty {
-                    Text("ASSISTANT APP STREAMS")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(PR.dim)
-                        .padding(.top, 4)
-                    ForEach(pairedAssistants) { assistant in
-                        VampAssistantMacCard(
-                            assistant: assistant,
-                            availability: availability[assistant.address] ?? .checking,
-                            onRemoteControl: {},
-                            onAppStream: { onAppStream(assistant) },
-                            showsRemoteControl: false,
-                            showsAppStream: true,
-                            onForget: { onForget(assistant) })
-                    }
-                }
-
-                if !legacyHosts.isEmpty {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("VAMP SYNC MACS")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(PR.dim)
-                        Spacer(minLength: 8)
-                    }
-                    ForEach(anonymizeStreamPreview ? Array(legacyHosts.prefix(1)) : legacyHosts) { host in
-                        VampHostMacCard(host: host, onConnect: { onConnect(host) })
-                    }
-                } else {
-                    VampHostEmptyState(hostsVM: hostsVM, onScan: onScan)
+                ForEach(
+                    VampStreamHomeLayout.sections(
+                        hasSyncHosts: !legacyHosts.isEmpty,
+                        hasAssistants: !pairedAssistants.isEmpty,
+                        hasAssistantError: errorMessage != nil
+                    )
+                ) { section in
+                    homeSection(section)
                 }
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 28)
         }
         .refreshable { await hostsVM.refresh() }
+    }
+
+    @ViewBuilder
+    private func homeSection(_ section: VampStreamHomeLayout.Section) -> some View {
+        switch section {
+        case .syncHostCard:
+            VampSyncConnectCard(
+                manualAddress: $manualAddress,
+                manualError: $manualError,
+                onScan: onScan,
+                onConnectByAddress: connectByAddress)
+        case .syncMacs:
+            VStack(alignment: .leading, spacing: 12) {
+                VampStreamSectionLabel(title: VampStreamHomeCopy.syncMacsHeading)
+                ForEach(anonymizeStreamPreview ? Array(legacyHosts.prefix(1)) : legacyHosts) { host in
+                    VampHostMacCard(host: host, onConnect: { onConnect(host) })
+                }
+            }
+        case .syncEmptyHint:
+            VampSyncEmptyHint(hostsVM: hostsVM)
+        case .assistantError:
+            if let errorMessage {
+                VampStreamConnectionError(message: errorMessage)
+            }
+        case .assistantHostCard:
+            VampAssistantFollowOnCard(
+                onPair: onPair,
+                hasSavedAssistants: !pairedAssistants.isEmpty)
+        case .assistantMacs:
+            VStack(alignment: .leading, spacing: 12) {
+                VampStreamSectionLabel(title: VampStreamHomeCopy.assistantMacsHeading)
+                ForEach(pairedAssistants) { assistant in
+                    VampAssistantMacCard(
+                        assistant: assistant,
+                        availability: availability[assistant.address] ?? .checking,
+                        onRemoteControl: {},
+                        onAppStream: { onAppStream(assistant) },
+                        showsRemoteControl: false,
+                        showsAppStream: true,
+                        onForget: { onForget(assistant) })
+                }
+            }
+        }
+    }
+
+    private func connectByAddress() {
+        guard let host = hostsVM.addManualHost(address: manualAddress) else {
+            manualError = VampStreamHomeCopy.addressError
+            return
+        }
+        manualError = nil
+        onConnect(host)
+    }
+}
+
+private struct VampStreamSectionLabel: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(PR.dim)
+            .padding(.top, 4)
+    }
+}
+
+private struct VampSyncConnectCard: View {
+    @Binding var manualAddress: String
+    @Binding var manualError: String?
+    let onScan: () -> Void
+    let onConnectByAddress: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "macbook.and.iphone")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(PR.fg)
+                    .frame(width: 38, height: 38)
+                    .prGlassSurface(in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(VampStreamHomeCopy.syncTitle)
+                        .font(.headline)
+                        .foregroundStyle(PR.fg)
+                    Text(VampStreamHomeCopy.syncDetail)
+                        .font(.footnote)
+                        .foregroundStyle(PR.fg2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Button(action: onScan) {
+                Label(VampStreamHomeCopy.scanSync, systemImage: "qrcode.viewfinder")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(PR.fg)
+            .foregroundStyle(PR.bg)
+            .accessibilityHint(Text(VampStreamHomeCopy.scanSyncHint))
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(VampStreamHomeCopy.orConnectByAddress)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(PR.dim)
+                TextField(
+                    "",
+                    text: $manualAddress,
+                    prompt: Text(VampStreamHomeCopy.addressPlaceholder)
+                )
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel(Text(VampStreamHomeCopy.addressPlaceholder))
+                Button(action: onConnectByAddress) {
+                    Text(VampStreamHomeCopy.connectByAddress)
+                }
+                    .buttonStyle(.bordered)
+                    .disabled(manualAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                if let manualError {
+                    Text(manualError)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+        .padding(16)
+        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text(VampStreamHomeCopy.syncTitle))
+    }
+}
+
+private struct VampSyncEmptyHint: View {
+    @ObservedObject var hostsVM: HostsListViewModel
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(PR.fg)
+                .frame(width: 38, height: 38)
+                .prGlassSurface(in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(PR.fg)
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(PR.fg2)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !isLoading {
+                    Button {
+                        Task { await hostsVM.refresh() }
+                    } label: {
+                        Text(VampStreamHomeCopy.retryDiscovery)
+                    }
+                    .font(.caption.weight(.semibold))
+                    .padding(.top, 4)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
+    private var isLoading: Bool {
+        if case .loading = hostsVM.state { return true }
+        return false
+    }
+
+    private var icon: String {
+        if isLoading { return "hourglass" }
+        return hostsVM.hasLocalNetworkIssue ? "wifi.exclamationmark" : "macbook.and.iphone"
+    }
+
+    private var title: String {
+        isLoading ? VampStreamHomeCopy.lookingForSync : VampStreamHomeCopy.noSyncFound
+    }
+
+    private var message: String {
+        switch hostsVM.state {
+        case .loading:
+            return VampStreamHomeCopy.syncNetworkHint
+        case .localNetworkIssue(let message):
+            return message
+        case .unavailable:
+            return VampStreamHomeCopy.unavailableSync
+        case .empty, .available:
+            return VampStreamHomeCopy.syncNetworkHint
+        }
+    }
+}
+
+private struct VampAssistantFollowOnCard: View {
+    let onPair: () -> Void
+    let hasSavedAssistants: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "sparkles.tv")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(PR.fg)
+                    .frame(width: 38, height: 38)
+                    .prGlassSurface(in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(VampStreamHomeCopy.assistantTitle)
+                        .font(.headline)
+                        .foregroundStyle(PR.fg)
+                    Text(VampStreamHomeCopy.assistantDetail)
+                        .font(.footnote)
+                        .foregroundStyle(PR.fg2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Button(action: onPair) {
+                Label(
+                    VampStreamHomeCopy.pairAssistantTitle(hasSavedAssistants: hasSavedAssistants),
+                    systemImage: "plus"
+                )
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityHint(Text(VampStreamHomeCopy.pairAssistantHint))
+        }
+        .padding(16)
+        .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text(VampStreamHomeCopy.assistantTitle))
     }
 }
 
@@ -282,7 +469,6 @@ private struct VampAssistantSourceIntro: View {
     let detail: String
     let onPair: () -> Void
     let hasSavedAssistants: Bool
-    var onScan: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -303,19 +489,18 @@ private struct VampAssistantSourceIntro: View {
                 }
             }
 
-            if let onScan {
-                Button(action: onScan) { Label("Connect Vamp Sync", systemImage: "qrcode.viewfinder").frame(maxWidth: .infinity, minHeight: 44) }
-                    .buttonStyle(.bordered)
-            }
             Button(action: onPair) {
-                Label(hasSavedAssistants ? "Pair another Assistant" : "Pair Vamp Assistant", systemImage: "plus")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
+                Label(
+                    VampStreamHomeCopy.pairAssistantTitle(hasSavedAssistants: hasSavedAssistants),
+                    systemImage: "plus"
+                )
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .tint(PR.fg)
             .foregroundStyle(PR.bg)
-            .accessibilityHint("Enter the private address and one-time pairing code shown by Vamp Assistant")
+            .accessibilityHint(Text(VampStreamHomeCopy.pairAssistantHint))
         }
         .padding(16)
         .prGlassSurface(in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous))
