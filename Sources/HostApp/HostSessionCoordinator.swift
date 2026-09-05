@@ -201,6 +201,7 @@ final class HostSessionCoordinator: ObservableObject {
     #if os(macOS)
     let applicationRegistry = HostApplicationRegistry()
     /// The window currently streamed (nil ⇒ display streaming). Drives input geometry + loss detection.
+    private var originalAppWindowBounds: [String: DesktopRect] = [:]
     var activeWindowTarget: WindowStreamTarget?
     /// Prevents the normal display-layout observer from racing a window capture restart/teardown.
     var isWindowStreamTransitioning = false
@@ -430,6 +431,7 @@ final class HostSessionCoordinator: ObservableObject {
         targetSwitchTask?.cancel()
         await targetSwitchTask?.value
         targetSwitchTask = nil
+        originalAppWindowBounds.removeAll()
         clearWindowStreaming()
         #endif
         // Await cancellation to ensure clean shutdown
@@ -2634,17 +2636,43 @@ extension HostSessionCoordinator {
 
     private func beginWindowStream(window rawWindow: WindowInfo, bundleID: String, name: String, request: StreamTargetSwitchRequestMessage, startTime: Date) async {
         guard !Task.isCancelled, activeSessionID == request.sessionID, !lockStateProvider().blocksRemoteInput else { return }
+        // Drain a canceled geometry restart before replacing its capture pipeline.
+        let previousTracking = windowTrackingTask
+        previousTracking?.cancel()
+        await previousTracking?.value
+        guard !Task.isCancelled, activeSessionID == request.sessionID, !lockStateProvider().blocksRemoteInput else { return }
         isWindowStreamTransitioning = true
         defer { isWindowStreamTransitioning = false }
         var window = rawWindow
-        // Fit-to-phone: resize the Mac window to the client's viewport aspect (sent per-device, so
-        // it's exact for any iPhone) so the stream fills the screen with no letterbox bars. Best
-        // effort — an app with a minimum size may not shrink fully.
-        if let aspect = request.clientViewportAspect, aspect > 0 {
-            Self.resizeWindow(pid: window.ownerPID, matching: window.bounds, toAspect: aspect)
+        let originalKey = "\(request.sessionID)-\(window.ownerPID)-\(window.windowID)"
+        let original = originalAppWindowBounds[originalKey] ?? window.bounds
+        if originalAppWindowBounds.count >= 128, originalAppWindowBounds[originalKey] == nil {
+            originalAppWindowBounds.removeAll()
+        }
+        originalAppWindowBounds[originalKey] = original
+        var sizingNotice: String?
+        if request.sizingMode != nil || request.clientViewportAspect != nil {
+            let display = HostApplicationRegistry.displayBounds(containing:
+                CGRect(x: window.bounds.origin.x, y: window.bounds.origin.y,
+                       width: window.bounds.size.width, height: window.bounds.size.height))
+            let available = DesktopSize(width: max(display.width - 48, 1), height: max(display.height - 76, 1))
+            let aspect = request.clientViewportAspect ?? (window.bounds.size.width / window.bounds.size.height)
+            let viewport = DesktopSize(width: request.viewportWidth ?? aspect, height: request.viewportHeight ?? 1)
+            let desired = request.sizingMode == .original ? original.size : AdaptiveWindowSizing.size(
+                original: original.size, available: available, viewport: viewport, bundleIdentifier: bundleID)
+            if !Self.resizeWindow(pid: window.ownerPID, matching: window.bounds, toSize: desired, display: display) {
+                sizingNotice = "The selected window could not be resized safely. Keeping its current size."
+            }
             try? await Task.sleep(nanoseconds: 350_000_000)
-            if let resized = applicationRegistry.windowInfo(windowID: window.windowID) {
-                window = resized
+            if let resized = applicationRegistry.windowInfo(windowID: window.windowID) { window = resized }
+            if request.sizingMode == .original,
+               abs(window.bounds.size.width - desired.width) > 2 || abs(window.bounds.size.height - desired.height) > 2 {
+                sizingNotice = "The Mac constrained the original window size to its available space."
+            }
+            let actualAspect = window.bounds.size.width / max(window.bounds.size.height, 1)
+            if sizingNotice == nil, request.sizingMode != .original,
+               abs(actualAspect - viewport.width / max(viewport.height, 1)) > 0.05 {
+                sizingNotice = "Keeping a usable app width. Zoom or pan for a closer view."
             }
         }
         guard !Task.isCancelled, activeSessionID == request.sessionID, !lockStateProvider().blocksRemoteInput else { return }
@@ -2656,11 +2684,6 @@ extension HostSessionCoordinator {
         // resolution before either adaptive system had a chance to operate.
         let preset = performanceStateController.profile.effectivePreset
 
-        // Drain a canceled geometry restart before replacing its capture pipeline.
-        let previousTracking = windowTrackingTask
-        previousTracking?.cancel()
-        await previousTracking?.value
-        guard !Task.isCancelled, activeSessionID == request.sessionID else { return }
         clearWindowStreaming()
 
         // Input must map into the window from the first frame.
@@ -2683,7 +2706,7 @@ extension HostSessionCoordinator {
             startWindowTracking(sessionID: request.sessionID, senderDeviceID: request.senderDeviceID)
             await publishHostStatusUpdate()
             sendTargetResult(request: request, resolved: .window(String(window.windowID)), status: .completed,
-                             reason: nil, descriptor: descriptor, startTime: startTime)
+                             reason: sizingNotice, descriptor: descriptor, startTime: startTime)
         } catch {
             clearWindowStreaming()
             sendTargetResult(request: request, resolved: request.target, status: .failed,
@@ -2834,6 +2857,11 @@ extension HostSessionCoordinator {
             bounds: bounds,
             scale: scale
         )
+        let transition = StreamTargetSwitchRequestMessage(
+            sessionID: sessionID, target: .window(String(target.windowID)),
+            launchIfNeeded: false, senderDeviceID: senderDeviceID)
+        sendTargetResult(request: transition, resolved: transition.target, status: .accepted,
+                         reason: nil, descriptor: nil, startTime: Date())
         do {
             try await restartStreamingPipelineForWindow(
                 descriptor: descriptor,
@@ -2896,50 +2924,36 @@ extension HostSessionCoordinator {
         ))
     }
 
-    /// Resize the app's focused window to the given aspect without growing it beyond its current
-    /// bounds. Tall phone viewports must narrow a Mac window instead of asking macOS for a window
-    /// taller than the display; macOS clamps that height and the resulting wide stream leaves large
-    /// letterbox bands on the phone. Best effort — no-op if AX can't reach the window.
-    private static func resizeWindow(pid: pid_t, matching bounds: DesktopRect, toAspect aspect: Double) {
+    /// Resize only the selected window and honor the bounds actually accepted by macOS.
+    /// A missing or ambiguous AX match leaves every window unchanged.
+    private static func resizeWindow(pid: pid_t, matching bounds: DesktopRect,
+                                     toSize size: DesktopSize, display: CGRect) -> Bool {
+        guard size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0 else { return false }
         let axApp = AXUIElementCreateApplication(pid)
-        guard let axWindow = axWindow(in: axApp, matching: bounds) else { return }
-        let currentBounds = axFrame(of: axWindow)
-            ?? CGRect(x: bounds.origin.x, y: bounds.origin.y, width: bounds.size.width, height: bounds.size.height)
-        let target = HostApplicationRegistry.targetWindowFrame(
-            current: currentBounds,
-            display: HostApplicationRegistry.displayBounds(containing: currentBounds),
-            requestedAspect: aspect
-        )
-        var requestedSize = target.size
-        if let value = AXValueCreate(.cgSize, &requestedSize) {
-            _ = AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, value)
-        }
-        var requestedPosition = target.origin
-        if let value = AXValueCreate(.cgPoint, &requestedPosition) {
+        guard let axWindow = axWindow(in: axApp, matching: bounds) else { return false }
+        var requestedSize = CGSize(width: min(size.width, max(display.width - 48, 1)),
+                                   height: min(size.height, max(display.height - 76, 1)))
+        guard let value = AXValueCreate(.cgSize, &requestedSize),
+              AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, value) == .success else { return false }
+        // Position using the accepted bounds: applications can impose their own minimum size.
+        let actual = axFrame(of: axWindow)?.size ?? requestedSize
+        var position = CGPoint(x: max(display.minX + 24, min(bounds.origin.x, display.maxX - actual.width - 24)),
+                               y: max(display.minY + 52, min(bounds.origin.y, display.maxY - actual.height - 24)))
+        if let value = AXValueCreate(.cgPoint, &position) {
             _ = AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, value)
         }
+        return true
     }
 
-    /// The AX element for the window we are actually streaming. AX exposes no window id, so
-    /// match on frame: the focused window is only a fallback, because resizing it when it is
-    /// not the streamed one both misses the fit and reshapes a window the user is working in.
+    /// Resize only a unique AX bounds match for the selected capture window.
     private static func axWindow(in axApp: AXUIElement, matching bounds: DesktopRect) -> AXUIElement? {
         var windowsRef: CFTypeRef?
-        if AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &windowsRef) == .success,
-           let windows = windowsRef as? [AXUIElement],
-           let match = windows.first(where: { window in
-               guard let frame = axFrame(of: window) else { return false }
-               return abs(frame.origin.x - bounds.origin.x) < 2
-                   && abs(frame.origin.y - bounds.origin.y) < 2
-                   && abs(frame.width - bounds.size.width) < 2
-                   && abs(frame.height - bounds.size.height) < 2
-           }) {
-            return match
-        }
-        var focusedRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &focusedRef) == .success,
-              let focused = focusedRef, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
-        return (focused as! AXUIElement)
+        guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &windowsRef) == .success,
+              let windows = windowsRef as? [AXUIElement] else { return nil }
+        let target = CGRect(x: bounds.origin.x, y: bounds.origin.y,
+                            width: bounds.size.width, height: bounds.size.height)
+        guard let index = HostApplicationRegistry.matchingWindowIndex(frames: windows.map { axFrame(of: $0) }, target: target) else { return nil }
+        return windows[index]
     }
 
     /// AX position/size, in the same global top-left point space as `kCGWindowBounds`.
@@ -2999,7 +3013,8 @@ extension HostSessionCoordinator {
             height: descriptor.map { Int($0.frame.size.height.rounded()) },
             scaleFactor: descriptor?.scaleFactor,
             startedAt: startTime,
-            requestID: request.requestID
+            requestID: request.requestID,
+            appliedSizingMode: request.sizingMode
         )
         if let envelope = try? DataChannelEnvelope.streamTargetSwitchResult(message) {
             try? webRTCSessionManager.sendDataMessage(envelope)

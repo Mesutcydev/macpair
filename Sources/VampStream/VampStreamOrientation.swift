@@ -1,28 +1,28 @@
 import SwiftUI
 import UIKit
 
-/// Keeps the phone orientation aligned with the actual streamed window. A portrait Mac app should
-/// stay portrait; a wide app should use landscape. This avoids forcing every target into a
-/// landscape canvas and then displaying portrait content with large side bars.
+/// App streams follow device rotation; the app picker stays portrait.
+/// The separate whole-display viewer retains its existing aspect-based orientation.
 final class VampStreamAppDelegate: NSObject, UIApplicationDelegate {
-    static var lockLandscape = false
+    static var orientationMask: UIInterfaceOrientationMask = .portrait
 
     func application(
         _ application: UIApplication,
         supportedInterfaceOrientationsFor window: UIWindow?
     ) -> UIInterfaceOrientationMask {
-        VampStreamAppDelegate.lockLandscape ? .landscape : .portrait
+        VampStreamAppDelegate.orientationMask
     }
 }
 
 enum StreamOrientation {
-    static func set(aspect: Double?) {
-        let landscape = (aspect ?? 0) >= 1.08
-        VampStreamAppDelegate.lockLandscape = landscape
+    static func set(aspect: Double?, adaptive: Bool = false) {
+        let mask: UIInterfaceOrientationMask = adaptive && aspect != nil
+            ? .allButUpsideDown : ((aspect ?? 0) >= 1.08 ? .landscape : .portrait)
+        guard VampStreamAppDelegate.orientationMask != mask else { return }
+        VampStreamAppDelegate.orientationMask = mask
         guard let scene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene }).first else { return }
-        let mask: UIInterfaceOrientationMask = landscape ? .landscapeRight : .portrait
-        scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
+            .compactMap({ $0 as? UIWindowScene }).first(where: { $0.activationState == .foregroundActive }) else { return }
         scene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
     }
 }

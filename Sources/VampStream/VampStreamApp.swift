@@ -92,12 +92,12 @@ struct VampStreamRootView: View {
             let aspect = streaming
                 ? appStream.streamedWindow.map { $0.pointWidth / max($0.pointHeight, 1) }
                 : nil
-            StreamOrientation.set(aspect: aspect)
+            StreamOrientation.set(aspect: aspect, adaptive: true)
         }
         .onChangeCompat(of: appStream.streamedWindow) { window in
             guard isStreamingApp else { return }
             StreamOrientation.set(
-                aspect: window.map { $0.pointWidth / max($0.pointHeight, 1) }
+                aspect: window.map { $0.pointWidth / max($0.pointHeight, 1) }, adaptive: true
             )
         }
         .sheet(isPresented: $showVampAssistantPairing) {
@@ -147,6 +147,7 @@ struct VampStreamRootView: View {
             if let caps = sessionCoordinator.negotiatedCapabilities {
                 if caps.supportsAppStreaming {
                     AppStreamBrowserView(environment: environment, vm: appStream) {
+                        appStream.forgetSelection()
                         Task { await sessionCoordinator.disconnect() }
                     }
                 } else {

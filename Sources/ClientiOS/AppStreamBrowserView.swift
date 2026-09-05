@@ -16,6 +16,7 @@ struct AppStreamBrowserView: View {
     var onClose: () -> Void
     @StateObject private var rendererVM: VideoRendererViewModel
     @StateObject private var input: AppStreamInputController
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("vampstream.favoriteApps") private var favoriteStorage = "[]"
     @AppStorage("vampstream.recentApps") private var recentStorage = "[]"
@@ -67,7 +68,10 @@ struct AppStreamBrowserView: View {
                 }
             }
             .onAppear { vm.updateClientViewport(size: proxy.size) }
-            .onChangeCompat(of: proxy.size) { vm.updateClientViewport(size: $0) }
+            .onChangeCompat(of: proxy.size) { size in
+                if case .streaming = vm.status { return }
+                vm.updateClientViewport(size: size)
+            }
         }
         .task {
             rendererVM.onNeedsKeyframe = { [weak sc = environment.sessionCoordinator] in
@@ -85,12 +89,29 @@ struct AppStreamBrowserView: View {
             switch status {
             case .streaming:
                 resetViewportZoom()
-                rendererVM.startReceiving()
                 if !didShowGestureHelp { showsHelp = true; didShowGestureHelp = true }
             default:
                 // Leaving the stream surface must release any drag-lock and stop decoding;
                 // the browser can remain mounted while the app target changes.
                 input.stop()
+                rendererVM.stopReceiving()
+            }
+        }
+        .onChangeCompat(of: vm.geometryRevision) { _ in
+            input.isEnabled = false
+            if scenePhase == .active, !hostIsLocked {
+                rendererVM.startReceiving()
+                sessionCoordinator.requestKeyframeRefresh(reason: "App window geometry changed")
+            }
+        }
+        .onChangeCompat(of: canInteract) { enabled in input.isEnabled = enabled }
+        .onChangeCompat(of: scenePhase) { phase in
+            input.isEnabled = false
+            if phase == .active, !hostIsLocked {
+                vm.resumeAfterHostUnlock()
+                if case .streaming = vm.status { rendererVM.startReceiving() }
+            } else {
+                vm.suspendInteraction()
                 rendererVM.stopReceiving()
             }
         }
@@ -136,6 +157,11 @@ struct AppStreamBrowserView: View {
             input.stop()
             vm.stop()
         }
+    }
+
+    private var canInteract: Bool {
+        scenePhase == .active && !hostIsLocked && !vm.isResizing && !vm.isGeometryChanging && !videoStalled
+            && rendererVM.latestPixelBuffer != nil && rendererVM.isReceiving
     }
 
     private var closePromptTitle: String {
@@ -373,7 +399,7 @@ struct AppStreamBrowserView: View {
                         onLongPressEnded: { input.releaseDragLock() },
                         onHoverDelta: { dx, dy in input.relativePointerMove(deltaX: dx, deltaY: dy) }
                     )
-                    .allowsHitTesting(!keyboardActive)
+                    .allowsHitTesting(!keyboardActive && canInteract)
                     if videoStalled {
                         VStack(spacing: 8) {
                             Text("Waiting for video…").font(.headline)
@@ -392,9 +418,12 @@ struct AppStreamBrowserView: View {
                 }
 
             }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                streamTopBar(name: name)
-                    .background(.black.opacity(0.28))
+            .overlay(alignment: .bottom) {
+                if let notice = vm.sizingNotice, !keyboardActive {
+                    Text(notice).font(.caption).padding(8)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                        .padding(.bottom, 12).allowsHitTesting(false)
+                }
             }
             .overlay(alignment: .bottom) {
                 if keyboardActive {
@@ -404,13 +433,14 @@ struct AppStreamBrowserView: View {
                         onKey: { keyCode, modifiers in input.pressKey(keyCode, modifiers: modifiers) },
                         onDismiss: { keyboardActive = false }
                     )
+                    .allowsHitTesting(canInteract)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .padding(.bottom, keyboardOverlayBottomPad)
                 }
             }
             .task {
                 while !Task.isCancelled {
-                    videoStalled = environment.webRTCSessionManager.streamDiagnostics.isStalled()
+                    videoStalled = rendererVM.lastDecodedAt.map { ProcessInfo.processInfo.systemUptime - $0 > 5 } ?? true
                     do { try await Task.sleep(for: .seconds(2)) } catch { return }
                 }
             }
@@ -420,7 +450,7 @@ struct AppStreamBrowserView: View {
             }
             .onChangeCompat(of: proxy.size) { newSize in
                 configureInteraction(viewSize: newSize)
-                vm.updateClientViewport(size: newSize)
+                if !keyboardActive { vm.updateClientViewport(size: newSize) }
                 resetViewportZoom()
             }
             .onChangeCompat(of: vm.streamedWindow) { _ in
@@ -431,6 +461,9 @@ struct AppStreamBrowserView: View {
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { keyboardOverlayBottomPad = inset }
             })
 
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            streamTopBar(name: name).background(.black.opacity(0.28))
         }
         .ignoresSafeArea(edges: [.horizontal, .bottom])
     }
@@ -480,6 +513,8 @@ struct AppStreamBrowserView: View {
             .accessibilityLabel(adjustsViewport ? "Done adjusting" : "Adjust view")
             .accessibilityHint("Switch between controlling the Mac and moving or zooming the picture")
             Menu {
+                Button("Adaptive") { vm.setSizingMode(.adaptive) }
+                Button("Original Size") { vm.setSizingMode(.original) }
                 Picker("Quality", selection: $qualityMode) {
                     Text("Auto").tag("auto")
                     Text("Sharper text").tag("quality")
@@ -530,6 +565,7 @@ struct AppStreamBrowserView: View {
 
     private func configureInteraction(viewSize: CGSize) {
         input.sessionID = environment.sessionCoordinator.activeSessionID
+        input.isEnabled = canInteract
         if let window = vm.streamedWindow {
             input.setWindow(DisplayDescriptor(
                 id: window.windowID,

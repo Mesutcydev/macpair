@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import os
+import SharedModels
 import SharedProtocol
 import TransportWebRTC
 
@@ -67,6 +68,21 @@ final class AppStreamViewModel: ObservableObject {
     @Published private(set) var streamedWindow: StreamedWindow?
     @Published private(set) var streamedApplication: RemoteApplication?
 
+    @Published private(set) var isGeometryChanging = false
+    @Published private(set) var isResizing = false
+    @Published private(set) var geometryRevision = 0
+    @Published private(set) var sizingNotice: String?
+    @Published private(set) var supportsAdaptiveSizing = false
+    @Published private(set) var sizingMode: AppWindowSizingMode = .adaptive
+    private var viewportSize = CGSize.zero
+    private var resizeTask: Task<Void, Never>?
+    private var targetSendTask: Task<Void, Never>?
+    private var lastControlRequestAt: TimeInterval?
+    private var isSuspended = false
+    private var lastRequestedViewport = CGSize.zero
+    private var resumeSelection: (RemoteApplication, String, String)?
+    private var selectionFingerprint: String?
+
     private let environment: ClientAppEnvironment
     private var receiveTask: Task<Void, Never>?
     private var listRetryTask: Task<Void, Never>?
@@ -96,6 +112,7 @@ final class AppStreamViewModel: ObservableObject {
     /// receive loop is registered and the host's snapshot would be missed (the "stuck on
     /// Loading applications" race).
     func start() {
+        isSuspended = false
         guard receiveTask == nil else { return }
         let stream = environment.webRTCSessionManager.receiveDataMessages()
         receiveTask = Task { [weak self] in
@@ -110,6 +127,15 @@ final class AppStreamViewModel: ObservableObject {
     }
 
     func stop() {
+        if let app = streamedApplication, let window = streamedWindow, let fingerprint = selectionFingerprint {
+            resumeSelection = (app, window.windowID, fingerprint)
+        }
+        resizeTask?.cancel()
+        resizeTask = nil
+        targetSendTask?.cancel()
+        targetSendTask = nil
+        isResizing = false
+        isGeometryChanging = false
         receiveTask?.cancel()
         receiveTask = nil
         listRetryTask?.cancel()
@@ -125,6 +151,7 @@ final class AppStreamViewModel: ObservableObject {
         pendingRequestID = nil
         pendingCloseRequestID = nil
         pendingCloseName = nil
+        supportsAdaptiveSizing = false
         status = .idle
     }
 
@@ -134,8 +161,42 @@ final class AppStreamViewModel: ObservableObject {
         guard size.width > 0, size.height > 0 else { return }
         let aspect = Double(size.width / size.height)
         guard aspect.isFinite, (0.25...4).contains(aspect) else { return }
+        guard abs(size.width - viewportSize.width) > 2 || abs(size.height - viewportSize.height) > 2 else { return }
         clientViewportAspect = aspect
+        viewportSize = size
+        scheduleResize()
     }
+
+    func setSizingMode(_ mode: AppWindowSizingMode) {
+        guard supportsAdaptiveSizing else {
+            sizingNotice = "Update Vamp Sync to enable adaptive sizing and Original Size."
+            return
+        }
+        sizingMode = mode
+        lastRequestedViewport = .zero
+        scheduleResize()
+    }
+
+    private func scheduleResize() {
+        resizeTask?.cancel()
+        resizeTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard let self, !Task.isCancelled, !self.isResizing, !self.isSuspended, self.supportsAdaptiveSizing,
+                  case .streaming = self.status, let window = self.streamedWindow,
+                  let app = self.streamedApplication,
+                  self.lastRequestedViewport != self.viewportSize,
+                  self.environment.sessionCoordinator.hostLockState == .unlockedActiveSession else { return }
+            self.isResizing = true
+            self.sendTargetRequest(app, windowID: window.windowID)
+        }
+    }
+
+    func forgetSelection() { resumeSelection = nil; selectionFingerprint = nil }
+
+    func suspendInteraction() {
+        pauseForHostLock()
+    }
+
 
     func requestApplicationList() {
         guard environment.sessionCoordinator.hostLockState == .unlockedActiveSession else {
@@ -202,6 +263,7 @@ final class AppStreamViewModel: ObservableObject {
             status = .failed(reason: "Not connected to a Mac.")
             return
         }
+        lastControlRequestAt = ProcessInfo.processInfo.systemUptime
         pendingCloseName = application.name
         pendingCloseRequestID = UUID()
         let request = ApplicationCloseRequestMessage(
@@ -231,30 +293,62 @@ final class AppStreamViewModel: ObservableObject {
             status = .failed(reason: "Not connected to a Mac.")
             return
         }
+        resumeSelection = nil
+        selectionFingerprint = environment.sessionCoordinator.connectedHostFingerprint
+        sizingMode = .adaptive
         streamedApplication = application
         sendTargetRequest(application, windowID: windowID)
     }
 
     private func sendTargetRequest(_ application: RemoteApplication, windowID: String?) {
+        if !isResizing { status = .launching(name: application.name) }
+        targetSendTask?.cancel()
+        let sessionID = environment.sessionCoordinator.activeSessionID
+        targetSendTask = Task { [weak self] in
+            guard let self else { return }
+            let delay = Self.controlRequestDelay(last: self.lastControlRequestAt, now: ProcessInfo.processInfo.systemUptime)
+            if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
+            guard !Task.isCancelled, !self.isSuspended,
+                  sessionID == self.environment.sessionCoordinator.activeSessionID else { return }
+            self.performTargetRequest(application, windowID: windowID)
+        }
+    }
+
+    /// The host shares a two-second limiter across close and target-switch commands.
+    /// Debounce layout at 300ms, but wait out that limiter instead of losing a request.
+    static func controlRequestDelay(last: TimeInterval?, now: TimeInterval) -> TimeInterval {
+        guard let last else { return 0 }
+        return max(0, 2.1 - (now - last))
+    }
+
+    private func performTargetRequest(_ application: RemoteApplication, windowID: String?) {
         guard let sessionID = environment.sessionCoordinator.activeSessionID else {
             status = .failed(reason: "Not connected to a Mac.")
             return
         }
+        lastControlRequestAt = ProcessInfo.processInfo.systemUptime
         pendingTargetName = application.name
         pendingRequestID = UUID()
-        status = .launching(name: application.name)
+        if !isResizing { status = .launching(name: application.name) }
+        lastRequestedViewport = viewportSize
         armLaunchTimeout(name: application.name)
         let request = StreamTargetSwitchRequestMessage(
             sessionID: sessionID,
             target: windowID.map(StreamTarget.window) ?? .application(application.bundleIdentifier),
             senderDeviceID: environment.clientIdentity.id,
-            clientViewportAspect: clientViewportAspect,
+            clientViewportAspect: supportsAdaptiveSizing ? clientViewportAspect : nil,
+            viewportWidth: viewportSize.width > 0 ? Double(viewportSize.width) : nil,
+            viewportHeight: viewportSize.height > 0 ? Double(viewportSize.height) : nil,
+            sizingMode: sizingMode,
             requestID: pendingRequestID
         )
         do {
             try environment.webRTCSessionManager.sendDataMessage(
                 try DataChannelEnvelope.streamTargetSwitch(request))
         } catch {
+            isResizing = false
+            pendingRequestID = nil
+            launchTimeoutTask?.cancel()
             status = .failed(reason: "Could not start \(application.name).")
         }
     }
@@ -267,7 +361,9 @@ final class AppStreamViewModel: ObservableObject {
         launchTimeoutTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 45_000_000_000)
             guard let self, !Task.isCancelled else { return }
-            guard case .launching = self.status else { return }
+            if !self.isResizing { guard case .launching = self.status else { return } }
+            self.isResizing = false
+            self.pendingRequestID = nil
             self.pendingTargetName = nil
             self.status = .failed(reason: "The Mac did not open \(name) in time. Tap Retry.")
         }
@@ -286,6 +382,10 @@ final class AppStreamViewModel: ObservableObject {
     }
 
     func backToApps() {
+        targetSendTask?.cancel()
+        forgetSelection()
+        resizeTask?.cancel()
+        isResizing = false
         launchTimeoutTask?.cancel()
         launchTimeoutTask = nil
         pendingTargetName = nil
@@ -300,6 +400,12 @@ final class AppStreamViewModel: ObservableObject {
     /// retries while locked, then let the view resume them immediately after the host reports
     /// an unlocked session. An already-running stream keeps its target state for fast recovery.
     func pauseForHostLock() {
+        isSuspended = true
+        isGeometryChanging = false
+        targetSendTask?.cancel()
+        resizeTask?.cancel()
+        isResizing = false
+        pendingRequestID = nil
         listRetryTask?.cancel()
         listRetryTask = nil
         launchTimeoutTask?.cancel()
@@ -311,7 +417,12 @@ final class AppStreamViewModel: ObservableObject {
     }
 
     func resumeAfterHostUnlock() {
-        if case .streaming = status { return }
+        isSuspended = false
+        if case .streaming = status {
+            lastRequestedViewport = .zero
+            scheduleResize()
+            return
+        }
         requestApplicationList()
     }
 
@@ -346,6 +457,14 @@ final class AppStreamViewModel: ObservableObject {
                 applications = loadingApplications.filter { seen.insert($0.id).inserted }
                 loadingApplications = []
                 status = .browsing
+                if let (app, windowID, fingerprint) = resumeSelection {
+                    resumeSelection = nil
+                    if Self.canResume(applicationID: app.id, windowID: windowID, expectedFingerprint: fingerprint,
+                                      connectedFingerprint: environment.sessionCoordinator.connectedHostFingerprint,
+                                      applications: applications) {
+                        select(app, windowID: windowID)
+                    }
+                }
             }
         case .streamTargetSwitch:
             guard let result = try? envelope.decodeStreamTargetSwitchResult() else { return }
@@ -369,8 +488,21 @@ final class AppStreamViewModel: ObservableObject {
         case .launching, .streaming: break
         default: return
         }
-        if let requestID = result.requestID {
-            guard requestID == pendingRequestID else { return }
+        guard Self.accepts(result, status: status, pendingRequestID: pendingRequestID, isResizing: isResizing) else { return }
+        if result.requestID == nil, result.status == .accepted {
+            isGeometryChanging = true
+            return
+        }
+        if isResizing, result.status == .accepted { return }
+        isGeometryChanging = false
+        if isResizing, result.status == .failed || result.status == .rejected {
+            isResizing = false
+            pendingRequestID = nil
+            launchTimeoutTask?.cancel()
+            // A failed retarget may have stopped capture. Require explicit recovery.
+            streamedWindow = nil
+            status = .targetLost(reason: result.reason ?? "Window resize failed. Reopen the app.")
+            return
         }
 
         if result.status == .completed {
@@ -381,6 +513,11 @@ final class AppStreamViewModel: ObservableObject {
                 status = .failed(reason: "The Mac returned an invalid window size.")
                 return
             }
+            guard result.resolvedTarget.kind == .window else { return }
+            isResizing = false
+            if result.appliedSizingMode != nil { supportsAdaptiveSizing = true }
+            sizingNotice = result.reason
+            geometryRevision &+= 1
             streamedWindow = StreamedWindow(
                 windowID: result.resolvedTarget.identifier,
                 pointWidth: Double(width),
@@ -391,6 +528,8 @@ final class AppStreamViewModel: ObservableObject {
             streamedWindow = nil
         }
         status = Self.reduce(status: status, result: result, pendingName: pendingTargetName ?? "Application")
+        if result.status != .accepted { pendingRequestID = nil }
+        if result.status == .completed { scheduleResize() }
         // `.accepted` only means the host took the request; it still has to launch the app and
         // resolve a window. Re-arm rather than leaving the browser stuck on "Opening…" forever.
         if case .launching(let name) = status {
@@ -399,6 +538,20 @@ final class AppStreamViewModel: ObservableObject {
             launchTimeoutTask?.cancel()
             launchTimeoutTask = nil
         }
+    }
+
+    static func canResume(applicationID: String, windowID: String, expectedFingerprint: String,
+                          connectedFingerprint: String?, applications: [RemoteApplication]) -> Bool {
+        !expectedFingerprint.isEmpty && expectedFingerprint == connectedFingerprint
+            && applications.contains { $0.id == applicationID && $0.windowIDs.contains(windowID) }
+    }
+
+    static func accepts(_ result: StreamTargetSwitchResultMessage, status: Status,
+                        pendingRequestID: UUID?, isResizing: Bool) -> Bool {
+        switch status { case .launching, .streaming: break; default: return false }
+        if let requestID = result.requestID { return requestID == pendingRequestID }
+        guard !isResizing, case .streaming(let target, _) = status else { return false }
+        return result.resolvedTarget == target
     }
 
     func applyClose(_ result: ApplicationCloseResultMessage) {

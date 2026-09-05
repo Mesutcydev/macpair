@@ -95,6 +95,62 @@ final class AppStreamClientTests: XCTestCase {
         XCTAssertEqual(next, .failed(reason: "Not running."))
     }
 
+    func testReconnectRequiresSameHostAndExactWindow() {
+        let apps = [RemoteApplication(bundleIdentifier: "com.apple.Safari", name: "Safari",
+            isRunning: true, isActive: true, windowIDs: ["42", "43"])]
+        XCTAssertTrue(AppStreamViewModel.canResume(applicationID: "com.apple.Safari", windowID: "42",
+            expectedFingerprint: "test-host", connectedFingerprint: "test-host", applications: apps))
+        XCTAssertFalse(AppStreamViewModel.canResume(applicationID: "com.apple.Safari", windowID: "41",
+            expectedFingerprint: "test-host", connectedFingerprint: "test-host", applications: apps))
+        XCTAssertFalse(AppStreamViewModel.canResume(applicationID: "com.apple.Safari", windowID: "42",
+            expectedFingerprint: "test-host", connectedFingerprint: "other-host", applications: apps))
+    }
+
+    func testResizeQueueRespectsHostControlRateLimit() {
+        XCTAssertEqual(AppStreamViewModel.controlRequestDelay(last: nil, now: 10), 0)
+        XCTAssertEqual(AppStreamViewModel.controlRequestDelay(last: 10, now: 10.3), 1.8, accuracy: 0.001)
+        XCTAssertEqual(AppStreamViewModel.controlRequestDelay(last: 10, now: 13), 0)
+    }
+
+    func testUnsolicitedEventsMustMatchActiveWindow() {
+        let state = AppStreamViewModel.Status.streaming(target: .window("42"), name: "Terminal")
+        XCTAssertFalse(AppStreamViewModel.accepts(result(.failed, target: .window("41")), status: state, pendingRequestID: nil, isResizing: false))
+        XCTAssertFalse(AppStreamViewModel.accepts(result(.completed, target: .window("41")), status: state, pendingRequestID: nil, isResizing: false))
+        XCTAssertTrue(AppStreamViewModel.accepts(result(.completed, target: .window("42")), status: state, pendingRequestID: nil, isResizing: false))
+        XCTAssertTrue(AppStreamViewModel.accepts(result(.failed, target: .window("42")), status: state, pendingRequestID: nil, isResizing: false))
+    }
+
+    func testPendingResizeRejectsUnsolicitedAndSupersededReplies() {
+        let pending = UUID()
+        let state = AppStreamViewModel.Status.streaming(target: .window("42"), name: "Terminal")
+        var reply = result(.completed, target: .window("42"))
+        XCTAssertFalse(AppStreamViewModel.accepts(reply, status: state, pendingRequestID: pending, isResizing: true))
+        reply.requestID = UUID()
+        XCTAssertFalse(AppStreamViewModel.accepts(reply, status: state, pendingRequestID: pending, isResizing: true))
+        reply.requestID = pending
+        XCTAssertTrue(AppStreamViewModel.accepts(reply, status: state, pendingRequestID: pending, isResizing: true))
+        XCTAssertFalse(AppStreamViewModel.accepts(reply, status: .browsing, pendingRequestID: pending, isResizing: false))
+    }
+
+    func testOldWindowLossCannotFailNewLaunch() {
+        XCTAssertFalse(AppStreamViewModel.accepts(result(.failed, target: .window("42")),
+            status: .launching(name: "Safari"), pendingRequestID: UUID(), isResizing: false))
+    }
+
+    func testAdaptiveRequestMetadataIsOptionalAndRoundTrips() throws {
+        let request = StreamTargetSwitchRequestMessage(sessionID: UUID(), target: .window("42"),
+            senderDeviceID: UUID(), clientViewportAspect: 0.5, viewportWidth: 390, viewportHeight: 780,
+            sizingMode: .original, requestID: UUID())
+        let data = try JSONEncoder().encode(request)
+        XCTAssertEqual(try JSONDecoder().decode(StreamTargetSwitchRequestMessage.self, from: data), request)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        for key in ["viewportWidth", "viewportHeight", "sizingMode"] { legacy.removeValue(forKey: key) }
+        let decoded = try JSONDecoder().decode(StreamTargetSwitchRequestMessage.self, from: JSONSerialization.data(withJSONObject: legacy))
+        XCTAssertNil(decoded.sizingMode)
+        XCTAssertNil(decoded.viewportWidth)
+        XCTAssertEqual(decoded.clientViewportAspect, 0.5)
+    }
+
     // MARK: - Capability negotiation
 
     func testAppStreamingNegotiatesOnlyWhenBothPeersSupportIt() {

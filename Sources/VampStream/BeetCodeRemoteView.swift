@@ -37,6 +37,11 @@ struct BeetCodeRemoteView: View {
     /// geometry the input mapper uses — so it is the only aspect the Mac should be fitted to.
     let onViewportSize: ((CGSize) -> Void)?
 
+    let inputSuspended: Bool
+    let sizingNotice: String?
+    let onAdaptiveSizing: (() -> Void)?
+    let onOriginalSizing: (() -> Void)?
+    @State private var videoStalled = true
     @StateObject private var renderer: BeetCodeVideoRendererViewModel
     @StateObject private var input: BeetCodeRemoteInputController
     @State private var keyboardActive = false
@@ -63,7 +68,11 @@ struct BeetCodeRemoteView: View {
         onClose: @escaping () -> Void,
         onRefresh: @escaping () async -> String?,
         onChooseApplication: (() -> Void)? = nil,
-        onViewportSize: ((CGSize) -> Void)? = nil
+        onViewportSize: ((CGSize) -> Void)? = nil,
+        inputSuspended: Bool = false,
+        sizingNotice: String? = nil,
+        onAdaptiveSizing: (() -> Void)? = nil,
+        onOriginalSizing: (() -> Void)? = nil
     ) {
         self.session = session
         self.windowID = windowID
@@ -74,6 +83,10 @@ struct BeetCodeRemoteView: View {
         self.onRefresh = onRefresh
         self.onChooseApplication = onChooseApplication
         self.onViewportSize = onViewportSize
+        self.inputSuspended = inputSuspended
+        self.sizingNotice = sizingNotice
+        self.onAdaptiveSizing = onAdaptiveSizing
+        self.onOriginalSizing = onOriginalSizing
         _renderer = StateObject(wrappedValue: BeetCodeVideoRendererViewModel())
         _input = StateObject(wrappedValue: BeetCodeRemoteInputController(client: session.client))
     }
@@ -96,11 +109,20 @@ struct BeetCodeRemoteView: View {
         .background(Color.black.ignoresSafeArea())
         .task(id: streamTaskID) {
             guard session.status.ready, scenePhase == .active else { return }
+            input.isEnabled = false
+            input.stop()
             renderer.start(
                 client: session.client,
                 resolution: resolution,
                 displayID: windowID == nil ? selectedDisplayID : nil,
                 windowID: windowID)
+        }
+        .onChangeCompat(of: canInteract) { enabled in input.isEnabled = enabled }
+        .task {
+            while !Task.isCancelled {
+                videoStalled = renderer.lastDecodedAt.map { ProcessInfo.processInfo.systemUptime - $0 > 5 } ?? true
+                try? await Task.sleep(for: .milliseconds(500))
+            }
         }
         .onChangeCompat(of: scenePhase) { phase in
             if phase == .active, session.status.ready {
@@ -119,6 +141,11 @@ struct BeetCodeRemoteView: View {
             input.stop()
             StreamOrientation.set(aspect: nil)
         }
+    }
+
+    private var canInteract: Bool {
+        !inputSuspended && !videoStalled && scenePhase == .active && session.status.ready
+            && renderer.isReceiving && renderer.latestPixelBuffer != nil
     }
 
     private var streamTaskID: String {
@@ -190,6 +217,16 @@ struct BeetCodeRemoteView: View {
                 // tall Mac window and also reports an oversized viewport back to the Mac.
                 appStreamTopBar
                     .background(Color.black)
+                if onAdaptiveSizing != nil {
+                    HStack {
+                        Button("Adaptive") { onAdaptiveSizing?() }
+                        Button("Original proportions") { onOriginalSizing?() }
+                    }.font(.caption).padding(6)
+                }
+                if onAdaptiveSizing != nil {
+                    Text(sizingNotice ?? " ").font(.caption).foregroundStyle(.white)
+                        .lineLimit(2).padding(.horizontal, 6).frame(maxWidth: .infinity).frame(height: 36)
+                }
             }
 
             GeometryReader { proxy in
@@ -238,7 +275,7 @@ struct BeetCodeRemoteView: View {
                             onLongPressEnded: { if input.dragLocked { input.toggleDragLockCurrentPointer() } },
                             onHoverDelta: { input.relativePointerMove(deltaX: $0, deltaY: $1) }
                         )
-                        .allowsHitTesting(!keyboardActive && !annotationStore.isVisible)
+                        .allowsHitTesting(!keyboardActive && !annotationStore.isVisible && canInteract)
 
                         if annotationStore.isVisible {
                             AnnotationCanvasOverlay(store: annotationStore)
@@ -302,7 +339,8 @@ struct BeetCodeRemoteView: View {
                             },
                             onDismiss: { keyboardActive = false }
                         )
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .allowsHitTesting(canInteract)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                         .padding(.bottom, keyboardOverlayBottomPad)
                     }
                 }
@@ -313,7 +351,7 @@ struct BeetCodeRemoteView: View {
                 .onChangeCompat(of: proxy.size) {
                     configureInput(viewSize: $0)
                     resetViewportZoom()
-                    onViewportSize?($0)
+                    if !keyboardActive { onViewportSize?($0) }
                 }
                 .onChangeCompat(of: renderer.geometry) { geometry in
                     configureInput(viewSize: proxy.size)
@@ -323,7 +361,7 @@ struct BeetCodeRemoteView: View {
                     // — or the whole desktop — renders as a thin strip across a portrait screen.
                     StreamOrientation.set(aspect: geometry.map {
                         Double($0.imageWidth) / Double(max($0.imageHeight, 1))
-                    })
+                    }, adaptive: windowID != nil)
                 }
 #if canImport(UIKit) && !os(macOS)
                 .background(AppStreamKeyboardInsetReader { inset in
@@ -827,6 +865,9 @@ private struct BeetCodeRemoteUnlockStateView: View {
 /// taps for clicks while clamping pointer movement to the nearest display edge.
 @MainActor
 final class BeetCodeRemoteInputController: ObservableObject {
+    var isEnabled = false {
+        willSet { if !newValue && isEnabled { if dragLocked { toggleDragLockCurrentPointer() }; flush() } }
+    }
     private let client: BeetCodeRemoteClient
     private var geometry: BeetCodeDisplayGeometry?
     private var viewSize: CGSize = .zero
@@ -912,6 +953,7 @@ final class BeetCodeRemoteInputController: ObservableObject {
     }
 
     func scroll(deltaX: Double, deltaY: Double) {
+        guard isEnabled else { return }
         guard let geometry, let rect = contentRect(for: geometry) else { return }
         let scaled = (
             dx: deltaX * geometry.displayWidth / max(rect.width, 1),
@@ -947,8 +989,7 @@ final class BeetCodeRemoteInputController: ObservableObject {
     }
 
     func stop() {
-        sendTail?.cancel()
-        sendTail = nil
+        isEnabled = false
         flushLink?.invalidate()
         flushLink = nil
         if dragLocked {
@@ -963,6 +1004,7 @@ final class BeetCodeRemoteInputController: ObservableObject {
     }
 
     private func map(_ point: CGPoint, clamp: Bool) -> CGPoint? {
+        guard isEnabled else { return nil }
         guard let geometry, let rect = contentRect(for: geometry), rect.width > 0, rect.height > 0 else { return nil }
         let clamped = CGPoint(
             x: min(max(point.x, rect.minX), rect.maxX),
@@ -1000,6 +1042,7 @@ final class BeetCodeRemoteInputController: ObservableObject {
     }
 
     private func route(_ command: BeetCodeInputCommand) {
+        guard isEnabled else { return }
         switch command {
         case .move:
             pendingMove = command

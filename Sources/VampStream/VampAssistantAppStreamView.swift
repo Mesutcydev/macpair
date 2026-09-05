@@ -1,5 +1,6 @@
 import SwiftUI
 import SharedProtocol
+import SharedModels
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -18,6 +19,11 @@ struct VampAssistantAppStreamView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var selectionRevision = UUID()
+    @State private var originalApplications: [UInt32: BeetCodeRemoteApplication] = [:]
+    @State private var resizeOperation: Task<Void, Never>?
+    @State private var isResizing = false
+    @State private var adaptive = true
+    @State private var streamRevision = 0
     @State private var viewportAspect = 9.0 / 19.5
 
     var body: some View {
@@ -44,11 +50,15 @@ struct VampAssistantAppStreamView: View {
                         // stream starts. Restart after the Mac confirms new AX
                         // bounds so rotation never squeezes or crops the newly
                         // resized window into the previous frame geometry.
-                        streamGeometryRevision: "\(selectedApplication.windowID ?? 0)-\(selectedApplication.width)-\(selectedApplication.height)",
+                        streamGeometryRevision: "\(selectedApplication.windowID ?? 0)-\(selectedApplication.width)-\(selectedApplication.height)-\(streamRevision)",
                         onClose: onClose,
                         onRefresh: onRefreshStatus,
-                        onChooseApplication: { selectionRevision = UUID(); self.selectedApplication = nil },
-                        onViewportSize: { updateViewport($0) })
+                        onChooseApplication: { selectionRevision = UUID(); self.selectedApplication = nil; Task { await loadApplications() } },
+                        onViewportSize: { updateViewport($0) },
+                        inputSuspended: isResizing,
+                        sizingNotice: errorMessage,
+                        onAdaptiveSizing: { adaptive = true },
+                        onOriginalSizing: { adaptive = false })
                 } else {
                     VampAssistantApplicationBrowser(
                         macName: session.displayName,
@@ -67,27 +77,42 @@ struct VampAssistantAppStreamView: View {
             // Seeds the aspect for the launch request, before any video exists to measure.
             // Once the stream is up, `onViewportSize` refines it to the real video area.
             .onAppear { updateViewport(proxy.size) }
-            .onChangeCompat(of: proxy.size) { updateViewport($0) }
+            .onChangeCompat(of: proxy.size) { if selectedApplication == nil { updateViewport($0) } }
             .task(id: resizeTaskID) {
-                guard let windowID = selectedApplication?.windowID else { return }
-                try? await Task.sleep(for: .milliseconds(250))
+                guard let application = selectedApplication, let windowID = application.windowID else { return }
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+                // Cancellation of the view task does not imply cancellation at the HTTP server.
+                // Drain the previous operation before sending another resize.
+                await resizeOperation?.value
                 guard !Task.isCancelled else { return }
                 let revision = selectionRevision
-                do {
-                    let resized = try await session.client.resizeApplication(
-                        windowID: windowID, clientViewportAspect: viewportAspect)
-                    guard !Task.isCancelled, revision == selectionRevision,
-                          selectedApplication?.windowID == windowID else { return }
-                    present(resized)
-                } catch {
-                    guard !Task.isCancelled, revision == selectionRevision else { return }
-                    errorMessage = "The Mac kept the closest window size: \(error.localizedDescription)"
+                let aspect = requestedAspect(for: application)
+                let operation = Task { @MainActor in
+                    isResizing = true
+                    defer { isResizing = false }
+                    do {
+                        let resized = try await session.client.resizeApplication(
+                            windowID: windowID, clientViewportAspect: aspect)
+                        guard revision == selectionRevision, selectedApplication?.windowID == windowID else { return }
+                        present(resized)
+                        updateSizingNotice(resized, requestedAspect: aspect)
+                    } catch {
+                        guard revision == selectionRevision else { return }
+                        errorMessage = "Keeping the current window size: \(error.localizedDescription)"
+                    }
                 }
+                resizeOperation = operation
+                await operation.value
             }
             .task(id: "\(session.address)-\(session.status.ready)") {
                 guard session.status.ready else { return }
-                if runningApplications.isEmpty, installedApplications.isEmpty {
-                    await loadApplications()
+                await loadApplications()
+                if errorMessage == nil, let selected = selectedApplication,
+                   !runningApplications.contains(where: { $0.windowID == selected.windowID }) {
+                    selectionRevision = UUID()
+                    selectedApplication = nil
+                    errorMessage = "That window is no longer available. Choose an open window."
                 }
             }
         }
@@ -95,7 +120,7 @@ struct VampAssistantAppStreamView: View {
     }
 
     private var resizeTaskID: String {
-        "\(selectedApplication?.windowID ?? 0)-\(viewportAspect)"
+        "\(selectedApplication?.windowID ?? 0)-\(viewportAspect)-\(adaptive)"
     }
 
     private func updateViewport(_ size: CGSize) {
@@ -150,22 +175,15 @@ struct VampAssistantAppStreamView: View {
             return
         }
         guard launchingName == nil else { return }
+        await resizeOperation?.value
         let revision = UUID()
         selectionRevision = revision
         launchingName = application.name
         errorMessage = nil
         defer { if revision == selectionRevision { launchingName = nil } }
-        if application.isRunning, let windowID = application.windowID {
-            do {
-                let resized = try await session.client.resizeApplication(
-                    windowID: windowID, clientViewportAspect: viewportAspect)
-                guard !Task.isCancelled, revision == selectionRevision else { return }
-                present(resized)
-            } catch {
-                guard !Task.isCancelled, revision == selectionRevision else { return }
-                present(application)
-                errorMessage = "The Mac kept the closest window size: \(error.localizedDescription)"
-            }
+        adaptive = true
+        if application.isRunning, application.windowID != nil {
+            present(application)
             return
         }
         guard let bundleIdentifier = application.bundleIdentifier, !bundleIdentifier.isEmpty else {
@@ -174,8 +192,7 @@ struct VampAssistantAppStreamView: View {
         }
         do {
             let launched = try await session.client.launchApplication(
-                bundleIdentifier: bundleIdentifier,
-                clientViewportAspect: viewportAspect)
+                bundleIdentifier: bundleIdentifier)
             guard !Task.isCancelled, revision == selectionRevision else { return }
             present(launched)
             let applications = try await session.client.applications()
@@ -198,10 +215,43 @@ struct VampAssistantAppStreamView: View {
         // Do not carry a previous failure into a selection that just succeeded — the browser
         // shows this banner again as soon as the user comes back from the stream.
         errorMessage = nil
+        if let id = application.windowID, originalApplications[id] == nil { originalApplications[id] = application }
+        streamRevision &+= 1
         selectedApplication = application
     }
 
+    private func requestedAspect(for application: BeetCodeRemoteApplication) -> Double {
+        guard let id = application.windowID else { return viewportAspect }
+        let original = originalApplications[id] ?? application
+        let originalAspect = max(original.width, 1) / max(original.height, 1)
+        guard adaptive else { return originalAspect }
+        // Assistant exposes aspect-only resizing, not exact dimensions or window screen ID.
+        // Use the smallest reported screen to avoid promising width the server cannot retain.
+        let widths = session.status.displays?.map(\.width) ?? []
+        let heights = session.status.displays?.map(\.height) ?? []
+        guard let width = widths.min() ?? session.status.displayWidth,
+              let height = heights.min() ?? session.status.displayHeight else {
+            return max(viewportAspect, originalAspect)
+        }
+        let size = AdaptiveWindowSizing.size(
+            original: DesktopSize(width: original.width, height: original.height),
+            available: DesktopSize(width: max(width - 48, 1), height: max(height - 76, 1)),
+            viewport: DesktopSize(width: viewportAspect, height: 1),
+            bundleIdentifier: original.bundleIdentifier ?? "")
+        return size.width / max(size.height, 1)
+    }
+
+    private func updateSizingNotice(_ application: BeetCodeRemoteApplication, requestedAspect: Double) {
+        if !adaptive {
+            errorMessage = "Original proportions restored. This Assistant API cannot restore exact window dimensions."
+        } else if abs(application.width / max(application.height, 1) - viewportAspect) > 0.05 {
+            errorMessage = "Keeping a usable app width. Zoom or pan for a closer view."
+        }
+    }
+
     private func apply(_ applications: [BeetCodeRemoteApplication]) {
+        let liveIDs = Set(applications.compactMap(\.windowID))
+        originalApplications = originalApplications.filter { liveIDs.contains($0.key) }
         runningApplications = applications.filter(\.isRunning)
         installedApplications = applications.filter { !$0.isRunning }
     }
@@ -354,7 +404,7 @@ private struct VampAssistantApplicationSection: View {
                 .padding(.horizontal, 4)
                 .padding(.top, 6)
             VStack(spacing: 10) {
-                ForEach(applications) { application in
+                ForEach(applications, id: \.streamListID) { application in
                     Button { onSelect(application) } label: {
                         VampAssistantApplicationRow(
                             name: application.name,
