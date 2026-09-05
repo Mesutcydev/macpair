@@ -105,6 +105,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.16",
+          "buildVersion": "30",
+          "marketingVersion": "0.1.16 (30)",
+          "date": "2026-09-05",
+          "localizedDescription": "Makes the whole app card tappable in Sync and Assistant, fixing taps on blank card space. Keeps portrait-only layout and direct app launching without a window popup.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-72/VampStream-iOS-0.1.16-build-30-altstore-unsigned.ipa",
+          "size": 13714845,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.15",
           "buildVersion": "29",
           "marketingVersion": "0.1.15 (29)",
