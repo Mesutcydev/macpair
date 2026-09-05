@@ -86,20 +86,6 @@ struct VampStreamRootView: View {
         .onChangeCompat(of: sessionCoordinator.phase) { phase in
             if phase == .error { connectingName = nil }
         }
-        // Match the phone orientation to the resolved Mac window instead of assuming every app
-        // is landscape. The renderer and input mapper both preserve that same aspect ratio.
-        .onChangeCompat(of: isStreamingApp) { streaming in
-            let aspect = streaming
-                ? appStream.streamedWindow.map { $0.pointWidth / max($0.pointHeight, 1) }
-                : nil
-            StreamOrientation.set(aspect: aspect, adaptive: true)
-        }
-        .onChangeCompat(of: appStream.streamedWindow) { window in
-            guard isStreamingApp else { return }
-            StreamOrientation.set(
-                aspect: window.map { $0.pointWidth / max($0.pointHeight, 1) }, adaptive: true
-            )
-        }
         .sheet(isPresented: $showVampAssistantPairing) {
             BeetCodePairingView(model: vampAssistant)
                 .presentationDetents([.large])

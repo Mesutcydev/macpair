@@ -39,3 +39,11 @@ Xcode initially failed to locate SwiftTermBuildInfoGenerator in its build cache.
 On a trusted, updated Sync host and an available Assistant host, exercise each requested app on compact, standard, and large iPhones in portrait and landscape, and on an iPad split view. Record original/accepted bounds, capture dimensions, tap alignment, text usability, and constrained-fit feedback. Confirm that Original Size (Sync) restores the same window, that transitions release held input, that rapid rotations settle, and that reconnect never chooses a different window or the desktop. Keep any real user screenshots/logs outside the repository.
 
 The temporary iOS 26.5 QA simulator was removed after testing. The pre-existing iOS 27 simulator was retained.
+
+## 0.1.14 regression correction
+
+User feedback after build 27 rejected landscape and the automatic window-choice popup. Build 28 removes all aspect-driven orientation requests and declares portrait as the sole supported orientation on iPhone and iPad, including Assistant whole-display control. A normal app tap now launches directly; explicit window choices remain under the row's long-press Windows menu.
+
+Opening an app now preserves its Mac size by default. Sync sends Original mode without a legacy aspect hint and does not resize on viewport changes in that mode. Assistant sends no resize request until the user explicitly chooses a sizing action. Proportional rendering and local zoom/pan remain available. This supersedes the default Adaptive and device-rotation behavior described above.
+
+Build 28 validation: 605 Swift tests passed, the iOS 27 simulator suite passed, and VampMiniHost/VampTerminalApp Release builds passed. The portrait test verifies the app delegate and the runtime orientation list; both iPhone/iPad lists in the generated source plist contain only portrait. Live Mac-window usability remains a separate verification gap.

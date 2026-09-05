@@ -139,7 +139,6 @@ struct BeetCodeRemoteView: View {
         .onDisappear {
             renderer.stop()
             input.stop()
-            StreamOrientation.set(aspect: nil)
         }
     }
 
@@ -356,12 +355,7 @@ struct BeetCodeRemoteView: View {
                 .onChangeCompat(of: renderer.geometry) { geometry in
                     configureInput(viewSize: proxy.size)
                     resetViewportZoom()
-                    // Match the phone to the shape the Mac actually sent. The app delegate keeps
-                    // Vamp Stream portrait until told otherwise, so without this a landscape window
-                    // — or the whole desktop — renders as a thin strip across a portrait screen.
-                    StreamOrientation.set(aspect: geometry.map {
-                        Double($0.imageWidth) / Double(max($0.imageHeight, 1))
-                    }, adaptive: windowID != nil)
+
                 }
 #if canImport(UIKit) && !os(macOS)
                 .background(AppStreamKeyboardInsetReader { inset in

@@ -73,7 +73,7 @@ final class AppStreamViewModel: ObservableObject {
     @Published private(set) var geometryRevision = 0
     @Published private(set) var sizingNotice: String?
     @Published private(set) var supportsAdaptiveSizing = false
-    @Published private(set) var sizingMode: AppWindowSizingMode = .adaptive
+    @Published private(set) var sizingMode: AppWindowSizingMode = .original
     private var viewportSize = CGSize.zero
     private var resizeTask: Task<Void, Never>?
     private var targetSendTask: Task<Void, Never>?
@@ -174,11 +174,12 @@ final class AppStreamViewModel: ObservableObject {
         }
         sizingMode = mode
         lastRequestedViewport = .zero
-        scheduleResize()
+        scheduleResize(force: true)
     }
 
-    private func scheduleResize() {
+    private func scheduleResize(force: Bool = false) {
         resizeTask?.cancel()
+        guard force || sizingMode == .adaptive else { return }
         resizeTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(300))
             guard let self, !Task.isCancelled, !self.isResizing, !self.isSuspended, self.supportsAdaptiveSizing,
@@ -295,7 +296,7 @@ final class AppStreamViewModel: ObservableObject {
         }
         resumeSelection = nil
         selectionFingerprint = environment.sessionCoordinator.connectedHostFingerprint
-        sizingMode = .adaptive
+        sizingMode = .original
         streamedApplication = application
         sendTargetRequest(application, windowID: windowID)
     }
@@ -336,7 +337,7 @@ final class AppStreamViewModel: ObservableObject {
             sessionID: sessionID,
             target: windowID.map(StreamTarget.window) ?? .application(application.bundleIdentifier),
             senderDeviceID: environment.clientIdentity.id,
-            clientViewportAspect: supportsAdaptiveSizing ? clientViewportAspect : nil,
+            clientViewportAspect: supportsAdaptiveSizing && sizingMode == .adaptive ? clientViewportAspect : nil,
             viewportWidth: viewportSize.width > 0 ? Double(viewportSize.width) : nil,
             viewportHeight: viewportSize.height > 0 ? Double(viewportSize.height) : nil,
             sizingMode: sizingMode,

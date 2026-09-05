@@ -55,13 +55,11 @@ final class AppStreamGesturePolicyTests: XCTestCase {
         XCTAssertEqual(input.commandsSent, 0, "No attachment means no commands leave the controller")
     }
 
-    func testAdaptiveOrientationAllowsDeviceRotation() {
-        StreamOrientation.set(aspect: 0.5, adaptive: true)
-        XCTAssertEqual(VampStreamAppDelegate.orientationMask, .allButUpsideDown)
-        StreamOrientation.set(aspect: 2, adaptive: true)
-        XCTAssertEqual(VampStreamAppDelegate.orientationMask, .allButUpsideDown)
-        StreamOrientation.set(aspect: nil)
-        XCTAssertEqual(VampStreamAppDelegate.orientationMask, .portrait)
+    func testStreamSupportsOnlyPortrait() {
+        let delegate = VampStreamAppDelegate()
+        XCTAssertEqual(delegate.application(.shared, supportedInterfaceOrientationsFor: nil), .portrait)
+        let info = Bundle.main.infoDictionary ?? [:]
+        XCTAssertEqual(info["UISupportedInterfaceOrientations"] as? [String], ["UIInterfaceOrientationPortrait"])
     }
 
 }

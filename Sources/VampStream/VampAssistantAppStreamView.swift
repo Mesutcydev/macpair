@@ -22,7 +22,8 @@ struct VampAssistantAppStreamView: View {
     @State private var originalApplications: [UInt32: BeetCodeRemoteApplication] = [:]
     @State private var resizeOperation: Task<Void, Never>?
     @State private var isResizing = false
-    @State private var adaptive = true
+    @State private var adaptive = false
+    @State private var sizingRequested = false
     @State private var streamRevision = 0
     @State private var viewportAspect = 9.0 / 19.5
 
@@ -57,8 +58,8 @@ struct VampAssistantAppStreamView: View {
                         onViewportSize: { updateViewport($0) },
                         inputSuspended: isResizing,
                         sizingNotice: errorMessage,
-                        onAdaptiveSizing: { adaptive = true },
-                        onOriginalSizing: { adaptive = false })
+                        onAdaptiveSizing: { adaptive = true; sizingRequested = true },
+                        onOriginalSizing: { adaptive = false; sizingRequested = true })
                 } else {
                     VampAssistantApplicationBrowser(
                         macName: session.displayName,
@@ -79,7 +80,7 @@ struct VampAssistantAppStreamView: View {
             .onAppear { updateViewport(proxy.size) }
             .onChangeCompat(of: proxy.size) { if selectedApplication == nil { updateViewport($0) } }
             .task(id: resizeTaskID) {
-                guard let application = selectedApplication, let windowID = application.windowID else { return }
+                guard sizingRequested, let application = selectedApplication, let windowID = application.windowID else { return }
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }
                 // Cancellation of the view task does not imply cancellation at the HTTP server.
@@ -120,7 +121,7 @@ struct VampAssistantAppStreamView: View {
     }
 
     private var resizeTaskID: String {
-        "\(selectedApplication?.windowID ?? 0)-\(viewportAspect)-\(adaptive)"
+        "\(selectedApplication?.windowID ?? 0)-\(adaptive ? viewportAspect : 0)-\(adaptive)-\(sizingRequested)"
     }
 
     private func updateViewport(_ size: CGSize) {
@@ -181,7 +182,8 @@ struct VampAssistantAppStreamView: View {
         launchingName = application.name
         errorMessage = nil
         defer { if revision == selectionRevision { launchingName = nil } }
-        adaptive = true
+        adaptive = false
+        sizingRequested = false
         if application.isRunning, application.windowID != nil {
             present(application)
             return

@@ -6,6 +6,14 @@ import SharedProtocol
 @MainActor
 final class AppStreamClientTests: XCTestCase {
 
+    func testOpeningModelPreservesWindowSizeByDefault() {
+        let environment = ClientAppEnvironment.makeDefault(clientName: "Portrait Regression Test")
+        let model = AppStreamViewModel(environment: environment)
+        model.updateClientViewport(size: CGSize(width: 390, height: 720))
+        XCTAssertEqual(model.sizingMode, .original)
+        XCTAssertFalse(model.isResizing)
+    }
+
     func testTerminalApplicationProfileRecognizesKnownAndNamedTerminals() {
         XCTAssertTrue(AppStreamApplicationProfile.isTerminal(
             bundleIdentifier: "com.apple.Terminal", name: "Terminal"))

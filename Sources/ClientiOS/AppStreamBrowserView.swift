@@ -23,7 +23,6 @@ struct AppStreamBrowserView: View {
     @AppStorage("vampstream.qualityMode") private var qualityMode = "quality"
     @AppStorage("vampstream.didShowGestureHelp") private var didShowGestureHelp = false
     @State private var searchText = ""
-    @State private var windowChoice: RemoteApplication?
     @State private var closeChoice: RemoteApplication?
     @State private var showsHelp = false
     @State private var videoStalled = false
@@ -126,16 +125,6 @@ struct AppStreamBrowserView: View {
             }
         }
         .sheet(isPresented: $showsHelp) { AppStreamGestureHelpView() }
-        .confirmationDialog("Choose a window", isPresented: Binding(
-            get: { windowChoice != nil }, set: { if !$0 { windowChoice = nil } }
-        ), titleVisibility: .visible) {
-            if let app = windowChoice {
-                ForEach(Array(app.windowIDs.enumerated()), id: \.element) { index, id in
-                    Button(app.windowTitles?[id] ?? "Window \(index + 1)") { open(app, windowID: id) }
-                }
-                Button("Open active window") { open(app) }
-            }
-        }
         .confirmationDialog(
             closePromptTitle,
             isPresented: Binding(
@@ -191,7 +180,6 @@ struct AppStreamBrowserView: View {
     }
     private func open(_ app: RemoteApplication, windowID: String? = nil) {
         recentStorage = encodeIDs(Array(([app.id] + decodeIDs(recentStorage).filter { $0 != app.id }).prefix(10)))
-        windowChoice = nil
         vm.select(app, windowID: windowID)
     }
     private func applyQuality() {
@@ -278,9 +266,18 @@ struct AppStreamBrowserView: View {
 
     private func appRow(_ app: RemoteApplication) -> some View {
         AppStreamApplicationRow(application: app, isFavorite: favoriteIDs.contains(app.id)) {
-            if app.windowIDs.count > 1 { windowChoice = app } else { open(app) }
+            open(app)
         }
         .contextMenu {
+            if app.windowIDs.count > 1 {
+                Menu("Windows", systemImage: "macwindow.on.rectangle") {
+                    ForEach(Array(app.windowIDs.enumerated()), id: \.element) { index, id in
+                        Button(app.windowTitles?[id] ?? "Window \(index + 1)") {
+                            open(app, windowID: id)
+                        }
+                    }
+                }
+            }
             Button(favoriteIDs.contains(app.id) ? "Remove from Favorites" : "Add to Favorites",
                    systemImage: favoriteIDs.contains(app.id) ? "star.slash" : "star") {
                 favoriteStorage = encodeIDs(favoriteIDs.contains(app.id)
@@ -351,8 +348,7 @@ struct AppStreamBrowserView: View {
 
                 if rendererVM.latestPixelBuffer != nil {
                     // The app window itself. `resizeAspect` preserves the actual window shape;
-                    // StreamOrientation chooses portrait vs landscape from that same shape so a
-                    // portrait app is not forced into a landscape canvas with side bars.
+                    // Preserve that shape inside the portrait viewport; zoom and pan stay local.
                     VideoFrameRendererView(
                         pixelBuffer: rendererVM.latestPixelBuffer,
                         displayMode: .fitDisplay,
