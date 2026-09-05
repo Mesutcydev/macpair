@@ -105,6 +105,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.11",
+          "buildVersion": "25",
+          "marketingVersion": "0.1.11 (25)",
+          "date": "2026-09-05",
+          "localizedDescription": "Adds a header control that switches paired Sync and Assistant Macs between the list and Control-style rectangular cards.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-65/VampStream-iOS-0.1.11-build-25-altstore-unsigned.ipa",
+          "size": 13591332,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.10",
           "buildVersion": "24",
           "marketingVersion": "0.1.10 (24)",
@@ -228,6 +238,16 @@
     }
   ],
   "news": [
+    {
+      "title": "Vamp Stream 0.1.11",
+      "identifier": "vamp-stream-ios-0.1.11",
+      "caption": "Switch paired Macs between the list and Control-style rectangular cards.",
+      "date": "2026-09-05",
+      "tintColor": "#6E6E73",
+      "notify": true,
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-65",
+      "appID": "com.mesutcy.remotedesktop.stream"
+    },
     {
       "title": "Vamp Stream 0.1.10",
       "identifier": "vamp-stream-ios-0.1.10",
