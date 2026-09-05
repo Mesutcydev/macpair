@@ -105,6 +105,11 @@ jobs:
           CODE_SIGNING_REQUIRED=NO
           build
 
+      - name: Generate Vamp Stream project
+        run: |
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen generate --spec vampstream-project.yml
+
       - name: Build Vamp Stream (release device slice)
         # Stream owns sources outside the shared ClientiOS SwiftPM target.
         # Compile the shipping configuration before changes reach a release tag.
