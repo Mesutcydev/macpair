@@ -121,9 +121,9 @@ final class VampStreamHomeLayoutTests: XCTestCase {
         )
     }
 
-    func testSyncPromoOpensTheLatestBuild() {
-        XCTAssertEqual(VampStreamHomeLinks.syncDownloadPage.absoluteString, "https://thevamp.app/sync/#download")
-        XCTAssertEqual(VampStreamHomeCopy.syncPromoCTA, "Download Vamp Sync")
+    func testSyncPromoOpensTheDownloadPage() {
+        XCTAssertEqual(VampStreamHomeLinks.syncDownload.absoluteString, "https://thevamp.app/sync/#download")
+        XCTAssertEqual(VampStreamHomeCopy.syncPromoCTA, "Get Vamp Sync")
         XCTAssertFalse(VampStreamHomeLayout.sections(
             source: .assistant,
             hasSyncHosts: false,
@@ -138,57 +138,32 @@ final class VampStreamHomeLayoutTests: XCTestCase {
         ).contains(.syncPromo))
     }
 
-    func testReleaseManifestPrefersTheCurrentSyncDMG() throws {
-        let json = """
-        {
-          "assets": {
-            "vamp-mini-host-dmg": {
-              "name": "VampSync-macOS-2.3.0-build-62-adhoc.dmg",
-              "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-62/VampSync-macOS-2.3.0-build-62-adhoc.dmg"
-            }
-          }
-        }
-        """.data(using: .utf8)!
-        XCTAssertEqual(
-            VampStreamReleaseDownloads.syncURL(fromReleaseManifest: json)?.absoluteString,
-            "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-62/VampSync-macOS-2.3.0-build-62-adhoc.dmg"
-        )
+    func testSyncPromoHidesAfterInstallConfirmation() {
+        XCTAssertFalse(VampStreamHomeLayout.sections(
+            source: .sync,
+            hasSyncHosts: false,
+            hasAssistants: false,
+            hasAssistantError: false,
+            showsSyncPromo: false
+        ).contains(.syncPromo))
+
+        let suite = "VampStreamSyncPromoStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        XCTAssertFalse(VampStreamSyncPromoStore.isInstalled(defaults: defaults))
+        VampStreamSyncPromoStore.setInstalled(true, defaults: defaults)
+        XCTAssertTrue(VampStreamSyncPromoStore.isInstalled(defaults: defaults))
+        XCTAssertEqual(VampStreamHomeCopy.syncPromoInstalledTitle, "Is Vamp Sync installed on your Mac?")
+        XCTAssertEqual(VampStreamHomeCopy.syncPromoInstalledYes, "Yes, it’s installed")
+        XCTAssertEqual(VampStreamHomeCopy.syncPromoInstalledNotYet, "Not yet")
     }
 
-    func testGitHubReleasesPickTheNewestSyncBuild() throws {
-        let json = """
-        [
-          {
-            "draft": false,
-            "prerelease": false,
-            "assets": [
-              {
-                "name": "VampSync-macOS-2.3.0-build-61-adhoc.dmg",
-                "browser_download_url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-61/VampSync-macOS-2.3.0-build-61-adhoc.dmg"
-              }
-            ]
-          },
-          {
-            "draft": false,
-            "prerelease": false,
-            "assets": [
-              {
-                "name": "VampSync-macOS-2.3.0-build-62-adhoc.dmg",
-                "browser_download_url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-62/VampSync-macOS-2.3.0-build-62-adhoc.dmg"
-              }
-            ]
-          }
-        ]
-        """.data(using: .utf8)!
-        XCTAssertEqual(
-            VampStreamReleaseDownloads.syncURL(fromGitHubReleases: json)?.lastPathComponent,
-            "VampSync-macOS-2.3.0-build-62-adhoc.dmg"
-        )
-    }
-
-    func testPinnedOrForeignSyncURLsAreRejected() {
-        XCTAssertNil(VampStreamReleaseDownloads.trustedSyncDownload(from: "http://github.com/Mesutcydev/vamp-suite/releases/download/x/VampSync-macOS-1.0.0-build-1-adhoc.dmg"))
-        XCTAssertNil(VampStreamReleaseDownloads.trustedSyncDownload(from: "https://evil.example/VampSync-macOS-2.3.0-build-62-adhoc.dmg"))
-        XCTAssertNil(VampStreamReleaseDownloads.trustedSyncDownload(from: "https://github.com/Mesutcydev/vamp-suite/releases/download/x/notes.txt"))
+    func testSyncConnectCardCollapsesOnlyWhenPaired() {
+        XCTAssertFalse(VampStreamSyncConnectCardStore.showsCollapsed(isPaired: false, preference: true))
+        XCTAssertFalse(VampStreamSyncConnectCardStore.showsCollapsed(isPaired: true, preference: false))
+        XCTAssertTrue(VampStreamSyncConnectCardStore.showsCollapsed(isPaired: true, preference: true))
+        XCTAssertEqual(VampStreamHomeCopy.syncConnectCollapse, "Minimize Vamp Sync connection")
+        XCTAssertEqual(VampStreamHomeCopy.syncConnectExpand, "Show Vamp Sync connection")
     }
 }

@@ -105,6 +105,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.10",
+          "buildVersion": "24",
+          "marketingVersion": "0.1.10 (24)",
+          "date": "2026-09-05",
+          "localizedDescription": "Uses the window-and-fangs mark, lets you dismiss the Sync download card, and minimizes the connect card after a host is paired.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-64/VampStream-iOS-0.1.10-build-24-altstore-unsigned.ipa",
+          "size": 13565201,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.9",
           "buildVersion": "23",
           "marketingVersion": "0.1.9 (23)",
@@ -218,6 +228,16 @@
     }
   ],
   "news": [
+    {
+      "title": "Vamp Stream 0.1.10",
+      "identifier": "vamp-stream-ios-0.1.10",
+      "caption": "New window-and-fangs icon, dismissible Sync card, and a collapsible connect card after pairing.",
+      "date": "2026-09-05",
+      "tintColor": "#6E6E73",
+      "notify": true,
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-64",
+      "appID": "com.mesutcy.remotedesktop.stream"
+    },
     {
       "title": "Vamp Stream 0.1.9",
       "identifier": "vamp-stream-ios-0.1.9",
