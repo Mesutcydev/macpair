@@ -65,6 +65,7 @@ targets:
           NSAllowsArbitraryLoads: true
         NSBonjourServices:
           - _screenharbor._tcp
+        UIRequiresFullScreen: true
         UILaunchScreen:
           UIImageName: AppBackdrop
           UIImageRespectsSafeAreaInsets: false

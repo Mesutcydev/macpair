@@ -47,3 +47,5 @@ User feedback after build 27 rejected landscape and the automatic window-choice 
 Opening an app now preserves its Mac size by default. Sync sends Original mode without a legacy aspect hint and does not resize on viewport changes in that mode. Assistant sends no resize request until the user explicitly chooses a sizing action. Proportional rendering and local zoom/pan remain available. This supersedes the default Adaptive and device-rotation behavior described above.
 
 Build 28 validation: 605 Swift tests passed, the iOS 27 simulator suite passed, and VampMiniHost/VampTerminalApp Release builds passed. The portrait test verifies the app delegate and the runtime orientation list; both iPhone/iPad lists in the generated source plist contain only portrait. Live Mac-window usability remains a separate verification gap.
+
+Simulator visual check: build 28 remained portrait after both landscape rotations, and host selection/cancellation worked. Authentication required host pairing approval, so the app launcher and ChatGPT stream could not be exercised. Portrait-only iPad support declares full-screen use, so iPad split view is not supported by this configuration.
