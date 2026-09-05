@@ -45,7 +45,12 @@ struct VampStreamConnectView: View {
     let onForgetVampAssistant: (BeetCodeRemoteSessionViewModel.SavedAssistant) -> Void
     @ObservedObject private var hostsVM: HostsListViewModel
     @AppStorage(VampStreamHostSourceStore.key) private var hostSourceRaw = ""
+    @AppStorage(VampStreamHomeCardStyleStore.key) private var homeCardStyleRaw = VampStreamHomeCardStyle.list.rawValue
     @State private var showHostSourcePicker = false
+
+    private var homeCardStyle: VampStreamHomeCardStyle {
+        VampStreamHomeCardStyle(rawValue: homeCardStyleRaw) ?? .list
+    }
 
     private var hostSource: VampStreamHostSource? {
         if anonymizeStreamPreview { return .both }
@@ -85,11 +90,18 @@ struct VampStreamConnectView: View {
         Group {
             if let hostSource {
                 VStack(alignment: .leading, spacing: 0) {
-                    VampStreamConnectHeader(source: hostSource) {
+                    VampStreamConnectHeader(
+                        source: hostSource,
+                        cardStyle: homeCardStyle,
+                        onToggleCardStyle: {
+                            homeCardStyleRaw = homeCardStyle.toggled.rawValue
+                        }
+                    ) {
                         showHostSourcePicker = true
                     }
                     VampAppStreamSection(
                         source: hostSource,
+                        cardStyle: homeCardStyle,
                         pairedAssistants: pairedVampAssistants,
                         availability: vampAssistantAvailability,
                         errorMessage: vampAssistantError,
@@ -126,6 +138,8 @@ struct VampStreamConnectView: View {
 
 private struct VampStreamConnectHeader: View {
     let source: VampStreamHostSource
+    let cardStyle: VampStreamHomeCardStyle
+    let onToggleCardStyle: () -> Void
     let onChangeHost: () -> Void
 
     var body: some View {
@@ -149,16 +163,29 @@ private struct VampStreamConnectHeader: View {
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 8) {
-                Button(action: onChangeHost) {
-                    Text(VampStreamHomeCopy.changeHost)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(PR.fg)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .prGlassSurface(in: Capsule(style: .continuous))
+                HStack(spacing: 8) {
+                    Button(action: onToggleCardStyle) {
+                        Image(systemName: cardStyle.toggleSystemImage)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(PR.fg)
+                            .frame(width: 28, height: 28)
+                            .prGlassSurface(in: Circle(), isInteractive: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(
+                        Text(cardStyle == .grid ? VampStreamHomeCopy.showList : VampStreamHomeCopy.showGrid)
+                    )
+                    Button(action: onChangeHost) {
+                        Text(VampStreamHomeCopy.changeHost)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(PR.fg)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .prGlassSurface(in: Capsule(style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Choose Vamp Sync, Vamp Assistant, or both")
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint("Choose Vamp Sync, Vamp Assistant, or both")
                 VampStreamVersionBadge()
             }
         }
@@ -251,6 +278,7 @@ private struct VampAssistantRemoteControlSection: View {
 
 private struct VampAppStreamSection: View {
     let source: VampStreamHostSource
+    let cardStyle: VampStreamHomeCardStyle
     let pairedAssistants: [BeetCodeRemoteSessionViewModel.SavedAssistant]
     let availability: [String: BeetCodeRemoteSessionViewModel.Availability]
     let errorMessage: String?
@@ -285,6 +313,7 @@ private struct VampAppStreamSection: View {
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 28)
+            .animation(.easeOut(duration: 0.2), value: cardStyle)
         }
         .refreshable {
             if source.showsSync {
@@ -306,8 +335,16 @@ private struct VampAppStreamSection: View {
         case .syncMacs:
             VStack(alignment: .leading, spacing: 12) {
                 VampStreamSectionLabel(title: VampStreamHomeCopy.syncMacsHeading)
-                ForEach(anonymizeStreamPreview ? Array(legacyHosts.prefix(1)) : legacyHosts) { host in
-                    VampHostMacCard(host: host, onConnect: { onConnect(host) })
+                if cardStyle == .grid {
+                    LazyVGrid(columns: homeGridColumns, spacing: 12) {
+                        ForEach(visibleSyncHosts) { host in
+                            VampHostMacTile(host: host, onConnect: { onConnect(host) })
+                        }
+                    }
+                } else {
+                    ForEach(visibleSyncHosts) { host in
+                        VampHostMacCard(host: host, onConnect: { onConnect(host) })
+                    }
                 }
             }
         case .syncEmptyHint:
@@ -328,18 +365,38 @@ private struct VampAppStreamSection: View {
         case .assistantMacs:
             VStack(alignment: .leading, spacing: 12) {
                 VampStreamSectionLabel(title: VampStreamHomeCopy.assistantMacsHeading)
-                ForEach(pairedAssistants) { assistant in
-                    VampAssistantMacCard(
-                        assistant: assistant,
-                        availability: availability[assistant.address] ?? .checking,
-                        onRemoteControl: {},
-                        onAppStream: { onAppStream(assistant) },
-                        showsRemoteControl: false,
-                        showsAppStream: true,
-                        onForget: { onForget(assistant) })
+                if cardStyle == .grid {
+                    LazyVGrid(columns: homeGridColumns, spacing: 12) {
+                        ForEach(pairedAssistants) { assistant in
+                            VampAssistantMacTile(
+                                assistant: assistant,
+                                availability: availability[assistant.address] ?? .checking,
+                                onAppStream: { onAppStream(assistant) },
+                                onForget: { onForget(assistant) })
+                        }
+                    }
+                } else {
+                    ForEach(pairedAssistants) { assistant in
+                        VampAssistantMacCard(
+                            assistant: assistant,
+                            availability: availability[assistant.address] ?? .checking,
+                            onRemoteControl: {},
+                            onAppStream: { onAppStream(assistant) },
+                            showsRemoteControl: false,
+                            showsAppStream: true,
+                            onForget: { onForget(assistant) })
+                    }
                 }
             }
         }
+    }
+
+    private var visibleSyncHosts: [DiscoveredHostRow] {
+        anonymizeStreamPreview ? Array(legacyHosts.prefix(1)) : legacyHosts
+    }
+
+    private var homeGridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 146, maximum: 220), spacing: 12)]
     }
 
     private func connectByAddress() {
@@ -829,6 +886,116 @@ private struct VampHostConnectionSection: View {
             .refreshable { await hostsVM.refresh() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+private struct VampHostMacTile: View {
+    let host: DiscoveredHostRow
+    let onConnect: () -> Void
+
+    var body: some View {
+        Button(action: onConnect) {
+            VStack(spacing: 12) {
+                Image(systemName: host.isTerminalOnlyHost ? "terminal" : "laptopcomputer")
+                    .font(.system(size: 44, weight: .regular))
+                    .foregroundStyle(host.isAvailable ? PR.fg : PR.dim)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 4)
+                VStack(spacing: 3) {
+                    Text(anonymizeStreamPreview ? "Your Mac" : host.title)
+                        .font(.headline)
+                        .foregroundStyle(PR.fg)
+                        .lineLimit(1)
+                    Text(anonymizeStreamPreview ? "Private network" : host.endpoint.hostname)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(PR.dim)
+                        .lineLimit(1)
+                }
+                Text(host.isTerminalOnlyHost ? "unavailable" : (host.isAvailable ? "browse apps" : "offline"))
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(host.isTerminalOnlyHost || !host.isAvailable ? PR.dim : PR.fg)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background((host.isTerminalOnlyHost || !host.isAvailable ? PR.dim : PR.fg).opacity(0.12), in: Capsule())
+            }
+            .frame(maxWidth: .infinity, minHeight: 148)
+            .padding(.vertical, 18)
+            .padding(.horizontal, 10)
+            .vampHomeLiveGlass(
+                in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous),
+                phaseOffset: 1.3
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PRGlassPressButtonStyle())
+        .disabled(host.isTerminalOnlyHost)
+        .accessibilityLabel(anonymizeStreamPreview ? "Your Mac" : host.title)
+        .accessibilityValue(host.isTerminalOnlyHost ? "Terminal-only host" : "Ready to browse apps")
+    }
+}
+
+private struct VampAssistantMacTile: View {
+    let assistant: BeetCodeRemoteSessionViewModel.SavedAssistant
+    let availability: BeetCodeRemoteSessionViewModel.Availability
+    let onAppStream: () -> Void
+    let onForget: () -> Void
+
+    var body: some View {
+        Button(action: onAppStream) {
+            VStack(spacing: 12) {
+                Image(systemName: "laptopcomputer")
+                    .font(.system(size: 44, weight: .regular))
+                    .foregroundStyle(availability == .reachable ? PR.fg : PR.dim)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 4)
+                VStack(spacing: 3) {
+                    Text(tileTitle)
+                        .font(.headline)
+                        .foregroundStyle(PR.fg)
+                        .lineLimit(1)
+                    Text(assistant.address)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(PR.dim)
+                        .lineLimit(1)
+                }
+                Text(availabilityLabel)
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(PR.fg2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(PR.fg.opacity(0.12), in: Capsule())
+            }
+            .frame(maxWidth: .infinity, minHeight: 148)
+            .padding(.vertical, 18)
+            .padding(.horizontal, 10)
+            .vampHomeLiveGlass(
+                in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous),
+                phaseOffset: 2.1
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PRGlassPressButtonStyle())
+        .contextMenu {
+            Button("Forget this Mac", role: .destructive, action: onForget)
+        }
+        .accessibilityLabel("\(assistant.displayName), \(assistant.address)")
+    }
+
+    private var tileTitle: String {
+        guard assistant.hasGenericDisplayName else { return assistant.displayName }
+        switch assistant.connectionKind {
+        case .localNetwork: return "Local Mac"
+        case .tailscale: return "Tailscale Mac"
+        case .privateNetwork: return "Private Mac"
+        }
+    }
+
+    private var availabilityLabel: String {
+        switch availability {
+        case .reachable: return "stream"
+        case .unavailable: return "offline"
+        case .checking: return "checking"
+        }
     }
 }
 

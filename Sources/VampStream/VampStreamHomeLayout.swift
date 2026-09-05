@@ -72,6 +72,31 @@ enum VampStreamSyncConnectCardStore {
     }
 }
 
+enum VampStreamHomeCardStyle: String, CaseIterable, Equatable {
+    case list
+    case grid
+
+    var toggled: VampStreamHomeCardStyle {
+        self == .list ? .grid : .list
+    }
+
+    var toggleSystemImage: String {
+        self == .grid ? "list.bullet" : "square.grid.2x2"
+    }
+}
+
+enum VampStreamHomeCardStyleStore {
+    static let key = "vampstream.homeCardStyle"
+
+    static func load(defaults: UserDefaults = .standard) -> VampStreamHomeCardStyle {
+        defaults.string(forKey: key).flatMap(VampStreamHomeCardStyle.init(rawValue:)) ?? .list
+    }
+
+    static func save(_ style: VampStreamHomeCardStyle, defaults: UserDefaults = .standard) {
+        defaults.set(style.rawValue, forKey: key)
+    }
+}
+
 /// Canonical order and copy for Vamp Stream's connect home.
 /// The home is built from the host the user picked at onboarding.
 enum VampStreamHomeLayout {
@@ -123,6 +148,8 @@ enum VampStreamHomeCopy {
     static let headerDetailSync = "Connect with Vamp Sync, then open and control one app at a time."
     static let headerDetailAssistant = "Pair Vamp Assistant, then open and control one app at a time."
     static let changeHost = "Change host"
+    static let showGrid = "Show rectangular cards"
+    static let showList = "Show list cards"
 
     static let hostOnboardingTitle = "How do you connect?"
     static let hostOnboardingDetail = "Pick the Mac host you use. You can change this later."

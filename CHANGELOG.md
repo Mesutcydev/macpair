@@ -32,6 +32,7 @@ their original product names. The format follows
 - Stream offers a dismissible Vamp Sync card that opens the Sync download page. Confirming Sync is installed hides the card.
 - After a Sync host is paired, the connect card can be minimized from the corner so the home list stays primary.
 - Vamp Sync and Vamp Stream use the window-and-fangs mark for the Sync tray, Sync panel, and Stream app icon.
+- Stream’s connect home can switch Macs to a Control-style rectangular card grid.
 - Update SwiftTerm to 1.20.0 and vendored Opus to 1.6.1, with updated provenance and SBOM metadata.
 - Cache app icons, use lazy browser sections, respect system appearance in the Assistant browser and reduce routine stream logging.
 
