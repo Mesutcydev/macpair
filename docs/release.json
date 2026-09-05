@@ -4,10 +4,10 @@
     "suite": "Mesutcydev/vamp-suite",
     "assistant": "Mesutcydev/vamp-assistant"
   },
-  "tag": "vamp-suite-2.3.0-build-72",
-  "name": "Vamp Stream 0.1.16 \u2014 full-card app launching",
-  "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-72",
-  "published_at": "2026-09-05T16:58:22.660547Z",
+  "tag": "vamp-suite-2.3.0-build-73",
+  "name": "Vamp Stream 0.1.17 \u2014 clearer controls and smoother adjustment",
+  "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-73",
+  "published_at": "2026-09-05T17:19:33Z",
   "assets": {
     "vamp-terminal-ios": {
       "name": "VampTerminal-iOS-2.3.0-build-50-altstore-unsigned.ipa",
@@ -42,12 +42,12 @@
       "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampControl-iOS-2.3.0-build-47-altstore-unsigned.ipa.sha256"
     },
     "vamp-stream-ios": {
-      "name": "VampStream-iOS-0.1.16-build-30-altstore-unsigned.ipa",
-      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-72/VampStream-iOS-0.1.16-build-30-altstore-unsigned.ipa",
-      "label": "0.1.16 \u00b7 build 30",
-      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-72",
-      "tag": "vamp-suite-2.3.0-build-72",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-72/VampStream-iOS-0.1.16-build-30-altstore-unsigned.ipa.sha256"
+      "name": "VampStream-iOS-0.1.17-build-31-altstore-unsigned.ipa",
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-73/VampStream-iOS-0.1.17-build-31-altstore-unsigned.ipa",
+      "label": "0.1.17 \u00b7 build 31",
+      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-73",
+      "tag": "vamp-suite-2.3.0-build-73",
+      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-73/VampStream-iOS-0.1.17-build-31-altstore-unsigned.ipa.sha256"
     },
     "vamp-assistant-macos": {
       "name": "Vamp-Assistant-0.10.29-build-82-preview.dmg",

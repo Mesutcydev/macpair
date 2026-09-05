@@ -105,6 +105,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.17",
+          "buildVersion": "31",
+          "marketingVersion": "0.1.17 (31)",
+          "date": "2026-09-05",
+          "localizedDescription": "Clearer controls help with a reachable Done button, one-finger picture adjustment, and recovery from a stuck connection spinner. Portrait-only with direct app launching and opt-in Mac resizing.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-73/VampStream-iOS-0.1.17-build-31-altstore-unsigned.ipa",
+          "size": 13730464,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.16",
           "buildVersion": "30",
           "marketingVersion": "0.1.16 (30)",
