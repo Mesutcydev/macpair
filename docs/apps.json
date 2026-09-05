@@ -105,6 +105,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.9",
+          "buildVersion": "23",
+          "marketingVersion": "0.1.9 (23)",
+          "date": "2026-09-05",
+          "localizedDescription": "Adds a host picker for Vamp Sync and Vamp Assistant, a quieter connect home, and a card that opens the latest Vamp Sync download.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-63/VampStream-iOS-0.1.9-build-23-altstore-unsigned.ipa",
+          "size": 14817479,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.8",
           "buildVersion": "22",
           "marketingVersion": "0.1.8 (22)",
@@ -208,6 +218,16 @@
     }
   ],
   "news": [
+    {
+      "title": "Vamp Stream 0.1.9",
+      "identifier": "vamp-stream-ios-0.1.9",
+      "caption": "Choose Sync or Assistant on home, and download the latest Vamp Sync build.",
+      "date": "2026-09-05",
+      "tintColor": "#6E6E73",
+      "notify": true,
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-63",
+      "appID": "com.mesutcy.remotedesktop.stream"
+    },
     {
       "title": "Vamp Stream 0.1.8",
       "identifier": "vamp-stream-ios-0.1.8",

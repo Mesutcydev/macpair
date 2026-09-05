@@ -4,10 +4,10 @@
     "suite": "Mesutcydev/vamp-suite",
     "assistant": "Mesutcydev/vamp-assistant"
   },
-  "tag": "vamp-suite-2.3.0-build-62",
-  "name": "Restore app icons and stabilize Stream interaction",
-  "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-62",
-  "published_at": "2026-09-04T21:25:50Z",
+  "tag": "vamp-suite-2.3.0-build-63",
+  "name": "Vamp Stream 0.1.9",
+  "url": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-63",
+  "published_at": "2026-09-05T10:33:53Z",
   "assets": {
     "vamp-terminal-ios": {
       "name": "VampTerminal-iOS-2.3.0-build-50-altstore-unsigned.ipa",
@@ -42,12 +42,12 @@
       "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-55/VampControl-iOS-2.3.0-build-47-altstore-unsigned.ipa.sha256"
     },
     "vamp-stream-ios": {
-      "name": "VampStream-iOS-0.1.8-build-22-altstore-unsigned.ipa",
-      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-62/VampStream-iOS-0.1.8-build-22-altstore-unsigned.ipa",
-      "label": "0.1.8 \u00b7 build 22",
-      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-62",
-      "tag": "vamp-suite-2.3.0-build-62",
-      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-62/VampStream-iOS-0.1.8-build-22-altstore-unsigned.ipa.sha256"
+      "name": "VampStream-iOS-0.1.9-build-23-altstore-unsigned.ipa",
+      "url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-63/VampStream-iOS-0.1.9-build-23-altstore-unsigned.ipa",
+      "label": "0.1.9 \u00b7 build 23",
+      "releaseUrl": "https://github.com/Mesutcydev/vamp-suite/releases/tag/vamp-suite-2.3.0-build-63",
+      "tag": "vamp-suite-2.3.0-build-63",
+      "sha256Url": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-63/VampStream-iOS-0.1.9-build-23-altstore-unsigned.ipa.sha256"
     },
     "vamp-assistant-macos": {
       "name": "Vamp-Assistant-0.10.29-build-82-preview.dmg",
