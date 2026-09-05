@@ -105,6 +105,16 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.1.15",
+          "buildVersion": "29",
+          "marketingVersion": "0.1.15 (29)",
+          "date": "2026-09-05",
+          "localizedDescription": "Matching Fit window and Larger text controls for Sync and Assistant, zoom preserved across keyboard/layout changes, and safer sizing requests that keep the latest choice. Portrait-only with opt-in Mac resizing.",
+          "downloadURL": "https://github.com/Mesutcydev/vamp-suite/releases/download/vamp-suite-2.3.0-build-71/VampStream-iOS-0.1.15-build-29-altstore-unsigned.ipa",
+          "size": 13714247,
+          "minOSVersion": "18.0"
+        },
+        {
           "version": "0.1.14",
           "buildVersion": "28",
           "marketingVersion": "0.1.14 (28)",
