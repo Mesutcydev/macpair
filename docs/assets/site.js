@@ -247,8 +247,8 @@
   "ux.assistantCompat": "Stream, uygulama penceresi veya tam ekran için Assistant’ın Remote Sessions özelliğiyle doğrudan eşleşebilir. Assistant’ta Remote Sessions’ı etkinleştir ve onun QR koduyla eşleştir. Bu isteğe bağlıdır; uygulama penceresi paylaşmak için Sync yeterli.",
   "ux.streamInstall": "iPhone veya iPad için Vamp Stream’i yeniden imzala, ardından Mac’ine Vamp Sync kur.",
   "ux.streamDownloads": "Stream ve Sync’i indir.",
-  "ux.assistantStandalone": "Assistant bağımsız çalışır. Sync gerekmez. Önce Mac uygulamasını kur; uzaktan erişim istiyorsan kendi iOS istemcisini ekle.",
-  "ux.assistantDownloads": "Mac’te başla. İstersen mobili ekle."
+  "ux.assistantStandalone": "Assistant bağımsız çalışır. Sync gerekmez.",
+  "ux.assistantDownloads": "Mac’te başla."
 });
   Object.assign(translations.tr, {"ux.connectionDetails": "Bağlantı ve gizlilik ayrıntıları", "ux.streamVerify": "Sync’te onaylamadan önce cihazın tam parmak izini iki cihazda karşılaştır.", "ux.streamSelect": "Kullanmak istediğin Mac uygulama penceresini seç."});
   Object.assign(translations.tr, {
@@ -315,7 +315,52 @@
   "ai.homeCopy": "Yaz ve araştır, kod geliştir ve incele ya da işi dört uzman bota ver. Kendi modellerini, sağlayıcılarını, becerilerini ve sohbet geçmişini kullan. Yerleşik tarayıcı ve iOS Simulator ile çalış; ardından oturumlarını telefonundan takip et ve işleri onayla. Sync gerekmez.",
   "ai.heroAI": "AI mı arıyorsun? Vamp Assistant ile tanış →"
 });
-  Object.assign(translations.tr, {"ai.account": "ChatGPT hesabını bağla", "ai.accountCopy": "Assistant, yerel Codex app-server üzerinden hesapla oturum açmayı destekler. Kullanılabilir hesap modelleri, sohbet sürekliliği ve durdurma kontrolleriyle yerel ve API modellerinin yanında görünür. Çalışan bir yerel Codex kurulumu ve uygun hesap erişimi gerekir."});
+  Object.assign(translations.tr, {"ai.account": "ChatGPT’yi bağla", "ai.accountCopy": "Assistant, yerel Codex app-server üzerinden hesapla oturum açmayı destekler. Kullanılabilir hesap modelleri, sohbet sürekliliği ve durdurma kontrolleriyle yerel ve API modellerinin yanında görünür. Çalışan bir yerel Codex kurulumu ve uygun hesap erişimi gerekir."});
+  Object.assign(translations.tr, {
+    "ai.hero": "Mac’inde yaz, araştır ve yazılım geliştir. Yerel model veya kendi sağlayıcınla çalış; iPhone veya iPad’den devam et.",
+    "assistant.iosCompanion": "iOS eşlikçisini al",
+    "assistant.statLocalLabel": "Yerel",
+    "assistant.statModels": "Bu Mac’te",
+    "assistant.statKeysLabel": "Senin anahtarların",
+    "assistant.statProviders": "Keychain’de kalır",
+    "assistant.statBots": "uzman bot",
+    "assistant.statAwayLabel": "Uzakta",
+    "assistant.statRemotes": "iPhone · iPad · tarayıcı",
+    "assistant.bentoTitle": "Tek uygulama, her türlü iş.",
+    "assistant.bentoLead": "Sohbet et, gezin, çalışan bir derlemeyi kontrol et ve aynı işe iPhone veya iPad’den devam et.",
+    "assistant.bentoChatLab": "Sohbet",
+    "assistant.bentoChatTitle": "Bir soruyla başla.",
+    "assistant.bentoChatCopy": "Proje açmadan yaz, araştır ve kaydet.",
+    "assistant.bentoBrowserLab": "Tarayıcı",
+    "assistant.browserToolTitle": "Canlı sayfayı incele.",
+    "assistant.browserToolCopy": "Gerçek siteleri aynı çalışma alanında aç, gezin ve doğrula.",
+    "assistant.bentoSimLab": "Simülatör",
+    "assistant.simTitle": "Derlemeyi çalışırken gör.",
+    "assistant.simCopy": "Aygıt başlat, uygulama yükle ve görünen sonucu kontrol et.",
+    "assistant.bentoIosLab": "iPhone · iPad",
+    "assistant.bentoIosTitle": "Mac’ini yanına al.",
+    "assistant.bentoIosCopy": "Yerel eşlikçiyi eşle. Kontrol Mac’te kalır.",
+    "ai.jobsTitle": "Her görev. Tek çalışma alanı.",
+    "ai.jobsLead": "Sohbetle başla, model seç, proje aç, işi bir bota ver veya telefonundan devam et.",
+    "ai.jobChat": "Düşünmeyi bitir.",
+    "ai.jobChatCopy": "Yaz, kaynaklarla araştır ve içe aktarılan sohbet geçmişini tek kitaplıkta tut.",
+    "ai.jobModels": "Senin modelin. Senin seçimin.",
+    "ai.jobModelsCopy": "MLX veya GGUF’u yerelde çalıştır, kendi anahtarını getir veya Codex üzerinden oturum aç.",
+    "ai.jobCode": "Gerçek yazılım geliştir.",
+    "ai.jobCodeCopy": "Çalışma alanı aç, planları incele, değişiklikleri doğrula, MCP veya OpenCode becerilerini bağla.",
+    "ai.jobBots": "Dört uzman.",
+    "ai.jobBotsCopy": "Researcher, Builder, Reviewer ve Navigator; her birinin özel tarayıcı profili vardır.",
+    "ai.jobMobile": "Masadan uzakta çalış.",
+    "ai.jobMobileCopy": "iPhone, iPad veya güvenilir bir tarayıcıyı eşle. Yetki Mac’te kalır.",
+    "ai.history": "Geçmişini getir.",
+    "ai.historyShort": "Claude, Codex ve Cursor sohbetlerini içe aktar. Tek kitaplıkta ara, sabitle ve dışarı aktar.",
+    "ai.accountShort": "Yerel Codex kurulumu varsa hesap modelleri yerel ve API modellerinin yanında görünür.",
+    "ai.ship": "Derlemeden cihaza.",
+    "ai.shipShort": "Arşivle, IPA dışarı aktar veya yapılandırdığın imzalama araçlarıyla bağlı cihaza kur.",
+    "ai.localApi": "Yerel modeli paylaş.",
+    "ai.localApiShort": "Yüklü modeli loopback üzerinde OpenAI uyumlu istemcilere sun.",
+    "ai.botDetail": "Botlar özel tarayıcı profilleri tutar. Bot Konsolu’ndan izle, sıraya al veya yönlendir."
+  });
   let currentLanguage = localStorage.getItem('vamp-lang') === 'tr' ? 'tr' : 'en';
   const originalText = new Map();
   document.querySelectorAll('[data-i18n]').forEach((element) => originalText.set(element, element.innerHTML));
