@@ -42,6 +42,7 @@ struct BeetCodeRemoteView: View {
     let onAdaptiveSizing: (() -> Void)?
     let onOriginalSizing: (() -> Void)?
     @State private var videoStalled = true
+    @State private var startedStreamTaskID: String?
     @StateObject private var renderer: BeetCodeVideoRendererViewModel
     @StateObject private var input: BeetCodeRemoteInputController
     @State private var keyboardActive = false
@@ -116,6 +117,7 @@ struct BeetCodeRemoteView: View {
                 resolution: resolution,
                 displayID: windowID == nil ? selectedDisplayID : nil,
                 windowID: windowID)
+            startedStreamTaskID = streamTaskID
         }
         .onChangeCompat(of: canInteract) { enabled in input.isEnabled = enabled }
         .task {
@@ -143,7 +145,8 @@ struct BeetCodeRemoteView: View {
     }
 
     private var canInteract: Bool {
-        !inputSuspended && !videoStalled && scenePhase == .active && session.status.ready
+        startedStreamTaskID == streamTaskID
+            && !inputSuspended && !videoStalled && scenePhase == .active && session.status.ready
             && renderer.isReceiving && renderer.latestPixelBuffer != nil
     }
 
@@ -216,12 +219,6 @@ struct BeetCodeRemoteView: View {
                 // tall Mac window and also reports an oversized viewport back to the Mac.
                 appStreamTopBar
                     .background(Color.black)
-                if onAdaptiveSizing != nil {
-                    HStack {
-                        Button("Adaptive") { onAdaptiveSizing?() }
-                        Button("Original proportions") { onOriginalSizing?() }
-                    }.font(.caption).padding(6)
-                }
                 if onAdaptiveSizing != nil {
                     Text(sizingNotice ?? " ").font(.caption).foregroundStyle(.white)
                         .lineLimit(2).padding(.horizontal, 6).frame(maxWidth: .infinity).frame(height: 36)
@@ -349,12 +346,14 @@ struct BeetCodeRemoteView: View {
                 }
                 .onChangeCompat(of: proxy.size) {
                     configureInput(viewSize: $0)
-                    resetViewportZoom()
+                    viewportOffset = clampedViewportOffset(viewportOffset, zoom: viewportZoom, in: $0)
                     if !keyboardActive { onViewportSize?($0) }
                 }
                 .onChangeCompat(of: renderer.geometry) { geometry in
                     configureInput(viewSize: proxy.size)
-                    resetViewportZoom()
+                    if geometry != nil {
+                        viewportOffset = clampedViewportOffset(viewportOffset, zoom: viewportZoom, in: proxy.size)
+                    }
 
                 }
 #if canImport(UIKit) && !os(macOS)
@@ -402,6 +401,25 @@ struct BeetCodeRemoteView: View {
             .accessibilityLabel(adjustsViewport ? "Done adjusting" : "Adjust view")
             .accessibilityHint("Switch between controlling the Mac and moving or zooming the picture")
             Menu {
+                Section("View on this device") {
+                    Button("Fit window", systemImage: "arrow.down.right.and.arrow.up.left") {
+                        if input.dragLocked { input.toggleDragLockCurrentPointer() }
+                        resetViewportZoom()
+                        adjustsViewport = false
+                    }
+                    Button("Larger text (2×)", systemImage: "plus.magnifyingglass") {
+                        if input.dragLocked { input.toggleDragLockCurrentPointer() }
+                        viewportZoom = 2
+                        viewportOffset = .zero
+                        adjustsViewport = true
+                    }
+                }
+                if onAdaptiveSizing != nil {
+                    Section("Mac window") {
+                        Button("Adaptive resize") { onAdaptiveSizing?() }
+                        Button("Original proportions") { onOriginalSizing?() }
+                    }
+                }
                 Picker("Resolution", selection: $resolution) {
                     ForEach(StreamResolution.allCases) { option in Text(option.title).tag(option.rawValue) }
                 }
@@ -432,7 +450,7 @@ struct BeetCodeRemoteView: View {
                         resetViewportZoom()
                     }
                 } label: {
-                    Image(systemName: "arrow.counterclockwise")
+                    Text("1×")
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 13)
                         .padding(.vertical, 8)

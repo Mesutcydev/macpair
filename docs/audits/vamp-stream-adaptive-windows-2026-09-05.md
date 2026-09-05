@@ -49,3 +49,15 @@ Opening an app now preserves its Mac size by default. Sync sends Original mode w
 Build 28 validation: 605 Swift tests passed, the iOS 27 simulator suite passed, and VampMiniHost/VampTerminalApp Release builds passed. The portrait test verifies the app delegate and the runtime orientation list; both iPhone/iPad lists in the generated source plist contain only portrait. Live Mac-window usability remains a separate verification gap.
 
 Simulator visual check: build 28 remained portrait after both landscape rotations, and host selection/cancellation worked. Authentication required host pairing approval, so the app launcher and ChatGPT stream could not be exercised. Portrait-only iPad support declares full-screen use, so iPad split view is not supported by this configuration.
+
+## 0.1.15: consistent viewing controls
+
+Sync and Assistant now offer the same local Fit window and Larger text (2×) actions in Stream options. Local viewing actions release held drag input; the larger-text action enters view adjustment mode for panning. Assistant's separate resize-button row is removed, with host resizing placed in the same menu section as Sync. API-specific recovery labels remain truthful: Sync restores Original Size while Assistant can restore only Original proportions.
+
+Zoom survives viewport/keyboard layout changes and same-window geometry updates; offsets are clamped to the current picture bounds. Selecting another Sync window resets zoom. Original Size requests are no longer canceled by unrelated viewport updates while Original mode is active.
+
+Validation: 605 Swift tests passed, the iOS 27 simulator suite passed, and all three active Release builds passed. Authenticated live-stream interaction on both host paths is still unverified. These changes are packaged in 0.1.15/build 29.
+
+Sizing requests now retain a newer explicit choice while an older request is in flight. Both paths use a testable latest-intent token. Assistant ignores superseded sizing replies, gates input through the debounce/queue, revalidates bounds after resize failures, and requires the capture to match the current stream configuration before interaction. The updated Swift suite passes 607 tests.
+
+Revalidated live-test availability: Assistant is now listening, but the simulator has no saved Assistant trust and Sync still requires pairing approval. A physical iPhone is available to devicectl and has Stream 0.1.11/build25 installed; available UI automation does not expose physical iPhone control. No pairing approval, credential copying, signing changes, or physical-device installation was performed. Live ChatGPT and multi-app acceptance remain outstanding on both hosts.

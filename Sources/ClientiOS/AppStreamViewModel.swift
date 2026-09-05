@@ -33,6 +33,30 @@ enum AppStreamApplicationProfile {
 
 }
 
+/// Tracks the latest explicit sizing intent independently of the in-flight transport request.
+struct AppStreamSizingIntent {
+    private(set) var generation: UUID?
+    private(set) var pending = false
+
+    @discardableResult mutating func request() -> UUID {
+        let token = UUID()
+        generation = token
+        pending = true
+        return token
+    }
+
+    mutating func markSent(_ token: UUID) {
+        if accepts(token) { pending = false }
+    }
+
+    mutating func cancel() {
+        generation = nil
+        pending = false
+    }
+
+    func accepts(_ token: UUID) -> Bool { generation == token }
+}
+
 /// Client-side driver for App Streaming. Self-contained: it consumes the broadcast
 /// `receiveDataMessages()` stream directly (like `ClientFileTransferManager`), so it needs no
 /// changes to `ClientSessionCoordinator`'s dispatch. It sends `applicationList` /
@@ -75,6 +99,7 @@ final class AppStreamViewModel: ObservableObject {
     @Published private(set) var supportsAdaptiveSizing = false
     @Published private(set) var sizingMode: AppWindowSizingMode = .original
     private var viewportSize = CGSize.zero
+    private var sizingIntent = AppStreamSizingIntent()
     private var resizeTask: Task<Void, Never>?
     private var targetSendTask: Task<Void, Never>?
     private var lastControlRequestAt: TimeInterval?
@@ -173,19 +198,20 @@ final class AppStreamViewModel: ObservableObject {
             return
         }
         sizingMode = mode
+        sizingIntent.request()
         lastRequestedViewport = .zero
         scheduleResize(force: true)
     }
 
     private func scheduleResize(force: Bool = false) {
+        guard force || sizingMode == .adaptive || sizingIntent.pending else { return }
         resizeTask?.cancel()
-        guard force || sizingMode == .adaptive else { return }
         resizeTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(300))
             guard let self, !Task.isCancelled, !self.isResizing, !self.isSuspended, self.supportsAdaptiveSizing,
                   case .streaming = self.status, let window = self.streamedWindow,
                   let app = self.streamedApplication,
-                  self.lastRequestedViewport != self.viewportSize,
+                  (self.sizingIntent.pending || self.lastRequestedViewport != self.viewportSize),
                   self.environment.sessionCoordinator.hostLockState == .unlockedActiveSession else { return }
             self.isResizing = true
             self.sendTargetRequest(app, windowID: window.windowID)
@@ -297,6 +323,7 @@ final class AppStreamViewModel: ObservableObject {
         resumeSelection = nil
         selectionFingerprint = environment.sessionCoordinator.connectedHostFingerprint
         sizingMode = .original
+        sizingIntent.cancel()
         streamedApplication = application
         sendTargetRequest(application, windowID: windowID)
     }
@@ -332,6 +359,7 @@ final class AppStreamViewModel: ObservableObject {
         pendingRequestID = UUID()
         if !isResizing { status = .launching(name: application.name) }
         lastRequestedViewport = viewportSize
+        if let token = sizingIntent.generation { sizingIntent.markSent(token) }
         armLaunchTimeout(name: application.name)
         let request = StreamTargetSwitchRequestMessage(
             sessionID: sessionID,
@@ -383,6 +411,7 @@ final class AppStreamViewModel: ObservableObject {
     }
 
     func backToApps() {
+        sizingIntent.cancel()
         targetSendTask?.cancel()
         forgetSelection()
         resizeTask?.cancel()

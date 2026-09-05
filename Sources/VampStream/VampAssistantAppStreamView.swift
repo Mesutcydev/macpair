@@ -22,6 +22,9 @@ struct VampAssistantAppStreamView: View {
     @State private var originalApplications: [UInt32: BeetCodeRemoteApplication] = [:]
     @State private var resizeOperation: Task<Void, Never>?
     @State private var isResizing = false
+    @State private var sizingRecoveryFailed = false
+    @State private var sizingIntent = AppStreamSizingIntent()
+    @State private var sizingActionID = UUID()
     @State private var adaptive = false
     @State private var sizingRequested = false
     @State private var streamRevision = 0
@@ -56,10 +59,10 @@ struct VampAssistantAppStreamView: View {
                         onRefresh: onRefreshStatus,
                         onChooseApplication: { selectionRevision = UUID(); self.selectedApplication = nil; Task { await loadApplications() } },
                         onViewportSize: { updateViewport($0) },
-                        inputSuspended: isResizing,
+                        inputSuspended: isResizing || sizingRecoveryFailed,
                         sizingNotice: errorMessage,
-                        onAdaptiveSizing: { adaptive = true; sizingRequested = true },
-                        onOriginalSizing: { adaptive = false; sizingRequested = true })
+                        onAdaptiveSizing: { adaptive = true; sizingRequested = true; sizingActionID = UUID() },
+                        onOriginalSizing: { adaptive = false; sizingRequested = true; sizingActionID = UUID() })
                 } else {
                     VampAssistantApplicationBrowser(
                         macName: session.displayName,
@@ -80,7 +83,15 @@ struct VampAssistantAppStreamView: View {
             .onAppear { updateViewport(proxy.size) }
             .onChangeCompat(of: proxy.size) { if selectedApplication == nil { updateViewport($0) } }
             .task(id: resizeTaskID) {
-                guard sizingRequested, let application = selectedApplication, let windowID = application.windowID else { return }
+                let intent = sizingIntent.request()
+                guard session.status.ready, sizingRequested,
+                      let application = selectedApplication, let windowID = application.windowID else {
+                    isResizing = false
+                    return
+                }
+                isResizing = true
+                sizingRecoveryFailed = false
+                defer { if sizingIntent.accepts(intent) { isResizing = false } }
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }
                 // Cancellation of the view task does not imply cancellation at the HTTP server.
@@ -90,17 +101,32 @@ struct VampAssistantAppStreamView: View {
                 let revision = selectionRevision
                 let aspect = requestedAspect(for: application)
                 let operation = Task { @MainActor in
-                    isResizing = true
-                    defer { isResizing = false }
+                    sizingIntent.markSent(intent)
                     do {
                         let resized = try await session.client.resizeApplication(
                             windowID: windowID, clientViewportAspect: aspect)
-                        guard revision == selectionRevision, selectedApplication?.windowID == windowID else { return }
+                        guard sizingIntent.accepts(intent), revision == selectionRevision, selectedApplication?.windowID == windowID else { return }
                         present(resized)
                         updateSizingNotice(resized, requestedAspect: aspect)
                     } catch {
-                        guard revision == selectionRevision else { return }
-                        errorMessage = "Keeping the current window size: \(error.localizedDescription)"
+                        guard sizingIntent.accepts(intent), revision == selectionRevision else { return }
+                        // A failed HTTP response does not prove the Mac kept its old bounds.
+                        // Revalidate before enabling clicks against the existing capture geometry.
+                        do {
+                            let windows = try await session.client.applications()
+                            guard sizingIntent.accepts(intent), revision == selectionRevision else { return }
+                            guard let current = windows.first(where: { $0.windowID == windowID }) else {
+                                self.selectedApplication = nil
+                                errorMessage = "That window is no longer available. Choose an open window."
+                                return
+                            }
+                            present(current)
+                            errorMessage = "Could not apply the requested size. Showing the current window."
+                        } catch {
+                            guard sizingIntent.accepts(intent), revision == selectionRevision else { return }
+                            sizingRecoveryFailed = true
+                            errorMessage = "Window size could not be verified. Return to Apps and reopen it."
+                        }
                     }
                 }
                 resizeOperation = operation
@@ -117,11 +143,11 @@ struct VampAssistantAppStreamView: View {
                 }
             }
         }
-        .onDisappear { selectionRevision = UUID(); launchingName = nil }
+        .onDisappear { sizingIntent.cancel(); selectionRevision = UUID(); launchingName = nil }
     }
 
     private var resizeTaskID: String {
-        "\(selectedApplication?.windowID ?? 0)-\(adaptive ? viewportAspect : 0)-\(adaptive)-\(sizingRequested)"
+        "\(selectedApplication?.windowID ?? 0)-\(adaptive ? viewportAspect : 0)-\(adaptive)-\(sizingRequested)-\(sizingActionID)-\(session.status.ready)-\(session.address)"
     }
 
     private func updateViewport(_ size: CGSize) {
@@ -184,6 +210,7 @@ struct VampAssistantAppStreamView: View {
         defer { if revision == selectionRevision { launchingName = nil } }
         adaptive = false
         sizingRequested = false
+        sizingRecoveryFailed = false
         if application.isRunning, application.windowID != nil {
             present(application)
             return

@@ -6,6 +6,32 @@ import SharedProtocol
 @MainActor
 final class AppStreamClientTests: XCTestCase {
 
+    func testNewestSizingChoiceSurvivesOlderRequestCompletion() {
+        var intent = AppStreamSizingIntent()
+        let adaptive = intent.request()
+        intent.markSent(adaptive)
+        let restore = intent.request()
+        intent.markSent(adaptive)
+        XCTAssertTrue(intent.pending, "Sending an older request must not consume Restore")
+        XCTAssertFalse(intent.accepts(adaptive))
+        XCTAssertTrue(intent.accepts(restore))
+        intent.markSent(restore)
+        XCTAssertFalse(intent.pending)
+        XCTAssertTrue(intent.accepts(restore), "The latest sent request can still complete")
+    }
+
+    func testCanceledSizingCannotApplyLateRepliesOrConsumeNextChoice() {
+        var intent = AppStreamSizingIntent()
+        let old = intent.request()
+        intent.cancel()
+        XCTAssertFalse(intent.pending)
+        XCTAssertFalse(intent.accepts(old))
+        let next = intent.request()
+        intent.markSent(old)
+        XCTAssertTrue(intent.pending)
+        XCTAssertTrue(intent.accepts(next))
+    }
+
     func testOpeningModelPreservesWindowSizeByDefault() {
         let environment = ClientAppEnvironment.makeDefault(clientName: "Portrait Regression Test")
         let model = AppStreamViewModel(environment: environment)

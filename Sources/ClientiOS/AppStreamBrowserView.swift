@@ -29,6 +29,7 @@ struct AppStreamBrowserView: View {
     @State private var keyboardActive = false
     @State private var keyboardOverlayBottomPad: CGFloat = 0
     @State private var adjustsViewport = false
+    @State private var viewportWindowID: String?
     @State private var viewportZoom: CGFloat = 1
     @State private var viewportOffset: CGSize = .zero
 
@@ -87,7 +88,10 @@ struct AppStreamBrowserView: View {
             guard !hostIsLocked else { return }
             switch status {
             case .streaming:
-                resetViewportZoom()
+                if viewportWindowID != vm.streamedWindow?.windowID {
+                    resetViewportZoom()
+                    viewportWindowID = vm.streamedWindow?.windowID
+                }
                 if !didShowGestureHelp { showsHelp = true; didShowGestureHelp = true }
             default:
                 // Leaving the stream surface must release any drag-lock and stop decoding;
@@ -447,11 +451,11 @@ struct AppStreamBrowserView: View {
             .onChangeCompat(of: proxy.size) { newSize in
                 configureInteraction(viewSize: newSize)
                 if !keyboardActive { vm.updateClientViewport(size: newSize) }
-                resetViewportZoom()
+                viewportOffset = clampedViewportOffset(viewportOffset, zoom: viewportZoom, in: newSize)
             }
             .onChangeCompat(of: vm.streamedWindow) { _ in
                 configureInteraction(viewSize: proxy.size)
-                resetViewportZoom()
+                viewportOffset = clampedViewportOffset(viewportOffset, zoom: viewportZoom, in: proxy.size)
             }
             .background(AppStreamKeyboardInsetReader { inset in
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) { keyboardOverlayBottomPad = inset }
@@ -509,8 +513,23 @@ struct AppStreamBrowserView: View {
             .accessibilityLabel(adjustsViewport ? "Done adjusting" : "Adjust view")
             .accessibilityHint("Switch between controlling the Mac and moving or zooming the picture")
             Menu {
-                Button("Adaptive") { vm.setSizingMode(.adaptive) }
-                Button("Original Size") { vm.setSizingMode(.original) }
+                Section("View on this device") {
+                    Button("Fit window", systemImage: "arrow.down.right.and.arrow.up.left") {
+                        input.releaseDragLock()
+                        resetViewportZoom()
+                        adjustsViewport = false
+                    }
+                    Button("Larger text (2×)", systemImage: "plus.magnifyingglass") {
+                        input.releaseDragLock()
+                        viewportZoom = 2
+                        viewportOffset = .zero
+                        adjustsViewport = true
+                    }
+                }
+                Section("Mac window") {
+                    Button("Adaptive resize") { vm.setSizingMode(.adaptive) }
+                    Button("Original Size") { vm.setSizingMode(.original) }
+                }
                 Picker("Quality", selection: $qualityMode) {
                     Text("Auto").tag("auto")
                     Text("Sharper text").tag("quality")
