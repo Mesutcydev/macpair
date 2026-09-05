@@ -27,6 +27,7 @@ their original product names. The format follows
 
 ### Changed
 
+- Homepage glass cards follow the product story: Sync is the wide first step, then Stream before Control.
 - Update SwiftTerm to 1.20.0 and vendored Opus to 1.6.1, with updated provenance and SBOM metadata.
 - Cache app icons, use lazy browser sections, respect system appearance in the Assistant browser and reduce routine stream logging.
 

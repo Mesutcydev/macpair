@@ -429,12 +429,41 @@ html[data-theme="dark"] body::before { opacity: .38; mix-blend-mode: normal; fil
 .suite-home .product-section-head > div { flex: 1.2; }
 .suite-home .product-section-head .section-lead { flex: 1; padding-top: 36px; }
 .suite-home .section-title { font-size: clamp(34px, 4.2vw, 52px); letter-spacing: -.055em; }
-.suite-home .flow-board { gap: 24px; border: 0; background: transparent; }
+.suite-home .flow-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  border: 0;
+  background: transparent;
+}
 .suite-home .flow-step { display: flex; flex-direction: column; padding: 28px; min-height: 0; border: 2px solid var(--ink); }
 .suite-home .flow-step .card-number { width: 32px; height: 32px; }
 .suite-home .flow-step h3 { margin-top: 24px; font-size: 24px; line-height: 1.15; letter-spacing: -.035em; }
 .suite-home .flow-step p { font: 14px/1.65 "Inter", sans-serif; }
 .suite-home .flow-step > .text-button { align-self: start; margin-top: auto; padding-top: 24px; }
+.suite-home .flow-step + .flow-step { border-left: 2px solid var(--ink); }
+.suite-home .flow-step--host {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(220px, .85fr);
+  grid-template-areas:
+    "number download"
+    "title download"
+    "copy download";
+  column-gap: 48px;
+  row-gap: 8px;
+  align-items: start;
+}
+.suite-home .flow-step--host .card-number { grid-area: number; }
+.suite-home .flow-step--host h3 { grid-area: title; margin-top: 4px; font-size: 32px; }
+.suite-home .flow-step--host p { grid-area: copy; max-width: 54ch; }
+.suite-home .flow-step--host .host-download {
+  grid-area: download;
+  align-self: center;
+  justify-self: end;
+  margin-top: 0;
+  padding-top: 0;
+}
 .suite-home .family-grid--two { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 .client-card { padding: 28px; min-height: 0; }
 .client-card h3 { margin-top: 20px; font-size: 32px; line-height: 1.1; letter-spacing: -.045em; }
@@ -487,8 +516,25 @@ html[data-theme="dark"] .client-preview img { box-shadow: 0 0 0 1px #ffffff12, 0
 @media (max-width: 720px) {
   .suite-home .family-grid--two { grid-template-columns: 1fr; }
   .suite-home .product-section-head .section-lead { padding-top: 0; }
+  .suite-home .flow-board { grid-template-columns: 1fr; }
   .suite-home .flow-step, .client-card, .feature-card { padding: 24px; }
   .suite-home .flow-step h3 { margin-top: 16px; }
+  .suite-home .flow-step--host {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "number"
+      "title"
+      "copy"
+      "download";
+    row-gap: 0;
+  }
+  .suite-home .flow-step--host h3 { margin-top: 16px; }
+  .suite-home .flow-step--host .host-download {
+    justify-self: start;
+    margin-top: auto;
+    padding-top: 24px;
+  }
   .client-preview { padding: 20px; }
   .client-preview img { height: 340px; }
   .optional-assistant { padding: 24px; }
