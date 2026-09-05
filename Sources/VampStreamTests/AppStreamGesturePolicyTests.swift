@@ -101,6 +101,20 @@ final class AppStreamGesturePolicyTests: XCTestCase {
         XCTAssertTrue(VampStreamRootView.shouldPresentSession(sessionID: allocatedID, phase: .receiving))
     }
 
+    func testFirstFrameClearsStallBeforeTheNextTimerTick() {
+        XCTAssertTrue(AppStreamVideoHealth.isStalled(lastDecodedAt: nil, now: 100))
+        XCTAssertFalse(AppStreamVideoHealth.isStalled(lastDecodedAt: 100.2, now: 100))
+        XCTAssertFalse(AppStreamVideoHealth.needsRecovery(lastDecodedAt: 106.2, startedAt: 100, now: 106))
+    }
+
+    func testRecoveryIsQuietDuringStartupButAppearsForGenuineStalls() {
+        XCTAssertFalse(AppStreamVideoHealth.needsRecovery(lastDecodedAt: nil, startedAt: 100, now: 102))
+        XCTAssertFalse(AppStreamVideoHealth.needsRecovery(lastDecodedAt: 50, startedAt: 100, now: 102))
+        XCTAssertTrue(AppStreamVideoHealth.needsRecovery(lastDecodedAt: nil, startedAt: 100, now: 106))
+        XCTAssertTrue(AppStreamVideoHealth.needsRecovery(lastDecodedAt: 110, startedAt: 100, now: 116))
+        XCTAssertFalse(AppStreamVideoHealth.needsRecovery(lastDecodedAt: 116.1, startedAt: 100, now: 116))
+    }
+
     func testStreamSupportsOnlyPortrait() {
         let delegate = VampStreamAppDelegate()
         XCTAssertEqual(delegate.application(.shared, supportedInterfaceOrientationsFor: nil), .portrait)

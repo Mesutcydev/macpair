@@ -41,7 +41,8 @@ struct BeetCodeRemoteView: View {
     let sizingNotice: String?
     let onAdaptiveSizing: (() -> Void)?
     let onOriginalSizing: (() -> Void)?
-    @State private var videoStalled = true
+    @State private var videoHealthCheckTime = ProcessInfo.processInfo.systemUptime
+    @State private var videoStartedAt = ProcessInfo.processInfo.systemUptime
     @State private var startedStreamTaskID: String?
     @StateObject private var renderer: BeetCodeVideoRendererViewModel
     @StateObject private var input: BeetCodeRemoteInputController
@@ -120,10 +121,11 @@ struct BeetCodeRemoteView: View {
             startedStreamTaskID = streamTaskID
         }
         .onChangeCompat(of: canInteract) { enabled in input.isEnabled = enabled }
-        .task {
+        .task(id: streamTaskID) {
+            videoStartedAt = ProcessInfo.processInfo.systemUptime
             while !Task.isCancelled {
-                videoStalled = renderer.lastDecodedAt.map { ProcessInfo.processInfo.systemUptime - $0 > 5 } ?? true
-                try? await Task.sleep(for: .milliseconds(500))
+                videoHealthCheckTime = ProcessInfo.processInfo.systemUptime
+                do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
             }
         }
         .onChangeCompat(of: scenePhase) { phase in
@@ -142,6 +144,10 @@ struct BeetCodeRemoteView: View {
             renderer.stop()
             input.stop()
         }
+    }
+
+    private var videoStalled: Bool {
+        AppStreamVideoHealth.isStalled(lastDecodedAt: renderer.lastDecodedAt, now: videoHealthCheckTime)
     }
 
     private var canInteract: Bool {
@@ -320,6 +326,17 @@ struct BeetCodeRemoteView: View {
                             .padding(.bottom, 86)
                             .frame(maxHeight: .infinity, alignment: .bottom)
                             .accessibilityLabel("Input error: \(inputError)")
+                    }
+                }
+                .overlay(alignment: .top) {
+                    if AppStreamVideoHealth.needsRecovery(lastDecodedAt: renderer.lastDecodedAt,
+                        startedAt: videoStartedAt, now: videoHealthCheckTime), renderer.lastError == nil {
+                        AppStreamVideoRecoveryBar {
+                            renderer.start(client: session.client, resolution: resolution,
+                                displayID: windowID == nil ? selectedDisplayID : nil, windowID: windowID)
+                            videoStartedAt = ProcessInfo.processInfo.systemUptime
+                        }
+                        .padding(12)
                     }
                 }
                 .overlay(alignment: .bottom) {

@@ -95,3 +95,20 @@ in Stream's presentation state: `activeSessionID` is allocated before negotiatio
 remain set on error, so the root preferred its session branch and hid the actual failure.
 The root now excludes error/idle phases from session presentation. The final simulator suite
 passes 32 tests, including failed/idle session IDs and valid waiting/receiving states.
+
+
+## 0.1.18: Quiet video startup
+
+A two-second polled `videoStalled` Boolean could remain true after the first frame arrived,
+flashing Waiting for video over healthy video and briefly disabling input. Both host paths
+now derive freshness from the renderer timestamp whenever the view updates; a lightweight
+timer detects actual stalls. A five-second startup grace applies to recovery feedback only,
+never to the input freshness gate. Per-window/stream changes restart that grace period.
+
+The recovery UI is a compact top overlay with a 44-point Retry target, not a floating card.
+It does not change video geometry. The shared view fits large accessibility text vertically;
+an isolated simulator render verified that its status and Retry button remain readable.
+Normal startup retains Opening until the frame arrives, with no extra recovery popup.
+34 simulator tests passed, including frame arrival between timer checks, startup with old
+or missing frames, sustained interruption, and immediate recovery. Sync and Terminal Release
+builds passed after the shared UI change. Live physical-device acceptance remains outstanding.

@@ -25,7 +25,8 @@ struct AppStreamBrowserView: View {
     @State private var searchText = ""
     @State private var closeChoice: RemoteApplication?
     @State private var showsHelp = false
-    @State private var videoStalled = false
+    @State private var videoHealthCheckTime = ProcessInfo.processInfo.systemUptime
+    @State private var videoStartedAt = ProcessInfo.processInfo.systemUptime
     @State private var keyboardActive = false
     @State private var keyboardOverlayBottomPad: CGFloat = 0
     @State private var adjustsViewport = false
@@ -150,6 +151,10 @@ struct AppStreamBrowserView: View {
             input.stop()
             vm.stop()
         }
+    }
+
+    private var videoStalled: Bool {
+        AppStreamVideoHealth.isStalled(lastDecodedAt: rendererVM.lastDecodedAt, now: videoHealthCheckTime)
     }
 
     private var canInteract: Bool {
@@ -400,13 +405,7 @@ struct AppStreamBrowserView: View {
                         onHoverDelta: { dx, dy in input.relativePointerMove(deltaX: dx, deltaY: dy) }
                     )
                     .allowsHitTesting(!keyboardActive && canInteract)
-                    if videoStalled {
-                        VStack(spacing: 8) {
-                            Text("Waiting for video…").font(.headline)
-                            Button("Retry video") { sessionCoordinator.requestKeyframeRefresh(reason: "Stalled app stream") }
-                                .buttonStyle(.borderedProminent)
-                        }.padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-                    }
+
                 } else {
                     VStack(spacing: 12) {
                         ProgressView().tint(.white)
@@ -417,6 +416,15 @@ struct AppStreamBrowserView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
 
+            }
+            .overlay(alignment: .top) {
+                if AppStreamVideoHealth.needsRecovery(lastDecodedAt: rendererVM.lastDecodedAt,
+                    startedAt: videoStartedAt, now: videoHealthCheckTime) {
+                    AppStreamVideoRecoveryBar {
+                        sessionCoordinator.requestKeyframeRefresh(reason: "Stalled app stream")
+                    }
+                    .padding(12)
+                }
             }
             .overlay(alignment: .bottom) {
                 if let notice = vm.sizingNotice, !keyboardActive {
@@ -438,10 +446,11 @@ struct AppStreamBrowserView: View {
                     .padding(.bottom, keyboardOverlayBottomPad)
                 }
             }
-            .task {
+            .task(id: vm.streamedWindow?.windowID) {
+                videoStartedAt = ProcessInfo.processInfo.systemUptime
                 while !Task.isCancelled {
-                    videoStalled = rendererVM.lastDecodedAt.map { ProcessInfo.processInfo.systemUptime - $0 > 5 } ?? true
-                    do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                    videoHealthCheckTime = ProcessInfo.processInfo.systemUptime
+                    do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
                 }
             }
             .onAppear {
@@ -809,6 +818,43 @@ private struct AppStreamApplicationRow: View {
             Self.icons.setObject(decoded, forKey: key)
             icon = decoded
         }
+    }
+}
+
+/// Read frame freshness at render time, rather than caching a stale Boolean between polls.
+enum AppStreamVideoHealth {
+    static func isStalled(lastDecodedAt: TimeInterval?, now: TimeInterval) -> Bool {
+        guard let lastDecodedAt else { return true }
+        return now - lastDecodedAt > 5
+    }
+
+    static func needsRecovery(lastDecodedAt: TimeInterval?, startedAt: TimeInterval, now: TimeInterval) -> Bool {
+        now - startedAt > 5 && isStalled(lastDecodedAt: lastDecodedAt, now: now)
+    }
+}
+
+struct AppStreamVideoRecoveryBar: View {
+    let onRetry: () -> Void
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                Label("Video delayed", systemImage: "wifi.exclamationmark")
+                    .font(.subheadline)
+                Spacer(minLength: 8)
+                Button("Retry video", action: onRetry)
+                    .font(.subheadline.weight(.semibold))
+                    .frame(minHeight: 44)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Label("Video delayed", systemImage: "wifi.exclamationmark")
+                Button("Retry video", action: onRetry).frame(minHeight: 44)
+            }
+            .font(.subheadline)
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: 560)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 
