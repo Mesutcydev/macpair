@@ -265,6 +265,8 @@ private struct VampAppStreamSection: View {
 
     @State private var manualAddress = ""
     @State private var manualError: String?
+    @AppStorage(VampStreamSyncPromoStore.installedKey) private var syncInstalled = false
+    @State private var promoDismissedThisSession = false
 
     var body: some View {
         ScrollView {
@@ -274,7 +276,8 @@ private struct VampAppStreamSection: View {
                         source: source,
                         hasSyncHosts: !legacyHosts.isEmpty,
                         hasAssistants: !pairedAssistants.isEmpty,
-                        hasAssistantError: errorMessage != nil
+                        hasAssistantError: errorMessage != nil,
+                        showsSyncPromo: !syncInstalled && !promoDismissedThisSession
                     )
                 ) { section in
                     homeSection(section)
@@ -295,6 +298,7 @@ private struct VampAppStreamSection: View {
         switch section {
         case .syncHostCard:
             VampSyncConnectCard(
+                isPaired: legacyHosts.contains(where: \.isSaved),
                 manualAddress: $manualAddress,
                 manualError: $manualError,
                 onScan: onScan,
@@ -309,7 +313,10 @@ private struct VampAppStreamSection: View {
         case .syncEmptyHint:
             VampSyncEmptyHint(hostsVM: hostsVM)
         case .syncPromo:
-            VampStreamSyncPromoCard()
+            VampStreamSyncPromoCard(
+                onConfirmInstalled: { syncInstalled = true },
+                onDismissUntilRelaunch: { promoDismissedThisSession = true }
+            )
         case .assistantError:
             if let errorMessage {
                 VampStreamConnectionError(message: errorMessage)
@@ -357,86 +364,131 @@ private struct VampStreamSectionLabel: View {
 }
 
 private struct VampSyncConnectCard: View {
+    let isPaired: Bool
     @Binding var manualAddress: String
     @Binding var manualError: String?
     let onScan: () -> Void
     let onConnectByAddress: () -> Void
 
+    @AppStorage(VampStreamSyncConnectCardStore.collapsedKey) private var collapsePreference = false
+
+    private var isCollapsed: Bool {
+        VampStreamSyncConnectCardStore.showsCollapsed(isPaired: isPaired, preference: collapsePreference)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: isCollapsed ? 0 : 14) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "macbook.and.iphone")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(PR.fg)
-                    .frame(width: 38, height: 38)
-                    .prGlassSurface(in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                syncMark
                 VStack(alignment: .leading, spacing: 4) {
                     Text(VampStreamHomeCopy.syncTitle)
                         .font(.headline)
                         .foregroundStyle(PR.fg)
-                    Text(VampStreamHomeCopy.syncDetail)
+                    Text(isCollapsed ? VampStreamHomeCopy.syncConnectCollapsedDetail : VampStreamHomeCopy.syncDetail)
                         .font(.footnote)
                         .foregroundStyle(PR.fg2)
                         .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(isCollapsed ? 1 : nil)
                 }
                 Spacer(minLength: 8)
-                Button(action: onScan) {
-                    Label("Scan QR", systemImage: "qrcode.viewfinder")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
+                scanChip
+                if isPaired {
+                    collapseButton
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(PR.fg)
-                .vampHomeLiveGlass(in: Capsule(style: .continuous), phaseOffset: 0.6)
-                .vampHomeLivePulse(isActive: true, period: 2.6)
-                .accessibilityLabel(Text(VampStreamHomeCopy.scanSync))
-                .accessibilityHint(Text(VampStreamHomeCopy.scanSyncHint))
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text(VampStreamHomeCopy.orConnectByAddress)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(PR.fg2)
-                TextField(
-                    "",
-                    text: $manualAddress,
-                    prompt: Text(VampStreamHomeCopy.addressPlaceholder)
-                        .foregroundStyle(PR.fg.opacity(0.82))
-                )
-                    .font(.subheadline)
-                    .foregroundStyle(PR.fg)
-                    .tint(PR.fg)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(.URL)
-                    .textContentType(.URL)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 11)
-                    .vampHomeLiveGlass(
-                        in: RoundedRectangle(cornerRadius: 10, style: .continuous),
-                        phaseOffset: 1.1
-                    )
-                    .accessibilityLabel(Text(VampStreamHomeCopy.addressPlaceholder))
-                Button(action: onConnectByAddress) {
-                    Text(VampStreamHomeCopy.connectByAddress)
-                }
-                    .buttonStyle(.bordered)
-                    .disabled(manualAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                if let manualError {
-                    Text(manualError)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                }
+            if !isCollapsed {
+                addressFields
             }
         }
-        .padding(16)
+        .padding(isCollapsed ? 12 : 16)
         .vampHomeLiveGlass(
             in: RoundedRectangle(cornerRadius: PR.r12, style: .continuous),
             phaseOffset: 0.2
         )
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(VampStreamHomeCopy.syncTitle))
+        .animation(.easeOut(duration: 0.2), value: isCollapsed)
+    }
+
+    private var syncMark: some View {
+        VampStreamWindowFangsMark()
+            .fill(PR.fg, style: FillStyle(eoFill: true))
+            .frame(width: 22, height: 24)
+            .frame(width: 38, height: 38)
+            .prGlassSurface(in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .accessibilityHidden(true)
+    }
+
+    private var scanChip: some View {
+        Button(action: onScan) {
+            Label("Scan QR", systemImage: "qrcode.viewfinder")
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(PR.fg)
+        .vampHomeLiveGlass(in: Capsule(style: .continuous), phaseOffset: 0.6)
+        .vampHomeLivePulse(isActive: !isCollapsed, period: 2.6)
+        .accessibilityLabel(Text(VampStreamHomeCopy.scanSync))
+        .accessibilityHint(Text(VampStreamHomeCopy.scanSyncHint))
+    }
+
+    private var collapseButton: some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.2)) {
+                collapsePreference.toggle()
+            }
+        } label: {
+            Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(PR.dim)
+                .frame(width: 28, height: 28)
+                .prGlassSurface(in: Circle(), isInteractive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            Text(isCollapsed ? VampStreamHomeCopy.syncConnectExpand : VampStreamHomeCopy.syncConnectCollapse)
+        )
+    }
+
+    private var addressFields: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(VampStreamHomeCopy.orConnectByAddress)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(PR.fg2)
+            TextField(
+                "",
+                text: $manualAddress,
+                prompt: Text(VampStreamHomeCopy.addressPlaceholder)
+                    .foregroundStyle(PR.fg.opacity(0.82))
+            )
+                .font(.subheadline)
+                .foregroundStyle(PR.fg)
+                .tint(PR.fg)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                .textContentType(.URL)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 11)
+                .vampHomeLiveGlass(
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous),
+                    phaseOffset: 1.1
+                )
+                .accessibilityLabel(Text(VampStreamHomeCopy.addressPlaceholder))
+            Button(action: onConnectByAddress) {
+                Text(VampStreamHomeCopy.connectByAddress)
+            }
+                .buttonStyle(.bordered)
+                .disabled(manualAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            if let manualError {
+                Text(manualError)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
+        }
     }
 }
 

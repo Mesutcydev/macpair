@@ -156,10 +156,11 @@ private final class VampMiniHostAppDelegate: NSObject, NSApplicationDelegate, NS
 
     private func statusImage(for phase: HostSessionCoordinator.SessionPhase) -> NSImage? {
         let image = NSImage(size: NSSize(width: 20, height: 20), flipped: true) { rect in
+            guard let context = NSGraphicsContext.current?.cgContext else { return false }
             NSColor.black.setFill()
-            let path = VampSyncMark().path(in: rect.insetBy(dx: 1, dy: 1))
-            NSGraphicsContext.current?.cgContext.addPath(path.cgPath)
-            NSGraphicsContext.current?.cgContext.fillPath()
+            let path = VampSyncMark().path(in: rect.insetBy(dx: 1.4, dy: 1.2))
+            context.addPath(path.cgPath)
+            context.fillPath(using: .evenOdd)
             return true
         }
         image.accessibilityDescription = phase == .error ? "Vamp Sync needs attention" : "Vamp Sync"
@@ -386,24 +387,39 @@ private enum VampSyncAppearance: String, CaseIterable, Identifiable {
     }
 }
 
-/// Two offset wings form a compact V. The diagonal opening stays legible at
-/// menu-bar size; this same vector is used in the panel and the template icon.
+/// Window with two fang notches. The same silhouette is the menu-bar template
+/// and the panel mark — never the full-color landscape app icon.
 private struct VampSyncMark: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-            CGPoint(x: rect.minX + rect.width * x / 100, y: rect.minY + rect.height * y / 100)
+        let frame = rect.insetBy(dx: rect.width * 0.10, dy: rect.height * 0.06)
+        let fangHeight = rect.height * 0.16
+        let window = CGRect(
+            x: frame.minX,
+            y: frame.minY,
+            width: frame.width,
+            height: max(frame.height - fangHeight * 0.72, frame.height * 0.72)
+        )
+        let radius = min(window.width, window.height) * 0.16
+        let line = max(1.55, min(window.width, window.height) * 0.11)
+
+        path.addRoundedRect(in: window, cornerSize: CGSize(width: radius, height: radius))
+
+        let hole = window.insetBy(dx: line, dy: line)
+        let holeRadius = max(1, radius - line * 0.55)
+        path.addRoundedRect(in: hole, cornerSize: CGSize(width: holeRadius, height: holeRadius))
+
+        let barHeight = max(1.3, line * 0.68)
+        path.addRect(CGRect(x: hole.minX, y: hole.minY, width: hole.width, height: barHeight))
+
+        let fangWidth = window.width * 0.16
+        let baseY = window.maxY - line * 0.10
+        for centerX in [window.midX - fangWidth * 0.72, window.midX + fangWidth * 0.72] {
+            path.move(to: CGPoint(x: centerX - fangWidth * 0.5, y: baseY))
+            path.addLine(to: CGPoint(x: centerX, y: baseY + fangHeight))
+            path.addLine(to: CGPoint(x: centerX + fangWidth * 0.5, y: baseY))
+            path.closeSubpath()
         }
-        path.move(to: point(5, 16))
-        path.addLine(to: point(29, 16))
-        path.addLine(to: point(50, 59))
-        path.addLine(to: point(38, 83))
-        path.closeSubpath()
-        path.move(to: point(72, 16))
-        path.addLine(to: point(96, 16))
-        path.addLine(to: point(63, 84))
-        path.addLine(to: point(43, 84))
-        path.closeSubpath()
         return path
     }
 }
@@ -421,8 +437,8 @@ private struct VampMiniHostMark: View {
                         .stroke(palette.accent.opacity(0.22), lineWidth: 0.5)
                 }
             VampSyncMark()
-                .fill(palette.accent)
-                .padding(size * 0.19)
+                .fill(palette.accent, style: FillStyle(eoFill: true))
+                .padding(size * 0.12)
         }
         .frame(width: size, height: size)
         .accessibilityLabel("Vamp Sync")

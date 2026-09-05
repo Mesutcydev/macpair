@@ -48,6 +48,30 @@ enum VampStreamHostSourceStore {
     }
 }
 
+enum VampStreamHomeLinks {
+    static let syncDownload = URL(string: "https://thevamp.app/sync/#download")!
+}
+
+enum VampStreamSyncPromoStore {
+    static let installedKey = "vampstream.syncInstalled"
+
+    static func isInstalled(defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: installedKey)
+    }
+
+    static func setInstalled(_ installed: Bool, defaults: UserDefaults = .standard) {
+        defaults.set(installed, forKey: installedKey)
+    }
+}
+
+enum VampStreamSyncConnectCardStore {
+    static let collapsedKey = "vampstream.syncConnectCollapsed"
+
+    static func showsCollapsed(isPaired: Bool, preference: Bool) -> Bool {
+        isPaired && preference
+    }
+}
+
 /// Canonical order and copy for Vamp Stream's connect home.
 /// The home is built from the host the user picked at onboarding.
 enum VampStreamHomeLayout {
@@ -67,13 +91,16 @@ enum VampStreamHomeLayout {
         source: VampStreamHostSource,
         hasSyncHosts: Bool,
         hasAssistants: Bool,
-        hasAssistantError: Bool
+        hasAssistantError: Bool,
+        showsSyncPromo: Bool = true
     ) -> [Section] {
         var result: [Section] = []
         if source.showsSync {
             result.append(.syncHostCard)
             result.append(hasSyncHosts ? .syncMacs : .syncEmptyHint)
-            result.append(.syncPromo)
+            if showsSyncPromo {
+                result.append(.syncPromo)
+            }
         }
         if source.showsAssistant {
             if hasAssistantError {
@@ -122,8 +149,16 @@ enum VampStreamHomeCopy {
     static let syncPromoEyebrow = "MAC HOST"
     static let syncPromoTitle = "Keep the host in sync."
     static let syncPromoDetail = "Download Vamp Sync for your Mac, then pair Stream with its QR code."
-    static let syncPromoCTA = "Download Vamp Sync"
-    static let syncPromoHint = "Downloads the latest Vamp Sync build for Mac"
+    static let syncPromoCTA = "Get Vamp Sync"
+    static let syncPromoHint = "Opens the Vamp Sync download page"
+    static let syncPromoDismiss = "Dismiss Vamp Sync promotion"
+    static let syncPromoInstalledTitle = "Is Vamp Sync installed on your Mac?"
+    static let syncPromoInstalledMessage = "Vamp Sync is the Mac host Stream uses. If it is already installed, this card will stop appearing. Scan QR and connect by address stay on this screen."
+    static let syncPromoInstalledYes = "Yes, it’s installed"
+    static let syncPromoInstalledNotYet = "Not yet"
+    static let syncConnectCollapse = "Minimize Vamp Sync connection"
+    static let syncConnectExpand = "Show Vamp Sync connection"
+    static let syncConnectCollapsedDetail = "Scan QR or connect by address"
 
     static let assistantTitle = "Vamp Assistant"
     static let assistantDetail = "Pair a workspace when you want app streams from Vamp Assistant."
