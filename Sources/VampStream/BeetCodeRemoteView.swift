@@ -14,6 +14,9 @@ import UIKit
 struct BeetCodeRemoteView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Compact height == a phone in landscape. The stream chrome thins out there so the picture
+    /// keeps the short axis; an iPad in landscape has the height to spare and stays put.
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     private enum StreamResolution: String, CaseIterable, Identifiable {
         case p480 = "480p"
         case p720 = "720p"
@@ -180,6 +183,12 @@ struct BeetCodeRemoteView: View {
         if !session.status.enabled { return "Mac Control is turned off in Vamp Assistant." }
         if !session.status.screenRecording { return "Screen Recording permission is required to receive the Mac display." }
         if !session.status.accessibility { return "Accessibility permission is required to send pointer and keyboard input." }
+        // A locked Mac that cannot offer Remote Unlock (no Tailscale route, or an older
+        // Assistant) otherwise lands here with no explanation of why there is no password form.
+        if session.status.locked == true {
+            return session.status.remoteUnlockMessage
+                ?? "The Mac is locked and Vamp Assistant cannot accept a password over this connection."
+        }
         return session.status.message ?? "Vamp Assistant is still preparing Mac Control."
     }
 
@@ -189,6 +198,8 @@ struct BeetCodeRemoteView: View {
                 // This must occupy layout space. Overlaying it hides the first rows of a
                 // tall Mac window and also reports an oversized viewport back to the Mac.
                 appStreamTopBar
+                    .padding(.leading, VampStreamSafeArea.current.leading)
+                    .padding(.trailing, VampStreamSafeArea.current.trailing)
                     .background(Color.black)
             }
 
@@ -337,12 +348,14 @@ struct BeetCodeRemoteView: View {
     }
 
     private var appStreamTopBar: some View {
-        HStack(spacing: 10) {
+        let isCompactHeight = verticalSizeClass == .compact
+        let pillPad: CGFloat = isCompactHeight ? 4 : 8
+        return HStack(spacing: isCompactHeight ? 8 : 10) {
             Button(action: { onChooseApplication?() }) {
                 Label("Apps", systemImage: "chevron.left")
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 13)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, pillPad)
                     .background(.ultraThinMaterial, in: Capsule())
             }
             .buttonStyle(.plain)
@@ -353,7 +366,7 @@ struct BeetCodeRemoteView: View {
             Text(adjustsViewport ? "Adjust view" : (streamTitle ?? "Mac app"))
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 13)
-                .padding(.vertical, 8)
+                .padding(.vertical, pillPad)
                 .background(.ultraThinMaterial, in: Capsule())
                 .lineLimit(1)
 
@@ -364,7 +377,7 @@ struct BeetCodeRemoteView: View {
                 adjustsViewport.toggle()
             } label: {
                 Image(systemName: adjustsViewport ? "checkmark" : "viewfinder")
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(minWidth: 44, minHeight: isCompactHeight ? 36 : 44)
                     .background(.ultraThinMaterial, in: Capsule())
             }
             .accessibilityLabel(adjustsViewport ? "Done adjusting" : "Adjust view")
@@ -377,7 +390,7 @@ struct BeetCodeRemoteView: View {
                 if input.dragLocked {
                     Button("Release drag lock", systemImage: "lock.open") { input.toggleDragLockCurrentPointer() }
                 }
-            } label: { Image(systemName: "ellipsis.circle").frame(minWidth: 44, minHeight: 44) }
+            } label: { Image(systemName: "ellipsis.circle").frame(minWidth: 44, minHeight: isCompactHeight ? 36 : 44) }
             .accessibilityLabel("Stream options")
             .sheet(isPresented: $showsGestureHelp) { AppStreamGestureHelpView() }
             Button {
@@ -387,7 +400,7 @@ struct BeetCodeRemoteView: View {
                 Image(systemName: keyboardActive ? "keyboard.chevron.compact.down" : "keyboard")
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 13)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, pillPad)
                     .background(.ultraThinMaterial, in: Capsule())
             }
             .buttonStyle(.plain)
@@ -403,7 +416,7 @@ struct BeetCodeRemoteView: View {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 13)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, pillPad)
                         .background(.ultraThinMaterial, in: Capsule())
                 }
                 .buttonStyle(.plain)
@@ -412,7 +425,7 @@ struct BeetCodeRemoteView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 6)
+        .padding(.vertical, isCompactHeight ? 3 : 6)
     }
 
     @ViewBuilder
@@ -611,30 +624,13 @@ struct BeetCodeRemoteView: View {
         input.setFillScreen(fillScreen)
     }
 
+    /// Vamp Assistant's `/api/control/input` names special keys in lower snake case.
+    /// The Mac client sends the same set (`MacAssistantKeyMapping`); the DOM-style
+    /// names this used to send ("Return", "ArrowLeft"…) were silently ignored.
     private func keyName(for keyCode: UInt16) -> String {
-        switch keyCode {
-        case 36: return "Return"
-        case 48: return "Tab"
-        case 51: return "Backspace"
-        case 53: return "Escape"
-        case 123: return "ArrowLeft"
-        case 124: return "ArrowRight"
-        case 125: return "ArrowDown"
-        case 126: return "ArrowUp"
-        case 115: return "Home"
-        case 119: return "End"
-        case 116: return "PageUp"
-        case 121: return "PageDown"
-        case 122: return "F1"
-        case 120: return "F2"
-        case 99: return "F3"
-        case 118: return "F4"
-        case 49: return "Space"
-        default:
-            // Every shortcut on the keyboard decks (⌘C, ⌃C, ⌘V, ⌘Z, ⌘⇧3 …) is a letter or digit
-            // keycode. Without this they went out as "key8" and the Mac silently ignored them.
-            return AppStreamKeyboardOverlayView.character(forKeyCode: keyCode) ?? "key\(keyCode)"
-        }
+        AssistantInputKeyName.name(for: keyCode)
+            ?? AppStreamKeyboardOverlayView.character(forKeyCode: keyCode)
+            ?? "key\(keyCode)"
     }
 
     private func modifierNames(for flags: KeyboardModifierFlags) -> [String] {

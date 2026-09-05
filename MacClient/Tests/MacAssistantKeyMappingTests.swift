@@ -17,4 +17,14 @@ final class MacAssistantKeyMappingTests: XCTestCase {
     func testUnknownKeyCodeIsNotForwardedAsNamedKey() {
         XCTAssertNil(MacAssistantKeyMapping.name(for: 0))
     }
+
+    func testSpaceAndFunctionKeysAreNotInTheMacClientMap() {
+        // Stream's terminal deck names these in lower snake case. The Mac client types a
+        // space character and does not send F1–F4 as named keys.
+        XCTAssertNil(MacAssistantKeyMapping.name(for: 49))
+        XCTAssertNil(MacAssistantKeyMapping.name(for: 122))
+        XCTAssertNil(MacAssistantKeyMapping.name(for: 120))
+        XCTAssertNil(MacAssistantKeyMapping.name(for: 99))
+        XCTAssertNil(MacAssistantKeyMapping.name(for: 118))
+    }
 }
